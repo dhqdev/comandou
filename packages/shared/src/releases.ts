@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.193.0',
+    date: '2026-11-19',
+    title: 'Site novo: começo, fim e os aplicativos de delivery',
+    summary:
+      'O site do Comandou ganhou um começo mais direto (o celular da loja aparece ao lado do cadastro e muda enquanto você digita), um final com rodapé de verdade e uma seção mostrando os pedidos do iFood, 99Food, Keeta, Rappi e aiqfome entrando na mesma fila da cozinha.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Site: seção Aplicativos, com a fila de pedidos de cada aplicativo e o que dá para fazer sem abrir o portal deles.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site: topo em duas colunas no computador, com o cadastro de um lado e o celular da loja do outro, já mostrando o que você escreve.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site: final com um convite só e o rodapé com links de Produto e Ajuda, no lugar das frases gigantes.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site: nova pergunta sobre os pedidos do iFood e dos outros aplicativos.',
+      },
+    ],
+  },
+  {
     version: '0.192.1',
     date: '2026-11-19',
     title: 'Nota fiscal de pedido do iFood com o intermediador',

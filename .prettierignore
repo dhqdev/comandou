@@ -6,3 +6,4 @@ docs
 .github
 tools/print-agent/package-lock.json
 apps/web/public/vendor
+.claude/skills/impeccable

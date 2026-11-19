@@ -19,24 +19,7 @@ html.lenis {
   pointer-events: none;
 }
 
-/* ---------------------------------------------------------------- número e título das seções */
-.st-num {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 14px;
-  font-size: var(--cm-text-sm);
-  font-weight: 600;
-  color: var(--cm-text-subtle);
-  font-variant-numeric: tabular-nums;
-}
-.st-num i {
-  font-style: normal;
-  color: var(--cm-gray-300);
-}
-.st-price__left .st-num {
-  display: flex;
-}
+/* ---------------------------------------------------------------- título das seções */
 /* O título sobe de trás de uma máscara, palavra por palavra. */
 .st-split__w {
   display: inline-block;
@@ -417,72 +400,6 @@ html.lenis {
   }
 }
 
-/* ---------------------------------------------------------------- frase enorme que corre */
-.st-bigline {
-  overflow: hidden;
-  padding: clamp(28px, 5vw, 64px) 0;
-  border-top: 1px solid var(--cm-border);
-}
-.st-bigline__track {
-  display: flex;
-  width: max-content;
-  will-change: transform;
-}
-.st-bigline__track > span {
-  display: flex;
-  flex: none;
-}
-.st-bigline__track > span > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35em;
-  padding-right: 0.35em;
-  font-size: clamp(3rem, 9vw, 8.5rem);
-  font-weight: 760;
-  line-height: 1;
-  letter-spacing: -0.05em;
-  white-space: nowrap;
-}
-.st-bigline__track > span > span:nth-child(even) {
-  color: var(--cm-gray-300);
-}
-.st-bigline i {
-  width: 0.14em;
-  height: 0.14em;
-  border-radius: 50%;
-  background: var(--cm-gray-300);
-}
-
-/* ---------------------------------------------------------------- fim e marca enorme */
-.st .st-end h2 {
-  max-width: 16ch;
-  font-size: clamp(2.2rem, 6vw, 4.5rem);
-  line-height: 1;
-}
-.st-end {
-  border-top: 0;
-}
-.st-mark {
-  display: flex;
-  justify-content: center;
-  overflow: hidden;
-  padding: 0 var(--st-pad);
-  font-size: min(18vw, 16.5rem);
-  font-weight: 800;
-  line-height: 0.8;
-  letter-spacing: -0.065em;
-  color: var(--cm-text);
-  user-select: none;
-}
-.st-mark span {
-  display: inline-block;
-  transform: translate3d(
-    0,
-    calc((1 - clamp(0, var(--p, 1) * 1.8 - var(--i, 0) * 0.1, 1)) * 100%),
-    0
-  );
-}
-
 /* ---------------------------------------------------------------- reduzir movimento */
 @media (prefers-reduced-motion: reduce) {
   .st-manifesto {
@@ -502,11 +419,5 @@ html.lenis {
     transform: none;
     stroke-dashoffset: 0;
     transition: none;
-  }
-  .st-bigline__track > span + span {
-    display: none;
-  }
-  .st-bigline__track {
-    width: auto;
   }
 }

@@ -79,6 +79,7 @@ export const FEATURES = [
   'Cozinha',
   'Caixa',
   'Delivery',
+  'iFood e outros apps',
   'Estoque',
   'Financeiro',
   'Nota fiscal',
@@ -107,8 +108,84 @@ export const SITE_FAQ: { q: string; a: string }[] = [
     a: 'O caixa continua vendendo e tudo sobe sozinho quando a conexão volta.',
   },
   {
+    q: 'Recebe os pedidos do iFood e dos outros aplicativos?',
+    a: 'Sim. Você liga a loja do iFood, 99Food, Keeta, Rappi ou aiqfome e os pedidos entram direto na cozinha do Comandou. Outros aplicativos que usam o padrão Open Delivery também funcionam.',
+  },
+  {
     q: 'Emite nota fiscal?',
     a: 'Sim, NFC-e direto do caixa. A emissão das notas é cobrada à parte.',
+  },
+];
+
+/** Aplicativos de delivery ligados ao Comandou (seção Aplicativos do site). */
+export const DELIVERY_APPS = ['iFood', '99Food', 'Keeta', 'Rappi', 'aiqfome', 'Open Delivery'];
+
+/** O que dá para fazer com os pedidos dos aplicativos sem abrir o portal de cada um. */
+export const APP_FEATURES: { title: string; text: string }[] = [
+  { title: 'Uma fila só', text: 'Salão, balcão, cardápio online e aplicativos na mesma cozinha.' },
+  {
+    title: 'Aceite, pronto e cancelamento',
+    text: 'Você responde ao aplicativo daqui, com o motivo que ele pede.',
+  },
+  { title: 'Entregador na tela', text: 'Quem vai buscar e quando chega, sem abrir o portal.' },
+  {
+    title: 'Loja e cardápio em dia',
+    text: 'Fechou a loja no Comandou, pausa nos aplicativos. Acabou no estoque, sai do iFood.',
+  },
+  {
+    title: 'Repasse conferido',
+    text: 'O que o aplicativo paga e a taxa que fica entram no financeiro.',
+  },
+];
+
+/** A fila de exemplo da seção Aplicativos. */
+export const APP_ORDERS: {
+  app: string;
+  n: string;
+  items: string;
+  total: string;
+  status: string;
+  tone: 'new' | 'cook' | 'ready';
+}[] = [
+  {
+    app: 'iFood',
+    n: '7421',
+    items: '2× Smash duplo, Batata',
+    total: '71,80',
+    status: 'Novo',
+    tone: 'new',
+  },
+  {
+    app: '99Food',
+    n: '3108',
+    items: 'Fumaça (o da casa)',
+    total: '38,90',
+    status: 'Novo',
+    tone: 'new',
+  },
+  {
+    app: 'Keeta',
+    n: '5530',
+    items: 'Combo Fumaça, Limonada',
+    total: '54,90',
+    status: 'Preparando',
+    tone: 'cook',
+  },
+  {
+    app: 'Rappi',
+    n: '9914',
+    items: '3× Smash duplo',
+    total: '98,70',
+    status: 'Preparando',
+    tone: 'cook',
+  },
+  {
+    app: 'aiqfome',
+    n: '2276',
+    items: 'Batata frita',
+    total: '18,00',
+    status: 'Pronto',
+    tone: 'ready',
   },
 ];
 

@@ -1,29 +1,15 @@
 /*
- * Topo do site (0.153). Centralizado: selo, título grande, uma linha e a barra de criar o
- * restaurante, tudo no meio; embaixo, o palco com a tela da cozinha e o celular da loja na
- * frente. No computador o palco chega deitado e se endireita com a rolagem (`--p` do topo, de
- * motion.ts). Só transform e opacity; com "reduzir movimento" tudo fica parado e reto.
+ * Topo do site (0.193). No computador, duas colunas: à esquerda o título, a frase e o cartão de
+ * criar o restaurante; à direita o celular da loja (que mostra o que a pessoa digita, então fica
+ * ao lado do cartão) na frente da tela da cozinha, que passa da borda da página. No celular e no
+ * tablet tudo empilha e centraliza. Só transform e opacity; com "reduzir movimento" fica parado.
  */
 .st-hero {
   position: relative;
   isolation: isolate;
   max-width: calc(var(--st-max) + 2 * var(--st-pad));
   margin: 0 auto;
-  padding: clamp(36px, 6vw, 84px) var(--st-pad) 0;
-}
-
-/* Pontinhos bem leves atrás do título, sumindo nas bordas. */
-.st-hero__dots {
-  position: absolute;
-  inset: -80px 0 auto;
-  z-index: -1;
-  height: 720px;
-  background-image: radial-gradient(var(--cm-gray-300) 1px, transparent 1.4px);
-  background-size: 22px 22px;
-  -webkit-mask-image: radial-gradient(ellipse 52% 60% at 50% 38%, #000 10%, transparent 72%);
-  mask-image: radial-gradient(ellipse 52% 60% at 50% 38%, #000 10%, transparent 72%);
-  opacity: 0.55;
-  pointer-events: none;
+  padding: clamp(36px, 6vw, 72px) var(--st-pad) clamp(40px, 6vw, 72px);
 }
 
 /* ---------------------------------------------------------------- texto */
@@ -32,48 +18,11 @@
   justify-items: center;
   text-align: center;
 }
-.st-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: var(--cm-space-6);
-  padding: 6px 14px 6px 11px;
-  border: 1px solid var(--cm-border-strong);
-  border-radius: 999px;
-  background: var(--cm-surface);
-  font-size: var(--cm-text-sm);
-  font-weight: 550;
-  color: var(--cm-text-muted);
-  box-shadow: 0 6px 16px -12px rgb(24 24 27 / 30%);
-  animation: st-rise 0.5s var(--cm-spring) both;
-}
-.st-pill i {
-  position: relative;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--cm-success);
-}
-.st-pill i::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--cm-success);
-  animation: st-ping 2.2s var(--cm-ease) infinite;
-}
-@keyframes st-ping {
-  70%,
-  100% {
-    transform: scale(2.8);
-    opacity: 0;
-  }
-}
 .st .st-hero h1 {
-  font-size: clamp(2.6rem, 7vw, 6rem);
-  line-height: 0.98;
+  font-size: clamp(2.6rem, 7vw, 4.75rem);
+  line-height: 1;
   font-weight: 760;
-  letter-spacing: -0.052em;
+  letter-spacing: -0.045em;
 }
 .st-h1__row {
   display: block;
@@ -95,20 +44,43 @@
   }
 }
 .st .st-lead {
-  max-width: 34rem;
-  margin-top: var(--cm-space-6);
+  max-width: 32rem;
+  margin-top: var(--cm-space-5);
   font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
   line-height: 1.5;
   color: var(--cm-text-muted);
-  text-wrap: balance;
+  text-wrap: pretty;
   animation: st-rise 0.6s var(--cm-spring) 0.45s both;
 }
-
-/* Com IA ligada, a segunda frase vai para a linha de baixo, inteira. */
 .st-hero .st-lead__ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-text);
+  font-weight: 550;
+}
+
+/* O que a pessoa precisa saber antes de clicar: teste sem cartão e os aplicativos. */
+.st-hero__facts {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  margin-top: 2px;
+  gap: 8px 22px;
+  margin: var(--cm-space-5) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+  animation: st-rise 0.6s var(--cm-spring) 0.65s both;
+}
+.st-hero__facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.st-hero__facts svg {
+  flex: none;
+  color: var(--cm-success);
 }
 
 /* ---------------------------------------------------------------- barra de criar */
@@ -117,8 +89,8 @@
  * uma barra de busca) e a dica embaixo. O foco acende o cartão inteiro.
  */
 .st-hero .st-build {
-  width: min(100%, 660px);
-  margin-top: var(--cm-space-8);
+  width: min(100%, 620px);
+  margin-top: 28px;
   padding: 8px;
   border: 1px solid var(--cm-border-strong);
   border-radius: 20px;
@@ -173,24 +145,23 @@
 
 /* ---------------------------------------------------------------- palco */
 .st-hero__art {
-  margin-top: clamp(36px, 5vw, 60px);
-  perspective: 1800px;
+  position: relative;
+  margin-top: clamp(40px, 6vw, 64px);
 }
 .st-stage {
   position: relative;
   max-width: var(--st-max);
   margin: 0 auto;
-  transform-origin: 50% 0;
 }
 .st-stage__in {
   position: relative;
   display: grid;
-  animation: st-stage-in 0.8s var(--cm-spring) 0.5s both;
+  animation: st-stage-in 0.8s var(--cm-spring) 0.4s both;
 }
 @keyframes st-stage-in {
   from {
     opacity: 0;
-    transform: translate3d(0, 40px, 0);
+    transform: translate3d(0, 32px, 0);
   }
 }
 
@@ -211,7 +182,7 @@
   height: auto;
 }
 
-/* O celular da loja (acompanha o que a pessoa digita), na frente e à direita. */
+/* O celular da loja (acompanha o que a pessoa digita), na frente. */
 .st-phonebox {
   position: relative;
   z-index: 1;
@@ -287,12 +258,12 @@
   background: var(--cm-brand-600);
 }
 .st-toast--a {
-  top: 16%;
-  left: -3%;
+  top: 14%;
+  left: 2%;
   animation-delay: 1.2s, 1.7s;
 }
 .st-toast--b {
-  top: 46%;
+  top: 50%;
   right: 31%;
   animation-delay: 1.5s, 2.2s;
 }
@@ -300,8 +271,8 @@
   color: var(--cm-success);
 }
 .st-toast--c {
-  bottom: 14%;
-  left: 7%;
+  bottom: 12%;
+  left: 8%;
   animation-delay: 1.8s, 2.8s;
 }
 .st-toast--c svg {
@@ -314,34 +285,90 @@
   }
 }
 
-/* ---------------------------------------------------------------- rolagem (computador) */
-@media (min-width: 901px) {
-  /* O texto sobe e some devagar ao sair. */
+/* ---------------------------------------------------------------- computador: duas colunas */
+@media (min-width: 1080px) {
+  .st-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 580px) minmax(0, 1fr);
+    align-items: center;
+    gap: 40px;
+    min-height: min(820px, calc(100svh - 76px));
+    padding-top: 40px;
+    padding-bottom: 56px;
+  }
   .st-hero__text {
-    transform: translate3d(0, calc(var(--p, 0) * -90px), 0);
-    opacity: calc(1 - var(--p, 0) * 1.15);
+    justify-items: start;
+    text-align: left;
   }
-  /* O palco chega deitado e fica reto lá pelo primeiro terço da rolagem do topo. */
-  .st-stage {
-    transform: rotateX(calc((1 - min(1, var(--p, 1) * 3.2)) * 18deg))
-      scale(calc(0.92 + min(1, var(--p, 1) * 3.2) * 0.08));
-    will-change: transform;
+  .st .st-hero h1 {
+    font-size: clamp(3.4rem, 5.2vw, 4.4rem);
   }
-  /* O celular e os avisos andam mais rápido que a tela de trás (profundidade). */
+  .st-hero__facts {
+    justify-content: flex-start;
+  }
+  .st-hero .st-build {
+    width: 100%;
+  }
+  .st-hero__art {
+    margin-top: 0;
+    align-self: stretch;
+    min-height: 640px;
+  }
+  .st-stage,
+  .st-stage__in {
+    position: absolute;
+    inset: 0;
+    max-width: none;
+  }
+  .st-stage__in {
+    display: block;
+  }
+  /* A tela da cozinha começa atrás do celular e passa da borda direita da página. */
+  .st-desk {
+    position: absolute;
+    top: 50%;
+    left: 26%;
+    width: 920px;
+    transform: translateY(-50%);
+  }
   .st-phonebox {
-    transform: translate3d(0, calc(var(--p, 0) * -140px), 0);
+    position: absolute;
+    top: 50%;
+    left: 4%;
+    margin: 0;
+    padding-top: 70px;
+    transform: translateY(-50%);
   }
   .st-toasts {
-    transform: translate3d(0, calc(var(--p, 0) * -70px), 0);
+    inset: 0;
+  }
+  .st-toast--a {
+    top: 12%;
+    left: 58%;
+  }
+  .st-toast--b {
+    top: auto;
+    bottom: 34%;
+    left: 60%;
+    right: auto;
+  }
+  .st-toast--c {
+    bottom: 9%;
+    left: 64%;
+  }
+}
+
+/* O celular e os avisos andam um pouco mais rápido que a tela de trás ao rolar (profundidade). */
+@media (min-width: 1080px) and (prefers-reduced-motion: no-preference) {
+  .st-float {
+    translate: 0 calc(var(--p, 0) * -60px);
+  }
+  .st-toasts {
+    transform: translate3d(0, calc(var(--p, 0) * -36px), 0);
   }
 }
 
 /* ---------------------------------------------------------------- telas menores */
-@media (max-width: 1180px) {
-  .st-toast--a {
-    left: 1%;
-  }
-}
 @media (max-width: 900px) {
   .st-desk {
     width: 100%;
@@ -368,6 +395,10 @@
   .st-hero .st-build__go {
     align-self: stretch;
   }
+  .st-hero__facts {
+    display: grid;
+    justify-items: center;
+  }
   /* No celular a tela da cozinha seria pequena demais: fica só o celular da loja. */
   .st-desk,
   .st-toasts {
@@ -384,8 +415,8 @@
   .st-stage__in,
   .st-peek,
   .st-float,
-  .st-pill,
   .st .st-lead,
+  .st-hero__facts,
   .st-hero .st-build {
     animation: none !important;
   }
