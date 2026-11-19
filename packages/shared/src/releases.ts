@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.197.1',
+    date: '2026-11-19',
+    title: 'Auditoria das integrações e da nota fiscal',
+    summary:
+      'Revisão da nota fiscal, do pagamento pelo app, da cobrança e dos aplicativos de delivery. Cinco falhas corrigidas, com testes, e o relatório completo em docs/auditoria-integracoes-2026-11.md.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Pagamento pelo app: o cliente que gerava o Pix, trocava para o cartão e depois pagava o Pix antigo tinha o Pix ignorado (o dinheiro entrava e não aparecia no Comandou). Agora ele aparece e é devolvido sozinho quando o pedido já estava pago ou cancelado. A conferência também procura esse Pix por 10 minutos depois do vencimento, caso o aviso do PagBank se perca.',
+      },
+      {
+        tag: 'correção',
+        text: 'Nota fiscal: uma NF-e recusada e emitida de novo podia ficar parada em "processando" até alguém tocar em Atualizar, e um cancelamento com a Focus fora do ar podia ficar parado em "cancelando". A fila descartava a nova consulta por ter o mesmo nome da anterior.',
+      },
+      {
+        tag: 'correção',
+        text: 'Nota fiscal: uma nota recusada em homologação não é mais reaproveitada depois que a emissão passa para produção (sairia sem valor fiscal). A NFC-e nova sai no ambiente atual; a NF-e pede para apagar o rascunho antigo e emitir outra.',
+      },
+      {
+        tag: 'correção',
+        text: 'Nota fiscal: tocar em Atualizar enquanto a nota ainda estava sendo enviada podia imprimir o cupom e mandar o e-mail duas vezes.',
+      },
+      {
+        tag: 'correção',
+        text: 'Aplicativos de delivery: pedir o cancelamento de novo depois que o aplicativo negou o primeiro pedido não chegava ao aplicativo, e o pedido ficava parado em "Cancelamento solicitado".',
+      },
+    ],
+  },
+  {
     version: '0.197.0',
     date: '2026-11-19',
     title: 'Cada cardápio com as suas regras: o da mesa é só pedir',
