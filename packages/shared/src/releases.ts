@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.187.0',
+    date: '2026-11-19',
+    title: 'Avaliações do iFood no Comandou',
+    summary:
+      'As avaliações dos clientes no iFood chegam ao Comandou, ligadas ao pedido, com a nota da loja. Dá para responder daqui: a resposta é escrita por alguém da equipe e aparece no iFood.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Em Aplicativos de delivery, o cartão "Avaliações dos clientes" mostra a nota da loja no iFood, a média dos últimos 30 dias e as avaliações, com as que estão sem resposta primeiro.',
+      },
+      {
+        tag: 'novo',
+        text: 'Toque em "Responder", escreva e publique: a resposta aparece no iFood junto com a avaliação. Nada é respondido sozinho.',
+      },
+      {
+        tag: 'novo',
+        text: 'Na gaveta do pedido concluído do iFood aparece a nota e o comentário que o cliente deixou.',
+      },
+    ],
+  },
+  {
     version: '0.186.0',
     date: '2026-11-19',
     title: 'Repasse do iFood no Financeiro',

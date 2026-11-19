@@ -53,6 +53,7 @@ export const IFOOD_LIMITS = {
   tracking: 5000,
   shipping: 100,
   financial: 100,
+  reviews: 100,
 } as const;
 
 /** Pausa (interrupção) mais longa que o iFood aceita: 7 dias. */

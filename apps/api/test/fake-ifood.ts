@@ -55,6 +55,11 @@ export class FakeIfoodServer {
   readonly sales = new Map<string, unknown[]>();
   readonly settlements = new Map<string, unknown[]>();
   readonly financeCalls: { merchant: string; kind: string; query: Record<string, string> }[] = [];
+  /** Avaliações por merchant (como a Review API v2 lista), a nota média e as respostas. */
+  readonly reviews = new Map<string, Record<string, unknown>[]>();
+  readonly reviewSummary = new Map<string, unknown>();
+  readonly reviewCalls: { merchant: string; kind: string; query: Record<string, string> }[] = [];
+  readonly reviewAnswers: { merchant: string; reviewId: string; body: unknown }[] = [];
   readonly polls: { merchants: string; auth?: string }[] = [];
   readonly acks: unknown[] = [];
   /** Próximas respostas forçadas por rota: 'poll', 'ack', 'order', 'action'. */
@@ -67,6 +72,7 @@ export class FakeIfoodServer {
     pause: [],
     shipping: [],
     finance: [],
+    review: [],
   };
 
   async start() {
@@ -142,6 +148,41 @@ export class FakeIfoodServer {
           merchantId: id,
           settlements: this.settlements.get(id) ?? [],
         });
+      }
+      const rv =
+        /^\/review\/v2\.0\/merchants\/([^/]+)\/(reviews|summary)(?:\/([^/]+)\/answers)?$/.exec(
+          path,
+        );
+      if (rv) {
+        const id = rv[1]!.toLowerCase();
+        const query = Object.fromEntries(new URL(req.url!, 'http://x').searchParams);
+        if (req.method === 'GET') {
+          this.reviewCalls.push({ merchant: id, kind: rv[2]!, query });
+          if (fail('review')) return;
+          if (rv[2] === 'summary') {
+            const sm = this.reviewSummary.get(id);
+            return sm ? send(200, sm) : send(404, { message: 'Summary not found' });
+          }
+          const list = this.reviews.get(id) ?? [];
+          return send(200, {
+            page: 1,
+            size: list.length,
+            total: list.length,
+            pageCount: 1,
+            reviews: list,
+          });
+        }
+        if (req.method === 'POST' && rv[3]) {
+          if (fail('review')) return;
+          const r = (this.reviews.get(id) ?? []).find((x) => x.id === decodeURIComponent(rv[3]!));
+          if (!r) return send(404, { message: 'review não existe' });
+          if (r.status !== 'NOT_REPLIED') return send(409, { message: 'already replied' });
+          const body = raw ? (JSON.parse(raw) as { text: string }) : { text: '' };
+          this.reviewAnswers.push({ merchant: id, reviewId: String(r.id), body });
+          r.status = 'REPLIED';
+          r.replies = [{ text: body.text, from: 'MERCHANT', createdAt: new Date().toISOString() }];
+          return send(201);
+        }
       }
       const ms =
         /^\/merchant\/v1\.0\/merchants\/([^/]+)\/(status|interruptions|opening-hours)(?:\/([^/]+))?$/.exec(

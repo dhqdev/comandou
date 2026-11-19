@@ -14,6 +14,8 @@ export type RealtimeEvent =
   | { type: 'channels.changed' }
   // Repasses e o que os pedidos dos aplicativos renderam foram lidos de novo.
   | { type: 'channels.finance' }
+  // Avaliações dos aplicativos lidas de novo ou respondidas.
+  | { type: 'channels.reviews' }
   | { type: 'ifood.sync'; menuId: string }
   | { type: 'store.changed' }
   | { type: 'stock.changed' }

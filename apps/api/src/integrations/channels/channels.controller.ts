@@ -33,6 +33,7 @@ import { ChannelCredentials } from './channel-credentials.service';
 import { ChannelDisputesService } from './channel-disputes.service';
 import { ChannelDriversService } from './channel-drivers.service';
 import { ChannelFinanceService } from './channel-finance.service';
+import { ChannelReviewsService } from './channel-reviews.service';
 import { ChannelInboxService } from './channel-inbox.service';
 import { ChannelOutboxService } from './channel-outbox.service';
 import { ChannelStoreStateService } from './channel-store-state.service';
@@ -80,6 +81,14 @@ const DisputeBody = z.discriminatedUnion('decision', [
 const FinancePeriod = z
   .object({ from: isoDate, to: isoDate })
   .refine((p) => p.from <= p.to, 'período inválido');
+const ReviewsQuery = z.object({
+  pending: z
+    .enum(['0', '1'])
+    .optional()
+    .transform((v) => v === '1'),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+});
+const ReviewReply = z.object({ text: z.string().trim().min(10).max(300) });
 const DriverRequest = z.object({ quoteId: z.string().trim().min(1).max(100) });
 const DriverCancel = z.object({ code: Code.optional(), reason: Reason });
 const UnlinkBody = z.object({
@@ -110,6 +119,7 @@ export class ChannelsController {
     private readonly disputes: ChannelDisputesService,
     private readonly drivers: ChannelDriversService,
     private readonly finance: ChannelFinanceService,
+    private readonly reviews: ChannelReviewsService,
     private readonly storeState: ChannelStoreStateService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
@@ -430,6 +440,48 @@ export class ChannelsController {
     @CurrentTenant() t: ResolvedTenant,
   ) {
     return this.finance.order(t.id, orderId);
+  }
+
+  /** Avaliações dos clientes nos aplicativos e a nota de cada loja. */
+  @Get('reviews')
+  @RequirePermission('orders:manage')
+  reviewList(
+    @Query(new ZodPipe(ReviewsQuery)) p: z.infer<typeof ReviewsQuery>,
+    @CurrentTenant() t: ResolvedTenant,
+  ) {
+    return this.reviews.list(t.id, p);
+  }
+
+  /** Lê de novo as avaliações (cada loja no máximo a cada 5 minutos). */
+  @Post('reviews/refresh')
+  @HttpCode(200)
+  @RequirePermission('orders:manage')
+  reviewRefresh(@CurrentTenant() t: ResolvedTenant) {
+    return this.reviews.refreshNow(t.id);
+  }
+
+  /** Resposta da loja, escrita por uma pessoa (o aplicativo publica junto com a avaliação). */
+  @Post('reviews/:id/reply')
+  @HttpCode(200)
+  @RequirePermission('orders:manage')
+  reviewReply(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(ReviewReply)) b: z.infer<typeof ReviewReply>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.reviews.reply(t.id, u.id, id, b.text, req.ip);
+  }
+
+  /** Avaliação do cliente para um pedido de aplicativo. */
+  @Get('orders/:orderId/reviews')
+  @RequirePermission('orders:read')
+  orderReviews(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @CurrentTenant() t: ResolvedTenant,
+  ) {
+    return this.reviews.ofOrder(t.id, orderId);
   }
 
   /** Itens que chegaram sem vínculo (um por item do aplicativo), do mais recente. */

@@ -245,7 +245,7 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
 | NFC-e viva quando o canal cancela | Cancela a nota sozinho com a justificativa do canal, dentro do prazo da SEFAZ; fora do prazo, avisa na tela. |
 | NFC-e de pedido pago no app | Configurável; padrão: emitir ao concluir. Pago na entrega segue a regra de hoje. |
 | Horários da loja no canal | Só mostra (Fase 4); sincronizar fica como opção desligada. |
-| Responder avaliação pelo Comandou | Fase 8, com proposta antes. |
+| Responder avaliação pelo Comandou | Sim, sempre escrita por uma pessoa (Fase 8). Chat sem API; promoções ficam no portal. |
 
 ## Andamento
 
@@ -461,3 +461,27 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     `x-request-homologation`) os nomes de `type` e `status` dos `closingItems` e dos
     `billingEntries`; ler eventos financeiros (`/financial/v3.0/.../events`) para ajustes depois do
     fechamento; repasse negativo (débito do iFood) só aparece na tela, sem conta a pagar.
+- **Fase 8** (avaliações, 0.187.0): migração 0095 e `channels/channel-reviews.service.ts`.
+  - **Proposta** (a pesquisa da Fase 0): avaliações têm API (ler e responder) e entram; chat com o
+    cliente não tem API pública e fica fora; promoções ficam no portal do iFood (custo e regra
+    comercial de cada loja). A escolha foi posta para o dono na conversa, com esta como a
+    recomendada.
+  - **Leitura** pela Review API v2 (`/review/v2.0/merchants/{id}/reviews`, até 50 por página e 10
+    páginas, e `/summary`; 404 = loja sem avaliação), tradução pura em `ifood/ifood-review.ts`. A
+    varredura lê cada loja no máximo a cada hora (`channel_stores.reviews_at`, erro em
+    `reviews_error`), "Atualizar" no máximo a cada 5 minutos. A primeira leitura pega 30 dias; as
+    seguintes, desde a última menos 2 dias (para ver respostas feitas no portal).
+  - **Dados** (`channel_reviews`): nota, comentário, pedido (ligado ao pedido do Comandou pelo id
+    do pedido no canal), situação no canal e a resposta. Do cliente, só o primeiro nome, que sai
+    em 90 dias (`app_purge_expired`); a avaliação sai em 2 anos.
+  - **Resposta** (`POST /channels/reviews/:id/reply`, `orders:manage`, 10 a 300 letras): sempre
+    escrita por uma pessoa, uma por avaliação, só em `NOT_REPLIED`, sem repetir (409 do iFood marca
+    como respondida); auditoria `channel.review_replied`. Leitura atrasada não apaga a resposta
+    feita no Comandou.
+  - **Telas**: cartão "Avaliações dos clientes" em Aplicativos de delivery (nota de cada loja, a
+    média dos últimos 30 dias, "Sem resposta" e "Todas", responder com contador e o aviso de que
+    é público) e a nota "Avaliação no iFood" na gaveta do pedido concluído.
+  - **Testes**: 3 novos em `test/ifood-orders.e2e.test.ts` (o iFood falso tem avaliações) e 3 em
+    `ifood-review.test.ts`.
+  - Fica para depois: conferir no sandbox o nome dos campos (`customerName`, `replies[].from`,
+    `order.shortId`); aviso no sino para nota baixa; respostas prontas (modelos) para a equipe.

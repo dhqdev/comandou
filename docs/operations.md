@@ -124,6 +124,10 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
     conta aberta e abre outra (veja o motivo do cancelamento em Contas). Não edite
     `channel_payouts` nem a conta "Repasse de vendas" pelo banco: a próxima leitura refaz. 403 no
     financeiro = a loja não autorizou o módulo financeiro do Comandou no Portal do Parceiro.
+12. **Avaliação do iFood não aparece ou não dá para responder** (Fase 8): as avaliações são lidas a
+    cada hora por loja (`channel_stores.reviews_at`; erro em `reviews_error`). O iFood só aceita
+    resposta em avaliação `NOT_REPLIED` e uma por avaliação: 409 = já respondida (no portal ou
+    antes). Não responda pelo banco nem automatize: a resposta é pública no iFood.
 
 ### Backup atrasado
 

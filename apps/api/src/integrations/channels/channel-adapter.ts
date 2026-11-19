@@ -146,6 +146,28 @@ export interface ChannelPayout {
   channelStatus?: string;
 }
 
+/** Avaliação do cliente no canal. Do cliente, só o primeiro nome. */
+export interface ChannelReview {
+  externalId: string;
+  /** Nota de 0 a 5. */
+  score: number;
+  comment?: string;
+  customerName?: string;
+  /** Situação no canal (iFood: NOT_REPLIED, REPLIED, PUBLISHED…). */
+  status?: string;
+  createdAt: string;
+  orderExternalId?: string;
+  orderCode?: string;
+  /** Resposta da loja já publicada (feita aqui ou no portal). */
+  reply?: { text: string; at: string };
+  canReply: boolean;
+}
+
+export interface ChannelReviewSummary {
+  score: number;
+  count?: number;
+}
+
 /** Uma loja no canal (situação, pausa, horários). */
 export interface StoreRef {
   tenantId: string;
@@ -216,6 +238,12 @@ export interface ChannelAdapter {
   financeSales?(ref: StoreRef, from: string, to: string): Promise<ChannelSaleFinance[]>;
   /** Repasses com data de pagamento no período (AAAA-MM-DD). */
   financePayouts?(ref: StoreRef, from: string, to: string): Promise<ChannelPayout[]>;
+  /** Avaliações feitas a partir de `since` (ISO), da mais nova para a mais antiga. */
+  reviews?(ref: StoreRef, since: string): Promise<ChannelReview[]>;
+  /** Nota média da loja no canal (null = ainda sem avaliação). */
+  reviewSummary?(ref: StoreRef): Promise<ChannelReviewSummary | null>;
+  /** Publica a resposta da loja (texto escrito por uma pessoa). */
+  replyReview?(ref: StoreRef, reviewId: string, text: string): Promise<void>;
 }
 
 /** Adaptadores ativos. Cada canal se registra ao subir (e os testes registram o falso). */

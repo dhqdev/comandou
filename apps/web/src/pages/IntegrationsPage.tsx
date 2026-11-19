@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../design-system';
 import { useCan } from '../app/auth';
+import { AppReviewsCard } from '../features/channels/AppReviews';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
 import {
   StorePauseControls,
@@ -283,6 +284,8 @@ export function IntegrationsPage() {
           })}
         </div>
       )}
+
+      <AppReviewsCard canReply={canPause} />
 
       {failures > 0 && problems && (
         <Card title="O que falhou nos últimos 7 dias" searchId="secao-falhas">

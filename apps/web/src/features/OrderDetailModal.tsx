@@ -81,6 +81,7 @@ import { AcceptDeadline } from './channels/AcceptDeadline';
 import { AppCancelForm, AppDisputeCard } from './channels/AppDispute';
 import { AppDriverCard, appDriverTakes } from './channels/AppDriver';
 import { AppOrderFinance } from './channels/AppOrderFinance';
+import { OrderReviewNote } from './channels/AppReviews';
 import { ChannelBadge } from './channels/ChannelBadge';
 
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> = {
@@ -600,6 +601,9 @@ export function OrderDetailModal({
             {order.app && <AppOrderNote app={order.app} order={order} />}
             {order.app && canFinance && order.status !== 'awaiting' && (
               <AppOrderFinance orderId={order.id} />
+            )}
+            {order.app && ['completed', 'cancelled'].includes(order.status) && (
+              <OrderReviewNote orderId={order.id} />
             )}
             {order.app && order.channel === 'delivery' && (
               <AppDriverCard orderId={order.id} canManage={canManage} />

@@ -1213,3 +1213,175 @@ describe('iFood: repasse', () => {
     expect(line('app_fees')).toBe('-14.70');
   });
 });
+
+describe('iFood: avaliações', () => {
+  type Review = {
+    id: string;
+    externalId: string;
+    orderId: string | null;
+    displayCode: string | null;
+    score: number;
+    comment: string | null;
+    customerName: string | null;
+    canReply: boolean;
+    reply: string | null;
+    replyFrom: string | null;
+    repliedByName: string | null;
+  };
+  const list = async (pending = false) =>
+    (await get('adminA', `/channels/reviews${pending ? '?pending=1' : ''}`).expect(200)).body as {
+      reviews: Review[];
+      stores: {
+        score: number | null;
+        count: number | null;
+        pending: number;
+        error: string | null;
+      }[];
+    };
+  const reread = async () => {
+    await ownerQuery(`UPDATE channel_stores SET reviews_at = NULL WHERE tenant_id = $1`, [
+      fx.tenantA,
+    ]);
+    await send('post', 'adminA', '/channels/reviews/refresh').expect(200);
+  };
+
+  it('lê as avaliações, liga ao pedido e guarda só o primeiro nome do cliente', async () => {
+    const id6 = (await orderOf(ID(6))).id;
+    ifood.reviews.set(MERCHANT, [
+      {
+        id: 'rev-1',
+        score: 2,
+        comment: 'A pizza chegou fria',
+        customerName: 'Maria Cliente Silva',
+        createdAt: new Date().toISOString(),
+        status: 'NOT_REPLIED',
+        order: { id: ID(6), shortId: '4860' },
+        replies: [],
+      },
+      {
+        id: 'rev-2',
+        score: 5,
+        comment: 'Tudo ótimo',
+        customerName: 'João',
+        createdAt: new Date(Date.now() - 86_400_000).toISOString(),
+        status: 'REPLIED',
+        order: { id: ID(1), shortId: '4810' },
+        replies: [{ text: 'Obrigado!', from: 'MERCHANT', createdAt: new Date().toISOString() }],
+      },
+      {
+        id: 'rev-3',
+        score: 4,
+        createdAt: new Date().toISOString(),
+        status: 'CREATED',
+        order: { id: 'fora-do-comandou', shortId: '9999' },
+      },
+    ]);
+    ifood.reviewSummary.set(MERCHANT, { score: 4.3, validReviewsCount: 12 });
+    const r = await send('post', 'adminA', '/channels/reviews/refresh').expect(200);
+    expect(r.body.read).toBe(1);
+    const call = ifood.reviewCalls.find((c) => c.kind === 'reviews')!;
+    expect(call.query).toMatchObject({ page: '1', pageSize: '50', sort: 'DESC' });
+    const since = Date.now() - Date.parse(call.query.dateFrom!);
+    expect(Math.round(since / 86_400_000)).toBe(30);
+
+    const v = await list();
+    expect(v.reviews.map((x) => x.externalId).sort()).toEqual(['rev-1', 'rev-2', 'rev-3']);
+    const r1 = v.reviews.find((x) => x.externalId === 'rev-1')!;
+    expect(r1).toMatchObject({
+      orderId: id6,
+      displayCode: '4860',
+      score: 2,
+      comment: 'A pizza chegou fria',
+      customerName: 'Maria',
+      canReply: true,
+      reply: null,
+    });
+    expect(v.reviews.find((x) => x.externalId === 'rev-2')).toMatchObject({
+      reply: 'Obrigado!',
+      replyFrom: 'portal',
+      canReply: false,
+    });
+    expect(v.reviews.find((x) => x.externalId === 'rev-3')).toMatchObject({
+      orderId: null,
+      displayCode: '9999',
+      canReply: false,
+    });
+    expect(v.stores[0]).toMatchObject({ score: 4.3, count: 12, pending: 1, error: null });
+    expect((await list(true)).reviews.map((x) => x.externalId)).toEqual(['rev-1']);
+    const rows = await ownerQuery(`SELECT * FROM channel_reviews WHERE tenant_id = $1`, [
+      fx.tenantA,
+    ]);
+    expect(JSON.stringify(rows)).not.toContain('Silva');
+    // Na gaveta do pedido.
+    const o = (await get('adminA', `/channels/orders/${id6}/reviews`).expect(200)).body as Review[];
+    expect(o.map((x) => x.externalId)).toEqual(['rev-1']);
+    // Outro restaurante não vê.
+    expect(
+      ((await get('adminB', '/channels/reviews').expect(200)).body as { reviews: unknown[] })
+        .reviews,
+    ).toHaveLength(0);
+    // Logo em seguida não lê de novo.
+    const n = ifood.reviewCalls.length;
+    expect((await send('post', 'adminA', '/channels/reviews/refresh').expect(200)).body.read).toBe(
+      0,
+    );
+    expect(ifood.reviewCalls.length).toBe(n);
+  });
+
+  it('resposta escrita por uma pessoa vai ao iFood uma vez; a leitura seguinte não apaga', async () => {
+    const r1 = (await list()).reviews.find((x) => x.externalId === 'rev-1')!;
+    await send('post', 'adminA', `/channels/reviews/${r1.id}/reply`, { text: 'curta' }).expect(400);
+    await send('post', 'adminB', `/channels/reviews/${r1.id}/reply`, {
+      text: 'Resposta de outro restaurante',
+    }).expect(404);
+    const text = 'Sentimos muito, Maria! Vamos rever a embalagem para chegar quentinha.';
+    await send('post', 'adminA', `/channels/reviews/${r1.id}/reply`, { text }).expect(200);
+    expect(ifood.reviewAnswers).toEqual([
+      { merchant: MERCHANT, reviewId: 'rev-1', body: { text } },
+    ]);
+    const after = (await list()).reviews.find((x) => x.id === r1.id)!;
+    expect(after).toMatchObject({
+      reply: text,
+      replyFrom: 'comandou',
+      canReply: false,
+      repliedByName: expect.any(String),
+    });
+    await send('post', 'adminA', `/channels/reviews/${r1.id}/reply`, { text }).expect(409);
+    expect(ifood.reviewAnswers).toHaveLength(1);
+    const [audit] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM audit_log WHERE tenant_id = $1 AND action = 'channel.review_replied'`,
+      [fx.tenantA],
+    );
+    expect(audit!.n).toBe(1);
+    // Avaliação que não aceita resposta (CREATED) não vai ao iFood.
+    const r3 = (await list()).reviews.find((x) => x.externalId === 'rev-3')!;
+    await send('post', 'adminA', `/channels/reviews/${r3.id}/reply`, { text }).expect(409);
+    await reread();
+    expect((await list()).reviews.find((x) => x.id === r1.id)).toMatchObject({
+      reply: text,
+      replyFrom: 'comandou',
+    });
+  });
+
+  it('respondida no portal antes: 409 do iFood marca como respondida; erro de leitura fica na loja', async () => {
+    ifood.reviews.get(MERCHANT)!.push({
+      id: 'rev-4',
+      score: 3,
+      createdAt: new Date().toISOString(),
+      status: 'NOT_REPLIED',
+    });
+    await reread();
+    const r4 = (await list()).reviews.find((x) => x.externalId === 'rev-4')!;
+    expect(r4.canReply).toBe(true);
+    ifood.reviews.get(MERCHANT)!.find((x) => x.id === 'rev-4')!.status = 'REPLIED';
+    const res = await send('post', 'adminA', `/channels/reviews/${r4.id}/reply`, {
+      text: 'Obrigado pela avaliação!',
+    }).expect(409);
+    expect(res.body.message).toMatch(/já foi respondida/);
+    expect((await list()).reviews.find((x) => x.id === r4.id)!.canReply).toBe(false);
+
+    ifood.failNext.review!.push(500, 500);
+    await reread();
+    expect((await list()).stores[0]!.error).toMatch(/avaliações/);
+  });
+});

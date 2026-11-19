@@ -22,6 +22,8 @@ export interface PurgeResult {
   channelEvents: number;
   /** Nome e veículo do entregador do aplicativo, 30 dias depois do último aviso. */
   channelDrivers: number;
+  /** Avaliações dos aplicativos: primeiro nome em 90 dias (a avaliação sai em 2 anos). */
+  channelReviews: number;
 }
 
 /**
@@ -66,6 +68,7 @@ export class MaintenanceService implements OnApplicationBootstrap, OnModuleDestr
       menuEvents: 0,
       channelEvents: 0,
       channelDrivers: 0,
+      channelReviews: 0,
     };
     const add = (r: PurgeResult) => {
       for (const k of Object.keys(total) as (keyof PurgeResult)[]) total[k] += Number(r[k] ?? 0);

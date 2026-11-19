@@ -13,6 +13,8 @@ import {
   type ChannelAdapter,
   type ChannelEvent,
   type ChannelPayout,
+  type ChannelReview,
+  type ChannelReviewSummary,
   type ChannelSaleFinance,
   type ChannelStoreStatus,
   type ChannelTracking,
@@ -46,6 +48,13 @@ import {
   ifoodSalesPage,
 } from './ifood-finance';
 import { ifoodShifts, ifoodStoreStatus } from './ifood-merchant';
+import {
+  IFOOD_REVIEW_MAX_PAGES,
+  IFOOD_REVIEW_PAGE_SIZE,
+  IFOOD_REVIEW_PATHS,
+  ifoodReviewPage,
+  ifoodReviewSummary,
+} from './ifood-review';
 import { IfoodService } from './ifood.service';
 
 interface IfoodEvent {
@@ -85,6 +94,7 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
     'openingHours',
     'menu',
     'settlements',
+    'reviews',
   ];
   readonly maxPauseMinutes = IFOOD_MAX_PAUSE_MINUTES;
   private readonly http: ChannelHttp;
@@ -326,6 +336,63 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
       retries: 1,
     });
     return r.status === 204 ? [] : ifoodPayouts(ref.storeId, r.body);
+  }
+
+  /** Avaliações desde `since`, da mais nova para a mais antiga (até 10 páginas de 50). */
+  async reviews(ref: StoreRef, since: string): Promise<ChannelReview[]> {
+    const out: ChannelReview[] = [];
+    for (let page = 1, pages = 1; page <= pages && page <= IFOOD_REVIEW_MAX_PAGES; page++) {
+      const qs = new URLSearchParams({
+        page: String(page),
+        pageSize: String(IFOOD_REVIEW_PAGE_SIZE),
+        addCount: 'true',
+        dateFrom: since,
+        dateTo: new Date().toISOString(),
+        sort: 'DESC',
+        sortBy: 'CREATED_AT',
+      });
+      const r = await this.call<unknown>(ref.credential, ref.tenantId, {
+        endpoint: 'review:list',
+        method: 'GET',
+        path: `${IFOOD_REVIEW_PATHS.list(ref.storeId)}?${qs}`,
+        perMinute: IFOOD_LIMITS.reviews,
+        retries: 1,
+      });
+      if (r.status === 204 || !r.body) break;
+      const p = ifoodReviewPage(r.body);
+      out.push(...p.reviews);
+      pages = p.pageCount;
+    }
+    return out;
+  }
+
+  /** Nota média (404 = loja ainda sem avaliação). */
+  async reviewSummary(ref: StoreRef): Promise<ChannelReviewSummary | null> {
+    try {
+      const r = await this.call<unknown>(ref.credential, ref.tenantId, {
+        endpoint: 'review:summary',
+        method: 'GET',
+        path: IFOOD_REVIEW_PATHS.summary(ref.storeId),
+        perMinute: IFOOD_LIMITS.reviews,
+        retries: 1,
+      });
+      return ifoodReviewSummary(r.body);
+    } catch (e) {
+      if (e instanceof ChannelHttpError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  /** Resposta da loja (uma por avaliação; o iFood recusa se já respondida). Sem repetir. */
+  async replyReview(ref: StoreRef, reviewId: string, text: string) {
+    await this.call(ref.credential, ref.tenantId, {
+      endpoint: 'review:answer',
+      method: 'POST',
+      path: IFOOD_REVIEW_PATHS.answer(ref.storeId, reviewId),
+      json: { text },
+      perMinute: IFOOD_LIMITS.reviews,
+      retries: 0,
+    });
   }
 
   /** Previsões do entregador do iFood (404 antes de ele existir = sem previsão ainda). */

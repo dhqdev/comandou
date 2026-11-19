@@ -1,0 +1,95 @@
+/* Avaliações dos aplicativos: nota com estrela, lista com linha fina e a resposta recuada. */
+.arv-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-text);
+}
+.arv-score svg {
+  color: var(--cm-success);
+}
+.arv-score[data-tone='warn'] svg {
+  color: var(--cm-warning);
+}
+.arv-score[data-tone='bad'] svg {
+  color: var(--cm-danger);
+}
+.arv-stores {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 var(--cm-space-4);
+  padding: 0;
+  list-style: none;
+  font-size: var(--cm-text-sm);
+}
+.arv-stores li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.arv-list {
+  margin: var(--cm-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.arv-item {
+  display: grid;
+  gap: 6px;
+  padding: var(--cm-space-4) 0;
+  border-top: 1px solid var(--cm-border);
+}
+.arv-item__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.arv-item__comment {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.arv-reply {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface-muted);
+}
+.arv-reply > svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--cm-text-muted);
+}
+.arv-reply p {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.arv-form {
+  display: grid;
+  gap: 6px;
+  max-width: 640px;
+}
+.arv-form__count {
+  justify-self: end;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.arv-form__count[data-short='true'] {
+  color: var(--cm-danger);
+}
+.arv-form p {
+  margin: 0;
+}
+.arv-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.arv-empty {
+  margin: var(--cm-space-4) 0 0;
+}
