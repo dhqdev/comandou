@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.183.0',
+    date: '2026-11-19',
+    title: 'WhatsApp no Super Admin',
+    summary:
+      'O painel ganhou a tela WhatsApp: conecte o número do Comandou pelo QR Code e converse com quem escreve para ele, sem sair do Super Admin.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › WhatsApp: conecte o número do Comandou lendo o QR Code no celular (o mesmo serviço de WhatsApp dos restaurantes, numa conexão só do painel).',
+      },
+      {
+        tag: 'novo',
+        text: 'Conversas em tela cheia: lista à esquerda com busca por nome ou telefone, conversa à direita e resposta com Enter. Mensagens novas aparecem com número no menu e um aviso em qualquer tela.',
+      },
+      {
+        tag: 'novo',
+        text: 'Nova conversa por telefone e, quando o número é de um restaurante cadastrado, o nome dele aparece na conversa com o atalho para abrir o cadastro.',
+      },
+      {
+        tag: 'segurança',
+        text: 'As mensagens do número do painel nunca passam pela IA dos restaurantes; conectar e desconectar entram no Registro do painel.',
+      },
+    ],
+  },
+  {
     version: '0.182.1',
     date: '2026-11-19',
     title: 'Modo escuro mais nítido e janelas mais largas no notebook',

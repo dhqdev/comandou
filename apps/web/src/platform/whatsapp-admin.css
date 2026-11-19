@@ -1,0 +1,219 @@
+/*
+ * Super Admin › WhatsApp: mesma caixa de conversas da tela Conversas (support-inbox.css + o
+ * .adm-support do admin.css, que ocupa a altura que sobra), com a conversa em balões simples.
+ */
+.cm-frame__content:has(> .wadm-page) {
+  grid-template-rows: minmax(0, 1fr);
+  align-content: stretch;
+  min-height: 0;
+}
+.wadm-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+/* Celular: os botões descem para a linha de baixo (o número do painel não quebra). */
+@media (max-width: 760px) {
+  .wadm-page .adm-head {
+    flex-wrap: wrap;
+  }
+  .wadm-page .adm-head__actions {
+    width: 100%;
+  }
+}
+
+/* Conectar: instruções à esquerda e o QR à direita (no notebook, sem rolar). */
+.wadm-connect {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--cm-space-6);
+  align-items: center;
+  padding: var(--cm-space-6);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+}
+.wadm-connect__text {
+  display: grid;
+  gap: var(--cm-space-3);
+  max-width: 560px;
+}
+.wadm-connect__text h2 {
+  margin: 0;
+  font-size: var(--cm-text-lg);
+}
+.wadm-connect__text ol {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+.wadm-connect__note {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.wadm-connect__qr {
+  display: grid;
+  place-items: center;
+  width: 264px;
+  height: 264px;
+  border-radius: var(--cm-radius-lg);
+  background: #fff; /* o QR precisa de fundo claro para a câmera ler, também no modo escuro */
+  color: var(--cm-gray-400);
+  border: 1px solid var(--cm-border);
+}
+@media (max-width: 760px) {
+  .wadm-connect {
+    grid-template-columns: 1fr;
+    padding: var(--cm-space-4);
+  }
+  .wadm-connect__qr {
+    justify-self: center;
+  }
+}
+
+/* Conversa */
+.wadm-thread {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--cm-space-4);
+  background: var(--cm-surface-sunken);
+}
+.wadm-row-wrap {
+  display: flex;
+  flex-direction: column;
+}
+.wadm-more {
+  align-self: center;
+  margin-bottom: var(--cm-space-2);
+  padding: 4px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  cursor: pointer;
+}
+.wadm-day {
+  align-self: center;
+  margin: var(--cm-space-3) 0 var(--cm-space-2);
+  padding: 2px 10px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.wadm-msg {
+  align-self: flex-start;
+  max-width: min(72%, 620px);
+  padding: 8px 12px 6px;
+  border: 1px solid var(--cm-border);
+  border-radius: 14px 14px 14px 4px;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+}
+.wadm-msg[data-out] {
+  align-self: flex-end;
+  border-color: transparent;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--cm-brand-500);
+  color: var(--cm-on-brand);
+}
+.wadm-msg[data-failed] {
+  background: var(--cm-danger-bg);
+  color: var(--cm-text);
+  border-color: var(--cm-danger);
+}
+.wadm-msg p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wadm-msg small {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--cm-text-2xs);
+  opacity: 0.75;
+  text-align: right;
+}
+.wadm-msg__kind {
+  display: block;
+  font-size: var(--cm-text-xs);
+  font-style: italic;
+  opacity: 0.8;
+}
+.wadm-compose {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px calc(10px + var(--cm-sab, 0px));
+  border-top: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+}
+.wadm-compose textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--cm-control);
+  padding: 9px 12px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-bg);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: 16px;
+  resize: none;
+}
+@media (min-width: 900px) {
+  .wadm-compose textarea {
+    font-size: var(--cm-text-sm);
+  }
+}
+.wadm-compose textarea:focus {
+  outline: 0;
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
+}
+.wadm-send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--cm-control);
+  height: var(--cm-control);
+  border: 0;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-500);
+  color: var(--cm-on-brand);
+  cursor: pointer;
+}
+.wadm-send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.wadm-new {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.wadm-new__text {
+  display: grid;
+  gap: 6px;
+  font-size: var(--cm-text-sm);
+  font-weight: 500;
+}
+.wadm-new__text textarea {
+  padding: 9px 12px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-bg);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: 16px;
+  resize: vertical;
+}

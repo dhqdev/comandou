@@ -22,6 +22,13 @@ export interface WhatsAppInbound {
 
 export type InboundHandler = (msg: WhatsAppInbound) => Promise<void> | void;
 
+/**
+ * Sessão do gateway reservada para o WhatsApp do próprio painel (Super Admin › WhatsApp). Não é
+ * um restaurante: as mensagens dela vão só para quem se registra em onPlatformMessage, nunca para
+ * a IA dos restaurantes. A API do restaurante nunca chega a este id (ele sai do Host).
+ */
+export const PLATFORM_WA_ID = '00000000-0000-4000-8000-000000000000';
+
 const SEEN_MAX = 5000;
 /** a mesma mensagem não é tratada duas vezes nesse prazo (todas as réplicas, pelo Redis) */
 const SEEN_TTL_S = 24 * 3600;
@@ -43,6 +50,7 @@ export const RECEIVE_WAIT_MS = 45_000;
 export class WhatsAppInboundService {
   private readonly logger = new Logger('WhatsAppInbound');
   private readonly handlers: InboundHandler[] = [];
+  private readonly platformHandlers: InboundHandler[] = [];
   private readonly seen = new Set<string>();
   /** fila por conversa: a próxima mensagem espera a anterior terminar */
   private readonly chains = new Map<string, Promise<void>>();
@@ -50,11 +58,12 @@ export class WhatsAppInboundService {
   constructor(@Optional() private readonly queue?: QueueService) {}
 
   onMessage(handler: InboundHandler) {
-    this.handlers.push(handler);
-    return () => {
-      const i = this.handlers.indexOf(handler);
-      if (i >= 0) this.handlers.splice(i, 1);
-    };
+    return add(this.handlers, handler);
+  }
+
+  /** Mensagens que chegam no WhatsApp do painel (sessão PLATFORM_WA_ID). */
+  onPlatformMessage(handler: InboundHandler) {
+    return add(this.platformHandlers, handler);
   }
 
   /** Recebe do controller interno e espera a mensagem ser tratada (até RECEIVE_WAIT_MS). */
@@ -89,7 +98,8 @@ export class WhatsAppInboundService {
   }
 
   private async dispatch(msg: WhatsAppInbound) {
-    for (const h of this.handlers) {
+    const list = msg.tenantId === PLATFORM_WA_ID ? this.platformHandlers : this.handlers;
+    for (const h of list) {
       try {
         await h(msg);
       } catch (e) {
@@ -99,4 +109,12 @@ export class WhatsAppInboundService {
       }
     }
   }
+}
+
+function add(list: InboundHandler[], handler: InboundHandler) {
+  list.push(handler);
+  return () => {
+    const i = list.indexOf(handler);
+    if (i >= 0) list.splice(i, 1);
+  };
 }

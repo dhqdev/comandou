@@ -114,3 +114,22 @@ livres.
   por 24 h (`blocked_until`) e a equipe recebe aviso no chat.
 - Ritmo: mais de 8 mensagens por minuto ou 60 por hora do mesmo número ficam sem resposta da IA.
 - Resumo da memória que parece instrução é descartado.
+
+## WhatsApp do Super Admin
+
+O painel tem um número próprio (Super Admin › **WhatsApp**, `apps/web/src/platform/WhatsAppAdminPage.tsx`),
+no **mesmo gateway**, numa sessão reservada: `PLATFORM_WA_ID` (`00000000-0000-4000-8000-000000000000`,
+em `messaging/whatsapp-inbound.service.ts`). O gateway não muda nada: para ele é só mais uma sessão.
+
+- **Recebidas**: `WhatsAppInboundService` manda as mensagens dessa sessão só para quem se registra em
+  `onPlatformMessage` (nunca para a IA dos restaurantes, que usa `onMessage`).
+- **API**: `apps/api/src/platform-whatsapp/` (`/platform/whatsapp/...`, com `PlatformHostGuard` +
+  `PlatformSessionGuard`). Conversas em `platform_wa_chats` e `platform_wa_messages` (migração 0091,
+  banco central, só `comandou_platform`). Mesma pessoa escrevendo por um JID `@lid` cai na conversa
+  que já tem o mesmo telefone. Conectar e desconectar entram no `platform_audit_log`.
+- **Nova conversa por telefone**: o gateway devolve o JID de verdade (`{ id, jid }` no envio, com
+  ou sem o 9) e é ele que vira a conversa. Número sem WhatsApp devolve 422 e não cria conversa.
+- **Restaurante da conversa**: achado na hora pelo telefone do cadastro (`tenant_profiles.phone`),
+  comparando DDD + 8 últimos dígitos.
+- Só texto por enquanto (foto, áudio e outros chegam como "Foto", "Áudio"...). Teste:
+  `apps/api/test/platform-whatsapp.e2e.test.ts`.

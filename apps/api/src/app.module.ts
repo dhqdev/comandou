@@ -36,6 +36,7 @@ import { OperationsModule } from './orders/operations.module';
 import { QueueModule } from './queue/queue.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { SupportDeskModule } from './support-desk/support-desk.module';
+import { PlatformWhatsAppModule } from './platform-whatsapp/platform-whatsapp.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { TenantGuard } from './tenancy/tenant.guard';
 
@@ -110,6 +111,7 @@ export class AppModule {
         BillingModule,
         PlatformModule,
         SupportDeskModule,
+        PlatformWhatsAppModule,
         TicketsModule,
         MaintenanceModule,
       ],

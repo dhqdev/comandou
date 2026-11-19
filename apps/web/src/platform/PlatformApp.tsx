@@ -8,6 +8,7 @@ import {
   Download,
   LogOut,
   MessagesSquare,
+  MessageCircle,
   RefreshCw,
   ScrollText,
   Server,
@@ -78,6 +79,10 @@ const SupportPage = lazyPage(
   () => import('./SupportPage'),
   (m) => m.SupportPage,
 );
+const WhatsAppAdminPage = lazyPage(
+  () => import('./WhatsAppAdminPage'),
+  (m) => m.WhatsAppAdminPage,
+);
 const InfraPage = lazyPage(
   () => import('./InfraPage'),
   (m) => m.InfraPage,
@@ -132,6 +137,7 @@ const PANEL_PAGES = [
   TenantDetailPage,
   NewTenantPage,
   SupportPage,
+  WhatsAppAdminPage,
   InfraPage,
   CredentialsPage,
   PlansPage,
@@ -145,6 +151,8 @@ const PANEL_PAGES = [
 ];
 /** Mesmo nome de SupportPage.tsx (fica aqui para o painel não baixar a tela de conversas). */
 const SUPPORT_CHANGED_EVENT = 'cm:admin-support-changed';
+/** Mesmo nome de WhatsAppAdminPage.tsx. */
+const WA_CHANGED_EVENT = 'cm:admin-whatsapp-changed';
 /** Link de assinatura do contrato (/assinar/<token>): igual a ContractSign.tsx. */
 const signToken = (path = window.location.pathname) =>
   /^\/assinar\/([A-Za-z0-9_-]{30,60})\/?$/.exec(path)?.[1] ?? null;
@@ -358,6 +366,7 @@ const NAV: {
     section: 'Clientes',
   },
   { to: '/conversas', label: 'Conversas', icon: MessagesSquare, section: 'Clientes' },
+  { to: '/whatsapp', label: 'WhatsApp', icon: MessageCircle, section: 'Clientes' },
   { to: '/chamados', label: 'Chamados', icon: KanbanSquare, section: 'Clientes' },
   { to: '/site', label: 'Site', icon: Globe, section: 'Vendas' },
   { to: '/planos', label: 'Preço', icon: Tags, section: 'Vendas' },
@@ -456,10 +465,34 @@ function PlatformShell() {
     };
   }, []);
 
+  // Conversas com mensagem nova no WhatsApp do painel: número no menu e aviso fora da tela.
+  const [waUnread, setWaUnread] = useState(0);
+  const lastWa = useRef<number | null>(null);
+  useEffect(() => {
+    const load = () =>
+      api<{ chats: number }>('/platform/whatsapp/unread')
+        .then((r) => {
+          const before = lastWa.current;
+          lastWa.current = r.chats;
+          setWaUnread(r.chats);
+          if (before !== null && r.chats > before && !pathRef.current.startsWith('/whatsapp'))
+            toast('Mensagem nova no WhatsApp', 'neutral');
+        })
+        .catch(() => undefined);
+    void load();
+    const t = setInterval(() => !document.hidden && void load(), 20_000);
+    window.addEventListener(WA_CHANGED_EVENT, load);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener(WA_CHANGED_EVENT, load);
+    };
+  }, []);
+
   useEffect(() => {
     const clean = document.title.replace(/^\(\d+\) /, '');
-    document.title = supportUnread > 0 ? `(${supportUnread}) ${clean}` : clean;
-  }, [supportUnread]);
+    const n = supportUnread + waUnread;
+    document.title = n > 0 ? `(${n}) ${clean}` : clean;
+  }, [supportUnread, waUnread]);
 
   const refresh = () => {
     setTick((t) => t + 1);
@@ -478,7 +511,7 @@ function PlatformShell() {
     short,
     icon: <Icon />,
     section,
-    count: to === '/conversas' ? supportUnread : undefined,
+    count: to === '/conversas' ? supportUnread : to === '/whatsapp' ? waUnread : undefined,
   }));
   const account = (
     <div className="account">
@@ -620,6 +653,7 @@ function Gate() {
         <Route path="restaurantes/novo" element={<NewTenantPage />} />
         <Route path="restaurantes/:id" element={<TenantDetailPage />} />
         <Route path="conversas" element={<SupportPage />} />
+        <Route path="whatsapp" element={<WhatsAppAdminPage />} />
         <Route path="servidor/*" element={<InfraPage />} />
         {/* Endereços antigos: Bancos e Backups agora são abas da Infraestrutura. */}
         <Route path="bancos" element={<Navigate to="/servidor/bancos" replace />} />

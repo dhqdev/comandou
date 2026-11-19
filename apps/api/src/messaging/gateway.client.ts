@@ -76,17 +76,23 @@ export class GatewayClient {
    * `to`: número (dígitos) ou o JID de uma conversa recebida (WhatsAppInbound.jid).
    * `typingMs`: mostra "digitando..." por esse tempo (até 8 s) antes de enviar.
    */
-  async send(tenantId: string, to: string, text: string, opts: { typingMs?: number } = {}) {
-    const r = await this.call<{ id?: string | null }>(
+  async send(
+    tenantId: string,
+    to: string,
+    text: string,
+    opts: { typingMs?: number } = {},
+  ): Promise<{ ok: true; messageId?: string; jid?: string } | { ok: false; error: string }> {
+    const r = await this.call<{ id?: string | null; jid?: string }>(
       tenantId,
       'POST',
       '/messages',
       { ...dest(to), text, ...(opts.typingMs ? { typingMs: opts.typingMs } : {}) },
       30_000,
     );
-    if (r.http === 200) return { ok: true as const, messageId: r.body.id ?? undefined };
+    // jid: a conversa de verdade que o gateway achou para o número (ex.: com ou sem o 9).
+    if (r.http === 200) return { ok: true, messageId: r.body.id ?? undefined, jid: r.body.jid };
     if (r.http === 409) throw new WhatsAppUnavailableError(r.body.error ?? 'WhatsApp desconectado');
-    return { ok: false as const, error: r.body.error ?? `HTTP ${r.http}` };
+    return { ok: false, error: r.body.error ?? `HTTP ${r.http}` };
   }
 
   /**
