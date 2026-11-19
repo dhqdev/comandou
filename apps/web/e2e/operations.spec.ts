@@ -38,7 +38,8 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   test.setTimeout(120_000);
   const tag = `${info.project.name.slice(0, 1)}${Date.now().toString(36).slice(-5)}`;
   await login(page);
-  await expect(page.getByTitle('Tempo real')).toBeVisible();
+  // Sinal da conexão no topo: tempo real ligado.
+  await expect(page.locator('.conn-signal[data-live]')).toBeVisible();
 
   // Salão: mesa criada no editor visual
   await nav(page, 'Salão');

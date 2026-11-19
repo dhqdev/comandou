@@ -62,6 +62,15 @@ financeiro, nota fiscal, WhatsApp e o painel Super Admin (`admin.<domínio>`), m
 
 O dono pede para enviar direto na `main`, sem PR. Antes do push: tudo verde localmente.
 
+## Tempo real em tela nova
+
+Toda tela de lista ou painel se atualiza sozinha. Se a área já tem evento (`order.changed`,
+`cash.changed`, `stock.changed`…), use `useRealtime`; se não tem, use `useLiveData([área], recarregar,
+[outros eventos])` de `apps/web/src/lib/realtime.ts`, e a API avisa sozinha pelo
+`LiveChangesInterceptor` (rota nova em `AREAS` de `realtime/live-changes.interceptor.ts`). Tela de
+formulário não recarrega sozinha (apagaria o que está sendo digitado). O sinal da conexão do topo
+mora em `features/ConnectionSignal.tsx` (`rtt` pelo socket). Guia: `docs/architecture.md` (Tempo real).
+
 ## Testes e telas no Windows
 
 - Banco de teste: `docker run -d --name cmd-test-pg -e POSTGRES_PASSWORD=postgres -p 55432:5432 postgres:16-alpine`

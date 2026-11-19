@@ -1,9 +1,10 @@
 import { financeMonthName, toCents, type FinanceMonth } from '@comandou/shared';
 import { ChevronRight, LineChart } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Card, EmptyState, Segmented, Spinner } from '../../design-system';
 import { fmtDate } from '../../features/forms';
 import { api } from '../../lib/api';
+import { useLiveData } from '../../lib/realtime';
 import type { CashFlowDay, FinanceEntry, FinanceSummary } from '../../lib/types';
 import {
   avgDailySales,
@@ -76,6 +77,15 @@ export function OverviewTab({
   const [mode, setMode] = useState<'balance' | 'daily'>('balance');
   const [compare, setCompare] = useState(true);
   const [allInsights, setAllInsights] = useState(false);
+  // Venda paga, caixa fechado ou conta lançada: os números se atualizam sem piscar a tela.
+  const [tick, setTick] = useState(0);
+  const shownKey = useRef('');
+  useLiveData(
+    ['finance'],
+    () => setTick((n) => n + 1),
+    ['cash.changed', 'channels.finance', 'order.changed'],
+    3000,
+  );
 
   useEffect(() => {
     if (!period) return;
@@ -86,7 +96,9 @@ export function OverviewTab({
       dreQs.set('prevFrom', previous.from);
       dreQs.set('prevTo', previous.to);
     }
-    setData(null);
+    const key = JSON.stringify([period, previous]);
+    if (shownKey.current !== key) setData(null);
+    shownKey.current = key;
     Promise.all([
       api<FinanceSummary>(`/finance/summary?${range(period)}`),
       previous
@@ -119,7 +131,7 @@ export function OverviewTab({
     return () => {
       alive = false;
     };
-  }, [period, previous]);
+  }, [period, previous, tick]);
 
   const prevName = previous ? financeMonthName(previous).split(' de ')[0]! : 'o mês anterior';
   const vs = `vs ${prevName}`;

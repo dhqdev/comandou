@@ -5,7 +5,11 @@ import { checkCacheEpoch, wipeTenantCache } from './tenant-cache';
 
 export { onRealtimeReady } from './realtime-ready';
 
+/** Áreas sem evento próprio: qualquer gravação nelas avisa as outras telas abertas. */
+export type LiveArea = 'finance' | 'customers' | 'team' | 'agenda';
+
 export type RealtimeEvent =
+  | { type: 'data.changed'; area: LiveArea }
   | { type: 'order.changed'; orderId: string; status?: string }
   | { type: 'kitchen.changed'; orderId: string }
   | { type: 'kitchen.settings' }
@@ -138,6 +142,62 @@ export function useRealtimeStatus(): RealtimeStatus {
     };
   }, []);
   return s;
+}
+
+/**
+ * Tempo de ida e volta até o servidor pela própria conexão do tempo real, em milissegundos.
+ * `null` = sem conexão ou sem resposta dentro do prazo.
+ */
+export function measureRtt(timeoutMs = 4000): Promise<number | null> {
+  ensureSocket();
+  const s = socket;
+  if (!s?.connected) return Promise.resolve(null);
+  const started = performance.now();
+  return new Promise((resolve) => {
+    s.timeout(timeoutMs).emit('rtt', (err: Error | null) =>
+      resolve(err ? null : Math.round(performance.now() - started)),
+    );
+  });
+}
+
+/**
+ * Escuta as telas que dependem de áreas sem evento próprio (Financeiro, Clientes, Equipe…):
+ * recarrega quando alguém grava nelas ou quando chega um dos `also` (ex.: pedido pago muda o
+ * financeiro). Várias mudanças seguidas viram uma recarga só, e a tela escondida não recarrega
+ * até voltar a aparecer.
+ */
+export function useLiveData(
+  areas: LiveArea[],
+  reload: () => void,
+  also: RealtimeEvent['type'][] = [],
+  ms = 800,
+) {
+  const pending = useRef(false);
+  const rl = useRef(reload);
+  rl.current = reload;
+  const run = useDebounced(() => {
+    if (typeof document !== 'undefined' && document.hidden) pending.current = true;
+    else rl.current();
+  }, ms);
+  const match = useRef<(e: RealtimeEvent) => boolean>(() => false);
+  match.current = (e) =>
+    (e.type === 'data.changed' && areas.includes(e.area)) || also.includes(e.type);
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden && pending.current) {
+        pending.current = false;
+        rl.current();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+  useRealtime(
+    (e) => {
+      if (match.current(e)) run();
+    },
+    () => rl.current(),
+  );
 }
 
 /** Agrupa vários eventos seguidos em uma única recarga. */

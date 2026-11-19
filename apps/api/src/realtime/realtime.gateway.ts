@@ -3,6 +3,7 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
+  SubscribeMessage,
   WebSocketGateway,
 } from '@nestjs/websockets';
 import { parse as parseCookie } from 'cookie';
@@ -178,6 +179,15 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     }, REVALIDATE_MS);
     timer.unref();
     this.timers.set(socket.id, timer);
+  }
+
+  /**
+   * Medidor de conexão do topo do app: o aparelho pergunta e mede quanto demorou a volta.
+   * Não lê nada nem devolve dado (só sockets já autenticados chegam aqui).
+   */
+  @SubscribeMessage('rtt')
+  rtt() {
+    return 1;
   }
 
   handleDisconnect(socket: Socket) {

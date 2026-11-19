@@ -106,6 +106,8 @@ Decisão: [ADR 0006](decisions/0006-operacao-pedidos-caixa.md).
 - **Travas** (sempre nesta ordem, para não haver deadlock): sessão de caixa (`FOR SHARE` em vendas/estornos, `FOR UPDATE` em sangria/suprimento/fechamento) → comanda → pedidos (por data, id) → pagamento.
 - **Caixa**: cada venda, suprimento, sangria e estorno é um movimento com sinal. Esperado por forma de pagamento = soma dos movimentos. Fechamento grava esperado, contado e diferença; com diferença, observação é obrigatória.
 - **Tempo real**: eventos são só avisos ("pedido X mudou") publicados depois do COMMIT; a tela busca o estado pela API e recarrega tudo ao reconectar. Evento recebido não prova persistência.
+  - Áreas sem evento próprio (Financeiro, Clientes, Equipe, Agenda) são avisadas pelo `LiveChangesInterceptor` (`realtime/live-changes.interceptor.ts`): toda gravação da equipe em `/finance`, `/customers`, `/loyalty`, `/users`, `/agenda` publica `data.changed` com a área (a agenda só para a própria pessoa). Na tela, `useLiveData(areas, recarregar, outrosEventos)` de `lib/realtime.ts` junta vários avisos numa recarga e espera a aba voltar a aparecer. Área nova: uma linha em `AREAS` e o tipo `LiveArea` dos dois lados. Não use em tela de formulário (recarregar apagaria o que a pessoa está digitando).
+  - **Sinal da conexão** no topo (`features/ConnectionSignal.tsx` + `lib/connection-quality.ts`): a cada 5 s o app manda `rtt` pelo socket (o gateway só responde) e mede a volta; mediana das três últimas: até 150 ms 4 barrinhas, 350 ms 3, 800 ms 2, acima disso (ou sem resposta) 1; socket caído ou sem internet, 0.
 
 ## Dinheiro
 

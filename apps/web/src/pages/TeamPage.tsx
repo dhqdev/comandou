@@ -25,6 +25,7 @@ import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
+import { useLiveData } from '../lib/realtime';
 import type { Member } from '../lib/types';
 import { TourButton } from '../features/tour/PageTour';
 import { PinField, PinModal, PinReveal, pinFieldError } from '../features/StaffPin';
@@ -54,6 +55,7 @@ export function TeamPage() {
   useEffect(() => {
     void load();
   }, [load]);
+  useLiveData(['team'], () => void load());
 
   async function update(m: Member, json: { role?: string; status?: string }, ok: string) {
     try {

@@ -8,12 +8,13 @@ import {
   type FinanceMonth,
 } from '@comandou/shared';
 import { Download } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert, Button, Card, Spinner } from '../../design-system';
 import { fmtDate, Tabs } from '../../features/forms';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
+import { useLiveData } from '../../lib/realtime';
 import { Waterfall, type WaterStep } from './charts';
 import type { DreResponse } from './types';
 
@@ -44,6 +45,15 @@ export function DreTab({
   const [basis, setBasis] = useState<'accrual' | 'cash'>('accrual');
   const [data, setData] = useState<DreResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Venda paga, caixa fechado ou conta lançada: o DRE se refaz sem piscar a tela.
+  const [tick, setTick] = useState(0);
+  const shownKey = useRef('');
+  useLiveData(
+    ['finance'],
+    () => setTick((n) => n + 1),
+    ['cash.changed', 'channels.finance', 'order.changed'],
+    3000,
+  );
   useEffect(() => {
     if (!period) return;
     const qs = new URLSearchParams({ from: period.from, to: period.to, basis });
@@ -51,14 +61,16 @@ export function DreTab({
       qs.set('prevFrom', previous.from);
       qs.set('prevTo', previous.to);
     }
-    setData(null);
+    const key = JSON.stringify([period, previous, basis]);
+    if (shownKey.current !== key) setData(null);
+    shownKey.current = key;
     api<DreResponse>(`/finance/dre?${qs}`)
       .then((d) => {
         setData(d);
         setError(null);
       })
       .catch((e: Error) => setError(e.message));
-  }, [period, previous, basis]);
+  }, [period, previous, basis, tick]);
 
   function download() {
     if (!data) return;

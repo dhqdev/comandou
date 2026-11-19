@@ -139,6 +139,9 @@ O histórico de versões aparece no próprio sistema, na tela **Novidades** (tel
   é apagado, só estornado.
 - **Confirmação só depois do servidor.** A tela não mostra pagamento ou operação de caixa como
   confirmados antes da resposta do backend; o aviso em tempo real é só um sinal.
+- **Tudo ao vivo, com o sinal à vista.** Pedidos, cozinha, mesas, caixa, entregas, reservas,
+  estoque, cardápio, financeiro, clientes, equipe, agenda e chats se atualizam sozinhos; as
+  barrinhas de sinal no topo mostram se a conexão do aparelho está excelente, boa, lenta ou ruim.
 - **Segredos protegidos.** Tokens de integração, chaves de backup e do e-mail e sessões do WhatsApp
   cifrados no banco; e-mail com senha ou código fica cifrado na fila e é apagado ao sair; senhas,
   cookies e tokens nunca vão para os logs.

@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Server } from 'socket.io';
 
+/** Áreas sem evento próprio, avisadas pelo `LiveChangesInterceptor` a cada gravação. */
+export type LiveArea = 'finance' | 'customers' | 'team' | 'agenda';
+
 export type RealtimeEvent =
+  // Gravação numa área sem evento próprio (Financeiro, Clientes, Equipe, Agenda).
+  | { type: 'data.changed'; area: LiveArea }
   | { type: 'order.changed'; orderId: string; status?: string; version?: number }
   | { type: 'kitchen.changed'; orderId: string }
   // O Super Admin mudou as cozinhas ou o que a tela da cozinha mostra.

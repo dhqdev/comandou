@@ -19,6 +19,7 @@ import { SidePanel } from '../features/SidePanel';
 import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import { brl } from '../lib/money';
+import { useLiveData } from '../lib/realtime';
 import type { CustomerDetail, CustomerList, CustomerRow } from '../lib/types';
 import { CustomerAvatar } from './public/avatars';
 import './online-store.css';
@@ -370,6 +371,8 @@ export function CustomersPage() {
     const t = setTimeout(() => void load(search), search ? 250 : 0);
     return () => clearTimeout(t);
   }, [search, load]);
+  // Cliente novo ou pedido de cliente (pontos, total gasto) chega sozinho na lista.
+  useLiveData(['customers'], () => void load(search), ['order.changed'], 1500);
   const rows = lv.visible;
 
   return (

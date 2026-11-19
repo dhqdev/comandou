@@ -17,6 +17,7 @@ import { PAYMENT_METHOD_LABELS } from '../../features/format';
 import { fmtDate } from '../../features/forms';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
+import { useLiveData } from '../../lib/realtime';
 import { DayBars, HBars, KpiStrip } from './charts';
 import { methodTotals, money, pctText } from './insights';
 import type { ClosingDay } from './types';
@@ -87,6 +88,12 @@ export function ClosingsTab({
   useEffect(() => {
     void load();
   }, [load]);
+  useLiveData(
+    ['finance'],
+    () => void load(),
+    ['cash.changed', 'channels.finance', 'order.changed'],
+    1500,
+  );
 
   async function post(sessionId: string) {
     setPosting(sessionId);

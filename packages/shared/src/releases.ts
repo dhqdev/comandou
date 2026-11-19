@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.195.0',
+    version: '0.196.0',
     date: '2026-11-19',
     title: 'Limpar o cache do restaurante pelo Super Admin',
     summary:
@@ -37,6 +37,27 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'segurança',
         text: 'Só o Super Admin limpa, com limite por minuto, e cada limpeza fica no Histórico do restaurante com quantas telas recarregaram.',
+      },
+    ],
+  },
+  {
+    version: '0.195.0',
+    date: '2026-11-19',
+    title: 'Sinal da conexão no topo e mais telas ao vivo',
+    summary:
+      'O topo do sistema ganhou as barrinhas de sinal, como as do Wi-Fi, que dizem a todo momento se a conexão está excelente, boa, lenta ou ruim. Financeiro, Clientes, Equipe e Agenda passam a se atualizar sozinhos, sem recarregar a tela.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Sinal da conexão no topo: as barrinhas medem a cada 5 segundos quanto o Comandou demora para responder a este aparelho e ficam verdes, amarelas ou vermelhas. Tocando nelas, aparecem o tempo de resposta, as últimas medições, o tipo de rede e o botão Testar agora.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Financeiro ao vivo: contas, resumo, visão geral, DRE, fechamentos e conciliação se atualizam sozinhos quando alguém lança uma conta, fecha o caixa ou recebe um pedido, sem piscar a tela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Clientes, Equipe e Agenda também se atualizam sozinhos quando algo muda em outro aparelho.',
       },
     ],
   },

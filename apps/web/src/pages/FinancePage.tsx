@@ -41,6 +41,7 @@ import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
+import { useLiveData } from '../lib/realtime';
 import type {
   CashFlowDay,
   FinanceEntry,
@@ -456,6 +457,13 @@ function EntriesTab({ period }: { period: FinanceMonth | null }) {
   useEffect(() => {
     void load();
   }, [load]);
+  // Conta lançada em outro aparelho, caixa fechado ou venda paga: a lista e o resumo se atualizam.
+  useLiveData(
+    ['finance'],
+    () => void load(),
+    ['cash.changed', 'channels.finance', 'order.changed'],
+    1500,
+  );
   const rows = lv.visible;
   const total = rows?.reduce((s, e) => s + toCents(e.amount), 0) ?? 0;
 
@@ -1124,6 +1132,7 @@ function DailyCheck({ day: initialDay }: { day: string }) {
       .catch((e: Error) => toast(e.message, 'danger'));
   }, [day, toast]);
   useEffect(load, [load]);
+  useLiveData(['finance'], load, ['cash.changed', 'channels.finance', 'order.changed'], 1500);
 
   async function save(method: PaymentMethod, systemAmount: string) {
     const v = inputs[method] ?? { amount: '', note: '' };
