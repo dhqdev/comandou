@@ -705,13 +705,19 @@ export class CustomersService {
                 c.blocked_at IS NOT NULL AS blocked, c.created_at AS "createdAt",
                 c.last_login_at AS "lastLoginAt", c.document,
                 COALESCE(st.orders, 0) AS orders, COALESCE(st.spent, '0.00') AS spent,
-                st.last_order_at AS "lastOrderAt"
+                st.last_order_at AS "lastOrderAt", fav.name AS "topItem"
            FROM customers c
            LEFT JOIN LATERAL (
              SELECT count(*) FILTER (WHERE o.status <> 'cancelled')::int AS orders,
                     COALESCE(sum(o.total) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS spent,
                     max(o.created_at) AS last_order_at
                FROM orders o WHERE o.customer_id = c.id) st ON true
+           LEFT JOIN LATERAL (
+             SELECT i.name FROM order_items i JOIN orders o ON o.id = i.order_id
+              WHERE o.customer_id = c.id AND o.status <> 'cancelled' AND i.status <> 'cancelled'
+              GROUP BY i.name
+              ORDER BY sum(CASE WHEN i.unit = 'kg' THEN 1 ELSE i.quantity END) DESC, i.name
+              LIMIT 1) fav ON true
           WHERE $1 = '' OR c.name ILIKE $2 OR c.email ILIKE $2 OR ($3 <> '' AND (c.phone LIKE $4 OR c.document LIKE $4))
           ORDER BY COALESCE(st.last_order_at, c.created_at) DESC
           LIMIT $5`,
@@ -723,7 +729,11 @@ export class CustomersService {
                 count(*) FILTER (WHERE created_at > now() - interval '30 days')::int AS "new30",
                 count(*) FILTER (WHERE EXISTS (
                   SELECT 1 FROM orders o WHERE o.customer_id = customers.id
-                     AND o.created_at > now() - interval '30 days'))::int AS "active30"
+                     AND o.created_at > now() - interval '30 days'))::int AS "active30",
+                (SELECT COALESCE(sum(total), 0)::text FROM orders
+                  WHERE customer_id IS NOT NULL AND status <> 'cancelled') AS spent,
+                (SELECT COALESCE(avg(total), 0)::numeric(14,2)::text FROM orders
+                  WHERE customer_id IS NOT NULL AND status <> 'cancelled') AS "avgTicket"
            FROM customers`,
       );
       return { summary, customers };
@@ -798,20 +808,90 @@ export class CustomersService {
         `SELECT count(*) FILTER (WHERE status <> 'cancelled')::int AS orders,
                 COALESCE(sum(total) FILTER (WHERE status <> 'cancelled'), 0)::text AS spent,
                 COALESCE(avg(total) FILTER (WHERE status <> 'cancelled'), 0)::numeric(14,2)::text AS "avgTicket",
-                min(created_at) AS "firstOrderAt", max(created_at) AS "lastOrderAt"
+                min(created_at) FILTER (WHERE status <> 'cancelled') AS "firstOrderAt",
+                max(created_at) FILTER (WHERE status <> 'cancelled') AS "lastOrderAt"
            FROM orders WHERE customer_id = $1`,
         [id],
       );
       const favorites = await q(
         tx,
-        `SELECT i.name, sum(CASE WHEN i.unit = 'kg' THEN 1 ELSE i.quantity END)::int AS quantity
+        `SELECT i.name, sum(CASE WHEN i.unit = 'kg' THEN 1 ELSE i.quantity END)::int AS quantity,
+                sum(i.total)::text AS spent, count(DISTINCT o.id)::int AS orders,
+                max(cat.name) AS category, max(o.created_at) AS "lastAt"
            FROM order_items i JOIN orders o ON o.id = i.order_id
-          WHERE o.customer_id = $1 AND o.status <> 'cancelled'
-          GROUP BY i.name ORDER BY 2 DESC, 1 LIMIT 5`,
+           LEFT JOIN products p ON p.id = i.product_id
+           LEFT JOIN categories cat ON cat.id = p.category_id
+          WHERE o.customer_id = $1 AND o.status <> 'cancelled' AND i.status <> 'cancelled'
+          GROUP BY i.name ORDER BY 2 DESC, 1 LIMIT 8`,
         [id],
       );
-      return { ...c, addresses, orders, stats, favorites };
+      const insights = await this.insights(tx, id);
+      return { ...c, addresses, orders, stats, favorites, insights };
     });
+  }
+
+  /**
+   * Leituras do perfil (gráficos da ficha): categorias, pedidos por mês (12 meses), canais, dia da
+   * semana, hora e forma de pagamento. Pedidos cancelados ficam de fora; mês, dia e hora no fuso do
+   * restaurante.
+   */
+  private async insights(tx: Parameters<typeof q>[0], id: string) {
+    const tz = `COALESCE((SELECT timezone FROM tenants WHERE id = app_current_tenant()), 'America/Sao_Paulo')`;
+    const ok = `customer_id = $1 AND status <> 'cancelled'`;
+    const [categories, months, channels, weekdays, hours, payments] = await Promise.all([
+      q(
+        tx,
+        `SELECT COALESCE(cat.name, 'Sem categoria') AS name,
+                sum(CASE WHEN i.unit = 'kg' THEN 1 ELSE i.quantity END)::int AS quantity,
+                sum(i.total)::text AS spent
+           FROM order_items i JOIN orders o ON o.id = i.order_id
+           LEFT JOIN products p ON p.id = i.product_id
+           LEFT JOIN categories cat ON cat.id = p.category_id
+          WHERE o.customer_id = $1 AND o.status <> 'cancelled' AND i.status <> 'cancelled'
+          GROUP BY 1 ORDER BY sum(i.total) DESC, 1 LIMIT 8`,
+        [id],
+      ),
+      q(
+        tx,
+        `WITH m AS (
+           SELECT generate_series(date_trunc('month', now() AT TIME ZONE ${tz}) - interval '11 months',
+                                  date_trunc('month', now() AT TIME ZONE ${tz}), interval '1 month') AS month)
+         SELECT to_char(m.month, 'YYYY-MM') AS month, count(o.id)::int AS orders,
+                COALESCE(sum(o.total), 0)::text AS spent
+           FROM m LEFT JOIN orders o
+             ON o.customer_id = $1 AND o.status <> 'cancelled'
+            AND date_trunc('month', o.created_at AT TIME ZONE ${tz}) = m.month
+          GROUP BY m.month ORDER BY m.month`,
+        [id],
+      ),
+      q(
+        tx,
+        `SELECT channel, count(*)::int AS orders, sum(total)::text AS spent
+           FROM orders WHERE ${ok} GROUP BY channel ORDER BY 2 DESC`,
+        [id],
+      ),
+      q(
+        tx,
+        `SELECT extract(dow FROM created_at AT TIME ZONE ${tz})::int AS day, count(*)::int AS orders
+           FROM orders WHERE ${ok} GROUP BY 1 ORDER BY 1`,
+        [id],
+      ),
+      q(
+        tx,
+        `SELECT extract(hour FROM created_at AT TIME ZONE ${tz})::int AS hour, count(*)::int AS orders
+           FROM orders WHERE ${ok} GROUP BY 1 ORDER BY 1`,
+        [id],
+      ),
+      q(
+        tx,
+        `SELECT p.method, sum(p.amount - p.refunded_amount)::text AS amount, count(*)::int AS count
+           FROM payments p JOIN orders o ON o.id = p.order_id
+          WHERE o.customer_id = $1 AND o.status <> 'cancelled'
+          GROUP BY 1 HAVING sum(p.amount - p.refunded_amount) > 0 ORDER BY sum(p.amount - p.refunded_amount) DESC`,
+        [id],
+      ),
+    ]);
+    return { categories, months, channels, weekdays, hours, payments };
   }
 
   async update(

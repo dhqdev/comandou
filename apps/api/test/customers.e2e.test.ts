@@ -352,6 +352,11 @@ describe('Aba Clientes (equipe)', () => {
     const d = (await admin.get(`/customers/${id}`).expect(200)).body;
     expect(d.addresses).toHaveLength(1);
     expect(d.orders).toHaveLength(1);
+    // Gráficos da ficha: 12 meses (o atual no fim); o único pedido foi cancelado e fica de fora.
+    expect(d.insights.months).toHaveLength(12);
+    expect(d.insights.months.every((m: { orders: number }) => m.orders === 0)).toBe(true);
+    expect(d.insights).toMatchObject({ channels: [], weekdays: [], hours: [], categories: [] });
+    expect(d.stats).toMatchObject({ orders: 0, lastOrderAt: null });
     const u = (
       await admin.send('patch', `/customers/${id}`, { staffNotes: 'Cliente VIP', blocked: true })
     ).body;

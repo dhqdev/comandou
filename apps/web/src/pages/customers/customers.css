@@ -1,0 +1,569 @@
+/* Clientes › ficha do cliente (CustomersPage.tsx + customers/CustomerInsights.tsx). Só tokens. */
+
+/* A ficha abre larga (como a gaveta do pedido) e, com espaço, vira duas colunas. */
+@media (min-width: 1100px) {
+  .side-panel:has(.cl-detail) {
+    width: clamp(600px, 74vw, 1180px);
+  }
+  .side-panel:has(.cl-detail) .side-panel__body {
+    padding: 20px 24px;
+  }
+  .side-panel:has(.cl-detail) .side-panel__head {
+    padding: 14px 24px;
+  }
+}
+.side-panel .cl-detail {
+  container: cl / inline-size;
+}
+.cl-detail {
+  display: grid;
+  gap: var(--cm-space-5);
+  min-width: 0;
+}
+
+/* Topo: foto, nome e cada dado de contato numa linha, com ícone. */
+.cl-head {
+  display: flex;
+  gap: var(--cm-space-4);
+  align-items: flex-start;
+}
+.cl-head__main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.cl-head__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+.cl-head__name strong {
+  font-size: var(--cm-text-xl);
+  line-height: 1.2;
+}
+.cl-contact {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 20px;
+  font-size: var(--cm-text-sm);
+}
+.cl-contact li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.cl-contact li > svg {
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+.cl-contact li > :is(span, a) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Números: um quadro só, separados por linha fina. */
+.cl-kpis {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  overflow: hidden;
+}
+.cl-kpis > div {
+  padding: 12px 16px;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  border-left: 1px solid var(--cm-border);
+}
+.cl-kpis > div:first-child {
+  border-left: 0;
+}
+.cl-kpis dt {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.cl-kpis dd {
+  margin: 0;
+  font-size: var(--cm-text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cl-kpis dd.cl-kpis__sub {
+  font-size: var(--cm-text-xs);
+  font-weight: 400;
+  color: var(--cm-text-muted);
+  white-space: normal;
+}
+.cl-kpis__sub[data-warn] {
+  color: var(--cm-warning);
+  font-weight: 600;
+}
+@container cl (max-width: 640px) {
+  .cl-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cl-kpis > div {
+    border-left: 0;
+    border-top: 1px solid var(--cm-border);
+  }
+  .cl-kpis > div:nth-child(-n + 2) {
+    border-top: 0;
+  }
+  .cl-kpis > div:nth-child(even) {
+    border-left: 1px solid var(--cm-border);
+  }
+  .cl-kpis > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Corpo: gráficos à esquerda, pedidos e cadastro à direita. */
+.cl-cols2,
+.cl-main,
+.cl-side {
+  display: grid;
+  gap: var(--cm-space-5);
+  align-content: start;
+  min-width: 0;
+}
+@container cl (min-width: 820px) {
+  .cl-cols2 {
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+    gap: 28px;
+  }
+  .cl-side {
+    padding-left: 28px;
+    border-left: 1px solid var(--cm-border);
+  }
+  .cl-orders {
+    max-height: 460px;
+    overflow-y: auto;
+  }
+}
+.cl-pair {
+  display: grid;
+  gap: var(--cm-space-5);
+}
+@container cl (min-width: 560px) {
+  .cl-pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+  }
+}
+
+.cl-block {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  align-content: start;
+}
+.cl-block__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cl-block__head h3 {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.cl-block__head > span {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+}
+
+/* Em poucas palavras: frases com bolinha. */
+.cl-readings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.cl-readings li {
+  position: relative;
+  padding-left: 18px;
+  line-height: 1.45;
+}
+.cl-readings li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cm-brand-500);
+}
+
+/* O que mais pede: ranking com barra deitada. */
+.cl-rank {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.cl-rank > li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+.cl-rank__pos {
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-subtle);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding-top: 2px;
+}
+.cl-rank__body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.cl-rank__text {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+}
+.cl-rank__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cl-rank__value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cl-rank__track {
+  height: 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  overflow: hidden;
+}
+.cl-rank__track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--cm-brand-500) 50%, var(--cm-surface));
+  transform-origin: left;
+  animation: cl-grow var(--cm-spring-smooth-dur) var(--cm-spring-smooth) both;
+}
+.cl-rank > li[data-strong] .cl-rank__track > span {
+  background: var(--cm-brand-500);
+}
+.cl-rank > li[data-strong] :is(.cl-rank__label, .cl-rank__pos) {
+  font-weight: 600;
+  color: var(--cm-text);
+}
+.cl-rank__sub {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+
+/* Colunas em pé (mês, dia, hora). */
+.cl-cols {
+  display: grid;
+  gap: 6px;
+}
+.cl-cols__plot {
+  position: relative;
+  height: var(--h, 120px);
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  border-bottom: 1px solid var(--cm-border-strong);
+}
+.cl-cols__col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: default;
+  min-width: 0;
+}
+.cl-cols__col:focus-visible {
+  outline: 2px solid var(--cm-focus, var(--cm-brand-500));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.cl-cols__bar {
+  display: block;
+  width: min(100%, 26px);
+  border-radius: 4px 4px 0 0;
+  background: color-mix(in oklab, var(--cm-text-muted) 38%, var(--cm-surface));
+  transform-origin: bottom;
+  animation: cl-rise var(--cm-spring-smooth-dur) var(--cm-spring-smooth) both;
+  transition: opacity 0.15s;
+}
+.cl-cols__col[data-strong] .cl-cols__bar {
+  background: var(--cm-brand-500);
+}
+.cl-cols__col[data-dim] .cl-cols__bar {
+  opacity: 0.45;
+}
+.cl-cols__axis {
+  display: flex;
+  gap: 4px;
+}
+.cl-cols__axis > span {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--cm-text-subtle);
+  overflow: visible;
+  white-space: nowrap;
+}
+.cl-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  box-shadow: var(--cm-shadow-md);
+  font-size: var(--cm-text-xs);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.cl-tip[data-edge='start'] {
+  transform: translateX(-12px);
+}
+.cl-tip[data-edge='end'] {
+  transform: translateX(calc(-100% + 12px));
+}
+.cl-tip strong {
+  font-size: var(--cm-text-sm);
+}
+.cl-tip strong::first-letter {
+  text-transform: uppercase;
+}
+.cl-tip > span {
+  color: var(--cm-text-muted);
+}
+
+/* Barra dividida em fatias + legenda. */
+.cl-share {
+  display: grid;
+  gap: 10px;
+}
+.cl-share__bar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  border-radius: var(--cm-radius-full);
+  overflow: hidden;
+}
+.cl-share__bar > span {
+  flex-basis: 0;
+  min-width: 4px;
+  transform-origin: left;
+  animation: cl-grow var(--cm-spring-smooth-dur) var(--cm-spring-smooth) both;
+}
+.cl-share__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: var(--cm-text-sm);
+}
+.cl-share__legend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.cl-share__legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.cl-share__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cl-share__val {
+  color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cl-share__val strong {
+  color: var(--cm-text);
+}
+
+/* Pedidos: número e situação em cima, data e canal embaixo, total à direita. */
+.cl-orders {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+}
+.cl-orders li + li {
+  border-top: 1px solid var(--cm-border);
+}
+.cl-orders button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.cl-orders button:hover {
+  background: var(--cm-surface-muted);
+}
+.cl-orders button:active {
+  transform: scale(0.99);
+}
+.cl-orders__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.cl-orders__top strong {
+  font-variant-numeric: tabular-nums;
+}
+.cl-orders__total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.cl-orders__total[data-off] {
+  color: var(--cm-text-subtle);
+  text-decoration: line-through;
+  font-weight: 500;
+}
+.cl-orders small {
+  grid-column: 1 / -1;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+
+/* Endereços: ícone, nome, rua e bairro em linhas separadas. */
+.cl-addr {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.cl-addr li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+.cl-addr li > svg {
+  margin-top: 2px;
+  color: var(--cm-text-subtle);
+}
+.cl-addr li > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.cl-addr__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cl-addr small {
+  color: var(--cm-text-muted);
+}
+
+@keyframes cl-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes cl-rise {
+  from {
+    transform: scaleY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cl-rank__track > span,
+  .cl-cols__bar,
+  .cl-share__bar > span {
+    animation: none;
+  }
+}
+
+/* Lista: números do topo no mesmo quadro da ficha e o item que mais pede. */
+.cl-kpis--page {
+  background: var(--cm-surface);
+}
+.cl-kpis--page > div {
+  padding: 16px 20px;
+}
+.cl-kpis--page dd {
+  font-size: var(--cm-text-xl);
+}
+@media (max-width: 760px) {
+  .cl-kpis--page {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cl-kpis--page > div {
+    border-left: 0;
+    border-top: 1px solid var(--cm-border);
+  }
+  .cl-kpis--page > div:nth-child(-n + 2) {
+    border-top: 0;
+  }
+  .cl-kpis--page > div:nth-child(even) {
+    border-left: 1px solid var(--cm-border);
+  }
+  .cl-kpis--page > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+.cl-top {
+  display: inline-block;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}

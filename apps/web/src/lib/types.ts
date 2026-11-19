@@ -148,11 +148,20 @@ export interface CustomerRow {
   orders: number;
   spent: string;
   lastOrderAt: string | null;
+  /** Item que o cliente mais pede (null = ainda não pediu). */
+  topItem?: string | null;
   /** CPF/CNPJ (só números), quando informado. */
   document?: string | null;
 }
 export interface CustomerList {
-  summary: { total: number; new30: number; active30: number };
+  summary: {
+    total: number;
+    new30: number;
+    active30: number;
+    /** Total gasto e ticket médio dos pedidos de clientes com conta (sem cancelados). */
+    spent?: string;
+    avgTicket?: string;
+  };
   customers: CustomerRow[];
 }
 export interface CustomerDetail {
@@ -196,7 +205,25 @@ export interface CustomerDetail {
     firstOrderAt: string | null;
     lastOrderAt: string | null;
   };
-  favorites: { name: string; quantity: number }[];
+  favorites: {
+    name: string;
+    quantity: number;
+    spent: string;
+    orders: number;
+    category: string | null;
+    lastAt: string;
+  }[];
+  /** Leituras do perfil (gráficos da ficha), sem pedidos cancelados. */
+  insights: {
+    categories: { name: string; quantity: number; spent: string }[];
+    /** Últimos 12 meses, do mais antigo ao atual ("2026-11"). */
+    months: { month: string; orders: number; spent: string }[];
+    channels: { channel: string; orders: number; spent: string }[];
+    /** 0 = domingo. */
+    weekdays: { day: number; orders: number }[];
+    hours: { hour: number; orders: number }[];
+    payments: { method: string; amount: string; count: number }[];
+  };
 }
 
 export interface OrderItem {

@@ -1,5 +1,16 @@
 import { formatDocument, IE_INDICATORS, isValidCnpj, isValidCpf } from '@comandou/shared';
-import { Ban, KeyRound, MessageCircle, UserCheck, Users } from 'lucide-react';
+import {
+  Ban,
+  Bell,
+  CalendarDays,
+  Clock,
+  KeyRound,
+  Mail,
+  MapPin,
+  MessageCircle,
+  UserCheck,
+  Users,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../app/auth';
 import { Alert, Badge, Button, EmptyState, Spinner, TextField, useToast } from '../design-system';
@@ -22,6 +33,8 @@ import { brl } from '../lib/money';
 import { useLiveData } from '../lib/realtime';
 import type { CustomerDetail, CustomerList, CustomerRow } from '../lib/types';
 import { CustomerAvatar } from './public/avatars';
+import { CustomerCharts, CustomerKpis, CustomerMix, readings } from './customers/CustomerInsights';
+import './customers/customers.css';
 import './online-store.css';
 
 const fmtPhone = (d: string) =>
@@ -32,6 +45,11 @@ const fmtPhone = (d: string) =>
       : d;
 const waLink = (d: string) => `https://wa.me/55${d}`;
 const date = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
+/** "hoje", "ontem", "há 5 dias". */
+const ago = (iso: string) => {
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  return d <= 0 ? 'hoje' : d === 1 ? 'ontem' : `há ${d} dias`;
+};
 /** Foto ou avatar que o cliente escolheu no cardápio; sem nenhum dos dois, as iniciais. */
 function ClAvatar({
   c,
@@ -97,182 +115,238 @@ function CustomerPanel({
   }
 
   return (
-    <SidePanel open={id !== null} title="Cliente" onClose={onClose}>
+    <SidePanel open={id !== null} title="Cliente" size="xl" onClose={onClose}>
       {!c ? (
         <Spinner />
       ) : (
         <div className="cl-detail">
           <div className="cl-head">
             <ClAvatar c={c} lg />
-            <div>
-              <strong>{c.name}</strong> {c.blocked && <Badge tone="danger">Bloqueado</Badge>}
-              <p>
-                <a className="cl-wa" href={waLink(c.phone)} target="_blank" rel="noreferrer">
-                  <MessageCircle size={14} style={{ verticalAlign: -2 }} /> {fmtPhone(c.phone)}
-                </a>
-                {c.email && <> · {c.email}</>}
-              </p>
-              <p>
-                Cliente desde {date(c.createdAt)}
-                {c.lastLoginAt && <> · último acesso {dateTime(c.lastLoginAt)}</>}
-                {c.marketingOptIn && <> · aceita novidades</>}
-              </p>
-            </div>
-          </div>
-
-          <div className="cl-stats">
-            <div>
-              <small>Pedidos</small>
-              <strong>{c.stats.orders}</strong>
-            </div>
-            <div>
-              <small>Total gasto</small>
-              <strong>{brl(c.stats.spent)}</strong>
-            </div>
-            <div>
-              <small>Ticket médio</small>
-              <strong>{brl(c.stats.avgTicket)}</strong>
-            </div>
-          </div>
-
-          {c.favorites.length > 0 && (
-            <section>
-              <h3>Mais pede</h3>
-              <div className="cl-favs">
-                {c.favorites.map((f) => (
-                  <Badge key={f.name} tone="brand">
-                    {f.name} · {f.quantity}×
-                  </Badge>
-                ))}
+            <div className="cl-head__main">
+              <div className="cl-head__name">
+                <strong>{c.name}</strong>
+                {c.blocked && <Badge tone="danger">Bloqueado</Badge>}
               </div>
-            </section>
-          )}
+              <ul className="cl-contact">
+                <li>
+                  <MessageCircle size={16} aria-hidden />
+                  <a className="cl-wa" href={waLink(c.phone)} target="_blank" rel="noreferrer">
+                    {fmtPhone(c.phone)}
+                  </a>
+                </li>
+                <li>
+                  <Mail size={16} aria-hidden />
+                  {c.email ? <span>{c.email}</span> : <span className="cm-hint">Sem e-mail</span>}
+                </li>
+                <li>
+                  <CalendarDays size={16} aria-hidden />
+                  <span>Cliente desde {date(c.createdAt)}</span>
+                </li>
+                <li>
+                  <Clock size={16} aria-hidden />
+                  <span>
+                    {c.lastLoginAt
+                      ? `Último acesso ${dateTime(c.lastLoginAt)}`
+                      : 'Ainda não entrou na conta'}
+                  </span>
+                </li>
+                <li>
+                  <Bell size={16} aria-hidden />
+                  <span>{c.marketingOptIn ? 'Aceita novidades' : 'Não quer novidades'}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
 
-          <section>
-            <h3>Endereços</h3>
-            {c.addresses.length === 0 ? (
-              <p className="cm-hint">Nenhum endereço salvo.</p>
-            ) : (
-              <ul className="cl-list">
-                {c.addresses.map((a) => (
-                  <li key={a.id}>
+          <CustomerKpis c={c} />
+
+          <div className="cl-cols2">
+            <div className="cl-main">
+              {c.stats.orders === 0 ? (
+                <section className="cl-block">
+                  <header className="cl-block__head">
+                    <h3>Gráficos</h3>
+                  </header>
+                  <p className="cm-hint">
+                    Os gráficos aparecem depois do primeiro pedido: o que mais pede, quando pede e
+                    como paga.
+                  </p>
+                </section>
+              ) : (
+                <>
+                  {readings(c).length > 0 && (
+                    <section className="cl-block">
+                      <header className="cl-block__head">
+                        <h3>Em poucas palavras</h3>
+                      </header>
+                      <ul className="cl-readings">
+                        {readings(c).map((r) => (
+                          <li key={r}>{r}</li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                  <CustomerMix c={c} />
+                  <CustomerCharts c={c} />
+                </>
+              )}
+            </div>
+
+            <div className="cl-side">
+              <section className="cl-block">
+                <header className="cl-block__head">
+                  <h3>Pedidos</h3>
+                  {c.orders.length > 0 && (
                     <span>
-                      {a.label && <strong>{a.label}: </strong>}
-                      {a.street}, {a.number}
-                      {a.complement && ` (${a.complement})`} · {a.district}
-                      {a.reference && <small> · {a.reference}</small>}
+                      {c.orders.length === 30
+                        ? 'os 30 mais recentes'
+                        : `${c.orders.length} no total`}
                     </span>
-                    {a.isDefault && <Badge>principal</Badge>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section>
-            <h3>Pedidos</h3>
-            {c.orders.length === 0 ? (
-              <p className="cm-hint">Ainda não pediu pela conta.</p>
-            ) : (
-              <ul className="cl-list cl-orders">
-                {c.orders.map((o) => (
-                  <li key={o.id}>
-                    <button
-                      type="button"
-                      className="cm-btn cm-btn--ghost"
-                      style={{ padding: 0, minHeight: 0 }}
-                      onClick={() => setOrder(o.id)}
-                    >
-                      #{o.number}
-                    </button>
-                    <small>
-                      {dateTime(o.createdAt)} ·{' '}
-                      {CHANNEL_LABELS[o.channel as keyof typeof CHANNEL_LABELS] ?? o.channel}
-                    </small>
-                    <Badge tone={STATUS_TONE[o.status as keyof typeof STATUS_TONE] ?? 'neutral'}>
-                      {ORDER_STATUS_LABELS[o.status as keyof typeof ORDER_STATUS_LABELS] ??
-                        o.status}
-                    </Badge>
-                    <strong>{brl(o.total)}</strong>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <TaxData c={c} canManage={canManage} busy={busy} save={save} />
-
-          <section>
-            <h3>Observações da equipe</h3>
-            <p className="cm-hint" style={{ margin: '0 0 8px' }}>
-              Só a equipe vê. Ex.: “prefere sem cebola”, “interfone quebrado”.
-            </p>
-            <textarea
-              className="cm-input"
-              rows={3}
-              maxLength={1000}
-              value={notes}
-              disabled={!canManage}
-              onChange={(e) => setNotes(e.target.value)}
-              style={{ width: '100%', resize: 'vertical' }}
-            />
-            {canManage && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                <Button
-                  variant="secondary"
-                  loading={busy}
-                  disabled={notes.trim() === (c.staffNotes ?? '')}
-                  onClick={() => save({ staffNotes: notes.trim() || null }, 'Observação salva')}
-                >
-                  Salvar observação
-                </Button>
-                <Button
-                  variant={c.blocked ? 'secondary' : 'danger'}
-                  icon={c.blocked ? <UserCheck size={16} /> : <Ban size={16} />}
-                  loading={busy}
-                  onClick={() =>
-                    (c.blocked ||
-                      window.confirm(
-                        'Bloquear este cliente? Ele sai da conta e não consegue mais entrar nem pedir logado.',
-                      )) &&
-                    save(
-                      { blocked: !c.blocked },
-                      c.blocked ? 'Cliente desbloqueado' : 'Cliente bloqueado',
-                    )
-                  }
-                >
-                  {c.blocked ? 'Desbloquear' : 'Bloquear'}
-                </Button>
-                {!c.blocked && (
-                  <Button
-                    variant="secondary"
-                    icon={<KeyRound size={16} />}
-                    loading={busy}
-                    onClick={async () => {
-                      if (!window.confirm('Gerar um código para o cliente criar uma nova senha?'))
-                        return;
-                      setBusy(true);
-                      try {
-                        const r = await api<{ code: string; expiresInMinutes: number }>(
-                          `/customers/${c.id}/reset-code`,
-                          { method: 'POST', json: {} },
-                        );
-                        window.alert(
-                          `Código do cliente: ${r.code}\n\nPasse pelo WhatsApp. Vale por ${r.expiresInMinutes} minutos. Ele usa em "Esqueci minha senha" no cardápio.`,
-                        );
-                      } catch (e) {
-                        toast((e as Error).message, 'danger');
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
-                  >
-                    Código de nova senha
-                  </Button>
+                  )}
+                </header>
+                {c.orders.length === 0 ? (
+                  <p className="cm-hint">Ainda não pediu pela conta.</p>
+                ) : (
+                  <ul className="cl-orders">
+                    {c.orders.map((o) => (
+                      <li key={o.id}>
+                        <button type="button" onClick={() => setOrder(o.id)}>
+                          <span className="cl-orders__top">
+                            <strong>#{o.number}</strong>
+                            <Badge
+                              tone={STATUS_TONE[o.status as keyof typeof STATUS_TONE] ?? 'neutral'}
+                            >
+                              {ORDER_STATUS_LABELS[o.status as keyof typeof ORDER_STATUS_LABELS] ??
+                                o.status}
+                            </Badge>
+                          </span>
+                          <span
+                            className="cl-orders__total"
+                            data-off={o.status === 'cancelled' || undefined}
+                          >
+                            {brl(o.total)}
+                          </span>
+                          <small>
+                            {dateTime(o.createdAt)} ·{' '}
+                            {CHANNEL_LABELS[o.channel as keyof typeof CHANNEL_LABELS] ?? o.channel}
+                          </small>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 )}
-              </div>
-            )}
-          </section>
+              </section>
+
+              <section className="cl-block">
+                <header className="cl-block__head">
+                  <h3>Endereços</h3>
+                </header>
+                {c.addresses.length === 0 ? (
+                  <p className="cm-hint">Nenhum endereço salvo.</p>
+                ) : (
+                  <ul className="cl-addr">
+                    {c.addresses.map((a) => (
+                      <li key={a.id}>
+                        <MapPin size={16} aria-hidden />
+                        <span>
+                          <span className="cl-addr__top">
+                            <strong>{a.label || 'Endereço'}</strong>
+                            {a.isDefault && <Badge>principal</Badge>}
+                          </span>
+                          <span>
+                            {a.street}, {a.number}
+                            {a.complement && ` (${a.complement})`}
+                          </span>
+                          <small>
+                            {a.district}
+                            {a.reference && <> · {a.reference}</>}
+                          </small>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <TaxData c={c} canManage={canManage} busy={busy} save={save} />
+
+              <section className="cl-block">
+                <header className="cl-block__head">
+                  <h3>Observações da equipe</h3>
+                </header>
+                <p className="cm-hint" style={{ margin: '0 0 8px' }}>
+                  Só a equipe vê. Ex.: “prefere sem cebola”, “interfone quebrado”.
+                </p>
+                <textarea
+                  className="cm-input"
+                  rows={3}
+                  maxLength={1000}
+                  value={notes}
+                  disabled={!canManage}
+                  onChange={(e) => setNotes(e.target.value)}
+                  style={{ width: '100%', resize: 'vertical' }}
+                />
+                {canManage && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    <Button
+                      variant="secondary"
+                      loading={busy}
+                      disabled={notes.trim() === (c.staffNotes ?? '')}
+                      onClick={() => save({ staffNotes: notes.trim() || null }, 'Observação salva')}
+                    >
+                      Salvar observação
+                    </Button>
+                    <Button
+                      variant={c.blocked ? 'secondary' : 'danger'}
+                      icon={c.blocked ? <UserCheck size={16} /> : <Ban size={16} />}
+                      loading={busy}
+                      onClick={() =>
+                        (c.blocked ||
+                          window.confirm(
+                            'Bloquear este cliente? Ele sai da conta e não consegue mais entrar nem pedir logado.',
+                          )) &&
+                        save(
+                          { blocked: !c.blocked },
+                          c.blocked ? 'Cliente desbloqueado' : 'Cliente bloqueado',
+                        )
+                      }
+                    >
+                      {c.blocked ? 'Desbloquear' : 'Bloquear'}
+                    </Button>
+                    {!c.blocked && (
+                      <Button
+                        variant="secondary"
+                        icon={<KeyRound size={16} />}
+                        loading={busy}
+                        onClick={async () => {
+                          if (
+                            !window.confirm('Gerar um código para o cliente criar uma nova senha?')
+                          )
+                            return;
+                          setBusy(true);
+                          try {
+                            const r = await api<{ code: string; expiresInMinutes: number }>(
+                              `/customers/${c.id}/reset-code`,
+                              { method: 'POST', json: {} },
+                            );
+                            window.alert(
+                              `Código do cliente: ${r.code}\n\nPasse pelo WhatsApp. Vale por ${r.expiresInMinutes} minutos. Ele usa em "Esqueci minha senha" no cardápio.`,
+                            );
+                          } catch (e) {
+                            toast((e as Error).message, 'danger');
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                      >
+                        Código de nova senha
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
         </div>
       )}
       <OrderDetailModal orderId={order} onClose={() => setOrder(null)} />
@@ -386,20 +460,34 @@ export function CustomersPage() {
         </div>
       </div>
       {data && (
-        <div className="stat-grid">
-          <div className="cm-card stat">
-            <div className="stat__label">Clientes com conta</div>
-            <div className="stat__value">{data.summary.total}</div>
+        <dl className="cl-kpis cl-kpis--page">
+          <div>
+            <dt>Clientes com conta</dt>
+            <dd>{data.summary.total}</dd>
           </div>
-          <div className="cm-card stat">
-            <div className="stat__label">Novos (30 dias)</div>
-            <div className="stat__value">{data.summary.new30}</div>
+          <div>
+            <dt>Novos (30 dias)</dt>
+            <dd>{data.summary.new30}</dd>
           </div>
-          <div className="cm-card stat">
-            <div className="stat__label">Pediram (30 dias)</div>
-            <div className="stat__value">{data.summary.active30}</div>
+          <div>
+            <dt>Pediram (30 dias)</dt>
+            <dd>{data.summary.active30}</dd>
+            {data.summary.total > 0 && (
+              <dd className="cl-kpis__sub">
+                {Math.round((data.summary.active30 / data.summary.total) * 100)}% dos clientes
+              </dd>
+            )}
           </div>
-        </div>
+          <div>
+            <dt>Total gasto</dt>
+            <dd>{brl(data.summary.spent ?? '0')}</dd>
+            <dd className="cl-kpis__sub">pelos clientes com conta</dd>
+          </div>
+          <div>
+            <dt>Ticket médio</dt>
+            <dd>{brl(data.summary.avgTicket ?? '0')}</dd>
+          </div>
+        </dl>
       )}
       <section className="cm-card">
         <ListToolbar
@@ -431,6 +519,7 @@ export function CustomersPage() {
                 <tr>
                   <th>Cliente</th>
                   <th>Celular</th>
+                  <th>Mais pede</th>
                   <th className="cm-num">Pedidos</th>
                   <th className="cm-num">Total gasto</th>
                   <th>Último pedido</th>
@@ -465,9 +554,38 @@ export function CustomersPage() {
                         {fmtPhone(c.phone)}
                       </a>
                     </td>
+                    <td>
+                      {c.topItem ? (
+                        <span className="cl-top" title={c.topItem}>
+                          {c.topItem}
+                        </span>
+                      ) : (
+                        <span className="cm-hint">—</span>
+                      )}
+                    </td>
                     <td className="cm-num">{c.orders}</td>
-                    <td className="cm-num">{brl(c.spent)}</td>
-                    <td>{c.lastOrderAt ? dateTime(c.lastOrderAt) : '—'}</td>
+                    <td className="cm-num">
+                      {brl(c.spent)}
+                      {c.orders > 0 && (
+                        <>
+                          <br />
+                          <small className="cm-hint">
+                            {brl((Number(c.spent) / c.orders).toFixed(2))} por pedido
+                          </small>
+                        </>
+                      )}
+                    </td>
+                    <td>
+                      {c.lastOrderAt ? (
+                        <>
+                          {dateTime(c.lastOrderAt)}
+                          <br />
+                          <small className="cm-hint">{ago(c.lastOrderAt)}</small>
+                        </>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td>{date(c.createdAt)}</td>
                   </tr>
                 ))}
@@ -525,8 +643,10 @@ function TaxData({
     (ie.trim() || null) !== (c.stateRegistration ?? null) ||
     ind !== String(c.ieIndicator ?? '');
   return (
-    <section>
-      <h3>Dados para nota fiscal</h3>
+    <section className="cl-block">
+      <header className="cl-block__head">
+        <h3>Dados para nota fiscal</h3>
+      </header>
       <div className="form-grid">
         <TextField
           label="CPF ou CNPJ"
@@ -567,7 +687,7 @@ function TaxData({
         <Button
           variant="secondary"
           size="sm"
-          style={{ marginTop: 8 }}
+          style={{ marginTop: 8, justifySelf: 'start' }}
           loading={busy}
           disabled={!dirty || !!docError}
           onClick={() =>

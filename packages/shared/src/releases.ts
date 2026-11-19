@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.201.0',
+    date: '2026-11-19',
+    title: 'Perfil do cliente com gráficos',
+    summary:
+      'A ficha do cliente ficou mais larga e organizada: cada dado numa linha, números num quadro só e gráficos do que ele mais pede do cardápio, quando pede, por onde pede e como paga.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Ficha do cliente: "O que mais pede" com os 8 itens do cardápio em barras (quantas vezes, em quantos % dos pedidos e quanto gastou), gasto por categoria, canal (Delivery, Retirada, Balcão, Mesa) e forma de pagamento.',
+      },
+      {
+        tag: 'novo',
+        text: 'Ficha do cliente: pedidos por mês nos últimos 12 meses, dia da semana e horário em que mais pede, com o destaque em laranja e o detalhe ao passar o mouse.',
+      },
+      {
+        tag: 'novo',
+        text: 'Ficha do cliente: "Em poucas palavras" resume o cliente em frases ("Costuma pedir no sábado, das 19h às 20h", "Prefere Delivery") e os números mostram de quantos em quantos dias ele pede e há quanto tempo não pede.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Ficha do cliente: contato, cadastro e endereços um por linha com ícone; no computador, gráficos à esquerda e pedidos, endereços e dados à direita.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Lista de clientes: coluna "Mais pede", valor por pedido embaixo do total, "há X dias" no último pedido e os números do topo num quadro só, com total gasto e ticket médio.',
+      },
+    ],
+  },
+  {
     version: '0.200.0',
     date: '2026-11-19',
     title: 'Assistente de IA conhece todas as telas e a IA do WhatsApp diz onde está o pedido',

@@ -381,71 +381,6 @@
 .cl-wa:hover {
   text-decoration: underline;
 }
-.cl-detail {
-  display: grid;
-  gap: var(--cm-space-5);
-}
-.cl-detail h3 {
-  margin: 0 0 8px;
-  font-size: var(--cm-text-sm);
-  color: var(--cm-text-muted);
-}
-.cl-head {
-  display: flex;
-  gap: var(--cm-space-4);
-  align-items: center;
-}
-.cl-head strong {
-  font-size: var(--cm-text-lg);
-}
-.cl-head p {
-  margin: 2px 0 0;
-  color: var(--cm-text-muted);
-}
-.cl-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--cm-space-3);
-}
-.cl-stats > div {
-  padding: 12px;
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-surface-muted);
-}
-.cl-stats small {
-  display: block;
-  color: var(--cm-text-muted);
-}
-.cl-stats strong {
-  font-size: var(--cm-text-lg);
-}
-.cl-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 6px;
-}
-.cl-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--cm-border);
-}
-.cl-list li:last-child {
-  border-bottom: 0;
-}
-.cl-list small {
-  color: var(--cm-text-muted);
-}
-.cl-favs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
 /* Atalho em Ajustes */
 .settings-link {
   display: flex;
@@ -464,14 +399,6 @@
 .settings-link > svg:first-child {
   color: var(--cm-brand-600);
 }
-.cl-orders li {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto 96px;
-}
-.cl-orders li > strong {
-  text-align: right;
-}
-
 /* Ajustes › Este aparelho (features/DeviceSettings.tsx) */
 .device-settings {
   display: grid;

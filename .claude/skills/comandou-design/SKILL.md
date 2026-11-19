@@ -155,6 +155,20 @@ aberto) à direita; o rodapé repete as colunas (botões embaixo do pedido, resu
 dinheiro) e o item fica numa linha (nome | quantidade × preço e total). Abaixo disso, uma coluna.
 Bloco novo do detalhe: decida se é do pedido (main) ou do dinheiro (side).
 
+## Clientes (lista e ficha)
+
+`pages/CustomersPage.tsx` + `pages/customers/` (`customers.css`, prefixo `cl-`; pedido do David na
+0.201). Topo e ficha usam o quadro de números `cl-kpis` (um quadro só, linha fina entre os números,
+2 por linha no estreito). A lista tem a coluna **Mais pede** (`topItem` da API) e "há X dias" no
+último pedido. A ficha abre na `SidePanel` larga (74% a partir de 1100px, como a gaveta do pedido)
+e, com o contêiner `cl` ≥ 820px, vira duas colunas: gráficos à esquerda (`cl-main`) e pedidos,
+endereços, nota e observações à direita (`cl-side`, separada por linha fina). Contato um dado por
+linha, com ícone solto. Gráficos em `CustomerInsights.tsx`, feitos à mão em HTML: ranking
+`cl-rank` (trilho cinza, o 1º em laranja cheio), colunas `cl-cols` (cinza, a maior em laranja,
+dica `cl-tip`) e fatias `cl-share` em degraus do laranja da loja e depois cinza (no máximo 5,
+o resto vira Outros). Frases de leitura em `readings()` com bolinha laranja. Dados de
+`insights` no `GET /customers/:id` (sem cancelados; mês, dia e hora no fuso do restaurante).
+
 ## Super Admin › Cobrança (calendário)
 
 `platform/BillingCalendar.tsx` (classes `adm-cal*` e `adm-charge*` em `admin.css`), no jeito
