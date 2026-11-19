@@ -158,6 +158,12 @@ beforeAll(async () => {
 afterAll(async () => {
   await app?.close();
   await ifood?.stop();
+  // As lojas deste arquivo saem do polling: os outros arquivos contam as credenciais do banco todo.
+  if (fx)
+    await ownerQuery(
+      `UPDATE channel_store_claims SET receive_orders = false WHERE tenant_id = ANY($1::uuid[])`,
+      [[fx.tenantA, fx.tenantB]],
+    );
 });
 
 describe('iFood: loja nos canais', () => {
