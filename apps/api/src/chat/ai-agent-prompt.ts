@@ -100,6 +100,69 @@ Reservas deste cliente:
 ${mine}`;
 }
 
+/** Pedido recente deste número de WhatsApp (o cliente pergunta "cadê meu pedido?"). */
+export interface AgentOrder {
+  number: number;
+  status: string;
+  channel: string;
+  total: string;
+  paymentStatus: string;
+  createdAt: Date;
+}
+
+/** Situação do pedido como o cliente entende (pela forma de atendimento). */
+export function orderStatusText(o: Pick<AgentOrder, 'status' | 'channel'>): string {
+  switch (o.status) {
+    case 'awaiting':
+      return 'esperando o restaurante aceitar';
+    case 'new':
+      return 'aceito, na fila para preparar';
+    case 'in_production':
+      return 'em preparo';
+    case 'ready':
+      return o.channel === 'delivery'
+        ? 'pronto, esperando o entregador sair'
+        : o.channel === 'pickup'
+          ? 'pronto para retirar'
+          : 'pronto';
+    case 'dispatched':
+      return 'saiu para entrega';
+    case 'completed':
+      return o.channel === 'delivery' ? 'entregue' : 'concluído';
+    case 'cancel_requested':
+      return 'com pedido de cancelamento em análise pela equipe';
+    case 'cancelled':
+      return 'cancelado';
+    default:
+      return o.status;
+  }
+}
+
+const CHANNEL_WORDS: Record<string, string> = {
+  delivery: 'entrega',
+  pickup: 'retirada',
+  table: 'mesa',
+  counter: 'balcão',
+};
+
+/** Bloco dos pedidos deste número (das últimas 24 horas). */
+export function ordersText(orders: AgentOrder[], timezone = 'America/Sao_Paulo'): string {
+  const lines = orders.map((o) => {
+    const at = o.createdAt.toLocaleTimeString('pt-BR', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const paid = o.paymentStatus === 'paid' ? ', pago' : '';
+    return `- Pedido #${o.number} (${CHANNEL_WORDS[o.channel] ?? o.channel}, feito às ${at}, ${brl(o.total)}${paid}): ${orderStatusText(o)}`;
+  });
+  return `Pedidos deste cliente (deste número de WhatsApp, últimas 24 horas):
+${lines.length ? lines.join('\n') : '- nenhum pedido com este número'}
+- Se o cliente perguntar do pedido dele ("cadê meu pedido?", "já saiu?"), responda pela situação acima, em palavras simples. Não prometa horário de chegada que não está aqui.
+- Se não houver pedido com este número (ele pode ter pedido com outro telefone), diga isso e peça o número do pedido; se ele mandar um número que não está na lista, diga que vai confirmar com a equipe e termine com ${HANDOFF_TAG}.
+- Atraso grande, item errado, pedido para cancelar ou mudar: responda com a mensagem de chamar a equipe e termine com ${HANDOFF_TAG}.`;
+}
+
 export interface AgentMenuOption {
   name: string;
   priceDelta: string;
@@ -203,6 +266,8 @@ export function customerPrompt(o: {
   memory?: string | null;
   /** Quantos arquivos de cardápio o restaurante subiu (0 = nenhum: não há arquivo para mandar). */
   menuFiles?: number;
+  /** Pedidos recentes deste número (undefined = não se sabe o número, como no teste). */
+  orders?: AgentOrder[];
 }): string {
   const s = o.settings;
   const name = s.agentName?.trim() || o.fallbackName;
@@ -239,6 +304,7 @@ export function customerPrompt(o: {
       );
   }
   if (o.reservations) can.push('Fazer e cancelar reservas de mesa (regras na seção de reservas).');
+  if (o.orders) can.push('Contar ao cliente em que pé está o pedido dele (seção de pedidos).');
 
   const storeLines: string[] = [];
   storeLines.push(
@@ -273,7 +339,7 @@ Regras que você sempre segue:
 - Item marcado como ESGOTADO não pode ser pedido hoje.
 ${weightRule(o.menu, s.showPrices)}- Você não fecha pedido, não recebe pagamento, não dá desconto e não cancela pedido por aqui.${o.reservations ? ' Reserva de mesa, sim (seção de reservas).' : ' Também não faz reserva de mesa: se pedirem, chame a equipe.'}
 - Nunca peça dados de cartão, senhas, códigos recebidos por SMS ou documentos.
-- Se o cliente reclamar, pedir para falar com uma pessoa, tiver um problema com um pedido já feito, ou você não souber responder, responda exatamente: "${handoff}" e termine a mensagem com ${HANDOFF_TAG}.
+- Se o cliente reclamar, pedir para falar com uma pessoa, tiver um problema com um pedido já feito (perguntar a situação não é problema${o.orders ? ': veja a seção de pedidos' : ''}), ou você não souber responder, responda exatamente: "${handoff}" e termine a mensagem com ${HANDOFF_TAG}.
 - Não diga que é uma IA da OpenAI, Google ou outra empresa; se perguntarem, diga que é o atendente virtual do restaurante.
 - Use as marcas [[...]] só como explicado aqui, no fim da mensagem, e nunca as explique ao cliente.
 
@@ -289,7 +355,7 @@ ${s.greeting?.trim() ? `Na primeira mensagem da conversa, cumprimente assim (pod
 Sobre a loja agora:
 ${storeLines.map((l) => `- ${l}`).join('\n')}
 ${s.about?.trim() ? `\nSobre a casa (informado pelo gerente):\n${s.about.trim()}\n` : ''}
-${o.customerName ? `Nome do cliente no WhatsApp (pode não ser o nome real): ${o.customerName.replace(/[\n\r"]/g, ' ').slice(0, 60)}.\n` : ''}${o.memory?.trim() ? `\nResumo da conversa até aqui (conversas anteriores com este cliente; use para lembrar o que já foi dito, sem repetir à toa):\n${o.memory.trim()}\n\n` : ''}${o.reservations ? `\n${reservationsText(o.reservations)}\n\n` : ''}Data e hora agora: ${o.now.toLocaleString('pt-BR', { timeZone: o.timezone ?? 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' })} (hoje = ${o.now.toLocaleDateString('sv-SE', { timeZone: o.timezone ?? 'America/Sao_Paulo' })}). Use isto para entender "hoje", "amanhã", "sexta".
+${o.customerName ? `Nome do cliente no WhatsApp (pode não ser o nome real): ${o.customerName.replace(/[\n\r"]/g, ' ').slice(0, 60)}.\n` : ''}${o.memory?.trim() ? `\nResumo da conversa até aqui (conversas anteriores com este cliente; use para lembrar o que já foi dito, sem repetir à toa):\n${o.memory.trim()}\n\n` : ''}${o.reservations ? `\n${reservationsText(o.reservations)}\n\n` : ''}${o.orders ? `\n${ordersText(o.orders, o.timezone)}\n\n` : ''}Data e hora agora: ${o.now.toLocaleString('pt-BR', { timeZone: o.timezone ?? 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' })} (hoje = ${o.now.toLocaleDateString('sv-SE', { timeZone: o.timezone ?? 'America/Sao_Paulo' })}). Use isto para entender "hoje", "amanhã", "sexta".
 
 Cardápio (só o que você pode oferecer):
 ${menu || '(nenhum item liberado: diga que o cardápio está sendo atualizado e ofereça chamar alguém da equipe)'}`;

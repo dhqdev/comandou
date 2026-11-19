@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.200.0',
+    date: '2026-11-19',
+    title: 'Assistente de IA conhece todas as telas e a IA do WhatsApp diz onde está o pedido',
+    summary:
+      'O assistente do botão IA agora conhece a Agenda, a Conta, os Aplicativos de delivery, os Chamados e o novo jeito do Estoque, e leva a pessoa ao lugar certo. A IA do WhatsApp responde "cadê meu pedido?" com a situação do pedido daquele número.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'IA do WhatsApp: quando o cliente pergunta do pedido, ela conta em que pé está (em preparo, pronto, saiu para entrega…) pelos pedidos das últimas 24 horas feitos com aquele número. Só do próprio número; problema com o pedido continua indo para a equipe.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Assistente de IA (botão IA do topo): passou a conhecer Agenda pessoal, Conta, Aplicativos de delivery, Chamados e Precificação, as abas novas do Financeiro, Pedidos, Entregas, Loja online e Relatórios, o Fiado e onde ficam Assinatura e Ajustes (na Conta).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Assistente de IA: além do botão que leva à tela, diz o caminho pelo menu, para a pessoa aprender onde fica.',
+      },
+      {
+        tag: 'correção',
+        text: 'Assistente de IA: link para uma tela que não existe vira texto, em vez de abrir "Página não encontrada".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Busca do topo: acha a Agenda pessoal e a Precificação do estoque.',
+      },
+    ],
+  },
+  {
     version: '0.199.2',
     date: '2026-11-19',
     title: 'Botões do restaurante cabem no celular (Super Admin)',

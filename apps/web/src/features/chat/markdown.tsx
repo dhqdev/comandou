@@ -1,3 +1,4 @@
+import { isKnownAppPath } from '@comandou/shared';
 import { ArrowRight } from 'lucide-react';
 import { Fragment, ReactNode } from 'react';
 import { Link } from 'react-router';
@@ -8,11 +9,15 @@ import { Link } from 'react-router';
  * Monta elementos do React (nada de HTML cru).
  */
 
-/** Só caminhos internos do app ("/caixa", "/fiscal/configuracao?foco=…"); nada de fora. */
+/**
+ * Só caminhos internos do app ("/caixa", "/fiscal/configuracao?foco=…"); nada de fora. Caminho
+ * que não cai numa tela que existe (a IA inventou) vira texto, não um link para "não encontrada".
+ */
 export function safeAppPath(raw: string): string | null {
   const p = raw.trim();
   if (!/^\/(?!\/)[\w\-./?=&%#àáâãçéêíóôõú]*$/i.test(p)) return null;
   if (p.includes('..')) return null;
+  if (!isKnownAppPath(p)) return null;
   return p;
 }
 

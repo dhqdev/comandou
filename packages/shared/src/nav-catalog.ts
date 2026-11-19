@@ -25,6 +25,7 @@ export type StaticIcon =
   | 'plan'
   | 'settings'
   | 'news'
+  | 'agenda'
   | 'plus'
   | 'theme'
   | 'password'
@@ -309,6 +310,15 @@ const SCREENS: StaticEntry[] = [
     to: '/conta',
   },
   {
+    id: 's-agenda',
+    group: 'Telas',
+    title: 'Agenda pessoal',
+    hint: 'Compromissos, lembretes pelo WhatsApp e cobranças de fiado',
+    words: 'agenda compromisso lembrete calendario tarefa fiado cobranca pendura',
+    icon: 'agenda',
+    to: '/agenda',
+  },
+  {
     id: 's-novidades',
     group: 'Telas',
     title: 'Novidades',
@@ -492,6 +502,16 @@ const SECTIONS: StaticEntry[] = [
     words: 'fator conversao unidade caixa fardo saco embalagem',
     icon: 'stock',
     to: '/estoque/fatores',
+    perms: ['stock:read'],
+  },
+  {
+    id: 'c-precificacao',
+    group: 'Seções',
+    title: 'Precificação (CMV e preço sugerido)',
+    hint: 'Estoque › Fichas técnicas',
+    words: 'precificacao preco sugerido cmv margem markup custo mudancas de custo',
+    icon: 'stock',
+    to: '/estoque/precificacao',
     perms: ['stock:read'],
   },
   // Financeiro
@@ -869,3 +889,50 @@ export const STATIC_ENTRIES: StaticEntry[] = [
   ...AI_SECTIONS,
   ...SHORTCUTS,
 ];
+
+/**
+ * Telas que existem no app do restaurante (o primeiro pedaço do caminho). O assistente de IA só
+ * vira link para estes caminhos: link inventado viraria "Página não encontrada".
+ */
+export const APP_ROUTE_ROOTS = [
+  '',
+  'pdv',
+  'pedidos',
+  'mesas',
+  'reservas',
+  'cozinha',
+  'caixa',
+  'relatorios',
+  'configuracoes',
+  'cardapio',
+  'loja-online',
+  'clientes',
+  'chamados',
+  'novidades',
+  'conta',
+  'agenda',
+  'entregas',
+  'estoque',
+  'financeiro',
+  'equipe',
+  'impressao',
+  'fiscal',
+  'integracoes',
+  'whatsapp',
+  'assistente-ia',
+  'plano',
+  'garcom',
+  'mais',
+] as const;
+
+/** O caminho ("/fiscal/configuracao?foco=…") cai numa tela que existe? */
+export function isKnownAppPath(path: string): boolean {
+  if (!path.startsWith('/') || path.startsWith('//')) return false;
+  let root = path.slice(1).split(/[/?#]/)[0] ?? '';
+  try {
+    root = decodeURIComponent(root);
+  } catch {
+    return false;
+  }
+  return (APP_ROUTE_ROOTS as readonly string[]).includes(root.toLowerCase());
+}

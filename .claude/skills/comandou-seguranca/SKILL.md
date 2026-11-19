@@ -113,6 +113,11 @@ cookie, CSRF, corpo gigante e Host estranho.
 - Saída da IA validada por Zod e mostrada como texto (nada de HTML ou link de fora).
 - O que entra no prompt respeita a permissão de quem pergunta (`roleHas` antes de montar o
   contexto): dado que o perfil não vê na tela também não vai para a IA dele.
+- IA do WhatsApp só vê dados do **próprio número** que escreveu (reservas por `upcomingByPhone`,
+  pedidos das últimas 24 h por `AiAgentService.ordersIn`, que compara DDD + 8 últimos dígitos).
+- Link que o assistente da equipe manda só vira botão para tela que existe (`isKnownAppPath` de
+  `packages/shared/src/nav-catalog.ts`, usado por `safeAppPath`); tela nova entra em
+  `APP_ROUTE_ROOTS`.
 
 ### Dependência (A03 Cadeia de suprimentos)
 - Versão fixa ou `^` com lockfile; `pnpm audit --prod --audit-level high` no CI.

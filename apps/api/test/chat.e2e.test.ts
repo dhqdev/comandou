@@ -1151,6 +1151,28 @@ describe('IA que atende o cliente (configurada pelo gerente)', () => {
     expect(left).toHaveLength(1);
   });
 
+  it('WhatsApp: conta em que pé está o pedido do próprio número, nunca o de outro', async () => {
+    const agent = app.get(AiAgentService);
+    await send('adminA', 'put', '/ai-agent', { whatsappEnabled: true }).expect(200);
+    // Celular com o 9 no pedido; o WhatsApp manda sem o 9. Pedido de B com o mesmo número não entra.
+    await ownerQuery(
+      `INSERT INTO orders (tenant_id, number, channel, status, subtotal, total, customer_phone)
+       VALUES ($1, 9901, 'delivery', 'in_production', 42, 42, '(31) 98877-6655'),
+              ($1, 9902, 'pickup', 'ready', 10, 10, '(31) 91111-2222'),
+              ($2, 9903, 'delivery', 'dispatched', 30, 30, '(31) 98877-6655')`,
+      [fx.tenantA, fx.tenantB],
+    );
+    await agent.handle({ tenantId: fx.tenantA, from: '553188776655', text: 'cadê meu pedido?' });
+    const sys = lastSystem();
+    expect(sys).toContain('Pedido #9901 (entrega');
+    expect(sys).toContain('em preparo');
+    expect(sys).not.toContain('#9902');
+    expect(sys).not.toContain('#9903');
+    // Sem pedido com este número: a IA sabe que não há nenhum.
+    await agent.handle({ tenantId: fx.tenantA, from: '5531900001111', text: 'e o meu?' });
+    expect(lastSystem()).toContain('nenhum pedido com este número');
+  });
+
   it('WhatsApp: tentativa de tirar a IA do papel e link de golpe', async () => {
     const agent = app.get(AiAgentService);
     const msg = {

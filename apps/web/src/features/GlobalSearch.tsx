@@ -2,6 +2,7 @@ import { ROLE_LABELS, type OrderStatus, type Role } from '@comandou/shared';
 import {
   CircleUserRound,
   Bot,
+  CalendarDays,
   ArrowRight,
   BarChart3,
   BookOpen,
@@ -182,6 +183,7 @@ const STATIC_ICON: Record<StaticIcon, ReactNode> = {
   plan: <CreditCard />,
   settings: <Settings />,
   news: <Sparkles />,
+  agenda: <CalendarDays />,
   plus: <ListPlus />,
   theme: <Moon />,
   password: <KeyRound />,

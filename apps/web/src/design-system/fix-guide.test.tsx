@@ -68,6 +68,10 @@ describe('links do assistente', () => {
     expect(safeAppPath('https://evil.com')).toBeNull();
     expect(safeAppPath('javascript:alert(1)')).toBeNull();
     expect(safeAppPath('/a/../b')).toBeNull();
+    // Tela que não existe (a IA inventou): vira texto, não link para "não encontrada".
+    expect(safeAppPath('/tela-inventada')).toBeNull();
+    expect(safeAppPath('/agenda')).toBe('/agenda');
+    expect(safeAppPath('/estoque/precificacao')).toBe('/estoque/precificacao');
   });
 
   it('[tela](/caminho) vira botão; endereço de fora vira texto', () => {

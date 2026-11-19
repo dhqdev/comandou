@@ -39,6 +39,7 @@ import { dayLabel, pdfFileName, renderCalendarPdf } from './agent-pdfs';
 import {
   AGENT_DEFAULTS,
   AgentMenuCategory,
+  AgentOrder,
   AgentReservations,
   AgentSettings,
   AgentStore,
@@ -483,6 +484,30 @@ export class AiAgentService implements OnModuleInit {
     };
   }
 
+  /**
+   * Pedidos das últimas 24 horas feitos com este número (o do WhatsApp que escreveu), para a IA
+   * responder "cadê meu pedido?". Compara DDD e os 8 últimos dígitos: o WhatsApp às vezes manda
+   * o celular sem o 9 da frente. Só pedidos deste número, nunca de outra pessoa.
+   */
+  async ordersIn(tx: Tx, phone: string): Promise<AgentOrder[]> {
+    const d = normalizePhone(phone);
+    if (d.length < 10) return [];
+    return q<AgentOrder>(
+      tx,
+      `SELECT number, status, channel, total::text AS total, payment_status AS "paymentStatus",
+                created_at AS "createdAt"
+           FROM (SELECT number, status, channel, total, payment_status, created_at,
+                        regexp_replace(customer_phone, '[^0-9]', '', 'g') AS d
+                   FROM orders
+                  WHERE customer_phone IS NOT NULL AND created_at > now() - interval '24 hours') x
+          WHERE right(x.d, 8) = $1
+            AND left(CASE WHEN length(x.d) IN (12, 13) AND left(x.d, 2) = '55'
+                          THEN substr(x.d, 3) ELSE x.d END, 2) = $2
+          ORDER BY created_at DESC LIMIT 5`,
+      [d.slice(-8), d.slice(0, 2)],
+    );
+  }
+
   /** Monta o prompt com o que o gerente configurou (ou com um rascunho, no teste). */
   private async prompt(
     ctx: { tenantId: string; userId?: string | null },
@@ -492,7 +517,7 @@ export class AiAgentService implements OnModuleInit {
     extra: { phone?: string | null; memory?: string | null } = {},
   ) {
     const info = await this.tenantInfo(ctx);
-    const { settings, menu, store, reservations, menuFiles } = await this.db.withTenant(
+    const { settings, menu, store, reservations, menuFiles, orders } = await this.db.withTenant(
       ctx,
       async (tx) => {
         const saved = await this.settingsIn(tx);
@@ -504,6 +529,7 @@ export class AiAgentService implements OnModuleInit {
           reservations: await this.reservationsIn(tx, s, extra.phone ?? null),
           menuFiles: (await one<{ n: number }>(tx, `SELECT count(*)::int AS n FROM ai_menu_files`))!
             .n,
+          orders: extra.phone ? await this.ordersIn(tx, extra.phone) : undefined,
         };
       },
     );
@@ -527,6 +553,7 @@ export class AiAgentService implements OnModuleInit {
         reservations,
         memory: extra.memory ?? null,
         menuFiles,
+        orders,
       }),
     };
   }

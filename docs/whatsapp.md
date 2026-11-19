@@ -99,8 +99,11 @@ coisa limpa e segue a conversa normal.
 
 **Memória.** Vão para o modelo as últimas 16 mensagens (até 30 dias) mais um resumo
 (`ai_customer_chats.memory`) das mais antigas, refeito pela própria IA quando sobram 10 fora da
-janela. O prompt também traz as reservas futuras do cliente e os próximos 15 dias com horários
-livres.
+janela. O prompt também traz as reservas futuras do cliente, os próximos 15 dias com horários
+livres e os pedidos das últimas 24 horas feitos com aquele número (`ordersIn`: DDD + 8 últimos
+dígitos, porque o WhatsApp às vezes manda o celular sem o 9), para a IA responder "cadê meu
+pedido?" com a situação em palavras simples. Problema com o pedido (atraso, item errado,
+cancelar) continua indo para a equipe com `[[ATENDENTE]]`.
 
 **Proteções.**
 
