@@ -1,4 +1,4 @@
-import { channelInfo, fromCents, toCents, type FinanceMonth } from '@comandou/shared';
+import { channelInfo, fromCents, toCents, type FinanceMonth, withArticle } from '@comandou/shared';
 import { RefreshCw, Smartphone } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../../design-system';
@@ -63,9 +63,10 @@ const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 /** Situação do repasse para a pessoa: conferido no extrato, pago, a cair ou com problema. */
 function payoutBadge(p: Payout, label: string) {
   if (p.status === 'failed') return <Badge tone="danger">Não foi feito</Badge>;
-  if (toCents(p.amount) <= 0) return <Badge tone="warning">Débito do {label}</Badge>;
+  if (toCents(p.amount) <= 0)
+    return <Badge tone="warning">Débito {withArticle(label, 'do')}</Badge>;
   if (p.reconciled) return <Badge tone="success">Conferido no extrato</Badge>;
-  if (p.status === 'paid') return <Badge tone="info">Pago pelo {label}</Badge>;
+  if (p.status === 'paid') return <Badge tone="info">Pago {withArticle(label, 'pelo')}</Badge>;
   return <Badge>A cair</Badge>;
 }
 

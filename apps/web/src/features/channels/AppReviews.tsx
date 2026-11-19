@@ -1,4 +1,4 @@
-import { channelInfo } from '@comandou/shared';
+import { channelInfo, withArticle } from '@comandou/shared';
 import { MessageSquareQuote, RefreshCw, Star } from 'lucide-react';
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Button, Card, Segmented, useToast } from '../../design-system';
@@ -79,7 +79,7 @@ function ReviewItem({
     setBusy(true);
     try {
       await api(`/channels/reviews/${r.id}/reply`, { method: 'POST', json: { text: text.trim() } });
-      toast(`Resposta publicada no ${label}`, 'success');
+      toast(`Resposta publicada ${withArticle(label, 'no')}`, 'success');
       setOpen(false);
       setText('');
       onReplied();
@@ -112,7 +112,7 @@ function ReviewItem({
             <span className="cm-hint">
               {r.replyFrom === 'comandou'
                 ? `Respondida por ${r.repliedByName ?? 'alguém da equipe'}`
-                : `Respondida no portal do ${label}`}
+                : `Respondida no portal ${withArticle(label, 'do')}`}
               {r.repliedAt && ` · ${when(r.repliedAt)}`}
             </span>
             <p>{r.reply}</p>
@@ -137,8 +137,8 @@ function ReviewItem({
               {len < MIN ? `Mínimo ${MIN} letras` : `${len} de ${MAX}`}
             </span>
             <p className="cm-hint">
-              A resposta aparece no {label} junto com a avaliação, para todo mundo ver, e não dá
-              para mudar depois.
+              A resposta aparece {withArticle(label, 'no')} junto com a avaliação, para todo mundo
+              ver, e não dá para mudar depois.
             </p>
             <div className="arv-form__actions">
               <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
@@ -284,7 +284,7 @@ export function OrderReviewNote({ orderId }: { orderId: string }) {
       <Star size={15} aria-hidden />
       <div>
         <span>
-          Avaliação no {label}: nota {nf(r.score)}
+          Avaliação {withArticle(label, 'no')}: nota {nf(r.score)}
           {r.reply ? ' · respondida' : r.canReply ? ' · sem resposta' : ''}
         </span>
         <strong>{r.comment ?? 'Sem comentário, só a nota.'}</strong>

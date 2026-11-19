@@ -3,6 +3,7 @@ import {
   driverMovesForward,
   shiftsLabel,
   actionForTransition,
+  withArticle,
   channelPath,
   channelInfo,
   channelMovesForward,
@@ -62,6 +63,12 @@ describe('canais de delivery', () => {
     expect(actionForTransition('ready', 'dispatched', 'merchant')).toBe('dispatch');
     expect(actionForTransition('dispatched', 'completed', 'merchant')).toBe('delivered');
     expect(actionForTransition('dispatched', 'ready', 'merchant')).toBeNull();
+    expect(actionForTransition('ready', 'completed', 'merchant')).toBe('picked_up');
+    expect(withArticle('Keeta', 'do')).toBe('da Keeta');
+    expect(withArticle('99Food', 'no')).toBe('na 99Food');
+    expect(withArticle('iFood', 'O')).toBe('O iFood');
+    expect(withArticle('aiqfome', 'pelo')).toBe('pelo aiqfome');
+    expect(actionForTransition('ready', 'completed', 'channel')).toBeNull();
     expect(actionForTransition('new', 'cancel_requested', null)).toBe('request_cancellation');
   });
 

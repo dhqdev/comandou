@@ -5,6 +5,7 @@ import {
   shiftsLabel,
   type ChannelShift,
   type ChannelStoreState,
+  withArticle,
 } from '@comandou/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
@@ -122,7 +123,7 @@ export function StorePauseControls({
           loading={busy}
           onClick={() => void post(`/channels/stores/${s.id}/resume`)}
         >
-          Reabrir no {label}
+          Reabrir {withArticle(label, 'no')}
         </Button>
       </div>
     );
@@ -130,7 +131,7 @@ export function StorePauseControls({
     return (
       <div className="ch-store-pause">
         <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-          Pausar no {label}
+          Pausar {withArticle(label, 'no')}
         </Button>
       </div>
     );
@@ -155,8 +156,9 @@ export function StorePauseControls({
         maxLength={200}
       />
       <p className="ch-store-state__sub">
-        Só o {label} para de receber pedidos; o cardápio online e o salão continuam.{' '}
-        {minutes === '' && `"Até eu reabrir" vale por no máximo 7 dias no ${label}.`}
+        Só {withArticle(label, 'o')} para de receber pedidos; o cardápio online e o salão continuam.{' '}
+        {minutes === '' &&
+          `"Até eu reabrir" vale por no máximo 7 dias ${withArticle(label, 'no')}.`}
       </p>
       <div className="actions-row">
         <Button variant="secondary" onClick={() => setOpen(false)}>

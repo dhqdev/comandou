@@ -5,7 +5,11 @@ import {
   keetaSignature,
   keetaSignatureString,
   odCancelCode,
+  odDenyCode,
+  odDispute,
   odEventKind,
+  odExtraInfo,
+  odSettlement,
   odRefundDispute,
   odToExternal,
   odVerb,
@@ -184,6 +188,56 @@ describe('Open Delivery / Keeta: pedido', () => {
       alternatives: [],
       acceptReasons: [],
     });
+  });
+});
+
+describe('99Food (Open Delivery da Plataforma Aberta)', () => {
+  it('extraInfo: localizador e código de retirada vão para os campos; o resto fica na observação', () => {
+    expect(
+      odExtraInfo('localizador: 12345678; código de retirada: 6795; precisa de talheres: sim'),
+    ).toEqual({ locator: '12345678', pickupCode: '6795', rest: 'precisa de talheres: sim' });
+    expect(odExtraInfo('sem cebola')).toEqual({ rest: 'sem cebola' });
+    expect(odExtraInfo(undefined)).toEqual({});
+    const o = odToExternal(
+      keetaOrder({
+        type: 'TAKEOUT',
+        delivery: undefined,
+        customer: { name: 'Carla', phone: { number: '0800 555 1234' } },
+        extraInfo: 'localizador: 87654321; código de retirada: 6795; precisa de talheres: não',
+      }),
+      '99food',
+      '99Food',
+    );
+    expect(o).toMatchObject({
+      fulfillment: 'takeout',
+      pickupCode: '6795',
+      notes: 'precisa de talheres: não',
+      customer: { name: 'Carla', phone: '0800 555 1234', phoneLocator: '87654321' },
+    });
+  });
+
+  it('pedido de cancelamento do cliente: aceitar e negar com o código que a 99Food aceita', () => {
+    expect(odEventKind('ORDER_CANCELLATION_REQUEST')).toBe('order.dispute');
+    expect(odEventKind('CANCELLED_DENIED')).toBe('order.dispute_settled');
+    expect(odDispute('nn-1', 'ORDER_CANCELLATION_REQUEST', undefined)).toEqual({
+      externalId: 'nn-1:cancel',
+      kind: 'CANCELLATION',
+      alternatives: [],
+      acceptReasons: [],
+    });
+    expect(odDispute('kt-1', 'USER_REFUND_REQUEST', '{}').kind).toBe('REFUND_REQUEST');
+    expect(odSettlement('nn-1', 'CANCELLED_DENIED')).toEqual({
+      externalId: 'nn-1:cancel',
+      outcome: 'CANCELLED_DENIED',
+    });
+    expect(odSettlement('kt-1', 'REFUNDED').externalId).toBe('kt-1:refund');
+    expect(odVerb('dispute_accept', 'nn-1:cancel')).toBe('acceptCancellation');
+    expect(odVerb('dispute_reject', 'nn-1:cancel')).toBe('denyCancellation');
+    expect(odVerb('dispute_reject', 'kt-1:refund')).toBe('rejectRefund');
+    expect(odVerb('picked_up')).toBe('pickedUp');
+    expect(odDenyCode('Já saiu para entrega')).toBe('OUT_FOR_DELIVERY');
+    expect(odDenyCode('O prato já está pronto')).toBe('DISH_ALREADY_DONE');
+    expect(odDenyCode(undefined)).toBe('DISH_ALREADY_DONE');
   });
 });
 

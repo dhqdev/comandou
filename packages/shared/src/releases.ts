@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.190.0',
+    date: '2026-11-19',
+    title: 'Pedidos da 99Food chegando no Comandou',
+    summary:
+      'Com a loja vinculada ao Comandou na 99Food, os pedidos chegam sozinhos e aceitar, pronto, saiu, entregue, retirado e cancelar voltam para a 99Food. Quando o cliente pede para cancelar, uma pessoa da loja aceita ou recusa.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Em Aplicativos de delivery, o cartão da 99Food tem "Ligar uma loja": cole o número da loja na 99Food e o Comandou confere se ela já está vinculada.',
+      },
+      {
+        tag: 'novo',
+        text: 'O pedido da 99Food entra com itens, taxa de entrega, gorjeta, cupom de quem pagou e dinheiro com troco. O localizador do telefone do cliente e o código de retirada aparecem no pedido.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pedido de retirada concluído no Comandou avisa a 99Food que o cliente já retirou. Quando o cliente pede para cancelar, o pedido mostra o pedido e uma pessoa aceita ou recusa.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Os avisos agora falam "da Keeta", "na 99Food" e "da Rappi", com o artigo certo.',
+      },
+    ],
+  },
+  {
     version: '0.189.0',
     date: '2026-11-19',
     title: 'Pedidos da Keeta chegando no Comandou',

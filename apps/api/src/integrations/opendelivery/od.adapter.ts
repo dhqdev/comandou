@@ -1,5 +1,5 @@
 import type { ChannelCancelReason, ChannelCapability, ExternalOrder } from '@comandou/shared';
-import { channelInfo } from '@comandou/shared';
+import { channelInfo, withArticle } from '@comandou/shared';
 import {
   ChannelHttpError,
   type ActionRequest,
@@ -26,10 +26,12 @@ import {
   keetaSignature,
   keetaSignatureString,
   odCancelCode,
+  OD_99FOOD_EVENT_TYPES,
+  odDenyCode,
+  odDispute,
   odDriverUpdate,
   odEventKind,
-  odRefundDispute,
-  odRefundSettlement,
+  odSettlement,
   odToExternal,
   odVerb,
   type OdOrder,
@@ -44,16 +46,29 @@ interface OdEvent {
   metadata?: unknown;
 }
 
-/** Como cada aplicativo do padrão difere (a Keeta assina tudo e pede o cadastro da loja). */
+/**
+ * Como cada aplicativo do padrão difere: a Keeta assina tudo e pede o cadastro da loja; a 99Food
+ * dá um token por loja e pede os tipos de evento e o início da janela no polling.
+ */
 export interface OdDialect {
-  /** 'keeta' ou 'opendelivery' (ou um `od-<nome>` no futuro). */
+  /** 'keeta', '99food' ou 'opendelivery' (ou um `od-<nome>` no futuro). */
   channel: string;
   /** Keeta: X-App-Signature em toda chamada e corpo canônico (RFC 8785). */
   signed: boolean;
-  /** Keeta: token por JSON com `app_level_token`; padrão V1: formulário com `client_credentials`. */
-  token: 'keeta' | 'form';
+  /**
+   * Keeta: token do aplicativo por JSON com `app_level_token`; padrão V1: formulário com
+   * `client_credentials`; 99Food ('store'): o mesmo formulário, mas um token por loja, com
+   * `client_id` = `<App ID>_<id da loja>`.
+   */
+  token: 'keeta' | 'form' | 'store';
   /** Keeta: a loja precisa do PUT /v1/merchantOnboarding antes de receber eventos. */
   onboarding: boolean;
+  /** Parâmetros do polling (99Food: eventType e fromTime são obrigatórios). */
+  pollQuery?: (now: Date) => string;
+  /** 99Food: retirada no balcão se avisa com /pickedUp. */
+  pickedUp?: boolean;
+  /** Pedidos de token por minuto que o Comandou se permite (token por loja precisa de mais). */
+  tokenPerMinute?: number;
   capabilities: readonly ChannelCapability[];
 }
 
@@ -93,6 +108,35 @@ export const OPEN_DELIVERY_DIALECT: OdDialect = {
   ],
 };
 
+/** Janela da 99Food: 24 horas para trás (evento sem ack mais velho que isso já se perdeu). */
+const fromTime99 = (now: Date) =>
+  new Date(now.getTime() - 24 * 3600_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+export const FOOD99_DIALECT: OdDialect = {
+  channel: '99food',
+  signed: false,
+  token: 'store',
+  onboarding: false,
+  pickedUp: true,
+  tokenPerMinute: 240,
+  pollQuery: (now) =>
+    [
+      ...OD_99FOOD_EVENT_TYPES.map((t) => `eventType=${t}`),
+      `fromTime=${encodeURIComponent(fromTime99(now))}`,
+    ].join('&'),
+  capabilities: [
+    'orders',
+    'polling',
+    'confirm',
+    'reject',
+    'ready',
+    'dispatch',
+    'delivered',
+    'cancel',
+    'disputes',
+  ],
+};
+
 /** Credencial de polling: um token do aplicativo para todas as lojas autorizadas. */
 export const odCredential = (channel: string) => `${channel}:app`;
 
@@ -107,7 +151,8 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
   readonly capabilities: readonly ChannelCapability[];
   private readonly label: string;
   private http?: { base: string; client: ChannelHttp };
-  private token?: { value: string; until: number; key: string };
+  /** Tokens guardados: '*' = do aplicativo; na 99Food, um por loja. */
+  private readonly tokens = new Map<string, { value: string; until: number; key: string }>();
   private readonly gate = new RateGate();
 
   constructor(
@@ -125,13 +170,18 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
 
   private async app() {
     const c = await this.creds.get(this.id);
-    if (!c) throw new ChannelHttpError(401, `Chaves do ${this.label} não cadastradas no Comandou`);
+    if (!c)
+      throw new ChannelHttpError(
+        401,
+        `Chaves ${withArticle(this.label, 'do')} não cadastradas no Comandou`,
+      );
     return c;
   }
 
   private async client(secret: string): Promise<ChannelHttp> {
     const base = await this.baseOf();
-    if (!base) throw new ChannelHttpError(400, `Endereço do ${this.label} não cadastrado`);
+    if (!base)
+      throw new ChannelHttpError(400, `Endereço ${withArticle(this.label, 'do')} não cadastrado`);
     const key = `${base}|${secret.slice(-6)}`;
     if (this.http?.base !== key) {
       const signer: ChannelSigner | undefined = this.dialect.signed
@@ -156,14 +206,25 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
     return this.http.client;
   }
 
-  /** Token do aplicativo, guardado até 5 minutos antes de vencer. */
-  private async bearer(forget = false): Promise<{ token: string; http: ChannelHttp }> {
+  /**
+   * Token do aplicativo (ou da loja, na 99Food), guardado até 5 minutos antes de vencer. Na 99Food
+   * o `client_id` é `<App ID>_<id da loja>` e a loja precisa estar vinculada ao app do Comandou.
+   */
+  private async bearer(
+    forget = false,
+    storeId?: string,
+  ): Promise<{ token: string; http: ChannelHttp }> {
     const c = await this.app();
     const http = await this.client(c.clientSecret);
-    const key = `${c.clientId}|${c.last4}`;
-    if (forget) this.token = undefined;
-    if (this.token && this.token.key === key && Date.now() < this.token.until)
-      return { token: this.token.value, http };
+    const perStore = this.dialect.token === 'store';
+    if (perStore && !storeId) throw new ChannelHttpError(400, 'Loja não informada');
+    const scope = perStore ? storeId! : '*';
+    const clientId = perStore ? `${c.clientId}_${storeId}` : c.clientId;
+    const key = `${clientId}|${c.last4}`;
+    if (forget) this.tokens.delete(scope);
+    const cached = this.tokens.get(scope);
+    if (cached && cached.key === key && Date.now() < cached.until)
+      return { token: cached.value, http };
     const r = await http.request<{ access_token?: string; expires_in?: number }>({
       endpoint: 'auth:token',
       method: 'POST',
@@ -179,25 +240,27 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
         : {
             form: {
               grant_type: 'client_credentials',
-              client_id: c.clientId,
+              client_id: clientId,
               client_secret: c.clientSecret,
             },
           }),
-      perMinute: OD_LIMITS.token,
+      perMinute: this.dialect.tokenPerMinute ?? OD_LIMITS.token,
       retries: 1,
     });
     const value = r.body?.access_token;
     if (!value || typeof value !== 'string')
-      throw new ChannelHttpError(502, `O ${this.label} não devolveu o token`);
+      throw new ChannelHttpError(502, `${withArticle(this.label, 'O')} não devolveu o token`);
     const ttl = Number(r.body.expires_in) > 0 ? Number(r.body.expires_in) : 3600;
-    this.token = { value, key, until: Date.now() + Math.max(60, ttl - 300) * 1000 };
+    // Loja que saiu do app deixa o token aqui até vencer; o limite evita crescer sem fim.
+    if (this.tokens.size > 5000) this.tokens.clear();
+    this.tokens.set(scope, { value, key, until: Date.now() + Math.max(60, ttl - 300) * 1000 });
     return { token: value, http };
   }
 
-  /** Chamada com o token do aplicativo; 401 → token novo e uma repetição. */
-  async call<T>(r: Omit<ChannelRequest, 'token'>) {
+  /** Chamada com o token do aplicativo (ou da loja); 401 → token novo e uma repetição. */
+  async call<T>(r: Omit<ChannelRequest, 'token'>, storeId?: string) {
     for (let attempt = 0; ; attempt++) {
-      const { token, http } = await this.bearer(attempt > 0);
+      const { token, http } = await this.bearer(attempt > 0, storeId);
       try {
         return await http.request<T>({ ...r, token });
       } catch (e) {
@@ -218,14 +281,20 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
     for (const s of batch.stores) {
       let list: OdEvent[];
       try {
-        const r = await this.call<OdEvent[] | null>({
-          endpoint: 'events:polling',
-          method: 'GET',
-          path: OD_PATHS.polling,
-          headers: { 'x-polling-merchants': s.storeId },
-          perMinute: OD_LIMITS.polling,
-          retries: 0,
-        });
+        const q = this.dialect.pollQuery?.(new Date());
+        const perStore = this.dialect.token === 'store';
+        const r = await this.call<OdEvent[] | null>(
+          {
+            endpoint: 'events:polling',
+            method: 'GET',
+            path: q ? `${OD_PATHS.polling}?${q}` : OD_PATHS.polling,
+            // Token por loja (99Food) já diz de quem são os eventos.
+            ...(perStore ? {} : { headers: { 'x-polling-merchants': s.storeId } }),
+            perMinute: OD_LIMITS.polling,
+            retries: 0,
+          },
+          s.storeId,
+        );
         list = Array.isArray(r.body) ? r.body : [];
         ok++;
       } catch (e) {
@@ -250,10 +319,10 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
           payload: {
             eventType: e.eventType ?? null,
             ...(kind === 'order.dispute' && orderId
-              ? { dispute: odRefundDispute(orderId, e.metadata) }
+              ? { dispute: odDispute(orderId, e.eventType, e.metadata) }
               : {}),
             ...(kind === 'order.dispute_settled' && orderId
-              ? { settlement: odRefundSettlement(orderId, e.eventType) }
+              ? { settlement: odSettlement(orderId, e.eventType) }
               : {}),
             ...(kind === 'delivery.update' ? { delivery: odDriverUpdate(e.eventType) } : {}),
           },
@@ -265,33 +334,46 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
   }
 
   async ack(_batch: PollBatch, events: ChannelEvent[]) {
-    for (let i = 0; i < events.length; i += OD_ACK_BATCH) {
-      const part = events.slice(i, i + OD_ACK_BATCH);
-      await this.call({
-        endpoint: 'events:ack',
-        method: 'POST',
-        path: OD_PATHS.ack,
-        json: part.map((e) => ({
-          id: e.id,
-          eventType: e.code,
-          ...(e.orderId ? { orderId: e.orderId } : {}),
-        })),
-        perMinute: OD_LIMITS.ack,
-        retries: 2,
-      });
+    // Token por loja (99Food): o ack de cada loja vai com o token dela.
+    const groups = new Map<string | undefined, ChannelEvent[]>();
+    for (const e of events) {
+      const k = this.dialect.token === 'store' ? e.storeId : undefined;
+      groups.set(k, [...(groups.get(k) ?? []), e]);
     }
+    for (const [storeId, list] of groups)
+      for (let i = 0; i < list.length; i += OD_ACK_BATCH) {
+        const part = list.slice(i, i + OD_ACK_BATCH);
+        await this.call(
+          {
+            endpoint: 'events:ack',
+            method: 'POST',
+            path: OD_PATHS.ack,
+            json: part.map((e) => ({
+              id: e.id,
+              eventType: e.code,
+              ...(e.orderId ? { orderId: e.orderId } : {}),
+            })),
+            perMinute: OD_LIMITS.ack,
+            retries: 2,
+          },
+          storeId,
+        );
+      }
   }
 
   async fetchOrder(ref: OrderRef): Promise<ExternalOrder> {
-    const r = await this.call<OdOrder>({
-      endpoint: 'orders:details',
-      method: 'GET',
-      path: OD_PATHS.order(ref.externalOrderId),
-      perMinute: OD_LIMITS.order,
-      retries: 0,
-    });
+    const r = await this.call<OdOrder>(
+      {
+        endpoint: 'orders:details',
+        method: 'GET',
+        path: OD_PATHS.order(ref.externalOrderId),
+        perMinute: OD_LIMITS.order,
+        retries: 0,
+      },
+      ref.storeId,
+    );
     if (!r.body || typeof r.body !== 'object' || !r.body.id)
-      throw new ChannelHttpError(502, `O ${this.label} devolveu o pedido vazio`);
+      throw new ChannelHttpError(502, `${withArticle(this.label, 'O')} devolveu o pedido vazio`);
     const o = odToExternal(r.body, this.id, this.label);
     // O id da loja no pedido é o do aplicativo; a loja que buscou é a que vale.
     o.storeId = ref.storeId;
@@ -303,15 +385,17 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
   }
 
   async send(req: ActionRequest) {
-    const verb = odVerb(req.action);
-    if (!verb) return;
     const p = req.payload as {
       reason?: string;
       cancellationCode?: string;
       orderCode?: string;
       createdAt?: string;
       preparationMinutes?: number;
+      disputeId?: string;
     };
+    const verb = odVerb(req.action, p.disputeId);
+    // Sem esse aviso no aplicativo (ex.: retirada no balcão fora da 99Food): nada a mandar.
+    if (!verb || (verb === 'pickedUp' && !this.dialect.pickedUp)) return;
     let json: Record<string, unknown> | undefined;
     if (verb === 'confirm') {
       json = {
@@ -330,17 +414,25 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
         code: odCancelCode(p.cancellationCode),
         mode: 'MANUAL',
       };
+    } else if (verb === 'denyCancellation') {
+      json = {
+        reason: (p.reason?.trim() || 'O pedido já está pronto').slice(0, 250),
+        code: odDenyCode(p.reason),
+      };
     }
     try {
-      await this.call({
-        endpoint: `orders:${verb.toLowerCase()}`,
-        method: 'POST',
-        path: OD_PATHS.action(req.externalOrderId, verb),
-        ...(json ? { json } : {}),
-        perMinute: OD_LIMITS.action,
-        // A caixa de saída repete com espera crescente (5xx/429); aqui não.
-        retries: 0,
-      });
+      await this.call(
+        {
+          endpoint: `orders:${verb.toLowerCase()}`,
+          method: 'POST',
+          path: OD_PATHS.action(req.externalOrderId, verb),
+          ...(json ? { json } : {}),
+          perMinute: OD_LIMITS.action,
+          // A caixa de saída repete com espera crescente (5xx/429); aqui não.
+          retries: 0,
+        },
+        req.storeId,
+      );
     } catch (e) {
       // 422 = a mesma instrução já foi aceita antes (o padrão pede para não repetir).
       if (e instanceof ChannelHttpError && e.status === 422) return;
@@ -348,8 +440,15 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
     }
   }
 
-  /** Keeta: liga a loja da Keeta ao id dela no Comandou (sem isso não chega evento nenhum). */
+  /**
+   * Keeta: liga a loja da Keeta ao id dela no Comandou (sem isso não chega evento nenhum).
+   * 99Food: confere que a loja está vinculada ao app do Comandou pedindo o token dela.
+   */
   async onboard(storeId: string, channelStoreId: string) {
+    if (this.dialect.token === 'store') {
+      await this.bearer(true, storeId);
+      return;
+    }
     if (!this.dialect.onboarding) return;
     const n = Number(channelStoreId);
     if (!Number.isSafeInteger(n) || n <= 0)

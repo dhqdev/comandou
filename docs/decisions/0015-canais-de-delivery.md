@@ -548,3 +548,38 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     para testar); webhooks (só polling, que já cumpre o prazo); cardápio, status/pausa da loja e
     `GET /v1/merchant` da Keeta; `batchDecrypt` dos dados cifrados do cliente; mais de um app
     Open Delivery genérico ao mesmo tempo.
+- **Fase 11** (99Food, 0.190.0): pela **camada Open Delivery** da Plataforma Aberta da 99Food, com
+  o mesmo `OpenDeliveryAdapter` e o dialeto `FOOD99_DIALECT` (base `FOOD99_API_URL`, padrão
+  `https://openapi.99food.com/v4/opendelivery`), sem migração nova.
+  - **Por que o Open Delivery e não o protocolo próprio da 99Food**: o protocolo próprio (o que a
+    99Food recomenda) só entrega pedido por **webhook** com assinatura MD5 do corpo + segredo, e o
+    Comandou ainda não tem entrada de webhook (tudo é polling, que já cumpre os prazos). A camada
+    Open Delivery tem polling e as ações do ciclo; ficam de fora status da loja, financeiro e
+    vínculo por endpoint, que só o protocolo próprio tem.
+  - **Token por loja**: `client_id` = `<App ID>_<app_shop_id>` (formulário `client_credentials`),
+    um token por loja guardado até 5 minutos antes de vencer (12.600 s na doc). Ligar a loja pede
+    o token dela: se a 99Food recusa, a loja ainda não foi vinculada ao app do Comandou.
+    **Convenção**: ao vincular a loja em Application Management › Store Management, a equipe usa
+    como `app_shop_id` o próprio número da loja na 99Food (`shop_id`); é ele que o restaurante
+    cola em "Ligar uma loja" e que vira o id da loja no Comandou.
+  - **Polling** com `eventType` (os 11 tipos; o que não for pedido a 99Food dá ack sozinha) e
+    `fromTime` (24 horas para trás) na query, com o token da loja (sem `x-polling-merchants`); ack
+    agrupado por loja.
+  - **Ações**: `confirm`, `readyForPickup`, `dispatch` e `delivered` (entrega da loja), **`pickedUp`**
+    (nova ação `picked_up` do Comandou: pedido concluído a partir de "pronto", sem sair para
+    entrega, com entrega da loja; vai junto com a capacidade "avisar entregue" e só a 99Food usa)
+    e `requestCancellation`. O **pedido de cancelamento do cliente** (`ORDER_CANCELLATION_REQUEST`)
+    vira negociação `CANCELLATION` (`<pedido>:cancel`): aceitar manda `acceptCancellation`; recusar
+    manda `denyCancellation` com `OUT_FOR_DELIVERY` se a frase fala em saída/entrega, senão
+    `DISH_ALREADY_DONE`; `CANCELLED_DENIED` encerra.
+  - **Pedido**: o mesmo `odToExternal`; o `extraInfo` da 99Food ("localizador: …; código de
+    retirada: …; precisa de talheres: …") põe o localizador do telefone e o código de retirada nos
+    campos deles e deixa o resto na observação.
+  - **Artigos**: `withArticle` (shared) escreve "da Keeta", "na 99Food", "da Rappi", "do iFood" nas
+    telas e avisos que citam o aplicativo.
+  - **Testes**: `test/food99.e2e.test.ts` (8, com a 99Food falsa `test/fake-99food.ts`: token por
+    loja, polling que exige os parâmetros) e 2 em `od-order.test.ts`.
+  - Fica de fora: protocolo próprio da 99Food (webhook, status/pausa da loja, cardápio,
+    financeiro, página de autorização da loja); conferir no sandbox o formato do token (formulário)
+    e do `eventType` (repetido na query), que a doc não mostra em exemplo; entrega pelo entregador
+    da 99Food (o rastreio dela é webhook).

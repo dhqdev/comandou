@@ -44,6 +44,22 @@ export function channelInfo(channel: string, name?: string): ChannelInfo {
   return { label: name || channel, color: '#475569', ink: '#FFFFFF' };
 }
 
+/** Aplicativos que se fala no feminino ("a Keeta", "a 99Food", "a Rappi"). */
+const FEMININE = new Set(['Keeta', '99Food', 'Rappi']);
+const ARTICLES = {
+  o: ['o', 'a'],
+  O: ['O', 'A'],
+  do: ['do', 'da'],
+  no: ['no', 'na'],
+  pelo: ['pelo', 'pela'],
+  ao: ['ao', 'à'],
+} as const;
+
+/** Nome do aplicativo com o artigo certo: "do iFood", "da Keeta", "na 99Food". */
+export function withArticle(label: string, prep: keyof typeof ARTICLES): string {
+  return `${ARTICLES[prep][FEMININE.has(label) ? 1 : 0]} ${label}`;
+}
+
 /** O que um canal pode oferecer. A tela mostra o que falta, sem esconder. */
 export const CHANNEL_CAPABILITIES = [
   'orders',
@@ -212,6 +228,7 @@ export const CHANNEL_ACTIONS = [
   'ready',
   'dispatch',
   'delivered',
+  'picked_up',
   'request_cancellation',
   'dispute_accept',
   'dispute_reject',
@@ -226,6 +243,7 @@ export const CHANNEL_ACTION_LABELS: Record<ChannelAction, string> = {
   ready: 'Pronto',
   dispatch: 'Saiu para entrega',
   delivered: 'Entregue',
+  picked_up: 'Retirado pelo cliente',
   request_cancellation: 'Pedido de cancelamento',
   dispute_accept: 'Aceite do pedido do cliente',
   dispute_reject: 'Recusa do pedido do cliente',
@@ -239,6 +257,8 @@ export const CHANNEL_ACTION_CAPABILITY: Record<ChannelAction, ChannelCapability>
   ready: 'ready',
   dispatch: 'dispatch',
   delivered: 'delivered',
+  // Retirada no balcão: vai junto com "avisar entregue" (só a 99Food pede esse aviso).
+  picked_up: 'delivered',
   request_cancellation: 'cancel',
   dispute_accept: 'disputes',
   dispute_reject: 'disputes',
@@ -260,6 +280,8 @@ export function actionForTransition(
   if (to === 'ready' && from !== 'dispatched') return 'ready';
   if (to === 'dispatched') return deliveredBy === 'merchant' ? 'dispatch' : null;
   if (to === 'completed' && from === 'dispatched' && deliveredBy === 'merchant') return 'delivered';
+  // Concluído sem sair para entrega: o cliente retirou no balcão.
+  if (to === 'completed' && from === 'ready' && deliveredBy === 'merchant') return 'picked_up';
   if (to === 'cancel_requested') return 'request_cancellation';
   return null;
 }

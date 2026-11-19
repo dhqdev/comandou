@@ -187,6 +187,40 @@ export const CREDENTIALS: CredDef[] = [
     ],
   },
   {
+    id: 'channel_99food',
+    title: '99Food · aplicativo do Comandou',
+    group: 'painel',
+    purpose:
+      'Opcional. Recebe os pedidos da 99Food pela camada Open Delivery da Plataforma Aberta. Uma credencial para todos os restaurantes; cada loja é vinculada ao app do Comandou.',
+    fields: [
+      { name: 'Client ID', text: <>o App ID do aplicativo, em Application Management.</> },
+      { name: 'Client Secret', text: <>o App Secret do mesmo aplicativo.</> },
+    ],
+    check: (
+      <>
+        Salvo, este cartão fica verde. Vincule cada loja ao app em Application Management › Store
+        Management usando como app_shop_id o próprio número da loja na 99Food; depois, no
+        restaurante, Sistema › Aplicativos de delivery liga a loja por esse número.
+      </>
+    ),
+    steps: [
+      <>
+        Crie a conta e o aplicativo na{' '}
+        <a href="https://developer-food.99app.com/pt-BR/openapi" target="_blank" rel="noreferrer">
+          Plataforma Aberta da 99Food
+        </a>{' '}
+        (qualificação, app de teste e loja de teste) e escolha o protocolo Open Delivery.
+      </>,
+      <>Copie o App ID e o App Secret e cole aqui embaixo.</>,
+    ],
+    links: [
+      {
+        label: 'Plataforma Aberta da 99Food',
+        href: 'https://developer-food.99app.com/pt-BR/openapi',
+      },
+    ],
+  },
+  {
     id: 'channel_opendelivery',
     title: 'Open Delivery · aplicativo do Comandou',
     group: 'painel',
@@ -219,7 +253,6 @@ export const CREDENTIALS: CredDef[] = [
   },
   ...(
     [
-      ['99food', '99Food', 'parceria de integração da 99Food'],
       ['rappi', 'Rappi', 'Rappi Developers (portal de parceiros)'],
       ['aiqfome', 'aiqfome', 'parceria de integração do aiqfome'],
     ] as const

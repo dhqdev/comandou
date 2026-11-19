@@ -258,10 +258,12 @@ roteiro de homologação numa lista numerada (`adm-chs__step`: número em círcu
 feito, abre o como fazer e a observação; o próximo passo já vem aberto).
 
 No restaurante (Aplicativos de delivery, `pages/IntegrationsPage.tsx`), o aplicativo em que a
-própria loja liga o cadastro (Keeta, Open Delivery: `CONNECT_HERE` em
-`features/channels/ConnectStore.tsx`) tem "Ligar loja" secondary que abre, dentro do cartão, o
+própria loja liga o cadastro (Keeta, 99Food, Open Delivery: `CONNECT_HERE` em
+`features/channels/ConnectStore.tsx`) tem "Ligar uma loja" secondary que abre, dentro do cartão, o
 formulário `intg-connect` (frase de onde achar o código, código e nome um por linha, Cancelar e
 Ligar loja embaixo à direita); o erro do aplicativo aparece em português no próprio formulário.
+Nome de aplicativo no meio de uma frase vai com `withArticle` (shared): "da Keeta", "na 99Food",
+"do iFood"; nunca escreva "do {label}" na mão.
 
 ## Super Admin › Conversas
 

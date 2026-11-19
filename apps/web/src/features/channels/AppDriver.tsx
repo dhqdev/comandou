@@ -4,6 +4,7 @@ import {
   channelInfo,
   type ChannelCancelReason,
   type DriverStatus,
+  withArticle,
 } from '@comandou/shared';
 import { Bike } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -164,13 +165,15 @@ export function AppDriverCard({ orderId, canManage }: { orderId: string; canMana
           {status
             ? DRIVER_STATUS_LABELS[status]
             : d.deliveredBy === 'channel'
-              ? `Entregador do ${label} ainda não foi escolhido`
+              ? `Entregador ${withArticle(label, 'do')} ainda não foi escolhido`
               : 'Entrega da loja'}
         </strong>
         {who && <span className="app-driver__who">{who}</span>}
       </div>
       {d.deliveredBy === 'channel' && (
-        <span className="app-driver__sub">Quem entrega é o entregador do {label}.</span>
+        <span className="app-driver__sub">
+          Quem entrega é o entregador {withArticle(label, 'do')}.
+        </span>
       )}
       {eta && <span className="app-driver__sub">{eta}</span>}
       {d.pickupCode && d.deliveredBy === 'channel' && (
@@ -184,14 +187,14 @@ export function AppDriverCard({ orderId, canManage }: { orderId: string; canMana
       )}
       {status === 'request_failed' && (
         <span className="app-driver__sub">
-          O {label} não achou entregador. Chame de novo ou entregue com o seu.
+          {withArticle(label, 'O')} não achou entregador. Chame de novo ou entregue com o seu.
         </span>
       )}
 
       {canManage && quote && (
         <div className="app-driver__quote">
           <span>
-            Entregador do {label}: <b>{brl(quote.fee)}</b>
+            Entregador {withArticle(label, 'do')}: <b>{brl(quote.fee)}</b>
             {quote.minMinutes && quote.maxMinutes
               ? ` · ${quote.minMinutes}–${quote.maxMinutes} min`
               : ''}
@@ -200,7 +203,7 @@ export function AppDriverCard({ orderId, canManage }: { orderId: string; canMana
           <span className="app-driver__sub">
             {expired
               ? 'O valor venceu. Peça de novo.'
-              : `Valor vale até ${hhmm(quote.expiresAt)}. A taxa é cobrada no repasse do ${label}.`}
+              : `Valor vale até ${hhmm(quote.expiresAt)}. A taxa é cobrada no repasse ${withArticle(label, 'do')}.`}
           </span>
           <div className="app-driver__actions">
             <Button variant="secondary" size="sm" onClick={() => setQuote(null)}>
@@ -267,7 +270,7 @@ export function AppDriverCard({ orderId, canManage }: { orderId: string; canMana
         <div className="app-driver__actions">
           {d.canRequest && (
             <Button variant="secondary" size="sm" loading={busy} onClick={() => void askQuote()}>
-              Chamar entregador do {label}
+              Chamar entregador {withArticle(label, 'do')}
             </Button>
           )}
           {d.canCancel && (
@@ -302,9 +305,13 @@ export function AppDriverTag({
 }) {
   const label = channelInfo(channel).label;
   const tone = status ? DRIVER_TONE[status] : 'off';
-  const text = status ? DRIVER_STATUS_LABELS[status] : `Entregador do ${label}`;
+  const text = status ? DRIVER_STATUS_LABELS[status] : `Entregador ${withArticle(label, 'do')}`;
   return (
-    <span className="app-driver-tag" data-tone={tone} title={`Entregador do ${label}: ${text}`}>
+    <span
+      className="app-driver-tag"
+      data-tone={tone}
+      title={`Entregador ${withArticle(label, 'do')}: ${text}`}
+    >
       {text}
     </span>
   );

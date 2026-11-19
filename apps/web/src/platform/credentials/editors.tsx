@@ -1087,8 +1087,8 @@ export function ChannelEditor({
   const [baseUrl, setBaseUrl] = useState('');
   const { busy, error, run } = useBusy();
   const needsBase = channel === 'opendelivery';
-  // Keeta e Open Delivery buscam por polling: não há segredo de webhook para guardar.
-  const polling = channel === 'keeta' || needsBase;
+  // Keeta, 99Food e Open Delivery buscam por polling: não há segredo de webhook para guardar.
+  const polling = channel === 'keeta' || channel === '99food' || needsBase;
   const saved = state?.source === 'panel';
 
   async function save(e: FormEvent) {

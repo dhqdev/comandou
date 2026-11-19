@@ -1,4 +1,4 @@
-import { channelInfo } from '@comandou/shared';
+import { channelInfo, withArticle } from '@comandou/shared';
 import { Landmark } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
@@ -37,12 +37,12 @@ export function AppOrderFinance({ orderId }: { orderId: string }) {
     <div className="od-note" data-hue={f.net !== null ? 'green' : undefined}>
       <Landmark size={15} aria-hidden />
       <div>
-        <span>Repasse do {label}</span>
+        <span>Repasse {withArticle(label, 'do')}</span>
         {f.net === null ? (
           <strong>
             {f.updatedAt
-              ? `O ${label} ainda não fechou a conta desta venda.`
-              : `Ainda não lido do financeiro do ${label}.`}
+              ? `${withArticle(label, 'O')} ainda não fechou a conta desta venda.`
+              : `Ainda não lido do financeiro ${withArticle(label, 'do')}.`}
           </strong>
         ) : (
           <>

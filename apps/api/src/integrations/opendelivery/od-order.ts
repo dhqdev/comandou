@@ -25,7 +25,9 @@ import type {
  * dentro.
  *
  * Fontes: docs da Keeta (api-docs.mykeeta.com/apis/opendelivery: polling, ack, orders, confirm,
- * requestCancellation, acceptRefund, merchantOnboarding, assinatura) e o padrão V1
+ * requestCancellation, acceptRefund, merchantOnboarding, assinatura), da 99Food (Plataforma
+ * Aberta, seção Open Delivery Protocol: token por loja, polling com eventType/fromTime,
+ * acceptCancellation/denyCancellation, pickedUp) e o padrão V1
  * (abrasel-nacional.github.io/opendelivery).
  */
 
@@ -166,7 +168,29 @@ const KIND: Record<string, ChannelEventKind> = {
   USER_REFUND_REQUEST: 'order.dispute',
   REFUNDED: 'order.dispute_settled',
   REFUND_FAILED: 'order.dispute_settled',
+  // 99Food: o cliente pede para cancelar; a loja aceita ou nega (CANCELLED_DENIED encerra).
+  ORDER_CANCELLATION_REQUEST: 'order.dispute',
+  CANCELLED_DENIED: 'order.dispute_settled',
 };
+
+/** Tipos que a 99Food entrega no polling (o que não estiver na lista ela dá ack sozinha). */
+export const OD_99FOOD_EVENT_TYPES = [
+  'CREATED',
+  'CONFIRMED',
+  'READY_FOR_PICKUP',
+  'DISPATCHED',
+  'DELIVERED',
+  'CONCLUDED',
+  'CANCELLATION_REQUESTED',
+  'CANCELLATION_REQUEST_DENIED',
+  'CANCELLED',
+  'ORDER_CANCELLATION_REQUEST',
+  'CANCELLED_DENIED',
+] as const;
+
+/** Pedido do cliente: reembolso (Keeta) ou cancelamento (99Food). */
+const isCancelRequest = (type: unknown) => UP(type) === 'ORDER_CANCELLATION_REQUEST';
+const isCancelSettle = (type: unknown) => UP(type) === 'CANCELLED_DENIED';
 
 /** Avisos do entregador do aplicativo (só o passo; nada de nome, telefone ou posição). */
 const DRIVER: Record<string, DriverStatus> = {
@@ -230,8 +254,48 @@ export function odRefundSettlement(orderId: string, type: unknown): ChannelSettl
   };
 }
 
-/** Ação do Comandou → verbo da Order API (null = não existe neste aplicativo). */
-export function odVerb(action: ChannelAction): string | null {
+/** Pedido de cancelamento do cliente (99Food ORDER_CANCELLATION_REQUEST): aceitar ou negar. */
+export function odCancelDispute(orderId: string): ChannelDispute {
+  return {
+    externalId: `${orderId.slice(0, 80)}:cancel`,
+    kind: 'CANCELLATION',
+    alternatives: [],
+    acceptReasons: [],
+  };
+}
+
+/** Pedido do cliente que chegou no evento, conforme o tipo. */
+export function odDispute(orderId: string, type: unknown, meta: unknown): ChannelDispute {
+  return isCancelRequest(type) ? odCancelDispute(orderId) : odRefundDispute(orderId, meta);
+}
+
+/** Fim do pedido do cliente, conforme o tipo. */
+export function odSettlement(orderId: string, type: unknown): ChannelSettlement {
+  return isCancelSettle(type)
+    ? { externalId: `${orderId.slice(0, 80)}:cancel`, outcome: 'CANCELLED_DENIED' }
+    : odRefundSettlement(orderId, type);
+}
+
+/** Pedido do cliente de cancelamento (e não de reembolso)? Pelo id que o Comandou deu a ele. */
+export const odIsCancelDispute = (disputeId: unknown) =>
+  typeof disputeId === 'string' && disputeId.endsWith(':cancel');
+
+/**
+ * Código ao negar o cancelamento pedido pelo cliente (99Food aceita só estes dois): pela frase da
+ * pessoa, "saiu para entrega" ou, no resto, "o prato já está pronto".
+ */
+export function odDenyCode(reason: unknown): 'OUT_FOR_DELIVERY' | 'DISH_ALREADY_DONE' {
+  const t = typeof reason === 'string' ? reason.toLowerCase() : '';
+  return /saiu|a caminho|em rota|entregador|entrega/.test(t)
+    ? 'OUT_FOR_DELIVERY'
+    : 'DISH_ALREADY_DONE';
+}
+
+/**
+ * Ação do Comandou → verbo da Order API (null = não existe neste aplicativo). O pedido do cliente
+ * é de reembolso (Keeta) ou de cancelamento (99Food), pelo id da negociação.
+ */
+export function odVerb(action: ChannelAction, disputeId?: unknown): string | null {
   switch (action) {
     case 'confirm':
       return 'confirm';
@@ -246,10 +310,12 @@ export function odVerb(action: ChannelAction): string | null {
     case 'reject':
     case 'request_cancellation':
       return 'requestCancellation';
+    case 'picked_up':
+      return 'pickedUp';
     case 'dispute_accept':
-      return 'acceptRefund';
+      return odIsCancelDispute(disputeId) ? 'acceptCancellation' : 'acceptRefund';
     case 'dispute_reject':
-      return 'rejectRefund';
+      return odIsCancelDispute(disputeId) ? 'denyCancellation' : 'rejectRefund';
     default:
       return null;
   }
@@ -376,7 +442,30 @@ function nameOf(v: unknown, fallback: string) {
   return t;
 }
 
-/** Pedido do Open Delivery (V1, Keeta) → pedido normalizado do Comandou. */
+/**
+ * `extraInfo` da 99Food: "localizador: 12345678; código de retirada: 6795; precisa de talheres:
+ * sim". O localizador e o código de retirada vão para os campos deles; o resto fica na observação.
+ */
+export function odExtraInfo(v: unknown): { locator?: string; pickupCode?: string; rest?: string } {
+  const t = typeof v === 'string' ? v.slice(0, 2000) : '';
+  if (!t.trim()) return {};
+  const out: { locator?: string; pickupCode?: string; rest?: string } = {};
+  const rest: string[] = [];
+  for (const part of t.split(';')) {
+    const p = part.trim();
+    if (!p) continue;
+    const m = /^([^:]{2,40}):\s*(.+)$/.exec(p);
+    const key = m?.[1]!.trim().toLowerCase() ?? '';
+    const val = m?.[2]!.trim() ?? '';
+    if (key === 'localizador' && /^[\d\s-]{2,20}$/.test(val)) out.locator = val.slice(0, 40);
+    else if (/^c[oó]digo de retirada$/.test(key) && /^[\w-]{2,20}$/.test(val)) out.pickupCode = val;
+    else rest.push(p);
+  }
+  if (rest.length) out.rest = rest.join(' · ');
+  return out;
+}
+
+/** Pedido do Open Delivery (V1, Keeta, 99Food) → pedido normalizado do Comandou. */
 export function odToExternal(o: OdOrder, channel: string, label = 'aplicativo'): ExternalOrder {
   const type = UP(o.fulfillment?.orderType ?? o.type);
   const fulfillment =
@@ -414,8 +503,11 @@ export function odToExternal(o: OdOrder, channel: string, label = 'aplicativo'):
     o.total?.itemsPrice !== undefined
       ? odCents(o.total.itemsPrice)
       : itemsList.reduce((n, i) => n + odCents(i.total), 0);
+  const extra = odExtraInfo(o.extraInfo);
+  const locator = cut(o.customer?.phone?.localizer, 40) ?? extra.locator;
+  const pickupCode = cut(o.delivery?.pickupCode, 40) ?? extra.pickupCode;
   const notes = [
-    o.extraInfo,
+    extra.rest,
     o.indoor?.place && `Mesa ${o.indoor.place}`,
     o.indoor?.tab && `Comanda ${o.indoor.tab}`,
   ]
@@ -440,9 +532,7 @@ export function odToExternal(o: OdOrder, channel: string, label = 'aplicativo'):
       name: nameOf(o.customer?.name, `Cliente ${label}`),
       // Telefone só se for um número (cifrado ou localizador não serve para ligar).
       ...(phone && /^[\d+()\s.-]{8,25}$/.test(phone) ? { phone } : {}),
-      ...(cut(o.customer?.phone?.localizer, 40)
-        ? { phoneLocator: cut(o.customer?.phone?.localizer, 40) }
-        : {}),
+      ...(locator ? { phoneLocator: locator } : {}),
       ...(doc && (doc.length === 11 || doc.length === 14) ? { taxDocument: doc } : {}),
     },
     ...(fulfillment === 'delivery' && addressText
@@ -467,7 +557,7 @@ export function odToExternal(o: OdOrder, channel: string, label = 'aplicativo'):
     discounts: discounts(o),
     payments: payments(o),
     ...(notes ? { notes: notes.slice(0, 1000) } : {}),
-    ...(cut(o.delivery?.pickupCode, 40) ? { pickupCode: cut(o.delivery?.pickupCode, 40) } : {}),
+    ...(pickupCode ? { pickupCode } : {}),
   };
 }
 

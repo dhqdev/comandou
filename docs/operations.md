@@ -143,6 +143,13 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
     `merchantOnboarding` é refeito). Sem esse cadastro a Keeta não entrega nenhum evento. O código
     da loja é o número que aparece no portal da Keeta (Loja › Informações). Pedido parado em "Em
     análise" no app: veja `channel_outbox` (ação `confirm` com erro) e a coluna `last_error` da loja.
+15. **Loja da 99Food não liga ou não recebe** (Fase 11): "não está vinculada ao Comandou na 99Food"
+    = a 99Food recusou o token da loja (`<App ID>_<número da loja>`). Confira em Application
+    Management › Store Management se a loja está vinculada ao app do Comandou **com o app_shop_id
+    igual ao número da loja na 99Food**, e o App ID/App Secret no cartão 99Food de Credenciais.
+    Cada loja só pode estar vinculada a um app de produção: se outro sistema tem a loja, a 99Food
+    não entrega os pedidos aqui. 400 no polling = a 99Food mudou o formato de `eventType`/`fromTime`
+    (veja Super Admin › Aplicativos de delivery, erro por chamada).
 
 ### Backup atrasado
 

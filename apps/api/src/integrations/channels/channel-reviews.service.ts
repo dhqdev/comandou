@@ -6,7 +6,7 @@ import {
   OnModuleInit,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { channelInfo } from '@comandou/shared';
+import { channelInfo, withArticle } from '@comandou/shared';
 import { AuditService } from '../../audit/audit.service';
 import { one, q } from '../../common/sql';
 import { DatabaseService, type Tx } from '../../database/database.service';
@@ -254,12 +254,12 @@ export class ChannelReviewsService implements OnModuleInit {
     const label = channelInfo(r.channel).label;
     if (r.reply || !r.can_reply)
       throw new ConflictException(
-        `Esta avaliação já foi respondida ou o ${label} não aceita resposta`,
+        `Esta avaliação já foi respondida ou ${withArticle(label, 'o')} não aceita resposta`,
       );
     const adapter = this.registry.get(r.channel);
     const ref = await this.ref(tenantId, r.channel, r.store_id);
     if (!adapter?.replyReview || !ref)
-      throw new ConflictException(`A loja não está ligada ao ${label}`);
+      throw new ConflictException(`A loja não está ligada ${withArticle(label, 'ao')}`);
     try {
       await adapter.replyReview(ref, r.external_id, text);
     } catch (e) {
@@ -268,12 +268,14 @@ export class ChannelReviewsService implements OnModuleInit {
         await this.db.withTenant({ tenantId }, (tx) =>
           q(tx, `UPDATE channel_reviews SET can_reply = false WHERE id = $1`, [id]),
         );
-        throw new ConflictException(`O ${label} diz que esta avaliação já foi respondida`);
+        throw new ConflictException(
+          `${withArticle(label, 'O')} diz que esta avaliação já foi respondida`,
+        );
       }
       throw new UnprocessableEntityException(
         err.retryable
-          ? `O ${label} não respondeu. Tente de novo em instantes.`
-          : `O ${label} recusou a resposta (${err.status}): ${err.message}`,
+          ? `${withArticle(label, 'O')} não respondeu. Tente de novo em instantes.`
+          : `${withArticle(label, 'O')} recusou a resposta (${err.status}): ${err.message}`,
       );
     }
     await this.db.withTenant({ tenantId, userId }, async (tx) => {

@@ -4,14 +4,20 @@ import { FormEvent, useState } from 'react';
 import { Button, TextField, useToast } from '../../design-system';
 import { api } from '../../lib/api';
 
-/** Canais em que a loja liga aqui, pelo código que o aplicativo deu (ADR 0015, Fase 10). */
-export const CONNECT_HERE = new Set(['keeta', 'opendelivery']);
+/** Canais em que a loja liga aqui, pelo código que o aplicativo deu (ADR 0015, Fases 10 e 11). */
+export const CONNECT_HERE = new Set(['keeta', '99food', 'opendelivery']);
+const NUMERIC = new Set(['keeta', '99food']);
 
 const HINT: Record<string, { field: string; help: string; pattern?: string }> = {
   keeta: {
     field: 'Código da loja na Keeta',
     help: 'Autorize o Comandou no portal da Keeta e copie o código numérico da loja (Loja › Informações).',
     pattern: '[0-9]{1,18}',
+  },
+  '99food': {
+    field: 'Número da loja na 99Food',
+    help: 'Peça ao suporte do Comandou o vínculo da loja na 99Food e cole aqui o número da loja (aparece no portal da 99Food, nos dados da loja).',
+    pattern: '[0-9]{1,20}',
   },
   opendelivery: {
     field: 'Código da loja no aplicativo',
@@ -20,8 +26,9 @@ const HINT: Record<string, { field: string; help: string; pattern?: string }> = 
 };
 
 /**
- * Ligar uma loja da Keeta ou de um aplicativo Open Delivery: o código da loja e um nome para
- * achar na lista. Na Keeta, o Comandou já faz o cadastro da loja lá. Recebimento começa desligado.
+ * Ligar uma loja da Keeta, da 99Food ou de um aplicativo Open Delivery: o código da loja e um nome
+ * para achar na lista. Na Keeta, o Comandou já faz o cadastro da loja lá; na 99Food, confere o
+ * vínculo. Recebimento começa desligado.
  */
 export function ConnectStore({ channel, onDone }: { channel: string; onDone(): void }) {
   const toast = useToast();
@@ -58,7 +65,7 @@ export function ConnectStore({ channel, onDone }: { channel: string; onDone(): v
           icon={<Plus size={14} />}
           onClick={() => setOpen(true)}
         >
-          Ligar loja do {label}
+          Ligar uma loja
         </Button>
       </div>
     );
@@ -70,7 +77,7 @@ export function ConnectStore({ channel, onDone }: { channel: string; onDone(): v
         value={storeId}
         required
         autoComplete="off"
-        inputMode={channel === 'keeta' ? 'numeric' : undefined}
+        inputMode={NUMERIC.has(channel) ? 'numeric' : undefined}
         pattern={h.pattern}
         maxLength={100}
         onChange={(e) => setStoreId(e.target.value.trim())}
