@@ -33,8 +33,10 @@ import {
 } from '../devices.mjs';
 import {
   describePrinter,
+  installedTwinOf,
   parseSpec,
   parseTcp,
+  purgeSpool,
   registerTransport,
   testPageText,
   validBleId,
@@ -198,6 +200,9 @@ function startAgent() {
     canPrint,
     print,
     report,
+    label: (spec) => printerName(spec),
+    purge: purgeChosen,
+    removePrinters,
   });
   agent.on('status', async (s) => {
     status = s;
@@ -235,7 +240,7 @@ function startAgent() {
   });
   agent.on('job', async (j) => {
     jobs = [{ ...j, printerLabel: describePrinter(j.printer) }, ...jobs].slice(0, MAX_LOG);
-    if (!j.ok) notify(`Falha ao imprimir em ${j.target}`, j.error);
+    if (!j.ok && !j.cancelled) notify(`Falha ao imprimir em ${j.target}`, j.error);
     health[j.printer] = {
       ok: j.ok,
       text: j.ok ? 'Imprimiu agora há pouco.' : j.error,
@@ -248,6 +253,75 @@ function startAgent() {
     push();
   });
   agent.start();
+}
+
+/** Impressoras do sistema escolhidas aqui (as que têm fila do Windows). */
+function chosenSystemPrinters() {
+  return [config.printers.default, ...Object.values(config.printers.routes)]
+    .map((spec) => parseSpec(spec).base)
+    .filter((b) => b.startsWith('printer:'))
+    .map((b) => b.slice(8));
+}
+
+/** Pedido da tela Impressão: apaga as comandas paradas na fila do Windows. */
+async function purgeChosen() {
+  const n = await purgeSpool(chosenSystemPrinters());
+  if (n)
+    notify(
+      'Fila do Windows limpa',
+      `${n} comanda${n === 1 ? '' : 's'} parada${n === 1 ? '' : 's'} foi apagada${n === 1 ? '' : 's'} a pedido da tela Impressão.`,
+    );
+  return n;
+}
+
+/** Pedido da tela Impressão: tira impressoras escolhidas (null = principal). */
+async function removePrinters(targets) {
+  let changed = false;
+  for (const t of targets) {
+    if (t === null) {
+      if (config.printers.default) {
+        delete health[config.printers.default];
+        config.printers.default = '';
+        changed = true;
+      }
+    } else if (config.printers.routes[t] !== undefined) {
+      delete config.printers.routes[t];
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  await saveConfig();
+  push();
+  notify(
+    'Impressora tirada',
+    'A tela Impressão do Comandou tirou uma impressora deste computador.',
+  );
+}
+
+/**
+ * Impressora de rede escolhida como térmica (texto direto na porta 9100) que é a jato de tinta
+ * ou laser instalada no Windows (ex.: Epson L4260): passa a imprimir pelo driver, numa folha.
+ * Texto cru na porta 9100 de uma jato de tinta não sai ou sai uma folha por tentativa.
+ */
+async function fixRawToInkjet() {
+  const raw = [config.printers.default, ...Object.values(config.printers.routes)].filter((s) =>
+    /^tcp:\/\/.*[?&]mac=/.test(s ?? ''),
+  );
+  if (!raw.length) return;
+  const installed = (await systemPrinters().catch(() => [])).map((p) => ({
+    name: p.name,
+    driver: p.options?.['printer-make-and-model'] ?? '',
+  }));
+  for (const spec of new Set(raw)) {
+    const twin = installedTwinOf(spec, installed);
+    if (!twin) continue;
+    const to = `printer:${twin}?modo=folha`;
+    await replacePrinter(spec, to);
+    notify(
+      'Impressora ajustada',
+      `${describePrinter(spec)} é a ${twin}, que não é térmica de cupom: agora imprime pelo Windows, numa folha.`,
+    );
+  }
 }
 
 function notify(title, body) {
@@ -809,6 +883,11 @@ if (!app.requestSingleInstanceLock()) {
     tray = new Tray(trayIcon(true));
     tray.on('click', showWindow);
     tray.on('double-click', showWindow);
+    // Não segura a abertura: a lista de impressoras do sistema pode demorar.
+    await Promise.race([
+      fixRawToInkjet().catch(() => undefined),
+      new Promise((r) => setTimeout(r, 15_000)),
+    ]);
     startAgent();
     if (!existsSync(CONFIG)) await saveConfig();
     await applyAutostart();

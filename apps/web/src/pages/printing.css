@@ -383,6 +383,21 @@
 .print-chip svg {
   flex: none;
 }
+button.print-chip {
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+button.print-chip:hover {
+  border-color: var(--cm-border-strong);
+}
+button.print-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
 .print-chip--warn {
   border-color: color-mix(in oklab, var(--cm-warning) 40%, transparent);
   background: var(--cm-warning-bg);
@@ -492,4 +507,25 @@
   .print-job__actions {
     justify-content: flex-start;
   }
+}
+
+/* Janela de uma impressora: próximos e anteriores */
+.print-printer {
+  display: grid;
+  gap: var(--cm-space-4);
+  margin-top: var(--cm-space-3);
+}
+.print-printer__title {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  margin: 0 0 var(--cm-space-2);
+  font-size: var(--cm-text-md, 1rem);
+  font-weight: 600;
+}
+.print-printer .print-jobs {
+  max-height: 40vh;
+  overflow-y: auto;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
 }

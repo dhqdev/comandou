@@ -49,6 +49,12 @@ const post = (w: string, url: string, body: object = {}, idem?: string) => {
   if (idem) r.set('Idempotency-Key', idem);
   return r.send(body);
 };
+const remove = (w: string, url: string) =>
+  http
+    .delete(`/api/v1${url}`)
+    .set('Host', hostOf(w))
+    .set('Cookie', cookies[w] ?? '')
+    .set(CSRF);
 const patch = (w: string, url: string, body: object) =>
   http
     .patch(`/api/v1${url}`)
@@ -1097,6 +1103,20 @@ const agentPost = (token: string, url: string, body: object = {}, host = HOST_A)
     .set('Authorization', `Bearer ${token}`)
     .send(body);
 
+/** Pega trabalhos até achar `id` (os outros são confirmados como impressos). */
+async function claimUntil(token: string, id: string) {
+  for (let i = 0; i < 20; i++) {
+    const jobs = (await agentPost(token, '/claim', { limit: 20 }).expect(200)).body.jobs as {
+      id: string;
+    }[];
+    const hit = jobs.find((j) => j.id === id);
+    for (const j of jobs)
+      if (j.id !== id) await agentPost(token, `/jobs/${j.id}/result`, { ok: true }).expect(200);
+    if (hit) return hit;
+  }
+  throw new Error(`trabalho ${id} não apareceu na fila`);
+}
+
 describe('Impressão (agente local e fila)', () => {
   it('sem agente ativo, pedidos não geram fila e reimpressão avisa', async () => {
     const o = (await counterOrder(1).expect(201)).body;
@@ -1211,6 +1231,13 @@ describe('Impressão (agente local e fila)', () => {
           error: 'Sem papel',
         }).expect(200)
       ).body.status;
+      if (last === 'failed') break;
+      // A falha só volta depois de uma espera (não a cada 3 segundos).
+      const again = (await agentPost(agentToken, '/claim', { limit: 5 }).expect(200)).body.jobs as {
+        id: string;
+      }[];
+      expect(again.map((j) => j.id)).not.toContain(job.id);
+      await ownerQuery(`UPDATE print_jobs SET retry_at = now() WHERE id = $1`, [job.id]);
     }
     expect(last).toBe('failed');
     const c = (await agentPost(agentToken, '/claim', {}).expect(200)).body.jobs as { id: string }[];
@@ -1330,6 +1357,16 @@ describe('Impressão (agente local e fila)', () => {
       `UPDATE print_jobs SET claimed_at = now() - interval '2 minutes' WHERE id = $1`,
       [t.id],
     );
+    // Dentro do prazo (o computador ainda pode estar imprimindo): ninguém pega de novo.
+    expect(
+      ((await agentPost(agent2Token, '/claim', {}).expect(200)).body.jobs as { id: string }[]).map(
+        (j) => j.id,
+      ),
+    ).not.toContain(t.id);
+    await ownerQuery(
+      `UPDATE print_jobs SET claimed_at = now() - interval '3 minutes' WHERE id = $1`,
+      [t.id],
+    );
     const c2 = (await agentPost(agent2Token, '/claim', {}).expect(200)).body.jobs as {
       id: string;
     }[];
@@ -1401,6 +1438,132 @@ describe('Impressão (agente local e fila)', () => {
       [o.id],
     );
     expect(after[0].payload).toContain('CONFERÊNCIA DE CONTA');
+  });
+
+  it('falha depois de mandar para a impressora não volta sozinha (sem cópias repetidas)', async () => {
+    const t = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body as {
+      id: string;
+    };
+    const c = (await agentPost(agentToken, '/claim', { limit: 1 }).expect(200)).body.jobs as {
+      id: string;
+    }[];
+    const job = c.find((j) => j.id === t.id) ?? (await claimUntil(agentToken, t.id));
+    const r = (
+      await agentPost(agentToken, `/jobs/${job.id}/result`, {
+        ok: false,
+        sent: true,
+        error: 'O Windows recebeu, mas a impressora não confirmou',
+        printer: 'EPSON L4260',
+      }).expect(200)
+    ).body;
+    expect(r.status).toBe('failed');
+    await ownerQuery(`UPDATE print_jobs SET retry_at = NULL WHERE id = $1`, [t.id]);
+    const again = (await agentPost(agentToken, '/claim', { limit: 20 }).expect(200)).body.jobs as {
+      id: string;
+    }[];
+    expect(again.map((j) => j.id)).not.toContain(t.id);
+    for (const j of again) await agentPost(agentToken, `/jobs/${j.id}/result`, { ok: true });
+    const [row] = await ownerQuery<{ printer_label: string }>(
+      `SELECT printer_label FROM print_jobs WHERE id = $1`,
+      [t.id],
+    );
+    expect(row.printer_label).toBe('EPSON L4260');
+  });
+
+  it('tirar da fila o que o computador já pegou: não confirma e a fila do Windows é limpa', async () => {
+    const t = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body as {
+      id: string;
+    };
+    await claimUntil(agentToken, t.id);
+    const d = (await post('adminA', '/printing/jobs/discard', { ids: [t.id] }).expect(200)).body;
+    expect(d.discarded).toBe(1);
+    const jobs = (await get('adminA', '/printing/jobs?status=cancelled').expect(200)).body as {
+      id: string;
+    }[];
+    expect(jobs.map((j) => j.id)).toContain(t.id);
+    await agentPost(agentToken, `/jobs/${t.id}/result`, { ok: true }).expect(409);
+    const hb = (await agentPost(agentToken, '/heartbeat', {}).expect(200)).body;
+    expect(hb.purge).toEqual(expect.any(String));
+    const hb2 = (await agentPost(agentToken, '/heartbeat', { purgedAt: hb.purge }).expect(200))
+      .body;
+    expect(hb2.purge).toBeNull();
+    // Volta para a fila se a pessoa quiser.
+    await post('adminA', `/printing/jobs/${t.id}/retry`).expect(201);
+    await post('adminA', '/printing/jobs/discard', { ids: [t.id] }).expect(200);
+  });
+
+  it('tira uma impressora do computador e mostra os trabalhos dela', async () => {
+    const list = (await get('adminA', '/printing/agents').expect(200)).body as {
+      id: string;
+      name: string;
+    }[];
+    const a = list.find((x) => x.name === 'PC do caixa')!;
+    await agentPost(agentToken, '/heartbeat', {
+      printers: [
+        { target: null, label: 'EPSON L4260', kind: 'document' },
+        { target: 'Caixa', label: 'Rede 192.168.0.10', kind: 'network' },
+      ],
+    }).expect(200);
+    const t = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body as {
+      id: string;
+    };
+    const k = (await post('adminA', '/printing/test', { target: 'Chapa' }).expect(201)).body as {
+      id: string;
+    };
+    const caixa = (await get('adminA', `/printing/agents/${a.id}/jobs?target=Caixa`).expect(200))
+      .body as { upcoming: { id: string }[]; past: { id: string }[] };
+    expect(caixa.upcoming.map((j) => j.id)).toContain(t.id);
+    expect(caixa.upcoming.map((j) => j.id)).not.toContain(k.id);
+    const main = (await get('adminA', `/printing/agents/${a.id}/jobs`).expect(200)).body as {
+      label: string;
+      upcoming: { id: string }[];
+      past: { printerLabel: string | null }[];
+    };
+    expect(main.label).toBe('EPSON L4260');
+    expect(main.upcoming.map((j) => j.id)).toContain(k.id);
+    expect(main.upcoming.map((j) => j.id)).not.toContain(t.id);
+    expect(main.past.some((j) => j.printerLabel === 'EPSON L4260')).toBe(true);
+    await post('adminA', '/printing/jobs/discard', { ids: [t.id, k.id] }).expect(200);
+
+    await post('waiterA', `/printing/agents/${a.id}/printers/remove`, { target: 'Caixa' }).expect(
+      403,
+    );
+    const after = (
+      await post('adminA', `/printing/agents/${a.id}/printers/remove`, {
+        target: 'Caixa',
+        label: 'Rede 192.168.0.10',
+      }).expect(200)
+    ).body as { printers: { target: string | null }[] };
+    expect(after.printers.map((p) => p.target)).toEqual([null]);
+    const hb = (await agentPost(agentToken, '/heartbeat', {}).expect(200)).body;
+    expect(hb.remove).toEqual(['Caixa']);
+    const hb2 = (await agentPost(agentToken, '/heartbeat', { removed: ['Caixa'] }).expect(200))
+      .body;
+    expect(hb2.remove).toEqual([]);
+    await post('adminA', `/printing/agents/${a.id}/printers/remove`, { target: null }).expect(200);
+    expect((await agentPost(agentToken, '/heartbeat', {}).expect(200)).body.remove).toEqual([null]);
+    await agentPost(agentToken, '/heartbeat', { removed: [null] }).expect(200);
+  });
+
+  it('exclui um computador: token para de valer e o que ele imprimia volta para a fila', async () => {
+    const extra = (await post('adminA', '/printing/agents', { name: 'PC velho' }).expect(201))
+      .body as { agent: { id: string }; token: string };
+    const t = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body as {
+      id: string;
+    };
+    await claimUntil(extra.token, t.id);
+    await remove('waiterA', `/printing/agents/${extra.agent.id}`).expect(403);
+    await remove('adminA', `/printing/agents/${extra.agent.id}`).expect(200);
+    await remove('adminA', `/printing/agents/${extra.agent.id}`).expect(404);
+    await agentPost(extra.token, '/heartbeat').expect(401);
+    const list = (await get('adminA', '/printing/agents').expect(200)).body as { id: string }[];
+    expect(list.map((x) => x.id)).not.toContain(extra.agent.id);
+    const [row] = await ownerQuery<{ status: string; claimed_by: string | null }>(
+      `SELECT status, claimed_by FROM print_jobs WHERE id = $1`,
+      [t.id],
+    );
+    expect(row).toEqual({ status: 'queued', claimed_by: null });
+    await post('adminA', '/printing/jobs/discard', { ids: [t.id] }).expect(200);
   });
 
   it('desativar ou trocar o token bloqueia o agente; B não vê a fila de A', async () => {

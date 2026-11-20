@@ -9,6 +9,7 @@ import {
   Network,
   Plus,
   Printer,
+  Trash2,
   Usb,
   Wifi,
 } from 'lucide-react';
@@ -56,7 +57,10 @@ const STATUS: Record<PrintJob['status'], [string, 'neutral' | 'info' | 'success'
   printing: ['Imprimindo', 'info'],
   done: ['Impresso', 'success'],
   failed: ['Falhou', 'danger'],
+  cancelled: ['Tirado da fila', 'neutral'],
 };
+/** Ainda vai sair (esperando ou com um computador agora). */
+const pending = (j: PrintJob) => j.status === 'queued' || j.status === 'printing';
 const PRINTER_ICON: Record<PrintAgentPrinter['kind'], ReactNode> = {
   usb: <Usb size={14} />,
   network: <Network size={14} />,
@@ -74,7 +78,9 @@ function ago(iso: string) {
   return dateTime(iso);
 }
 
-type JobFilter = 'all' | 'queued' | 'failed';
+type JobFilter = 'all' | 'queued' | 'failed' | 'cancelled';
+/** Impressora aberta na janela de trabalhos: computador + destino (null = principal). */
+type OpenPrinter = { agent: PrintAgent; printer: PrintAgentPrinter };
 
 /**
  * Impressão: o aplicativo "Comandou Impressão" roda no computador do restaurante, ligado às
@@ -88,6 +94,7 @@ export function PrintingPage() {
   const [connectOpen, setConnectOpen] = useState(false);
   const [secret, setSecret] = useState<{ name: string; token: string } | null>(null);
   const [filter, setFilter] = useState<JobFilter>('all');
+  const [openPrinter, setOpenPrinter] = useState<OpenPrinter | null>(null);
   const [, tick] = useState(0);
 
   const load = useCallback(async () => {
@@ -118,9 +125,13 @@ export function PrintingPage() {
     if (e.type === 'print.changed') reload();
   }, load);
 
-  async function call<T>(url: string, json: object = {}, method: 'POST' | 'PATCH' = 'POST') {
+  async function call<T>(
+    url: string,
+    json: object = {},
+    method: 'POST' | 'PATCH' | 'DELETE' = 'POST',
+  ) {
     try {
-      const r = await api<T>(url, { method, json });
+      const r = await api<T>(url, method === 'DELETE' ? { method } : { method, json });
       await load();
       return r;
     } catch (e) {
@@ -130,10 +141,14 @@ export function PrintingPage() {
   }
 
   const health = printHealth(agents);
-  const queued = jobs?.filter((j) => j.status === 'queued') ?? [];
+  const queued = jobs?.filter(pending) ?? [];
   const failed = jobs?.filter((j) => j.status === 'failed') ?? [];
+  const cancelled = jobs?.filter((j) => j.status === 'cancelled') ?? [];
   const shown = useMemo(
-    () => (jobs ?? []).filter((j) => filter === 'all' || j.status === filter),
+    () =>
+      (jobs ?? []).filter(
+        (j) => filter === 'all' || (filter === 'queued' ? pending(j) : j.status === filter),
+      ),
     [jobs, filter],
   );
   // Sem computador nenhum, o aplicativo vem primeiro; com computador, fica no fim da tela.
@@ -150,6 +165,13 @@ export function PrintingPage() {
   }
 
   async function discard(ids?: string[]) {
+    if (
+      !ids &&
+      !window.confirm(
+        'Tirar da fila tudo o que ainda não imprimiu? Os computadores também apagam as comandas que estão paradas na fila do Windows.',
+      )
+    )
+      return;
     const r = await call<{ discarded: number }>('/printing/jobs/discard', ids ? { ids } : {});
     if (r)
       toast(
@@ -227,6 +249,26 @@ export function PrintingPage() {
                     if (r) setSecret({ name: a.name, token: r.token });
                   }}
                   onToggle={() => call(`/printing/agents/${a.id}`, { active: !a.active }, 'PATCH')}
+                  onPurge={async () => {
+                    if (await call(`/printing/agents/${a.id}/purge`))
+                      toast(
+                        a.online
+                          ? `"${a.name}" vai apagar as comandas paradas na fila do Windows em até 30 segundos`
+                          : `"${a.name}" apaga as comandas paradas na fila do Windows quando voltar`,
+                        'success',
+                      );
+                  }}
+                  onDelete={async () => {
+                    if (
+                      !window.confirm(
+                        `Excluir "${a.name}"? O código dele para de funcionar e ele some da lista. O histórico de impressão fica.`,
+                      )
+                    )
+                      return;
+                    if (await call(`/printing/agents/${a.id}`, {}, 'DELETE'))
+                      toast(`"${a.name}" excluído`, 'success');
+                  }}
+                  onOpenPrinter={(printer) => setOpenPrinter({ agent: a, printer })}
                 />
               ))}
           </ul>
@@ -238,7 +280,7 @@ export function PrintingPage() {
         title="Fila de impressão"
         actions={
           <>
-            {queued.length > 0 && health.state !== 'ok' && (
+            {queued.length > 0 && (
               <Button variant="ghost" size="sm" onClick={() => void discard()}>
                 Limpar fila
               </Button>
@@ -273,6 +315,7 @@ export function PrintingPage() {
                   { value: 'all', label: 'Todos', count: jobs.length },
                   { value: 'queued', label: 'Na fila', count: queued.length },
                   { value: 'failed', label: 'Falharam', count: failed.length },
+                  { value: 'cancelled', label: 'Tirados', count: cancelled.length },
                 ]}
               />
               {queued.length > 0 && (
@@ -284,7 +327,13 @@ export function PrintingPage() {
             {shown.length === 0 ? (
               <div className="cm-card__body">
                 <EmptyState
-                  title={filter === 'queued' ? 'Nada esperando' : 'Nenhuma falha'}
+                  title={
+                    filter === 'queued'
+                      ? 'Nada esperando'
+                      : filter === 'cancelled'
+                        ? 'Nada tirado da fila'
+                        : 'Nenhuma falha'
+                  }
                   description="Tudo o que foi enviado já saiu na impressora."
                 />
               </div>
@@ -321,6 +370,11 @@ export function PrintingPage() {
           setSecret({ name, token });
           void load();
         }}
+      />
+      <PrinterJobsModal
+        open={openPrinter}
+        onClose={() => setOpenPrinter(null)}
+        onChanged={() => void load()}
       />
       <Modal
         open={!!secret}
@@ -398,10 +452,16 @@ function AgentRow({
   agent: a,
   onToken,
   onToggle,
+  onPurge,
+  onDelete,
+  onOpenPrinter,
 }: {
   agent: PrintAgent;
   onToken: () => void;
   onToggle: () => void;
+  onPurge: () => void;
+  onDelete: () => void;
+  onOpenPrinter: (p: PrintAgentPrinter) => void;
 }) {
   const main = mainPrinter(a);
   const routes = (a.printers ?? []).filter((p) => p.target !== null);
@@ -427,15 +487,17 @@ function AgentRow({
         {a.active && a.printers !== null && (
           <div className="print-agent__printers">
             {main ? (
-              <span
+              <button
+                type="button"
                 className="print-chip print-chip--main"
-                title="Recebe tudo o que não tem impressora própria"
+                title="Recebe tudo o que não tem impressora própria. Toque para ver os trabalhos dela."
+                onClick={() => onOpenPrinter(main)}
               >
                 {PRINTER_ICON[main.kind]}
                 <span>
                   Principal: <strong>{main.label}</strong>
                 </span>
-              </span>
+              </button>
             ) : (
               <span className="print-chip print-chip--warn">
                 <Printer size={14} />
@@ -443,12 +505,18 @@ function AgentRow({
               </span>
             )}
             {routes.map((p) => (
-              <span key={p.target} className="print-chip">
+              <button
+                type="button"
+                key={p.target}
+                className="print-chip"
+                title="Toque para ver os trabalhos desta impressora"
+                onClick={() => onOpenPrinter(p)}
+              >
                 {PRINTER_ICON[p.kind]}
                 <span>
                   {p.target}: <strong>{p.label}</strong>
                 </span>
-              </span>
+              </button>
             ))}
           </div>
         )}
@@ -457,11 +525,188 @@ function AgentRow({
         <Button variant="ghost" size="sm" onClick={onToken}>
           Novo código
         </Button>
+        {a.active && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onPurge}
+            title="Apaga as comandas do Comandou que ficaram paradas na fila do Windows deste computador"
+          >
+            Limpar fila do Windows
+          </Button>
+        )}
         <Button variant="ghost" size="sm" onClick={onToggle}>
           {a.active ? 'Desativar' : 'Ativar'}
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<Trash2 size={16} />}
+          onClick={onDelete}
+          aria-label={`Excluir ${a.name}`}
+          title="Excluir computador"
+        />
       </div>
     </li>
+  );
+}
+
+/**
+ * Janela de uma impressora: o que ainda vai sair nela (na fila) e o que já passou por ela, com
+ * o botão de tirar a impressora do aplicativo daquele computador.
+ */
+function PrinterJobsModal({
+  open,
+  onClose,
+  onChanged,
+}: {
+  open: OpenPrinter | null;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const toast = useToast();
+  const [data, setData] = useState<{ upcoming: PrintJob[]; past: PrintJob[] } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const agentId = open?.agent.id;
+  const target = open?.printer.target ?? null;
+  const label = open?.printer.label;
+  const load = useCallback(async () => {
+    if (!agentId) return;
+    const qs = new URLSearchParams();
+    if (target !== null) qs.set('target', target);
+    if (label) qs.set('label', label);
+    try {
+      setData(await api(`/printing/agents/${agentId}/jobs?${qs}`));
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    }
+  }, [agentId, target, label, toast]);
+  useEffect(() => {
+    setData(null);
+    void load();
+  }, [load]);
+  useRealtime((e) => {
+    if (e.type === 'print.changed') void load();
+  }, load);
+
+  async function act(fn: () => Promise<unknown>) {
+    setBusy(true);
+    try {
+      await fn();
+      onChanged();
+      await load();
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removePrinter() {
+    if (!open) return;
+    const what = target === null ? 'a impressora principal' : `a impressora de ${target}`;
+    if (
+      !window.confirm(
+        target === null
+          ? `Tirar ${what} (${label}) de "${open.agent.name}"? Sem principal, este computador para de imprimir até escolherem outra no aplicativo.`
+          : `Tirar ${what} (${label}) de "${open.agent.name}"? O que for para ${target} passa a sair na principal.`,
+      )
+    )
+      return;
+    await act(() =>
+      api(`/printing/agents/${open.agent.id}/printers/remove`, {
+        method: 'POST',
+        json: { target, label },
+      }),
+    );
+    toast('Impressora tirada. O aplicativo apaga a escolha em até 30 segundos.', 'success');
+    onClose();
+  }
+
+  const title = open
+    ? `${open.printer.target === null ? 'Principal' : open.printer.target}: ${open.printer.label}`
+    : '';
+  return (
+    <Modal
+      open={!!open}
+      title={title}
+      size="lg"
+      onClose={onClose}
+      footer={
+        <>
+          <Button
+            variant="ghost"
+            icon={<Trash2 size={16} />}
+            onClick={() => void removePrinter()}
+            disabled={busy}
+          >
+            Tirar impressora
+          </Button>
+          <Button onClick={onClose}>Fechar</Button>
+        </>
+      }
+    >
+      {open && (
+        <p className="cm-hint">
+          No computador <strong>{open.agent.name}</strong>.{' '}
+          {open.printer.target === null
+            ? 'Recebe tudo o que não tem impressora própria.'
+            : `Recebe o que vai para ${open.printer.target}.`}
+        </p>
+      )}
+      {data === null ? (
+        <Skeleton variant="table" />
+      ) : (
+        <div className="print-printer">
+          <section>
+            <h3 className="print-printer__title">
+              Próximos <Badge tone="neutral">{data.upcoming.length}</Badge>
+            </h3>
+            {data.upcoming.length === 0 ? (
+              <p className="cm-hint">Nada esperando para esta impressora.</p>
+            ) : (
+              <ul className="print-jobs">
+                {data.upcoming.map((j) => (
+                  <JobRow
+                    key={j.id}
+                    job={j}
+                    wait={null}
+                    onRetry={() => undefined}
+                    onDiscard={() =>
+                      void act(() =>
+                        api('/printing/jobs/discard', { method: 'POST', json: { ids: [j.id] } }),
+                      )
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+          <section>
+            <h3 className="print-printer__title">
+              Anteriores <Badge tone="neutral">{data.past.length}</Badge>
+            </h3>
+            {data.past.length === 0 ? (
+              <p className="cm-hint">Nada impresso nesta impressora ainda.</p>
+            ) : (
+              <ul className="print-jobs">
+                {data.past.map((j) => (
+                  <JobRow
+                    key={j.id}
+                    job={j}
+                    wait={null}
+                    onRetry={() =>
+                      void act(() => api(`/printing/jobs/${j.id}/retry`, { method: 'POST' }))
+                    }
+                    onDiscard={() => undefined}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -495,20 +740,31 @@ function JobRow({
       </div>
       <div className="print-job__status">
         <Badge tone={tone}>{label}</Badge>
-        {j.status === 'queued' && wait && (
+        {j.status === 'queued' && j.retryAt && new Date(j.retryAt) > new Date() ? (
           <span className="cm-hint">
-            {wait} · {ago(j.createdAt)}
+            Tenta de novo às {time(j.retryAt)}
+            {j.lastError && ` · ${j.lastError}`}
           </span>
+        ) : (
+          j.status === 'queued' &&
+          wait && (
+            <span className="cm-hint">
+              {wait} · {ago(j.createdAt)}
+            </span>
+          )
         )}
         {j.status === 'failed' && j.lastError && <span className="cm-hint">{j.lastError}</span>}
+        {(j.status === 'done' || j.status === 'failed') && j.printerLabel && (
+          <span className="cm-hint">Em {j.printerLabel}</span>
+        )}
       </div>
       <div className="print-job__actions">
-        {j.status === 'failed' && (
+        {(j.status === 'failed' || j.status === 'cancelled') && (
           <Button variant="ghost" size="sm" onClick={onRetry}>
-            Tentar de novo
+            {j.status === 'failed' ? 'Imprimir de novo' : 'Voltar para a fila'}
           </Button>
         )}
-        {j.status === 'queued' && (
+        {pending(j) && (
           <Button variant="ghost" size="sm" onClick={onDiscard}>
             Tirar da fila
           </Button>

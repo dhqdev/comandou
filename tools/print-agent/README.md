@@ -10,8 +10,24 @@ sem alguém clicar em "Imprimir". O aplicativo faz essa ponte: ele só **busca**
 (conexão de saída HTTPS), então não é preciso abrir portas no roteador.
 
 - A fila fica no Comandou: se o computador ou a impressora caírem, os trabalhos esperam e voltam
-  para a fila (até 5 tentativas). Falhas aparecem em **Impressão** no sistema e como aviso no
-  computador.
+  para a fila (até 5 tentativas, com espera de 10 s, 20 s, 40 s... entre elas). Falhas aparecem
+  em **Impressão** no sistema e como aviso no computador.
+- **Sem cópias repetidas (1.6.0):** o aplicativo pega um trabalho por vez e desiste de cada
+  impressão em 60 s (`PRINT_TIMEOUT`, bem abaixo do prazo de 150 s do servidor). Falha que pode
+  ter saído (o Windows aceitou a folha, a impressora de rede recebeu e não fechou, ou demorou
+  demais) vai como `sent: true` e **não** volta sozinha para a fila: a pessoa confere e toca em
+  "Imprimir de novo". Impressora comum (folha) com 3 ou mais comandas paradas na fila do Windows,
+  ou com erro, não recebe mais nenhuma até voltar (`spoolBacklog`).
+- **Tirar da fila** na tela Impressão vale também para o que o computador já pegou (ele não
+  confirma mais) e **Limpar fila** / **Limpar fila do Windows** apaga os documentos "Comandou"
+  da fila do sistema (`purgeSpool`, só os nossos; os de outros programas ficam). O pedido vem no
+  heartbeat (`purge`) e o aplicativo confirma no seguinte (`purgedAt`).
+- A tela Impressão também tira uma impressora do aplicativo (`remove` no heartbeat, confirmado
+  em `removed`) e exclui o computador.
+- Jato de tinta ou laser escolhida como térmica pela rede (texto cru na porta 9100, que não sai
+  ou sai uma folha por tentativa) é trocada sozinha, ao abrir, pela mesma impressora instalada no
+  Windows em modo folha, quando o nome dela tem o fim do MAC (ex.: `EPSON17C57B (L4260 Series)`,
+  `installedTwinOf`).
 - Comandas de cozinha saem sozinhas a cada pedido, uma por setor de produção, desde que exista um
   computador conectado. Sem ele, o pedido funciona normalmente e nada é enfileirado.
 - Enquanto nenhuma impressora estiver escolhida no aplicativo, ele não pega trabalhos: eles

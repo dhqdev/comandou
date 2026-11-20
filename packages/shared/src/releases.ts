@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.208.0',
+    date: '2026-11-20',
+    title: 'Impressão sem cópias repetidas, excluir computador e trabalhos de cada impressora',
+    summary:
+      'Uma impressora comum (jato de tinta) ligada pelo Windows podia imprimir a mesma comanda várias vezes e continuar imprimindo mesmo depois de limpar a fila. Agora o que pode ter saído não é mandado de novo sozinho, tirar da fila vale também para o que já estava com o computador e a fila do Windows é limpa junto. A tela Impressão ganhou excluir computador, tirar impressora e a lista do que vai sair e do que já saiu em cada impressora. Atualize o aplicativo Comandou Impressão para a 1.6.0.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Comanda que o Windows já tinha recebido não é mais mandada de novo quando a impressora responde "falhou" ou demora: aparece como falha com o aviso "confira se saiu" e o botão Imprimir de novo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Falha de impressão espera um pouco antes de tentar de novo (10 s, 20 s, 40 s...), em vez de repetir a cada 3 segundos.',
+      },
+      {
+        tag: 'correção',
+        text: 'Tirar da fila agora vale também para o que já estava imprimindo, e Limpar fila apaga as comandas paradas na fila do Windows dos computadores conectados. O que foi tirado aparece como "Tirado da fila", não como falha.',
+      },
+      {
+        tag: 'correção',
+        text: 'Aplicativo de impressão 1.6.0: se a impressora comum parou com comandas acumuladas na fila do Windows, não manda mais nenhuma até ela voltar (antes saía tudo de uma vez quando ela voltava).',
+      },
+      {
+        tag: 'correção',
+        text: 'Aplicativo de impressão 1.6.0: impressora jato de tinta escolhida como térmica pela rede passa sozinha a imprimir pelo Windows, numa folha.',
+      },
+      {
+        tag: 'novo',
+        text: 'Impressão: botão para excluir um computador conectado e botão Limpar fila do Windows em cada computador.',
+      },
+      {
+        tag: 'novo',
+        text: 'Impressão: toque numa impressora para ver o que ainda vai sair nela e o que já saiu, e para tirá-la do computador.',
+      },
+    ],
+  },
+  {
     version: '0.207.0',
     date: '2026-11-20',
     title:

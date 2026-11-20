@@ -55,8 +55,14 @@ const TPAG_LABELS: Record<string, string> = {
   '99': 'Outros',
 };
 
-/** Tempo que um agente tem para confirmar a impressão antes de o trabalho voltar para a fila. */
-export const PRINT_LEASE_SECONDS = 60;
+/**
+ * Tempo que um agente tem para confirmar a impressão antes de o trabalho voltar para a fila.
+ * O aplicativo desiste de cada impressão bem antes disso (PRINT_TIMEOUT de core.mjs, 60 s): um
+ * computador vivo sempre responde dentro do prazo, e só o que ficou com um computador que caiu
+ * volta para outro. Prazo curto aqui fazia a impressora lenta (jato de tinta pelo Windows)
+ * receber o mesmo trabalho de novo.
+ */
+export const PRINT_LEASE_SECONDS = 150;
 export const PRINT_MAX_ATTEMPTS = 5;
 const WIDTH = 42;
 const num = (v: string | null | undefined) => Number(v ?? 0) || 0;
@@ -64,6 +70,7 @@ const num = (v: string | null | undefined) => Number(v ?? 0) || 0;
 export const JOB_SELECT = `
   SELECT j.id, j.kind, j.target, j.status, j.attempts, j.order_id AS "orderId", o.number AS "orderNumber",
          j.last_error AS "lastError", j.created_at AS "createdAt", j.done_at AS "doneAt",
+         j.claimed_by AS "agentId", j.printer_label AS "printerLabel", j.retry_at AS "retryAt",
          a.name AS "agentName"
     FROM print_jobs j
     LEFT JOIN orders o ON o.id = j.order_id
@@ -1201,23 +1208,27 @@ export class PrintingService {
   /**
    * Reserva até `limit` trabalhos. SKIP LOCKED: dois agentes nunca pegam o mesmo trabalho.
    * Trabalho reservado e não confirmado em PRINT_LEASE_SECONDS volta a ficar disponível.
+   * Falha que ainda pode ser tentada espera `retry_at` (não volta a cada 3 segundos).
    */
   async claim(tenantId: string, agentId: string, limit: number) {
     return this.db.withTenant({ tenantId }, async (tx) => {
       await q(tx, `UPDATE print_agents SET last_seen_at = now() WHERE id = $1`, [agentId]);
       await q(
         tx,
-        `UPDATE print_jobs SET status = 'failed', last_error = 'Sem confirmação do agente'
+        `UPDATE print_jobs SET status = 'failed',
+                last_error = 'O computador não confirmou se imprimiu. Confira se saiu antes de mandar de novo.'
           WHERE status = 'printing' AND claimed_at < now() - make_interval(secs => $1) AND attempts >= $2`,
         [PRINT_LEASE_SECONDS, PRINT_MAX_ATTEMPTS],
       );
       return q(
         tx,
-        `UPDATE print_jobs SET status = 'printing', attempts = attempts + 1, claimed_by = $1, claimed_at = now()
+        `UPDATE print_jobs SET status = 'printing', attempts = attempts + 1, claimed_by = $1,
+                claimed_at = now(), retry_at = NULL
           WHERE id IN (
             SELECT id FROM print_jobs
              WHERE attempts < $3
-               AND (status = 'queued' OR (status = 'printing' AND claimed_at < now() - make_interval(secs => $4)))
+               AND ((status = 'queued' AND (retry_at IS NULL OR retry_at <= now()))
+                    OR (status = 'printing' AND claimed_at < now() - make_interval(secs => $4)))
              ORDER BY created_at, id LIMIT $2 FOR UPDATE SKIP LOCKED)
           RETURNING id, kind, target, payload, attempts`,
         [agentId, limit, PRINT_MAX_ATTEMPTS, PRINT_LEASE_SECONDS],
@@ -1225,22 +1236,88 @@ export class PrintingService {
     });
   }
 
-  async result(tenantId: string, agentId: string, jobId: string, ok: boolean, error?: string) {
+  /**
+   * Resultado do agente. `sent`: a falha veio depois de o texto chegar à impressora ou à fila do
+   * sistema (ex.: o Windows aceitou e a impressora deu erro, ou o computador desistiu de esperar):
+   * pode ter saído, então NÃO volta sozinho para a fila (era o que imprimia várias cópias).
+   * Trabalho tirado da fila enquanto imprimia responde 409 (o agente só ignora).
+   */
+  async result(
+    tenantId: string,
+    agentId: string,
+    jobId: string,
+    ok: boolean,
+    error?: string,
+    sent = false,
+    printer?: string,
+  ) {
     const r = await this.db.withTenant({ tenantId }, (tx) =>
       one(
         tx,
         `UPDATE print_jobs
-            SET status = CASE WHEN $3 THEN 'done' WHEN attempts >= $5 THEN 'failed' ELSE 'queued' END,
+            SET status = CASE WHEN $3 THEN 'done' WHEN $6 OR attempts >= $5 THEN 'failed' ELSE 'queued' END,
                 done_at = CASE WHEN $3 THEN now() ELSE NULL END,
-                last_error = CASE WHEN $3 THEN NULL ELSE $4 END
+                last_error = CASE WHEN $3 THEN NULL ELSE $4 END,
+                -- Espera antes de tentar de novo: 10 s, 20 s, 40 s, 80 s (até 5 min).
+                retry_at = CASE WHEN $3 OR $6 OR attempts >= $5 THEN NULL
+                                ELSE now() + make_interval(secs => LEAST(300, 10 * power(2, GREATEST(attempts - 1, 0)))) END,
+                printer_label = COALESCE($7, printer_label)
           WHERE id = $1 AND claimed_by = $2 AND status = 'printing'
           RETURNING id, status`,
-        [jobId, agentId, ok, error?.slice(0, 300) ?? 'Falha na impressora', PRINT_MAX_ATTEMPTS],
+        [
+          jobId,
+          agentId,
+          ok,
+          error?.slice(0, 300) ?? 'Falha na impressora',
+          PRINT_MAX_ATTEMPTS,
+          !ok && sent,
+          printer?.slice(0, 80) ?? null,
+        ],
       ),
     );
     if (!r) throw new ConflictException('Trabalho não está reservado para este agente');
     this.realtime.publish(tenantId, { type: 'print.changed' });
     return r;
+  }
+
+  /**
+   * Pedidos da tela Impressão para o computador (vão na resposta do heartbeat): limpar os
+   * documentos do Comandou da fila do sistema e tirar impressoras do aplicativo.
+   */
+  async agentCommands(
+    tenantId: string,
+    agentId: string,
+    ack?: { purgedAt?: string; removed?: (string | null)[] },
+  ) {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      if (ack?.purgedAt)
+        await q(
+          tx,
+          `UPDATE print_agents SET purge_requested_at = NULL
+            WHERE id = $1 AND date_trunc('milliseconds', purge_requested_at) <= $2::timestamptz`,
+          [agentId, ack.purgedAt],
+        );
+      if (ack?.removed?.length)
+        await q(
+          tx,
+          `UPDATE print_agents SET printer_removals = NULLIF((
+             SELECT jsonb_agg(x) FROM jsonb_array_elements(COALESCE(printer_removals, '[]')) x
+              WHERE NOT (COALESCE((x #>> '{}') = ANY($2::text[]), false)
+                         OR (x = 'null'::jsonb AND $3)))
+             , '[]'::jsonb)
+            WHERE id = $1`,
+          [agentId, ack.removed.filter((t): t is string => t !== null), ack.removed.includes(null)],
+        );
+      const r = await one<{ purge: Date | null; remove: (string | null)[] | null }>(
+        tx,
+        `SELECT purge_requested_at AS purge, printer_removals AS remove FROM print_agents WHERE id = $1`,
+        [agentId],
+      );
+      return {
+        purge: r?.purge ? new Date(r.purge).toISOString() : null,
+        remove: Array.isArray(r?.remove) ? r.remove : [],
+      };
+    });
   }
 }
 

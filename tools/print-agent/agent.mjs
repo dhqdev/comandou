@@ -17,7 +17,7 @@ import { PrintAgent, parseConnectionCode } from './core.mjs';
 import { printResilient } from './devices.mjs';
 import { describePrinter, targetEnvName } from './printers.mjs';
 
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 
 let url = (process.env.COMANDOU_URL ?? '').replace(/\/+$/, '');
 let token = process.env.COMANDOU_AGENT_TOKEN ?? '';

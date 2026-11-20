@@ -36,7 +36,7 @@ import { TEMPLATE_KINDS, TEMPLATE_MAX, TemplateKind } from './templates';
 
 const Agent = z.object({ name: z.string().trim().min(1).max(60), active: z.boolean().optional() });
 const JobsQuery = z.object({
-  status: z.enum(['queued', 'printing', 'done', 'failed']).optional(),
+  status: z.enum(['queued', 'printing', 'done', 'failed', 'cancelled']).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 const Discard = z.object({ ids: z.array(z.string().uuid()).min(1).max(200).optional() });
@@ -56,8 +56,28 @@ const Heartbeat = z.object({
     )
     .max(40)
     .optional(),
+  /** Confirmações dos pedidos da tela: fila do sistema limpa e impressoras tiradas. */
+  purgedAt: z.string().datetime().optional(),
+  removed: z.array(z.string().trim().max(60).nullable()).max(40).optional(),
 });
-const Result = z.object({ ok: z.boolean(), error: z.string().max(300).optional() });
+const Result = z.object({
+  ok: z.boolean(),
+  error: z.string().max(300).optional(),
+  /** A falha veio depois de mandar para a impressora (pode ter saído): não tenta de novo sozinho. */
+  sent: z.boolean().optional(),
+  printer: z.string().trim().max(80).optional(),
+});
+/** Impressora de um computador: destino (null ou vazio = principal) e o nome mostrado. */
+const PrinterRef = z.object({
+  target: z
+    .string()
+    .trim()
+    .max(60)
+    .nullable()
+    .optional()
+    .transform((v) => v || null),
+  label: z.string().trim().max(80).optional(),
+});
 
 const Kind = z.enum(TEMPLATE_KINDS);
 const TemplateBody = z.object({ body: z.string().min(1).max(TEMPLATE_MAX) });
@@ -216,6 +236,163 @@ export class PrintingController {
     });
   }
 
+  /**
+   * Exclui o computador: o token para de valer na hora e ele some da lista. O que ele estava
+   * imprimindo volta para a fila (outro computador pega); o histórico fica, sem o nome dele.
+   */
+  @Delete('printing/agents/:id')
+  @RequirePermission('printing:manage')
+  async deleteAgent(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const r = await this.db.withTenant(ctxOf(t, u), async (tx) => {
+      await q(
+        tx,
+        `UPDATE print_jobs SET status = CASE WHEN status = 'printing' THEN 'queued' ELSE status END,
+                claimed_by = NULL, claimed_at = NULL
+          WHERE claimed_by = $1`,
+        [id],
+      );
+      const a = await one<{ name: string }>(
+        tx,
+        `DELETE FROM print_agents WHERE id = $1 RETURNING name`,
+        [id],
+      );
+      if (!a) throw new NotFoundException('Computador não encontrado');
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'printing.agent_deleted',
+        entity: 'print_agent',
+        entityId: id,
+        data: { name: a.name },
+        ip: req.ip,
+      });
+      return { ok: true };
+    });
+    this.realtime.publish(t.id, { type: 'print.changed' });
+    return r;
+  }
+
+  /**
+   * Pede ao computador que apague os documentos do Comandou que ainda estão na fila do sistema
+   * (spooler do Windows): o que já saiu do Comandou para a impressora para de imprimir.
+   */
+  @Post('printing/agents/:id/purge')
+  @HttpCode(200)
+  @RequirePermission('printing:manage')
+  async purge(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    const a = await this.db.withTenant(ctxOf(t, u), (tx) =>
+      one(
+        tx,
+        `UPDATE print_agents SET purge_requested_at = now() WHERE id = $1 RETURNING ${AGENT_COLS}`,
+        [id],
+      ),
+    );
+    if (!a) throw new NotFoundException('Computador não encontrado');
+    this.realtime.publish(t.id, { type: 'print.changed' });
+    return a;
+  }
+
+  /**
+   * Tira uma impressora do aplicativo daquele computador (a principal ou a de um setor). Some da
+   * tela na hora; o aplicativo apaga a escolha no próximo sinal (até 30 s). Sem principal, o
+   * computador para de pegar trabalhos, que esperam na fila.
+   */
+  @Post('printing/agents/:id/printers/remove')
+  @HttpCode(200)
+  @RequirePermission('printing:manage')
+  async removePrinter(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(PrinterRef)) b: z.infer<typeof PrinterRef>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const a = await this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const row = await one(
+        tx,
+        `UPDATE print_agents
+            SET printer_removals = (
+                  SELECT jsonb_agg(DISTINCT x) FROM jsonb_array_elements(
+                    COALESCE(printer_removals, '[]'::jsonb) || jsonb_build_array($2::text)) x),
+                printers = (SELECT COALESCE(jsonb_agg(p), '[]'::jsonb)
+                              FROM jsonb_array_elements(COALESCE(printers, '[]'::jsonb)) p
+                             WHERE p->'target' IS DISTINCT FROM COALESCE(to_jsonb($2::text), 'null'::jsonb))
+          WHERE id = $1 RETURNING ${AGENT_COLS}`,
+        [id, b.target],
+      );
+      if (!row) throw new NotFoundException('Computador não encontrado');
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'printing.printer_removed',
+        entity: 'print_agent',
+        entityId: id,
+        data: { target: b.target, label: b.label ?? null },
+        ip: req.ip,
+      });
+      return row;
+    });
+    this.realtime.publish(t.id, { type: 'print.changed' });
+    return a;
+  }
+
+  /**
+   * Trabalhos de uma impressora: os próximos (na fila, que este computador manda para ela) e os
+   * que já passaram por ela (impressos, com falha ou tirados da fila).
+   */
+  @Get('printing/agents/:id/jobs')
+  @RequirePermission('printing:manage')
+  printerJobs(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query(new ZodPipe(PrinterRef)) f: z.infer<typeof PrinterRef>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const a = await one<{ printers: { target: string | null; label: string }[] | null }>(
+        tx,
+        `SELECT printers FROM print_agents WHERE id = $1`,
+        [id],
+      );
+      if (!a) throw new NotFoundException('Computador não encontrado');
+      const list = a.printers ?? [];
+      const target = f.target;
+      const label = f.label ?? list.find((p) => p.target === target)?.label ?? null;
+      // Principal: recebe os destinos que não têm impressora própria neste computador.
+      const routed = list.filter((p) => p.target !== null).map((p) => p.target as string);
+      const mine = target === null ? null : [target];
+      const sameTarget = `(($A::text[] IS NOT NULL AND j.target = ANY($A::text[]))
+                 OR ($A::text[] IS NULL AND NOT (j.target = ANY($B::text[]))))`;
+      const upcoming = await q(
+        tx,
+        `${JOB_SELECT}
+          WHERE j.status IN ('queued','printing')
+            AND ${sameTarget.replaceAll('$A', '$1').replaceAll('$B', '$2')}
+          ORDER BY j.created_at LIMIT 100`,
+        [mine, routed],
+      );
+      const past = await q(
+        tx,
+        `${JOB_SELECT}
+          WHERE j.status IN ('done','failed','cancelled') AND j.claimed_by = $1
+            AND (j.printer_label = $2
+                 OR (j.printer_label IS NULL AND ${sameTarget.replaceAll('$A', '$3').replaceAll('$B', '$4')}))
+          ORDER BY j.created_at DESC LIMIT 100`,
+        [id, label, mine, routed],
+      );
+      return { label, upcoming, past };
+    });
+  }
+
   /** Gera um token novo; o anterior para de funcionar na hora. */
   @Post('printing/agents/:id/token')
   @RequirePermission('printing:manage')
@@ -272,8 +449,9 @@ export class PrintingController {
     const r = await this.db.withTenant(ctxOf(t, u), async (tx) => {
       const j = await one(
         tx,
-        `UPDATE print_jobs SET status = 'queued', attempts = 0, claimed_by = NULL, claimed_at = NULL
-          WHERE id = $1 AND status = 'failed' RETURNING id`,
+        `UPDATE print_jobs SET status = 'queued', attempts = 0, claimed_by = NULL, claimed_at = NULL,
+                retry_at = NULL
+          WHERE id = $1 AND status IN ('failed','cancelled') RETURNING id`,
         [id],
       );
       if (!j) throw new NotFoundException('Trabalho com falha não encontrado');
@@ -284,8 +462,10 @@ export class PrintingController {
   }
 
   /**
-   * Tira da fila o que ainda não imprimiu (só "Na fila"): comanda antiga que não precisa mais
-   * sair quando o computador voltar. Sem ids, a fila toda. Fica como "Falhou" e pode voltar.
+   * Tira da fila o que ainda não imprimiu ("Na fila" e "Imprimindo"): comanda que não precisa
+   * mais sair. Fica como "Tirado da fila" e pode voltar. O computador que já pegou o trabalho
+   * não confirma mais (409) e, sem ids (a fila toda), ainda apaga os documentos do Comandou que
+   * estão na fila do sistema (spooler do Windows), para a impressora parar de imprimir.
    */
   @Post('printing/jobs/discard')
   @HttpCode(200)
@@ -295,16 +475,31 @@ export class PrintingController {
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
   ) {
-    const rows = await this.db.withTenant(ctxOf(t, u), (tx) =>
-      q(
+    const rows = await this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const r = await q<{ claimed_by: string | null; was: string }>(
         tx,
-        `UPDATE print_jobs SET status = 'failed', last_error = 'Tirado da fila na tela Impressão'
-          WHERE status = 'queued' AND ($1::uuid[] IS NULL OR id = ANY($1::uuid[]))
-          RETURNING id`,
+        `UPDATE print_jobs j SET status = 'cancelled', retry_at = NULL,
+                last_error = 'Tirado da fila na tela Impressão'
+           FROM print_jobs old
+          WHERE old.id = j.id AND j.status IN ('queued','printing')
+            AND ($1::uuid[] IS NULL OR j.id = ANY($1::uuid[]))
+          RETURNING j.claimed_by, old.status AS was`,
         [b.ids ?? null],
-      ),
-    );
-    if (rows.length) this.realtime.publish(t.id, { type: 'print.changed' });
+      );
+      // Fila toda (ou trabalho que já estava com um computador): limpa a fila do sistema também.
+      const busy = [
+        ...new Set(r.filter((x) => x.was === 'printing' && x.claimed_by).map((x) => x.claimed_by)),
+      ];
+      if (!b.ids) await q(tx, `UPDATE print_agents SET purge_requested_at = now() WHERE active`);
+      else if (busy.length)
+        await q(
+          tx,
+          `UPDATE print_agents SET purge_requested_at = now() WHERE id = ANY($1::uuid[])`,
+          [busy],
+        );
+      return r;
+    });
+    if (rows.length || !b.ids) this.realtime.publish(t.id, { type: 'print.changed' });
     return { discarded: rows.length };
   }
 
@@ -405,11 +600,12 @@ export class PrintAgentController {
   ) {
     const a = await this.agent(req, t);
     await this.printing.heartbeat(t.id, a.id, req.ip, b.version, b.printers);
-    const [targets, brand] = await Promise.all([
+    const [targets, brand, commands] = await Promise.all([
       this.printing.targets(t.id),
       this.printing.branding(t.id),
+      this.printing.agentCommands(t.id, a.id, { purgedAt: b.purgedAt, removed: b.removed }),
     ]);
-    return { agent: a.name, restaurant: t.name, targets, brand };
+    return { agent: a.name, restaurant: t.name, targets, brand, ...commands };
   }
 
   @Post('claim')
@@ -432,6 +628,6 @@ export class PrintAgentController {
     @Req() req: Request,
   ) {
     const a = await this.agent(req, t);
-    return this.printing.result(t.id, a.id, id, b.ok, b.error);
+    return this.printing.result(t.id, a.id, id, b.ok, b.error, b.sent, b.printer);
   }
 }

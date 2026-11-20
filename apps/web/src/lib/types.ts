@@ -884,13 +884,20 @@ export interface PrintJob {
   id: string;
   kind: 'kitchen_ticket' | 'receipt' | 'test' | 'fiscal_receipt' | 'kitchen_cancel';
   target: string;
-  status: 'queued' | 'printing' | 'done' | 'failed';
+  /** cancelled = tirado da fila na tela Impressão */
+  status: 'queued' | 'printing' | 'done' | 'failed' | 'cancelled';
   attempts: number;
   orderId: string | null;
   orderNumber: number | null;
   lastError: string | null;
   createdAt: string;
+  doneAt: string | null;
+  agentId: string | null;
   agentName: string | null;
+  /** Impressora em que o computador mandou (aplicativo 1.6 em diante). */
+  printerLabel: string | null;
+  /** Falha que volta sozinha para a fila só a partir desta hora. */
+  retryAt: string | null;
 }
 
 export interface FinanceEntry {

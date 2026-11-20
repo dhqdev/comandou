@@ -137,14 +137,22 @@ export function describePrinter(spec) {
 function sendTcp(host, port, data) {
   return new Promise((resolve, reject) => {
     const sock = net.connect({ host, port });
+    let connected = false;
     sock.setTimeout(10_000, () =>
       sock.destroy(
         new Error(
-          `A impressora ${host}:${port} não respondeu. Ela está ligada e na mesma rede deste computador?`,
+          connected
+            ? `A impressora ${host}:${port} recebeu e não fechou a conexão. Confira se saiu antes de mandar de novo (é térmica de cupom?).`
+            : `A impressora ${host}:${port} não respondeu. Ela está ligada e na mesma rede deste computador?`,
         ),
       ),
     );
-    sock.once('error', (e) =>
+    sock.once('error', (e) => {
+      // Depois de conectar, o texto pode ter chegado: não manda de novo sozinho.
+      if (connected) {
+        e.sent = true;
+        return reject(e);
+      }
       reject(
         e.code === 'ECONNREFUSED' ||
           e.code === 'EHOSTUNREACH' ||
@@ -156,9 +164,12 @@ function sendTcp(host, port, data) {
           : e.code === 'ENOTFOUND'
             ? new Error(`Não achei "${host}" na rede. Use o IP da impressora (ex.: 192.168.0.50).`)
             : e,
-      ),
-    );
-    sock.once('connect', () => sock.end(data));
+      );
+    });
+    sock.once('connect', () => {
+      connected = true;
+      sock.end(data);
+    });
     sock.once('close', (hadError) => (hadError ? undefined : resolve()));
   });
 }
@@ -278,6 +289,68 @@ try {
   [Console]::Error.WriteLine('PORT_WRITE ' + $_.Exception.Message); exit 4
 } finally { $p.Close() }
 `;
+
+// Documentos do Comandou na fila do Windows: "Comandou" (RAW e folha, 1.6 em diante) e
+// "data_text_html..." (folha das versões até a 1.5, sem título).
+const OURS = "'^(Comandou|data_text_html)'";
+
+const WIN_SPOOL_PS1 = `$ErrorActionPreference = 'Stop'
+$j = @(Get-PrintJob -PrinterName $env:COMANDOU_PRINTER | Where-Object { $_.DocumentName -match ${OURS} })
+$e = @($j | Where-Object { [string]$_.JobStatus -match 'Error|Offline|PaperOut|Blocked|UserIntervention' })
+Write-Output "$($j.Count) $($e.Count)"
+`;
+
+const WIN_PURGE_PS1 = `$ErrorActionPreference = 'Continue'
+$n = 0
+foreach ($p in ($env:COMANDOU_PRINTERS -split "\n" | Where-Object { $_ })) {
+  try {
+    Get-PrintJob -PrinterName $p -ErrorAction Stop | Where-Object { $_.DocumentName -match ${OURS} } |
+      ForEach-Object { Remove-PrintJob -InputObject $_ -ErrorAction Stop; $n++ }
+  } catch { [Console]::Error.WriteLine("$($p) - $($_.Exception.Message)") }
+}
+Write-Output $n
+`;
+
+/**
+ * Comandas do Comandou paradas na fila do sistema de uma impressora: { count, error }.
+ * Só no Windows; nos outros, null (não sabe).
+ */
+export async function spoolBacklog(name, platform = process.platform) {
+  if (platform !== 'win32') return null;
+  const out = await powershell(WIN_SPOOL_PS1, { COMANDOU_PRINTER: name }, 15_000);
+  const [count, error] = String(out).trim().split(/\s+/).map(Number);
+  return Number.isFinite(count) ? { count, error: Number.isFinite(error) ? error : 0 } : null;
+}
+
+/**
+ * Apaga da fila do sistema os documentos do Comandou nas impressoras `names` (pedido da tela
+ * Impressão). Documentos de outros programas ficam. Devolve quantos apagou.
+ */
+export async function purgeSpool(names, platform = process.platform) {
+  const list = [...new Set(names.filter(Boolean))];
+  if (platform !== 'win32' || !list.length) return 0;
+  const out = await powershell(WIN_PURGE_PS1, { COMANDOU_PRINTERS: list.join('\n') }, 60_000);
+  return Number(String(out).trim().split(/\s+/).pop()) || 0;
+}
+
+/**
+ * Impressora de rede escolhida como térmica (texto direto na porta 9100) que, na verdade, é uma
+ * jato de tinta ou laser instalada no Windows. A Epson, a HP e a Brother põem o fim do MAC no
+ * nome ("EPSON17C57B (L4260 Series)"). Devolve o nome da instalada, ou null.
+ */
+export function installedTwinOf(spec, installed) {
+  const { base, opts } = parseSpec(spec);
+  if (!base.startsWith('tcp://') || !opts.mac) return null;
+  const tail = opts.mac.replace(/-/g, '').slice(-6);
+  const hit = installed.find(
+    (p) =>
+      p.name
+        .toUpperCase()
+        .replace(/[^0-9A-F]/g, '')
+        .includes(tail) && !looksLikeReceipt(p.name, p.driver ?? ''),
+  );
+  return hit?.name ?? null;
+}
 
 async function withTempFile(data, fn) {
   const dir = await mkdtemp(join(tmpdir(), 'comandou-'));

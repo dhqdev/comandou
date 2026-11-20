@@ -14,7 +14,7 @@ export function documentHtml(text, { paper = 80 } = {}) {
     .split('\n')
     .map((l) => (l.startsWith(QR_MARK) ? `Consulte pelo QR Code: ${l.slice(QR_MARK.length)}` : l));
   const size = paper === 58 ? '9.5pt' : '10.5pt';
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Comandou</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
 <style>
 @page { margin: 10mm; }
