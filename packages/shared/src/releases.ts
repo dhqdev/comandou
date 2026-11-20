@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.209.4',
+    date: '2026-11-20',
+    title: 'Mais espaço entre os botões do pedido',
+    summary:
+      'Os botões do rodapé do pedido estavam muito juntos. Agora têm mais folga entre si, entre as linhas e até a barra de Cancelar pedido e Fechar conta.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Pedido: botões de Impressão e Cobrança um pouco maiores e mais afastados, com mais espaço entre os dois grupos e antes da barra que decide o pedido.',
+      },
+    ],
+  },
+  {
     version: '0.209.3',
     date: '2026-11-20',
     title: 'Botões do pedido todos embaixo',
