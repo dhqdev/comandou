@@ -290,22 +290,32 @@ export async function scanNetwork(o = {}) {
     while (next < hosts.length) {
       const host = hosts[next++];
       if (await probe(host, port, o.timeoutMs ?? 700))
-        found.set(host, { host, port, name: '', via: 'porta' });
+        found.set(host, { host, port, name: '', via: 'porta', raw: true });
       o.onProgress?.(++done, hosts.length);
     }
   };
   await Promise.all(Array.from({ length: Math.min(o.concurrency ?? 96, hosts.length) }, worker));
 
-  // Bonjour: dá o nome; impressora RAW de outra faixa (que não entrou na varredura) também vale.
-  for (const b of await bonjour) {
+  // Bonjour: dá o nome e o modelo; impressora de outra faixa (que não entrou na varredura) e
+  // impressora só IPP/LPD (jato de tinta e laser sem porta 9100) também entram.
+  const order = { 'pdl-datastream': 0, ipp: 1, printer: 2 };
+  const announced = (await bonjour).sort((a, b) => order[a.service] - order[b.service]);
+  for (const b of announced) {
     if (o.hosts && !o.hosts.includes(b.host)) continue;
     const cur = found.get(b.host);
     if (cur) {
       if (!cur.name || b.service === 'pdl-datastream') cur.name = b.name;
-    } else if (b.service === 'pdl-datastream' && b.port) {
-      if (await probe(b.host, b.port, 1200))
-        found.set(b.host, { host: b.host, port: b.port, name: b.name, via: 'bonjour' });
-    }
+      cur.bonjour = { ...b.txt, ...cur.bonjour, ...(b.service === 'ipp' ? { rp: b.txt?.rp } : {}) };
+    } else if (b.port && (await probe(b.host, b.port, 1200)))
+      found.set(b.host, {
+        host: b.host,
+        port: b.port,
+        name: b.name,
+        via: 'bonjour',
+        bonjour: b.txt,
+        // Só IPP (631) ou LPD (515): não recebe texto direto, imprime pelo sistema.
+        raw: b.service === 'pdl-datastream',
+      });
   }
   const list = [...found.values()];
   await Promise.all(

@@ -120,12 +120,19 @@ export async function installUsb(id, label, platform = process.platform) {
     return name;
   }
   if (!validCupsUri(id)) throw new Error('Impressora USB inválida.');
-  const args = ['-p', name, '-E', '-v', id, '-m', 'raw', '-o', 'printer-is-shared=false'];
+  await lpadmin(
+    ['-p', name, '-E', '-v', id, '-m', 'raw', '-o', 'printer-is-shared=false'],
+    platform,
+  );
+  return name;
+}
+
+/** Roda o lpadmin; sem permissão, pede a senha de administrador do jeito do sistema. */
+async function lpadmin(args, platform) {
   try {
     await run('lpadmin', args, { timeoutMs: 30_000 });
   } catch {
-    // Pede a senha de administrador do jeito do sistema. Nome e endereço já foram validados
-    // (sem aspas nem espaços), então podem ir dentro das aspas simples.
+    // Nome e endereço já foram validados (sem aspas nem espaços), então podem ir dentro das aspas.
     const cmd = `lpadmin ${args.map((a) => `'${a}'`).join(' ')}`;
     const runAdmin =
       platform === 'darwin'
@@ -141,16 +148,84 @@ export async function installUsb(id, label, platform = process.platform) {
       );
     });
   }
+}
+
+export const validIp = (ip) =>
+  /^\d{1,3}(\.\d{1,3}){3}$/.test(ip) && ip.split('.').every((n) => Number(n) <= 255);
+export const validIppPath = (p) => /^[A-Za-z0-9._~\-/]{0,80}$/.test(p) && !p.includes('..');
+
+const WIN_INSTALL_IPP = (name, url) => `$ErrorActionPreference = 'Stop'
+Add-Printer -Name '${name}' -IppURL '${url}'
+`;
+
+/**
+ * Impressora comum de rede (jato de tinta, laser, etiqueta): instala no sistema pelo IPP, com o
+ * driver que já vem nele (Windows: "Microsoft IPP Class Driver"; macOS/Linux: IPP Everywhere,
+ * sem driver do fabricante). Devolve o nome da impressora no sistema.
+ */
+export async function installNetwork(host, label, path = 'ipp/print', platform = process.platform) {
+  if (!validIp(host)) throw new Error('Endereço de rede inválido.');
+  const rp = String(path ?? '').replace(/^\/+/, '');
+  if (!validIppPath(rp)) throw new Error('Endereço da impressora inválido.');
+  const name = queueName(label);
+  if (platform === 'win32') {
+    const script = WIN_INSTALL_IPP(name, `http://${host}:631/${rp}`);
+    try {
+      await powershell(script, {}, 90_000);
+    } catch {
+      await powershell(elevated(script), {}, 180_000).catch((e) => {
+        throw new Error(
+          /UAC_DENIED/.test(e.message)
+            ? 'O Windows não deixou instalar: clique em Sim no aviso de permissão.'
+            : 'O Windows não conseguiu instalar sozinho. Abra Configurações › Impressoras e clique em Adicionar dispositivo.',
+        );
+      });
+    }
+    return name;
+  }
+  await lpadmin(
+    [
+      '-p',
+      name,
+      '-E',
+      '-v',
+      `ipp://${host}:631/${rp}`,
+      '-m',
+      'everywhere',
+      '-o',
+      'printer-is-shared=false',
+    ],
+    platform,
+  );
   return name;
 }
 
 const WIN_DRIVERS_PS1 = `$ErrorActionPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$out = @(Get-Printer | ForEach-Object { [pscustomobject]@{ name = [string]$_.Name; driver = [string]$_.DriverName; port = [string]$_.PortName } })
-ConvertTo-Json -InputObject @($out) -Compress
+$ports = @{}; foreach ($x in @(Get-PrinterPort)) { $ports[[string]$x.Name] = [string]$x.PrinterHostAddress }
+$makers = @{}; foreach ($x in @(Get-PrinterDriver)) { $makers[[string]$x.Name] = [string]$x.Manufacturer }
+$wmi = @{}; foreach ($x in @(Get-CimInstance Win32_Printer)) { $wmi[[string]$x.Name] = $x }
+$out = @(Get-Printer | ForEach-Object {
+  $w = $wmi[[string]$_.Name]
+  $jobs = @(Get-PrintJob -PrinterName $_.Name -ErrorAction SilentlyContinue).Count
+  [pscustomobject]@{
+    name = [string]$_.Name; driver = [string]$_.DriverName; port = [string]$_.PortName
+    host = $ports[[string]$_.PortName]; maker = $makers[[string]$_.DriverName]
+    shared = [bool]$_.Shared; share = [string]$_.ShareName; server = [string]$_.ComputerName
+    location = [string]$_.Location; comment = [string]$_.Comment; status = [string]$_.PrinterStatus
+    kind = [string]$_.Type; isDefault = [bool]$w.Default; offline = [bool]$w.WorkOffline
+    error = [int]$w.DetectedErrorState; jobs = $jobs
+    dpi = [int]$w.HorizontalResolution; caps = @($w.CapabilityDescriptions | ForEach-Object { [string]$_ })
+    paper = @($w.PrinterPaperNames | Select-Object -First 12 | ForEach-Object { [string]$_ })
+  }
+})
+ConvertTo-Json -InputObject @($out) -Compress -Depth 3
 `;
 
-/** Windows: driver e porta de cada impressora instalada (para saber se é térmica). */
+/**
+ * Windows: tudo o que o sistema sabe de cada impressora instalada (driver, porta, IP da porta,
+ * fabricante, compartilhamento, padrão, situação, fila, resolução, papéis).
+ */
 export async function windowsPrinterDrivers() {
   try {
     const list = JSON.parse((await powershell(WIN_DRIVERS_PS1, {}, 30_000)).trim() || '[]');

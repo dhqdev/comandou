@@ -64,6 +64,20 @@ há erro. BLE não é conferido em segundo plano (gastaria a bateria da impresso
 Impressoras aceitas: térmicas ESC/POS (Elgin, Bematech, Epson, Daruma, Tanca, Knup, genéricas de
 58/80 mm) e, em folha, qualquer impressora comum instalada no computador.
 
+**Tipo e detalhes de cada impressora:** `kinds.mjs` reconhece o tipo pelo nome, pelo driver, pelo
+modelo e pela linguagem que a impressora informa (campo `CMD` do IEEE 1284): térmica de cupom
+(ESC/POS direto), jato de tinta, laser, matricial e etiqueta (essas pelo driver, em folha) e virtual
+(PDF/OneNote, aparece mas não serve para a comanda). Instaladas: no Windows, `Get-Printer`,
+`Get-PrinterPort`, `Get-PrinterDriver`, `Win32_Printer` e `Get-PrintJob` dão driver, fabricante,
+porta e o IP dela, compartilhamento, padrão, situação, fila, resolução, cor, frente e verso e papéis;
+no macOS/Linux, os atributos do CUPS (`device-uri`, `printer-state-reasons`, `marker-levels`) e
+`lpstat -o`. Rede: `ipp.mjs` (Get-Printer-Attributes na porta 631: modelo, situação, tinta,
+papéis) e `snmp.mjs` (SNMP v2c "public": série, contador de páginas, erros e toner pela Printer-MIB),
+juntos em `inspect.mjs`, só perguntando (nada é impresso). Impressora só IPP (jato/laser sem 9100)
+aparece pelo Bonjour e **Instalar** cria a fila no sistema pelo IPP (`Add-Printer -IppURL` no
+Windows, `lpadmin -m everywhere` no macOS/Linux, sem driver do fabricante), que passa a imprimir em
+folha. Sem IPP, **Adicionar no sistema** abre a tela de impressoras do sistema.
+
 **Cara do restaurante:** o heartbeat devolve `brand` (cor, tema claro/escuro/automático e ícone, os
 mesmos do sistema). A tela usa a cor do restaurante (ajustada para ter contraste) e o tema; o ícone é
 baixado, desenhado em PNG na janela escondida (`renderIcon` em `desktop/ble/ble.js`) e salvo em

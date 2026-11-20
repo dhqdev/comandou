@@ -1764,6 +1764,35 @@ function foundRow(f) {
         'Criar porta COM',
       ),
     );
+  else if (f.action === 'install-net')
+    actions.push(
+      actionButton(
+        'Instalar',
+        'Instalando…',
+        async () => {
+          const { spec } = await api.netInstall(f.host, f.name, f.ippPath);
+          await refreshPrinters();
+          toast('Impressora instalada no computador. Ela imprime a comanda numa folha.');
+          await api.discover(true).then(apply);
+          if (!state.printers.default) await useAs(null, spec);
+        },
+        'btn btn--primary btn--sm',
+      ),
+    );
+  else if (f.action === 'os-add')
+    actions.push(
+      el(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn--sm',
+          title:
+            'Ela não aceita texto direto: adicione no sistema e ela aparece aqui como instalada.',
+          onclick: () => api.btSettings('printers'),
+        },
+        'Adicionar no sistema',
+      ),
+    );
   else if (f.spec) {
     actions.push(
       el(
@@ -1786,24 +1815,168 @@ function foundRow(f) {
       ),
     );
   }
+  const open = openDetails.has(f.id);
+  const tags = foundTags(f, used, h);
+  actions.push(
+    el(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn--ghost btn--sm found__more-btn',
+        'aria-expanded': String(open),
+        onclick: () => {
+          if (open) openDetails.delete(f.id);
+          else openDetails.add(f.id);
+          renderFound();
+        },
+      },
+      open ? 'Fechar' : 'Detalhes',
+    ),
+  );
   return el(
     'div',
-    { class: `found__row${used.length ? ' is-used' : ''}` },
-    el('span', { class: 'found__icon' }, icon(FOUND_ICON[f.kind] ?? 'printer', 20)),
+    { class: `found__item${open ? ' is-open' : ''}` },
     el(
       'div',
-      { class: 'found__body' },
-      el('strong', { class: 'found__name', text: f.name }),
-      el('span', { class: 'muted found__detail', text: f.detail }),
+      { class: `found__row${used.length ? ' is-used' : ''}${f.usable === false ? ' is-off' : ''}` },
+      el('span', { class: 'found__icon' }, icon(FOUND_ICON[f.kind] ?? 'printer', 20)),
+      el(
+        'div',
+        { class: 'found__body' },
+        el('strong', { class: 'found__name', text: f.name }),
+        el('span', { class: 'muted found__detail', text: f.detail }),
+        tags.length ? el('div', { class: 'found__tags' }, ...tags) : null,
+      ),
+      el('div', { class: 'found__actions' }, ...actions),
     ),
+    open ? detailsPanel(f) : null,
+  );
+}
+
+function foundTags(f, used, h) {
+  const d = f.details ?? {};
+  const problems = d.problems ?? [];
+  const warn = problems.length > 0 || d.status === 'Offline' || d.status === 'Parada';
+  const low = (d.supplies ?? []).some((x) => x.level !== null && x.level <= 15);
+  return [
+    ...used.map((u) => el('span', { class: 'tag tag--brand', text: u })),
+    d.isDefault ? el('span', { class: 'tag', text: 'Padrão do sistema' }) : null,
+    f.type === 'virtual' ? el('span', { class: 'tag', text: 'Não imprime no papel' }) : null,
+    warn
+      ? el('span', { class: 'tag tag--warn', text: problems[0] ?? d.status })
+      : low
+        ? el('span', { class: 'tag tag--warn', text: 'Pouca tinta' })
+        : null,
+    h ? el('span', { class: `dot dot--${h.ok ? 'ok' : 'fail'}`, title: h.text }) : null,
+  ].filter(Boolean);
+}
+
+/** Impressoras com os detalhes abertos (sobrevive à busca de novo). */
+const openDetails = new Set();
+
+const TYPE_LABEL = {
+  termica: 'Térmica de cupom',
+  etiqueta: 'Etiqueta',
+  matricial: 'Matricial',
+  jato: 'Jato de tinta',
+  laser: 'Laser',
+  virtual: 'Virtual (salva arquivo)',
+  desconhecida: 'Não identificado',
+};
+const HOW = {
+  termica: 'Recebe a comanda direto, em texto com comandos de cupom (ESC/POS).',
+  etiqueta: 'Imprime pelo driver, no tamanho da etiqueta.',
+  matricial: 'Imprime pelo driver, em folha.',
+  jato: 'Imprime a comanda numa folha, pelo driver, sem abrir janela.',
+  laser: 'Imprime a comanda numa folha, pelo driver, sem abrir janela.',
+  virtual: 'Salva em arquivo (PDF, XPS, OneNote): não serve para a comanda.',
+  desconhecida:
+    'Sem pista do tipo: o aplicativo tenta como térmica. Se sair errado, troque para Comum nos ajustes.',
+};
+
+/** Barra de tinta/toner (largura e cor pelo CSSOM: a CSP não deixa estilo escrito no HTML). */
+function supplyFill(x) {
+  const n = el('span', { class: 'supply__fill' });
+  n.style.width = `${x.level ?? 0}%`;
+  if (x.color) n.style.setProperty('--ink', x.color);
+  return n;
+}
+
+/** Quadro com tudo o que se sabe da impressora. */
+function detailsPanel(f) {
+  const d = f.details ?? {};
+  const yes = (v) => (v === true ? 'Sim' : v === false ? 'Não' : null);
+  const rows = [
+    ['Tipo', TYPE_LABEL[f.type ?? d.type] ?? null],
+    ['Como imprime', HOW[f.type ?? d.type] ?? null],
+    [
+      'Situação',
+      [(d.problems ?? []).length ? d.problems.join(', ') : d.status, d.message]
+        .filter(Boolean)
+        .join(' · ') || null,
+    ],
+    ['Modelo', d.model],
+    ['Driver', d.driver && d.driver !== d.model ? d.driver : null],
+    ['Ligação', d.connection],
+    ['Porta', d.port != null ? String(d.port) : null],
+    ['IP', d.host],
+    ['MAC', d.mac],
+    ['Compartilhada como', d.share],
+    ['Computador que compartilha', d.server],
+    ['Número de série', d.serial],
+    ['Páginas impressas', typeof d.pages === 'number' ? d.pages.toLocaleString('pt-BR') : null],
+    [
+      'Na fila do sistema',
+      typeof d.jobs === 'number' ? `${d.jobs} ${d.jobs === 1 ? 'trabalho' : 'trabalhos'}` : null,
+    ],
+    ['Colorida', yes(d.color)],
+    ['Frente e verso', yes(d.duplex)],
+    ['Resolução', d.resolution],
+    ['Papéis', d.paper?.length ? d.paper.slice(0, 6).join(', ') : null],
+    ['Local', d.location],
+    ['Observação', d.comment],
+    ['Firmware', d.firmware],
+    ['Linguagem', d.commandSet],
+    ['Descrição', d.description && d.description !== d.model ? d.description : null],
+  ].filter(([, v]) => v !== null && v !== undefined && v !== '');
+  const supplies = (d.supplies ?? []).filter((x) => x.name);
+  return el(
+    'div',
+    { class: 'found__details' },
+    supplies.length
+      ? el(
+          'div',
+          { class: 'supplies' },
+          ...supplies.map((x) =>
+            el(
+              'div',
+              { class: 'supply' },
+              el('span', { class: 'supply__name', text: x.name }),
+              el('span', { class: 'supply__bar', 'aria-hidden': 'true' }, supplyFill(x)),
+              el('span', {
+                class: `supply__pct${x.level !== null && x.level <= 15 ? ' is-low' : ''}`,
+                text: x.level !== null ? `${x.level}%` : x.some ? 'tem' : '—',
+              }),
+            ),
+          ),
+        )
+      : null,
     el(
-      'div',
-      { class: 'found__tags' },
-      ...used.map((u) => el('span', { class: 'tag tag--brand', text: u })),
-      f.receipt === false ? el('span', { class: 'tag', text: 'Folha' }) : null,
-      h ? el('span', { class: `dot dot--${h.ok ? 'ok' : 'fail'}`, title: h.text }) : null,
+      'dl',
+      { class: 'facts' },
+      ...rows.map(([k, v]) => el('div', {}, el('dt', { text: k }), el('dd', { text: String(v) }))),
     ),
-    el('div', { class: 'found__actions' }, ...actions),
+    d.web && /^https?:\/\//.test(d.web)
+      ? el(
+          'p',
+          { class: 'found__web' },
+          el(
+            'a',
+            { href: d.web, target: '_blank', rel: 'noreferrer' },
+            'Abrir a página da impressora',
+          ),
+        )
+      : null,
   );
 }
 

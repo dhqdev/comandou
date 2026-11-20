@@ -28,6 +28,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { toEscPos } from './escpos.mjs';
+import { printerType, speaksEscPos } from './kinds.mjs';
 
 export const BAUD_RATES = [9600, 19200, 38400, 57600, 115200];
 
@@ -449,27 +450,13 @@ export function testPageText(label, spec = '') {
   ].join('\n');
 }
 
-// Térmicas de cupom (ESC/POS) pelo nome ou pelo driver. O resto (jato de tinta, laser, PDF)
-// imprime em folha, pelo driver do sistema.
-const RECEIPT =
-  /\btm[-_ ]?[a-z]?\d|receipt|recibo|cupom|\bpos\b|pos-?\d|thermal|t[ée]rmica|generic ?\/ ?text|text only|local raw|raw printer|elgin|bematech|daruma|tanca|knup|sweda|epson tm|xprinter|zjiang|gprinter|rongta|sunmi|\b(58|80) ?mm\b|\bi[789]\b|mp-?\d{3,4}|\btsp\d|\bmpt|pt-?2\d0|leopardo|controlid|print ?id|srp-?\d|bixolon/i;
-// Jato de tinta e laser conhecidas pelo nome (quando o Windows não diz o driver).
-const OFFICE =
-  /\bl\d{3,4}\b|ecotank|eco ?tank|workforce|expression|deskjet|officejet|laserjet|envy|smart ?tank|ink ?tank|pixma|maxify|imageclass|i-?sensys|\bmfc-|\bdcp-|\bhl-|xerox|ricoh|kyocera|lexmark|pantum|sharp mx/i;
-const DOCUMENT_ONLY = /pdf|xps|onenote|fax|send to|microsoft print|enviar para/i;
-
 /**
  * A impressora do sistema é térmica de cupom? `driver` é o nome do driver (Windows) ou o
  * "make and model" do CUPS. Na dúvida (nome genérico sem driver conhecido), trata como térmica.
  */
 export function looksLikeReceipt(name, driver = '') {
-  const all = `${name} ${driver}`;
-  if (DOCUMENT_ONLY.test(all)) return false;
-  if (RECEIPT.test(all)) return true;
-  if (OFFICE.test(all)) return false;
-  return !driver;
+  return speaksEscPos(printerType(name, driver), !!driver);
 }
 
 /** Impressora que nem é de papel (PDF, OneNote, fax): fica de fora da busca. */
-export const isVirtualPrinter = (name, driver = '') =>
-  /pdf|xps|onenote|fax|send to|enviar para|microsoft print to/i.test(`${name} ${driver}`);
+export const isVirtualPrinter = (name, driver = '') => printerType(name, driver) === 'virtual';

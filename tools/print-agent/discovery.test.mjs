@@ -18,7 +18,30 @@ import {
   tcpStatus,
 } from './devices.mjs';
 import { buildQuery, collectPrinters, parseResponse } from './mdns.mjs';
-import { mergeFound, toFound } from './desktop/discover.mjs';
+import {
+  connectionOf,
+  cupsSupplies,
+  hostOfUri,
+  mergeFound,
+  parseLpstatJobs,
+  toFound,
+} from './desktop/discover.mjs';
+import { mergeDetails, typeOfDetails } from './inspect.mjs';
+import {
+  attr as ippAttr,
+  buildRequest as buildIpp,
+  parseResponse as ippParse,
+  summarize as ippSummary,
+} from './ipp.mjs';
+import { TYPE_LABEL, printerType, typeFromCommandSet } from './kinds.mjs';
+import {
+  buildGet,
+  buildMessage,
+  OIDS as SNMP_OIDS,
+  parseResponse as snmpParse,
+  summarize as snmpSummary,
+  supplyOids,
+} from './snmp.mjs';
 import { DOT, documentHtml, pngToIco } from './desktop/pure.mjs';
 import { QR_MARK } from './escpos.mjs';
 import {
@@ -30,7 +53,14 @@ import {
   printText,
   withOptions,
 } from './printers.mjs';
-import { cupsCandidates, queueName, validCupsUri, windowsCandidates } from './usb.mjs';
+import {
+  cupsCandidates,
+  queueName,
+  validCupsUri,
+  validIp,
+  validIppPath,
+  windowsCandidates,
+} from './usb.mjs';
 
 // ------------------------------------------------------------------ mDNS
 const label = (s) => Buffer.concat([Buffer.from([Buffer.byteLength(s)]), Buffer.from(s)]);
@@ -72,7 +102,22 @@ test('mDNS: resposta com PTR, SRV, TXT e A vira impressora com nome e modelo', (
   const recs = parseResponse(pkt);
   assert.equal(recs.length, 4);
   assert.deepEqual(collectPrinters(recs, '192.168.0.99'), [
-    { host: '192.168.0.77', port: 9100, name: 'Cozinha (ELGIN i9)', service: 'pdl-datastream' },
+    {
+      host: '192.168.0.77',
+      port: 9100,
+      name: 'Cozinha (ELGIN i9)',
+      service: 'pdl-datastream',
+      txt: {
+        rp: null,
+        model: 'ELGIN i9',
+        cmd: null,
+        location: null,
+        admin: null,
+        pdl: null,
+        color: null,
+        duplex: null,
+      },
+    },
   ]);
 });
 
@@ -290,27 +335,58 @@ test('modo folha só vale para impressora do sistema e passa pelo transporte "do
   assert.equal(got[0].text, 'Mesa 4');
 });
 
-test('lista da busca: instaladas viram folha ou térmica, sem impressora virtual', () => {
+test('lista da busca: instaladas viram folha ou térmica; virtual aparece no fim, sem Usar', () => {
   const sys = toFound.system(
     [
+      { name: 'Microsoft Print to PDF' },
       { name: 'EPSON L3250 Series', displayName: 'EPSON L3250 Series' },
       { name: 'TM-T20', displayName: 'TM-T20' },
-      { name: 'Microsoft Print to PDF' },
     ],
-    new Map([['EPSON L3250 Series', { driver: 'EPSON L3250 Series' }]]),
+    new Map([
+      [
+        'EPSON L3250 Series',
+        {
+          driver: 'EPSON L3250 Series',
+          maker: 'EPSON',
+          port: 'USB001',
+          isDefault: true,
+          jobs: 2,
+          error: 4,
+          caps: ['Copies', 'Color'],
+          dpi: 600,
+        },
+      ],
+      [
+        'TM-T20',
+        { driver: 'EPSON TM-T20II Receipt', port: 'IP_192.168.0.60', host: '192.168.0.60' },
+      ],
+    ]),
   );
   assert.deepEqual(
-    sys.map((f) => [f.name, f.spec, f.receipt]),
+    sys.map((f) => [f.name, f.spec, f.receipt, f.type]),
     [
-      ['EPSON L3250 Series', 'printer:EPSON L3250 Series?modo=folha', false],
-      ['TM-T20', 'printer:TM-T20', true],
+      ['EPSON L3250 Series', 'printer:EPSON L3250 Series?modo=folha', false, 'jato'],
+      ['TM-T20', 'printer:TM-T20', true, 'termica'],
+      ['Microsoft Print to PDF', undefined, false, 'virtual'],
     ],
   );
+  const epson = sys[0].details;
+  assert.equal(epson.connection, 'Cabo USB');
+  assert.equal(epson.isDefault, true);
+  assert.equal(epson.jobs, 2);
+  assert.deepEqual(epson.problems, ['Sem papel']);
+  assert.equal(epson.color, true);
+  assert.equal(epson.duplex, false);
+  assert.equal(epson.resolution, '600 dpi');
+  assert.equal(sys[1].host, '192.168.0.60');
+  assert.equal(sys[1].details.connection, 'Rede (IP)');
+  assert.equal(sys[2].usable, false);
+
   const net = toFound.network([
     { host: '192.168.0.50', port: 9100, mac: 'aa:bb:cc:dd:ee:ff', name: 'Elgin i9' },
   ]);
   assert.equal(net[0].spec, 'tcp://192.168.0.50:9100?mac=aa:bb:cc:dd:ee:ff');
-  assert.equal(net[0].detail, 'Rede · 192.168.0.50');
+  assert.equal(net[0].detail, 'Térmica de cupom · Rede · 192.168.0.50');
   const usb = toFound.usbNew([{ id: 'USB001', label: 'Impressora USB (USB001)' }]);
   assert.equal(usb[0].action, 'install');
   const bt = toFound.btNoPort([{ mac: '00:11:22:33:44:55', name: 'MPT-II' }], 'win32');
@@ -324,8 +400,219 @@ test('lista da busca: instaladas viram folha ou térmica, sem impressora virtual
   });
   assert.deepEqual(
     merged.map((f) => f.kind),
-    ['system', 'system', 'usb-new', 'network'],
+    ['system', 'system', 'system', 'usb-new', 'network'],
   );
+  // A instalada que aponta para um IP achado na rede fica só uma vez, com os dados da rede.
+  const sameHost = toFound.network([{ host: '192.168.0.60', port: 9100, name: 'TM-T20' }]);
+  const once = mergeFound({ system: sys, network: sameHost });
+  assert.equal(once.filter((f) => f.host === '192.168.0.60').length, 1);
+});
+
+test('impressora de rede: o que ela conta (IPP/SNMP) decide como imprimir', () => {
+  const list = [
+    { host: '192.168.0.70', port: 9100, name: '', raw: true },
+    {
+      host: '192.168.0.71',
+      port: 631,
+      name: 'Canon G3010',
+      raw: false,
+      bonjour: { rp: 'ipp/print' },
+    },
+    { host: '192.168.0.72', port: 9100, name: '', raw: true },
+  ];
+  const info = new Map([
+    [
+      '192.168.0.70',
+      {
+        model: 'HP LaserJet Pro M404dn',
+        ipp: 'ipp/print',
+        supplies: [{ name: 'Toner preto', level: 12 }],
+        pages: 1234,
+        serial: 'PHB123',
+      },
+    ],
+    ['192.168.0.72', { model: 'TM-T88VI', commandSet: 'ESC/POS' }],
+  ]);
+  const [hp, canon, tm] = toFound.network(list, info);
+  assert.equal(hp.type, 'laser');
+  assert.equal(hp.action, 'install-net');
+  assert.equal(hp.spec, undefined);
+  assert.equal(hp.ippPath, 'ipp/print');
+  assert.equal(hp.details.pages, 1234);
+  assert.equal(hp.details.serial, 'PHB123');
+  assert.equal(hp.name, 'HP LaserJet Pro M404dn');
+  assert.equal(canon.type, 'jato');
+  assert.equal(canon.action, 'install-net');
+  assert.equal(tm.type, 'termica');
+  assert.equal(tm.spec, 'tcp://192.168.0.72:9100');
+  // Laser só na 9100, sem IPP: adicionar pelo sistema.
+  const [old] = toFound.network([
+    { host: '10.0.0.9', port: 9100, name: 'Brother HL-1200', raw: true },
+  ]);
+  assert.equal(old.action, 'os-add');
+});
+
+test('tipo da impressora pelo nome, driver e linguagem', () => {
+  const cases = [
+    ['EPSON TM-T20X', 'termica'],
+    ['Elgin i9', 'termica'],
+    ['Bematech MP-4200 TH', 'termica'],
+    ['Generic / Text Only', 'termica'],
+    ['ZDesigner ZD220-203dpi ZPL', 'etiqueta'],
+    ['Elgin L42 Pro', 'etiqueta'],
+    ['Argox OS-214 plus', 'etiqueta'],
+    ['Brother QL-800', 'etiqueta'],
+    ['EPSON LX-350', 'matricial'],
+    ['OKI ML320', 'matricial'],
+    ['HP LaserJet Pro M404', 'laser'],
+    ['Brother HL-L2350DW series', 'laser'],
+    ['Samsung M2020 Series', 'laser'],
+    ['Canon LBP2900', 'laser'],
+    ['EPSON L3250 Series', 'jato'],
+    ['HP DeskJet 2700', 'jato'],
+    ['Canon G3010 series', 'jato'],
+    ['HP Ink Tank 410', 'jato'],
+    ['Microsoft Print to PDF', 'virtual'],
+    ['OneNote (Desktop)', 'virtual'],
+    ['Impressora', 'desconhecida'],
+  ];
+  for (const [n, t] of cases) assert.equal(printerType(n), t, n);
+  assert.equal(typeFromCommandSet('ESC/POS'), 'termica');
+  assert.equal(typeFromCommandSet('ZPL,EPL'), 'etiqueta');
+  assert.equal(typeFromCommandSet('ESCPL2,BDC,D4'), 'jato');
+  assert.equal(typeFromCommandSet('PCL,PJL,POSTSCRIPT'), 'laser');
+  assert.equal(typeFromCommandSet(''), null);
+  assert.equal(TYPE_LABEL.jato, 'Jato de tinta');
+});
+
+test('SNMP: monta o pedido e lê situação, série, páginas e toner', () => {
+  const req = buildGet([SNMP_OIDS.model, SNMP_OIDS.pages], 7);
+  assert.equal(req[0], 0x30);
+  assert.ok(req.includes(Buffer.from('public')));
+  const [d1, m1, l1] = supplyOids(1);
+  const [d2, m2, l2] = supplyOids(2);
+  const general = snmpParse(
+    buildMessage(0xa2, [
+      [SNMP_OIDS.model, 'HP LaserJet Pro M404dn'],
+      [SNMP_OIDS.serial, 'PHB123'],
+      [SNMP_OIDS.pages, { counter: 4321 }],
+      [SNMP_OIDS.status, 3],
+      [SNMP_OIDS.errors, Buffer.from([0x48, 0x00])], // sem papel + tampa aberta
+    ]),
+  );
+  const supplies = snmpParse(
+    buildMessage(0xa2, [
+      [d1, 'Black Toner'],
+      [m1, 3000],
+      [l1, 600],
+      [d2, 'Waste'],
+      [m2, -2],
+      [l2, -3],
+    ]),
+  );
+  const s = snmpSummary(general, supplies);
+  assert.equal(s.model, 'HP LaserJet Pro M404dn');
+  assert.equal(s.serial, 'PHB123');
+  assert.equal(s.pages, 4321);
+  assert.equal(s.status, 'Pronta');
+  assert.deepEqual(s.problems, ['Sem papel', 'Tampa aberta']);
+  assert.deepEqual(s.supplies, [
+    { name: 'Black Toner', level: 20, some: false },
+    { name: 'Waste', level: null, some: true },
+  ]);
+  assert.equal(snmpSummary(new Map()), null);
+});
+
+test('IPP: pede os atributos e entende a resposta (modelo, situação, tinta)', () => {
+  const req = buildIpp('ipp://192.168.0.71:631/ipp/print', 3);
+  assert.equal(req.readUInt16BE(2), 0x000b);
+  assert.ok(req.includes(Buffer.from('printer-make-and-model')));
+  const int = (n) => {
+    const b = Buffer.alloc(4);
+    b.writeInt32BE(n);
+    return b;
+  };
+  const head = Buffer.from([2, 0, 0, 0, 0, 0, 0, 3]);
+  const res = Buffer.concat([
+    head,
+    Buffer.from([0x01]),
+    ippAttr(0x47, 'attributes-charset', 'utf-8'),
+    Buffer.from([0x04]),
+    ippAttr(0x41, 'printer-make-and-model', 'Canon G3010 series'),
+    ippAttr(0x23, 'printer-state', int(5)),
+    ippAttr(0x44, 'printer-state-reasons', 'media-empty-error'),
+    ippAttr(0x44, '', 'marker-supply-low-warning'),
+    ippAttr(0x42, 'marker-names', 'Black'),
+    ippAttr(0x42, '', 'Cyan'),
+    ippAttr(0x21, 'marker-levels', int(80)),
+    ippAttr(0x21, '', int(-1)),
+    ippAttr(0x41, 'marker-colors', '#000000'),
+    ippAttr(0x41, '', '#00FFFF'),
+    ippAttr(0x22, 'color-supported', Buffer.from([1])),
+    ippAttr(0x44, 'sides-supported', 'one-sided'),
+    ippAttr(0x44, '', 'two-sided-long-edge'),
+    ippAttr(0x41, 'printer-device-id', 'MFG:Canon;CMD:BJ,PWG;MDL:G3010 series;'),
+    Buffer.from([0x03]),
+  ]);
+  const r = ippParse(res);
+  assert.equal(r.status, 0);
+  const s = ippSummary(r.attrs);
+  assert.equal(s.model, 'Canon G3010 series');
+  assert.equal(s.status, 'Parada');
+  assert.deepEqual(s.problems, ['Sem papel', 'Pouca tinta']);
+  assert.deepEqual(s.supplies, [
+    { name: 'Black', level: 80, color: '#000000' },
+    { name: 'Cyan', level: null, color: '#00FFFF' },
+  ]);
+  assert.equal(s.color, true);
+  assert.equal(s.duplex, true);
+  assert.equal(s.commandSet, 'BJ,PWG');
+  assert.equal(typeOfDetails(s), 'jato');
+  const merged = mergeDetails(s, {
+    serial: 'X1',
+    pages: 99,
+    supplies: [],
+    problems: ['Tampa aberta'],
+  });
+  assert.equal(merged.serial, 'X1');
+  assert.equal(merged.pages, 99);
+  assert.deepEqual(merged.problems, ['Sem papel', 'Pouca tinta', 'Tampa aberta']);
+});
+
+test('detalhes do sistema: ligação, endereço e tinta do CUPS', () => {
+  assert.equal(connectionOf('USB001'), 'Cabo USB');
+  assert.equal(connectionOf('', 'usb://EPSON/L3250?serial=X'), 'Cabo USB');
+  assert.equal(connectionOf('IP_192.168.0.9'), 'Rede (IP)');
+  assert.equal(connectionOf('WSD-1234'), 'Rede (achada pelo sistema)');
+  assert.equal(connectionOf('\\\\SERVIDOR\\Caixa', '', 'SERVIDOR'), 'Compartilhada pela rede');
+  assert.equal(connectionOf('COM3'), 'Serial (COM)');
+  assert.equal(connectionOf('LPT1:'), 'Cabo paralelo (LPT)');
+  assert.equal(connectionOf('PORTPROMPT:'), 'Arquivo');
+  assert.equal(hostOfUri('ipp://192.168.0.5/ipp/print'), '192.168.0.5');
+  assert.equal(hostOfUri('socket://10.0.0.2:9100'), '10.0.0.2');
+  assert.equal(hostOfUri('dnssd://Canon._ipp._tcp.local/'), null);
+  assert.deepEqual(
+    cupsSupplies({
+      'marker-names': 'Black,Cyan',
+      'marker-levels': '55,-1',
+      'marker-colors': '#000000,#00ffff',
+    }),
+    [
+      { name: 'Black', level: 55, color: '#000000' },
+      { name: 'Cyan', level: null, color: '#00ffff' },
+    ],
+  );
+  assert.deepEqual(
+    [...parseLpstatJobs('EPSON_L3250-12 david 1024 seg\nEPSON_L3250-13 david 1 seg\nTM-4 x 1 y\n')],
+    [
+      ['EPSON_L3250', 2],
+      ['TM', 1],
+    ],
+  );
+  assert.equal(validIp('192.168.0.5'), true);
+  assert.equal(validIp('1.2.3.999'), false);
+  assert.equal(validIppPath('ipp/print'), true);
+  assert.equal(validIppPath("../x'"), false);
 });
 
 test('folha da impressora comum: escapa o texto e troca o QR Code pelo endereço', () => {

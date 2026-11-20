@@ -41,7 +41,15 @@ import {
   validDirectDevice,
   validSerialPort,
 } from '../printers.mjs';
-import { installUsb, listUninstalledUsb, validCupsUri, validWinPort } from '../usb.mjs';
+import {
+  installNetwork,
+  installUsb,
+  listUninstalledUsb,
+  validCupsUri,
+  validIp,
+  validIppPath,
+  validWinPort,
+} from '../usb.mjs';
 import { BleBridge } from './ble.mjs';
 import { Brand } from './brand.mjs';
 import { printDocument } from './document.mjs';
@@ -587,7 +595,27 @@ function checkAll() {
   return checking;
 }
 
+/** Tela de impressoras do sistema (para adicionar uma que o aplicativo não instala sozinho). */
+function openPrinterSettings() {
+  if (process.platform === 'win32') return void shell.openExternal('ms-settings:printers');
+  if (process.platform === 'darwin')
+    return void shell.openExternal(
+      'x-apple.systempreferences:com.apple.Print-Scan-Settings.extension',
+    );
+  for (const [cmd, args] of [
+    ['system-config-printer', []],
+    ['gnome-control-center', ['printers']],
+    ['systemsettings', ['kcm_printer_manager']],
+  ]) {
+    const p = spawn(cmd, args, { detached: true, stdio: 'ignore' });
+    p.on('error', () => undefined);
+    p.unref();
+    if (p.pid) break;
+  }
+}
+
 function openBluetoothSettings(what) {
+  if (what === 'printers') return openPrinterSettings();
   if (process.platform === 'win32') {
     if (what === 'com')
       spawn('rundll32.exe', ['shell32.dll,Control_RunDLL', 'bthprops.cpl,,2'], {
@@ -694,6 +722,13 @@ function registerIpc() {
       throw new Error('Impressora USB inválida.');
     const name = await installUsb(id, String(label ?? 'USB').slice(0, 80));
     return { spec: `printer:${name}` };
+  });
+  ipcMain.handle('net-install', async (_e, host, label, path) => {
+    host = String(host ?? '');
+    path = String(path ?? 'ipp/print').replace(/^\/+/, '');
+    if (!validIp(host) || !validIppPath(path)) throw new Error('Impressora de rede inválida.');
+    const name = await installNetwork(host, String(label ?? 'Rede').slice(0, 80), path);
+    return { spec: `printer:${name}?modo=folha` };
   });
   ipcMain.handle('bt-paired', () => listPairedWithoutPort());
   ipcMain.handle('bt-bind', async (_e, mac) => {

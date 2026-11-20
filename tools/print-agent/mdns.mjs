@@ -136,6 +136,16 @@ export function collectPrinters(records, fromIp) {
       port: s?.port ?? (p.name.startsWith('_pdl') ? 9100 : 0),
       name: (model && !label.includes(model) ? `${label} (${model})` : label).slice(0, 80),
       service: p.name.split('.')[0].slice(1),
+      txt: {
+        rp: t.rp ?? null,
+        model: model || null,
+        cmd: t.usb_cmd ?? null,
+        location: t.note ?? null,
+        admin: t.adminurl ?? null,
+        pdl: t.pdl ?? null,
+        color: t.color ?? null,
+        duplex: t.duplex ?? null,
+      },
     });
   }
   return out;

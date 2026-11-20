@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('agent', {
   checkAll: () => ipcRenderer.invoke('check-all'),
   usbCandidates: () => ipcRenderer.invoke('usb-candidates'),
   usbInstall: (id, label) => ipcRenderer.invoke('usb-install', id, label),
+  netInstall: (host, label, path) => ipcRenderer.invoke('net-install', host, label, path),
   btPaired: () => ipcRenderer.invoke('bt-paired'),
   btBind: (mac) => ipcRenderer.invoke('bt-bind', mac),
   btSettings: (what) => ipcRenderer.invoke('bt-settings', what),

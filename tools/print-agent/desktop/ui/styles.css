@@ -1308,7 +1308,7 @@ textarea {
 }
 .found__row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
@@ -1359,7 +1359,7 @@ textarea {
   gap: 4px;
   align-items: center;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  margin-top: 4px;
 }
 .found__actions {
   display: flex;
@@ -1377,6 +1377,90 @@ textarea {
 .tag--brand {
   background: var(--brand);
   color: var(--on-brand);
+}
+.tag--warn {
+  background: color-mix(in srgb, #f59e0b 18%, var(--surface));
+  color: color-mix(in srgb, #b45309 85%, var(--text));
+}
+.found__item {
+  display: grid;
+}
+.found__item.is-open .found__row {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.found__row.is-off .found__name {
+  color: var(--muted);
+}
+.found__details {
+  display: grid;
+  gap: 12px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+  background: var(--sunken);
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+.facts > div {
+  min-width: 0;
+}
+.facts dt {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.facts dd {
+  margin: 1px 0 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.supplies {
+  display: grid;
+  gap: 6px;
+}
+.supply {
+  display: grid;
+  grid-template-columns: minmax(90px, 200px) minmax(60px, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.supply__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.supply__bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.supply__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ink, var(--brand));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 22%, transparent);
+}
+.supply__pct.is-low {
+  color: color-mix(in srgb, #b45309 85%, var(--text));
+  font-weight: 700;
+}
+.supply__pct {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.found__web {
+  margin: 0;
+  font-size: 13px;
 }
 .found__empty {
   border: 1px dashed var(--border-strong);
@@ -1444,7 +1528,6 @@ textarea {
   .found__row {
     grid-template-columns: auto minmax(0, 1fr);
   }
-  .found__tags,
   .found__actions {
     grid-column: 2;
     justify-content: flex-start;

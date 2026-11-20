@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.204.0',
+    date: '2026-11-20',
+    title: 'Aplicativo de impressão vê qualquer impressora',
+    summary:
+      'O Comandou Impressão (versão 1.5.0) agora mostra todas as impressoras do computador e da rede, de qualquer tipo, e conta tudo sobre cada uma: tipo, modelo, como está ligada, situação, tinta ou toner, páginas impressas e mais.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Reconhece o tipo de cada impressora: térmica de cupom, jato de tinta, laser, matricial, etiqueta (Zebra, Argox, Elgin L42…) e virtual (PDF, OneNote). Cada tipo imprime do jeito certo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Botão Detalhes em cada impressora: modelo, driver, ligação (USB, rede, Bluetooth, compartilhada, serial), porta, IP e MAC, número de série, páginas impressas, trabalhos na fila do sistema, colorida, frente e verso, resolução, papéis e local.',
+      },
+      {
+        tag: 'novo',
+        text: 'Nível de tinta e toner de cada cartucho, e avisos de sem papel, tampa aberta, papel enroscado e offline, lidos da própria impressora (IPP e SNMP na rede, e o que o sistema informa).',
+      },
+      {
+        tag: 'novo',
+        text: 'Impressora comum de rede (jato de tinta ou laser no Wi-Fi) aparece na lista e instala com um clique, sem baixar driver do fabricante.',
+      },
+    ],
+  },
+  {
     version: '0.203.0',
     date: '2026-11-20',
     title: 'Impressão com a cara do restaurante',
