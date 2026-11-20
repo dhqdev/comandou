@@ -219,7 +219,8 @@ describe('Outros aplicativos Open Delivery', () => {
       .set('Cookie', cookie)
       .expect(200);
     expect(labels.body).toEqual({ labels: { 'od-anotaai': 'Anota AI' } });
-    const today = new Date().toISOString().slice(0, 10);
+    // O relatório conta o dia no fuso da loja: depois das 21h o dia em UTC já é outro.
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
     const doc = await http
       .get(`/api/v1/reports/catalog/aplicativos?from=${today}&to=${today}`)
       .set('Host', HOST_A)

@@ -382,7 +382,8 @@ describe('aiqfome: pedidos', () => {
   });
 
   it('Relatórios › Vendas por aplicativo: o aiqfome numa linha, separado da venda própria', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    // O relatório conta o dia no fuso da loja: depois das 21h o dia em UTC já é outro.
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
     const doc = (
       await get('adminA', `/reports/catalog/aplicativos?from=${today}&to=${today}`).expect(200)
     ).body as {
