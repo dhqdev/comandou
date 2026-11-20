@@ -507,7 +507,14 @@ export function OrderDetailModal({
     (order.customerName || order.customerPhone || order.deliveryAddress)
   );
   return (
-    <Frame open={open} onClose={onClose} title={header} size="md" footer={footer}>
+    <Frame
+      open={open}
+      onClose={onClose}
+      title={header}
+      // Janela (aberta pelo chat): grande, para ter as mesmas duas colunas da gaveta no computador.
+      size={variant === 'panel' ? 'md' : 'lg'}
+      footer={footer}
+    >
       {error && <Alert tone="danger">{error}</Alert>}
       {!order ? (
         !error && <Spinner />

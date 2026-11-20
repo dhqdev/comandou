@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.202.1',
+    date: '2026-11-20',
+    title: 'Pedido aberto pelo chat sem quebrar',
+    summary:
+      'O pedido aberto pela conversa com o cliente aparecia espremido, com os dados quebrando letra por letra. Agora ele abre numa janela larga, igual ao da tela de Pedidos.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Pedido aberto pelo botão do pedido na conversa (Mensagens de clientes) volta a mostrar cliente, status, pagamento e itens sem quebrar, em qualquer tamanho de tela.',
+      },
+      {
+        tag: 'correção',
+        text: 'Abrir um pedido por cima de outra gaveta (chat, ficha do cliente) não muda mais a largura da gaveta de baixo.',
+      },
+    ],
+  },
+  {
     version: '0.202.0',
     date: '2026-11-19',
     title: 'Avisos que somem ao abrir',

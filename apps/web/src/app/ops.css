@@ -1400,21 +1400,31 @@ button.pay-part {
 /* Gaveta do pedido larga no computador (0.193, pedido do David): ocupa boa parte da tela, com o
    pedido (dados, itens, ações abertas) à esquerda e o dinheiro (pagamentos, nota, histórico) à
    direita. O rodapé repete as duas colunas: botões embaixo do pedido, resumo embaixo do dinheiro.
-   Abaixo de 1100 px (tablet, celular) segue a gaveta de uma coluna de antes. */
+   Abaixo de 1100 px (tablet, celular) segue a gaveta de uma coluna de antes.
+   O seletor olha só a gaveta que tem o pedido como filho direto: aberto por cima de outra gaveta
+   (chat, ficha do cliente), o pedido mora dentro dela e um :has() solto alargava a de fora e
+   usava a largura dela para as duas colunas, espremendo o pedido (0.202.1). */
 @media (min-width: 1100px) {
-  .side-panel:has(.order-detail) {
+  .side-panel:has(> .side-panel__inner > .side-panel__body > .order-detail) {
     width: clamp(600px, 66vw, 1040px);
   }
-  .side-panel:has(.order-detail) :is(.side-panel__body, .side-panel__foot) {
-    container: od / inline-size;
+  .side-panel__body:has(> .order-detail),
+  .side-panel__foot:has(> .od-foot) {
     padding-inline: 24px;
   }
-  .side-panel:has(.order-detail) .side-panel__body {
+  .side-panel__body:has(> .order-detail) {
     padding-block: 20px;
   }
-  .side-panel:has(.order-detail) .side-panel__head {
+  .side-panel:has(> .side-panel__inner > .side-panel__body > .order-detail)
+    > .side-panel__inner
+    > .side-panel__head {
     padding: 14px 24px;
   }
+}
+/* As duas colunas medem a própria moldura do pedido (gaveta ou janela), nunca uma de fora. */
+:is(.side-panel__body, .cm-modal__body):has(> .order-detail),
+:is(.side-panel__foot, .cm-modal__footer):has(> .od-foot) {
+  container: od / inline-size;
 }
 @container od (min-width: 820px) {
   .order-detail {

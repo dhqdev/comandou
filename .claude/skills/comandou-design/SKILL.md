@@ -159,6 +159,11 @@ e, com o corpo em contêiner (`container: od`) de 820 px ou mais, vira duas colu
 aberto) à direita; o rodapé repete as colunas (botões embaixo do pedido, resumo embaixo do
 dinheiro) e o item fica numa linha (nome | quantidade × preço e total). Abaixo disso, uma coluna.
 Bloco novo do detalhe: decida se é do pedido (main) ou do dinheiro (side).
+As duas colunas medem a **própria moldura** do pedido (`container: od` no corpo e no rodapé da
+gaveta ou da janela que tem o pedido como filho direto). Nunca use `.side-panel:has(.order-detail)`
+solto: aberto por cima do chat ou da ficha do cliente, o pedido mora dentro da gaveta de fora e
+ela era alargada e medida no lugar dele (0.202.1, pedido espremido no chat). Aberto pelo chat
+(`variant="modal"`) o pedido vem numa janela `lg`, com as mesmas duas colunas no notebook.
 
 ## Clientes (lista e ficha)
 
