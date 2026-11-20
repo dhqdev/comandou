@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('agent', {
   printers: () => ipcRenderer.invoke('printers'),
   ports: () => ipcRenderer.invoke('ports'),
   scanNetwork: () => ipcRenderer.invoke('scan-network'),
+  discover: (force) => ipcRenderer.invoke('discover', force),
   onScanProgress: (fn) => ipcRenderer.on('scan-progress', (_e, p) => fn(p)),
   setPrinter: (target, spec) => ipcRenderer.invoke('set-printer', target, spec),
   testPrint: (spec) => ipcRenderer.invoke('test-print', spec),

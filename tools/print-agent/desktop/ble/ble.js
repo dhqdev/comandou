@@ -110,3 +110,57 @@ window.bleWrite = async (key, b64) => {
   }
   return data.length;
 };
+
+// ------------------------------------------------------------------ ícones
+// A mesma janela escondida desenha os ícones (o Chromium lê WebP, SVG e JPEG; o Electron só PNG):
+// o ícone do restaurante em PNG quadrado e a versão da bandeja com a bolinha da situação.
+const loadImage = (src) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('IMG'));
+    img.src = src;
+  });
+
+/**
+ * Desenha `src` (data: URL) num quadrado de `size` px, com cantos arredondados, e uma bolinha
+ * de situação no canto (dot: '#rrggbb' ou null). Devolve PNG em data: URL.
+ */
+window.renderIcon = async (src, size, dot, round = true) => {
+  const img = await loadImage(src);
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  if (round) {
+    const r = size * 0.22;
+    g.beginPath();
+    g.roundRect(0, 0, size, size, r);
+    g.clip();
+  }
+  // Cobre o quadrado sem deformar (logo retangular fica centralizado).
+  const k = Math.max(size / img.width, size / img.height);
+  const w = img.width * k;
+  const h = img.height * k;
+  g.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+  if (dot) {
+    g.restore?.();
+    const c2 = document.createElement('canvas');
+    c2.width = c2.height = size;
+    const g2 = c2.getContext('2d');
+    g2.drawImage(c, 0, 0);
+    const d = size * 0.42;
+    const x = size - d / 2 - size * 0.02;
+    const y = size - d / 2 - size * 0.02;
+    g2.beginPath();
+    g2.arc(x, y, d / 2, 0, Math.PI * 2);
+    g2.fillStyle = '#ffffff';
+    g2.fill();
+    g2.beginPath();
+    g2.arc(x, y, d / 2 - Math.max(1, size * 0.06), 0, Math.PI * 2);
+    g2.fillStyle = dot;
+    g2.fill();
+    return c2.toDataURL('image/png');
+  }
+  return c.toDataURL('image/png');
+};

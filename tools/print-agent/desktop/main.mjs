@@ -6,6 +6,7 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  nativeTheme,
   Notification,
   powerMonitor,
   safeStorage,
@@ -42,6 +43,9 @@ import {
 } from '../printers.mjs';
 import { installUsb, listUninstalledUsb, validCupsUri, validWinPort } from '../usb.mjs';
 import { BleBridge } from './ble.mjs';
+import { Brand } from './brand.mjs';
+import { printDocument } from './document.mjs';
+import { discoverAll } from './discover.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROTOCOL = 'comandou-impressao';
@@ -107,6 +111,19 @@ async function saveConfig() {
 // ------------------------------------------------------------------ impressão
 const ble = new BleBridge({ onDevices: (list) => win?.webContents.send('ble-devices', list) });
 registerTransport('ble:', (base, data) => ble.write(base.slice(4), data));
+// Impressora comum (jato de tinta, laser): o texto vai numa folha, pelo driver do sistema.
+registerTransport('doc', (base, text, opts) => printDocument(base.slice(8), text, opts));
+
+const brand = new Brand({
+  helper: ble,
+  defaultIcon: join(here, 'assets', 'icon.png'),
+  onChange: () => {
+    if (win && !win.isDestroyed()) win.setIcon(brand.windowImage());
+    trayKey = '';
+    push();
+  },
+});
+let trayKey = '';
 
 /** Troca uma impressora por outra em todos os setores (ex.: o roteador deu outro IP). */
 async function replacePrinter(from, to) {
@@ -131,6 +148,28 @@ function print(spec, text) {
   });
 }
 
+/** Impressoras escolhidas, para a tela Impressão do sistema (vai no heartbeat). */
+function report() {
+  const kindOf = (spec) => {
+    const { base, opts } = parseSpec(spec);
+    if (!spec || spec === 'none') return 'none';
+    if (opts.mode === 'doc') return 'document';
+    if (base.startsWith('tcp://')) return 'network';
+    if (base.startsWith('ble:')) return 'bluetooth';
+    if (base.startsWith('serial:')) return /rfcomm|cu\./.test(base) ? 'bluetooth' : 'serial';
+    return 'usb';
+  };
+  const row = (target, spec) => ({
+    target: target === null ? null : String(target).slice(0, 60),
+    label: (spec && spec !== 'none' ? printerName(spec) : 'Não imprime').slice(0, 80),
+    kind: kindOf(spec),
+  });
+  const out = [];
+  if (config.printers.default) out.push(row(null, config.printers.default));
+  for (const [t, spec] of Object.entries(config.printers.routes)) if (spec) out.push(row(t, spec));
+  return out.slice(0, 40);
+}
+
 const printerFor = (target) => config.printers.routes[target] || config.printers.default || 'none';
 // Sem impressora principal escolhida, não pega trabalhos: eles esperam na fila em vez de sumir.
 const canPrint = () => !!config.printers.default;
@@ -150,9 +189,23 @@ function startAgent() {
     printerFor,
     canPrint,
     print,
+    report,
   });
   agent.on('status', async (s) => {
     status = s;
+    if (s.brand) {
+      const colors = {
+        brandColor: s.brand.brandColor ?? null,
+        accentColor: s.brand.accentColor ?? null,
+        theme: s.brand.theme ?? 'auto',
+        iconUrl: s.brand.iconUrl ?? null,
+      };
+      if (JSON.stringify(colors) !== JSON.stringify(config.brand)) {
+        config.brand = colors;
+        await saveConfig();
+      }
+      brand.update(config.url, colors.iconUrl).catch(() => undefined);
+    }
     if (s.restaurant && (s.restaurant !== config.restaurant || s.agent !== config.agentName)) {
       config.restaurant = s.restaurant;
       config.agentName = s.agent;
@@ -211,6 +264,8 @@ function publicState() {
     autostart: config.autostart,
     health,
     bleNames: config.bleNames,
+    brand: { ...(config.brand ?? {}), icon: brand.icon },
+    discovery,
   };
 }
 
@@ -257,8 +312,8 @@ function showWindow() {
     minHeight: 560,
     show: false,
     title: 'Comandou Impressão',
-    backgroundColor: '#f7f5f3',
-    icon: asset('icon.png'),
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f1114' : '#f4f5f7',
+    icon: brand.windowImage(),
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(here, 'preload.cjs'),
@@ -269,7 +324,13 @@ function showWindow() {
   });
   win.loadFile(join(here, 'ui', 'index.html'));
   win.once('ready-to-show', () => win.show());
-  win.on('show', () => void checkAll());
+  win.on('show', () => {
+    void checkAll();
+    trayKey = '';
+    updateTray();
+    // Abriu a janela: procura as impressoras sozinho (rede só se faz mais de 2 minutos).
+    if (config.url) void discover(false);
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
@@ -301,8 +362,22 @@ const STATUS_LABEL = {
 
 function updateTray() {
   if (!tray) return;
-  const ok = status.state === 'online';
-  tray.setImage(trayIcon(ok || status.state === 'connecting'));
+  const st = config.url ? status.state : 'idle';
+  // Ícone do restaurante com a bolinha: verde conectado, amarelo tentando, vermelho desligado.
+  if (trayKey !== st) {
+    trayKey = st;
+    brand
+      .trayImage(st)
+      .then((img) => {
+        if (trayKey === st) tray.setImage(img);
+      })
+      .catch(() => tray.setImage(trayIcon(st === 'online')));
+    if (process.platform === 'win32' && win && !win.isDestroyed())
+      brand
+        .dotImage(st)
+        .then((img) => win?.setOverlayIcon(img, STATUS_LABEL[st] ?? ''))
+        .catch(() => undefined);
+  }
   const label = STATUS_LABEL[status.state] ?? '';
   tray.setToolTip(
     `Comandou Impressão — ${label}${config.restaurant ? ` (${config.restaurant})` : ''}`,
@@ -364,6 +439,8 @@ async function connect(code) {
   config.seenTargets = Array.isArray(hb.targets) ? hb.targets : [];
   await saveConfig();
   startAgent();
+  // Acabou de conectar: já procura as impressoras deste computador.
+  void discover(true);
   return publicState();
 }
 
@@ -452,6 +529,43 @@ async function checkOne(spec) {
       : { ok: false, text: 'Não está mais instalada no sistema. Escolha de novo.' };
   }
   return null; // BLE: só se sabe imprimindo (ligar por BLE a cada minuto gasta a bateria dela)
+}
+
+/** Busca de impressoras: { running, at, found: [...], steps: { [etapa]: 'ok'|'busy' } } */
+let discovery = { running: false, at: 0, found: [], steps: {} };
+let discovering;
+
+/** Procura tudo de uma vez (instaladas, USB sem driver, portas, Bluetooth e rede). */
+function discover(force) {
+  if (discovering) return discovering;
+  if (!force && Date.now() - discovery.at < 120_000 && discovery.found.length)
+    return Promise.resolve(discovery);
+  discovery = { ...discovery, running: true, steps: {} };
+  push();
+  discovering = discoverAll({
+    systemPrinters: () => systemPrinters(),
+    onStep: (step, st) => {
+      discovery.steps[step] = st;
+      push();
+    },
+    onFound: (list) => {
+      discovery.found = list;
+      push();
+    },
+    onProgress: (done, total) => win?.webContents.send('scan-progress', { done, total }),
+  })
+    .then((list) => {
+      discovery = { running: false, at: Date.now(), found: list, steps: discovery.steps };
+      push();
+      return discovery;
+    })
+    .catch(() => {
+      discovery = { ...discovery, running: false, at: Date.now() };
+      push();
+      return discovery;
+    })
+    .finally(() => (discovering = undefined));
+  return discovering;
 }
 
 let checking;
@@ -571,6 +685,7 @@ function registerIpc() {
     push();
     return r ?? { ok: true, text: 'Imprima um teste para conferir.' };
   });
+  ipcMain.handle('discover', (_e, force) => discover(!!force).then(() => publicState()));
   ipcMain.handle('check-all', () => checkAll().then(() => publicState()));
   ipcMain.handle('usb-candidates', () => listUninstalledUsb());
   ipcMain.handle('usb-install', async (_e, id, label) => {
@@ -654,6 +769,7 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
     else app.dock?.hide();
     await loadConfig();
+    await brand.load(config.brand?.iconUrl);
     registerIpc();
     tray = new Tray(trayIcon(true));
     tray.on('click', showWindow);

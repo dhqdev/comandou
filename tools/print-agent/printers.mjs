@@ -17,6 +17,8 @@
 //   papel=58             bobina de 58 mm (fonte menor para caber as 42 colunas)
 //   acentos=850|ascii    outra página de código, ou sem acentos
 //   baud=9600            velocidade da porta serial (padrão 9600; Bluetooth ignora)
+//   modo=folha           impressora comum (jato de tinta, laser): o texto vai pelo driver do
+//                        sistema, numa folha, em vez de ESC/POS (só no aplicativo de computador)
 //   mac=00-11-22-33-44-55  endereço físico da impressora de rede: se o IP mudar, o aplicativo
 //                        procura a impressora pela rede e segue imprimindo (devices.mjs)
 import { spawn } from 'node:child_process';
@@ -65,6 +67,7 @@ export function parseSpec(spec) {
       codepage: raw.acentos === '850' || raw.acentos === 'ascii' ? raw.acentos : '860',
       baud: BAUD_RATES.includes(baud) ? baud : 9600,
       ...(mac ? { mac } : {}),
+      ...(raw.modo === 'folha' && base.startsWith('printer:') ? { mode: 'doc' } : {}),
     },
   };
 }
@@ -87,6 +90,7 @@ export function withOptions(base, opts = {}) {
   if (base.startsWith('serial:') && BAUD_RATES.includes(opts.baud) && opts.baud !== 9600)
     p.set('baud', String(opts.baud));
   if (base.startsWith('tcp://') && normalizeMac(opts.mac)) p.set('mac', normalizeMac(opts.mac));
+  if (base.startsWith('printer:') && opts.mode === 'doc') p.set('modo', 'folha');
   const q = p.toString();
   return q ? `${base}?${q}` : base;
 }
@@ -390,6 +394,12 @@ export async function printText(spec, text) {
     return;
   }
   const { base, opts } = parseSpec(spec);
+  if (opts.mode === 'doc') {
+    const doc = transports.get('doc');
+    if (!doc)
+      throw new Error('Impressora comum (folha) só funciona no aplicativo Comandou Impressão.');
+    return doc(base, text, opts);
+  }
   const data = toEscPos(text, opts);
   if (base.startsWith('tcp://')) {
     const t = parseTcp(base);
@@ -438,3 +448,28 @@ export function testPageText(label, spec = '') {
     'Se você consegue ler isto, está pronta!',
   ].join('\n');
 }
+
+// Térmicas de cupom (ESC/POS) pelo nome ou pelo driver. O resto (jato de tinta, laser, PDF)
+// imprime em folha, pelo driver do sistema.
+const RECEIPT =
+  /\btm[-_ ]?[a-z]?\d|receipt|recibo|cupom|\bpos\b|pos-?\d|thermal|t[ée]rmica|generic ?\/ ?text|text only|local raw|raw printer|elgin|bematech|daruma|tanca|knup|sweda|epson tm|xprinter|zjiang|gprinter|rongta|sunmi|\b(58|80) ?mm\b|\bi[789]\b|mp-?\d{3,4}|\btsp\d|\bmpt|pt-?2\d0|leopardo|controlid|print ?id|srp-?\d|bixolon/i;
+// Jato de tinta e laser conhecidas pelo nome (quando o Windows não diz o driver).
+const OFFICE =
+  /\bl\d{3,4}\b|ecotank|eco ?tank|workforce|expression|deskjet|officejet|laserjet|envy|smart ?tank|ink ?tank|pixma|maxify|imageclass|i-?sensys|\bmfc-|\bdcp-|\bhl-|xerox|ricoh|kyocera|lexmark|pantum|sharp mx/i;
+const DOCUMENT_ONLY = /pdf|xps|onenote|fax|send to|microsoft print|enviar para/i;
+
+/**
+ * A impressora do sistema é térmica de cupom? `driver` é o nome do driver (Windows) ou o
+ * "make and model" do CUPS. Na dúvida (nome genérico sem driver conhecido), trata como térmica.
+ */
+export function looksLikeReceipt(name, driver = '') {
+  const all = `${name} ${driver}`;
+  if (DOCUMENT_ONLY.test(all)) return false;
+  if (RECEIPT.test(all)) return true;
+  if (OFFICE.test(all)) return false;
+  return !driver;
+}
+
+/** Impressora que nem é de papel (PDF, OneNote, fax): fica de fora da busca. */
+export const isVirtualPrinter = (name, driver = '') =>
+  /pdf|xps|onenote|fax|send to|enviar para|microsoft print to/i.test(`${name} ${driver}`);

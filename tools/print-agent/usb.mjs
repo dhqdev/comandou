@@ -143,3 +143,19 @@ export async function installUsb(id, label, platform = process.platform) {
   }
   return name;
 }
+
+const WIN_DRIVERS_PS1 = `$ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$out = @(Get-Printer | ForEach-Object { [pscustomobject]@{ name = [string]$_.Name; driver = [string]$_.DriverName; port = [string]$_.PortName } })
+ConvertTo-Json -InputObject @($out) -Compress
+`;
+
+/** Windows: driver e porta de cada impressora instalada (para saber se é térmica). */
+export async function windowsPrinterDrivers() {
+  try {
+    const list = JSON.parse((await powershell(WIN_DRIVERS_PS1, {}, 30_000)).trim() || '[]');
+    return new Map((Array.isArray(list) ? list : [list]).map((p) => [p.name, p]));
+  } catch {
+    return new Map();
+  }
+}

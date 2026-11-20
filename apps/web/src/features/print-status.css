@@ -1,0 +1,18 @@
+/* Impressora no topo com a bolinha da situação do aplicativo de impressão. */
+.print-status__dot {
+  position: absolute;
+  top: 7px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--cm-success);
+  box-shadow: 0 0 0 2px var(--cm-frame);
+  pointer-events: none;
+}
+.print-status[data-state='no-printer'] .print-status__dot {
+  background: var(--cm-warning);
+}
+.print-status[data-state='offline'] .print-status__dot {
+  background: var(--cm-danger);
+}

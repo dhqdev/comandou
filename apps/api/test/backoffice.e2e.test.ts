@@ -1129,11 +1129,18 @@ describe('Impressão (agente local e fila)', () => {
     const hb = (await agentPost(agentToken, '/heartbeat', { version: '0.3.0' }).expect(200)).body;
     expect(hb.agent).toBe('PC do caixa');
     expect(hb.targets).toEqual(expect.arrayContaining(['Cozinha', 'Caixa']));
+    expect(hb.brand).toMatchObject({ theme: expect.stringMatching(/^(auto|light|dark)$/) });
+    await agentPost(agentToken, '/heartbeat', {
+      version: '1.4.0',
+      printers: [{ target: null, label: 'EPSON TM-T20', kind: 'usb' }],
+    }).expect(200);
     const list = (await get('adminA', '/printing/agents').expect(200)).body as {
       name: string;
       online: boolean;
+      printers: { label: string }[] | null;
     }[];
     expect(list.find((x) => x.name === 'PC do caixa')!.online).toBe(true);
+    expect(list.find((x) => x.name === 'PC do caixa')!.printers?.[0]?.label).toBe('EPSON TM-T20');
   });
 
   it('pedido novo gera comanda de cozinha; dois agentes nunca pegam o mesmo trabalho', async () => {
@@ -1213,6 +1220,21 @@ describe('Impressão (agente local e fila)', () => {
       id: string;
     }[];
     expect(c2.map((j) => j.id)).toContain(r[0].id);
+  });
+
+  it('tira da fila o que ainda não imprimiu (só os "Na fila")', async () => {
+    const t = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body as {
+      id: string;
+    };
+    await post('cashierA', '/printing/jobs/discard', { ids: [t.id] }).expect(403);
+    const d = (await post('adminA', '/printing/jobs/discard', { ids: [t.id] }).expect(200)).body;
+    expect(d.discarded).toBe(1);
+    const again = (await post('adminA', '/printing/jobs/discard', { ids: [t.id] }).expect(200))
+      .body;
+    expect(again.discarded).toBe(0);
+    const c = (await agentPost(agentToken, '/claim', {}).expect(200)).body.jobs as { id: string }[];
+    expect(c.map((j) => j.id)).not.toContain(t.id);
+    expect((await post('adminB', '/printing/jobs/discard', {}).expect(200)).body.discarded).toBe(0);
   });
 
   it('conferência de delivery mostra taxa de entrega, troco e observações', async () => {

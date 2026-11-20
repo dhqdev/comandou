@@ -100,7 +100,7 @@ export const WELCOME_STOPS: TourStop[] = [
         Toque em <b>Conectar computador</b> e depois em <b>Abrir no aplicativo</b>.
       </>,
       <>
-        No aplicativo, toque em <b>Adicionar impressora</b> e siga os 3 passos.
+        O aplicativo procura as impressoras sozinho: toque em <b>Usar</b> na sua.
       </>,
     ],
     targets: [{ css: '.print-hero' }],
@@ -792,15 +792,15 @@ export const PRINT_STOPS: TourStop[] = [
   {
     path: '/impressao',
     title: 'Ligue a impressora no aplicativo',
-    text: 'O aplicativo aceita impressora USB, de rede (cabo ou Wi-Fi), Bluetooth e serial.',
+    text: 'O aplicativo aceita impressora térmica USB, de rede (cabo ou Wi-Fi), Bluetooth e serial, e também impressora comum (jato de tinta ou laser).',
     steps: [
+      <>Ao abrir, o aplicativo procura sozinho todas as impressoras do computador.</>,
       <>
-        No aplicativo, toque em <b>Adicionar impressora</b>.
+        Toque em <b>Usar</b> na sua impressora e depois em <b>Testar</b>.
       </>,
-      <>Diga como ela está ligada, escolha na lista e toque em Imprimir teste.</>,
       <>
-        Saiu certinho? <b>Salvar</b>. O botão <b>Ajuda</b> do aplicativo tem o passo a passo de cada
-        tipo.
+        Não apareceu? Toque em <b>Procurar de novo</b>. O botão <b>Ajuda</b> do aplicativo tem o
+        passo a passo de cada tipo.
       </>,
     ],
     targets: [{ css: '[data-search-id="secao-ligacao"]' }, { css: '.print-steps' }],
@@ -808,14 +808,14 @@ export const PRINT_STOPS: TourStop[] = [
   {
     path: '/impressao',
     title: 'Computadores conectados',
-    text: 'Mostra se o aplicativo está online. Offline = o computador está desligado, sem internet ou o aplicativo foi fechado.',
+    text: 'Bolinha verde: o aplicativo está conectado. Vermelha: o computador está desligado, sem internet ou o aplicativo foi fechado. Embaixo do nome aparecem as impressoras escolhidas.',
     steps: [
       <>
-        Perdeu o código ou trocou de computador? Toque em <b>gerar novo código</b> (o anterior para
-        na hora).
+        Perdeu o código ou trocou de computador? Toque em <b>Novo código</b> (o anterior para na
+        hora).
       </>,
       <>
-        Computador que não usa mais: <b>desativar</b>.
+        Computador que não usa mais: <b>Desativar</b>.
       </>,
     ],
     targets: [{ css: '[data-search-id="secao-agentes"]' }],
@@ -823,13 +823,16 @@ export const PRINT_STOPS: TourStop[] = [
   {
     path: '/impressao',
     title: 'Fila de impressão',
-    text: 'Tudo o que foi mandado para imprimir e se saiu. Se falhar, o motivo aparece embaixo.',
+    text: 'Tudo o que foi mandado para imprimir e se saiu. O que está Na fila mostra por que está esperando; se falhar, o motivo aparece embaixo.',
     steps: [
       <>
         Toque em <b>Imprimir teste</b> para conferir se está tudo ligado.
       </>,
       <>
         Falhou? Resolva o motivo e toque em <b>Tentar de novo</b>.
+      </>,
+      <>
+        Comanda velha que não precisa mais sair: <b>Tirar da fila</b>.
       </>,
     ],
     targets: [{ css: '[data-search-id="secao-fila"]' }],

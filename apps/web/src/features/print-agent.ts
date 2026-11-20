@@ -4,6 +4,8 @@
  * na Release "impressora" do repositório. Quem hospeda em outro lugar troca o endereço com
  * VITE_PRINT_AGENT_DOWNLOAD_URL.
  */
+import type { PrintAgent } from '../lib/types';
+
 export const PRINT_AGENT_DOWNLOAD_BASE = (
   (import.meta.env.VITE_PRINT_AGENT_DOWNLOAD_URL as string | undefined) ||
   'https://github.com/dhqdev/comandou/releases/download/impressora'
@@ -47,3 +49,36 @@ export function connectionCode(origin: string, token: string, name?: string) {
 
 export const appLink = (code: string) =>
   `comandou-impressao://conectar?codigo=${encodeURIComponent(code)}`;
+
+export type PrintHealthState = 'ok' | 'no-printer' | 'offline' | 'none';
+
+/**
+ * Situação da impressão do restaurante, a partir dos computadores conectados:
+ * - ok: algum computador online com impressora principal (versão antiga, sem lista: conta como ok)
+ * - no-printer: online, mas ninguém escolheu a impressora no aplicativo (os trabalhos esperam)
+ * - offline: tem computador, mas nenhum online agora
+ * - none: nenhum computador ativo
+ */
+export function printHealth(agents: PrintAgent[] | null | undefined): {
+  state: PrintHealthState;
+  online: PrintAgent[];
+  ready: PrintAgent[];
+} {
+  const active = (agents ?? []).filter((a) => a.active);
+  const online = active.filter((a) => a.online);
+  const ready = online.filter((a) => a.printers === null || mainPrinter(a) !== null);
+  const state: PrintHealthState = !active.length
+    ? 'none'
+    : ready.length
+      ? 'ok'
+      : online.length
+        ? 'no-printer'
+        : 'offline';
+  return { state, online, ready };
+}
+
+/** Impressora principal escolhida no aplicativo (null = não escolheu ou não informa). */
+export function mainPrinter(a: PrintAgent) {
+  const p = a.printers?.find((x) => x.target === null && x.kind !== 'none');
+  return p ?? null;
+}

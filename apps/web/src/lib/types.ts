@@ -871,6 +871,14 @@ export interface PrintAgent {
   online: boolean;
   lastSeenAt: string | null;
   version: string | null;
+  /** Impressoras escolhidas no aplicativo (null = versão antiga, que não conta). */
+  printers: PrintAgentPrinter[] | null;
+}
+export interface PrintAgentPrinter {
+  /** null = principal */
+  target: string | null;
+  label: string;
+  kind: 'usb' | 'network' | 'bluetooth' | 'serial' | 'document' | 'none';
 }
 export interface PrintJob {
   id: string;

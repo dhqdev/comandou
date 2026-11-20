@@ -4,6 +4,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  FileText,
   MonitorSmartphone,
   Network,
   Plus,
@@ -11,7 +12,7 @@ import {
   Usb,
   Wifi,
 } from 'lucide-react';
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -19,23 +20,27 @@ import {
   Card,
   EmptyState,
   Modal,
+  Segmented,
   Spinner,
   TextField,
   useToast,
 } from '../design-system';
-import { dateTime } from '../features/format';
+import { dateTime, elapsed, minutesSince, time } from '../features/format';
 import {
   appLink,
   connectionCode,
   detectOs,
   downloadUrl,
+  mainPrinter,
   PRINT_AGENT_DOWNLOADS,
+  printHealth,
   type DesktopOs,
+  type PrintHealthState,
 } from '../features/print-agent';
 import { PrintTemplatesCard } from '../features/PrintTemplates';
 import { api } from '../lib/api';
 import { useDebounced, useRealtime } from '../lib/realtime';
-import type { PrintAgent, PrintJob } from '../lib/types';
+import type { PrintAgent, PrintAgentPrinter, PrintJob } from '../lib/types';
 import './printing.css';
 import { TourButton } from '../features/tour/PageTour';
 
@@ -52,24 +57,44 @@ const STATUS: Record<PrintJob['status'], [string, 'neutral' | 'info' | 'success'
   done: ['Impresso', 'success'],
   failed: ['Falhou', 'danger'],
 };
+const PRINTER_ICON: Record<PrintAgentPrinter['kind'], ReactNode> = {
+  usb: <Usb size={14} />,
+  network: <Network size={14} />,
+  bluetooth: <Bluetooth size={14} />,
+  serial: <Cable size={14} />,
+  document: <FileText size={14} />,
+  none: <Printer size={14} />,
+};
+
+/** "agora", "há 5 min", "há 2 h"; mais de um dia, a data. */
+function ago(iso: string) {
+  const min = minutesSince(iso);
+  if (min < 1) return 'agora';
+  if (min < 24 * 60) return `há ${elapsed(min)}`;
+  return dateTime(iso);
+}
+
+type JobFilter = 'all' | 'queued' | 'failed';
 
 /**
  * Impressão: o aplicativo "Comandou Impressão" roda no computador do restaurante, ligado às
- * impressoras térmicas, e busca os trabalhos aqui. Comandas de cozinha saem sozinhas a cada pedido.
+ * impressoras, e busca os trabalhos aqui. Comandas de cozinha saem sozinhas a cada pedido.
  */
 export function PrintingPage() {
   const toast = useToast();
   const [agents, setAgents] = useState<PrintAgent[] | null>(null);
-  const [jobs, setJobs] = useState<PrintJob[]>([]);
+  const [jobs, setJobs] = useState<PrintJob[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
   const [secret, setSecret] = useState<{ name: string; token: string } | null>(null);
+  const [filter, setFilter] = useState<JobFilter>('all');
+  const [, tick] = useState(0);
 
   const load = useCallback(async () => {
     try {
       const [a, j] = await Promise.all([
         api<PrintAgent[]>('/printing/agents'),
-        api<PrintJob[]>('/printing/jobs?limit=50'),
+        api<PrintJob[]>('/printing/jobs?limit=100'),
       ]);
       setAgents(a);
       setJobs(j);
@@ -80,6 +105,13 @@ export function PrintingPage() {
   }, []);
   useEffect(() => {
     void load();
+    // "Online" vale por 2 minutos depois do último sinal: confere de novo e atualiza o "há X min".
+    const t = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      tick((n) => n + 1);
+      void load();
+    }, 30_000);
+    return () => window.clearInterval(t);
   }, [load]);
   const reload = useDebounced(load);
   useRealtime((e) => {
@@ -97,7 +129,36 @@ export function PrintingPage() {
     }
   }
 
-  const online = agents?.some((a) => a.active && a.online) ?? false;
+  const health = printHealth(agents);
+  const queued = jobs?.filter((j) => j.status === 'queued') ?? [];
+  const failed = jobs?.filter((j) => j.status === 'failed') ?? [];
+  const shown = useMemo(
+    () => (jobs ?? []).filter((j) => filter === 'all' || j.status === filter),
+    [jobs, filter],
+  );
+  // Sem computador nenhum, o aplicativo vem primeiro; com computador, fica no fim da tela.
+  const needsApp = agents !== null && health.state === 'none';
+
+  async function testPrint() {
+    if (await call('/printing/test', { target: 'Caixa' }))
+      toast(
+        health.state === 'ok'
+          ? 'Página de teste enviada para a impressora'
+          : 'Página de teste na fila: sai quando o computador da impressora estiver conectado',
+        'success',
+      );
+  }
+
+  async function discard(ids?: string[]) {
+    const r = await call<{ discarded: number }>('/printing/jobs/discard', ids ? { ids } : {});
+    if (r)
+      toast(
+        r.discarded === 1
+          ? '1 trabalho tirado da fila'
+          : `${r.discarded} trabalhos tirados da fila`,
+        'success',
+      );
+  }
 
   return (
     <>
@@ -107,14 +168,21 @@ export function PrintingPage() {
           <TourButton tour="impressao" />
         </div>
         <p className="page-sub">
-          Comandas de cozinha e conferências saem sozinhas nas impressoras térmicas do restaurante.
+          Comandas de cozinha e conferências saem sozinhas nas impressoras do restaurante.
         </p>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
 
-      <DownloadHero online={online} onConnect={() => setConnectOpen(true)} />
+      {agents !== null && health.state !== 'none' && (
+        <StatusPanel
+          state={health.state}
+          agents={agents}
+          queued={queued.length}
+          onTest={() => void testPrint()}
+        />
+      )}
 
-      <ConnectionGuide />
+      {needsApp && <DownloadHero online={false} onConnect={() => setConnectOpen(true)} />}
 
       <Card
         searchId="secao-agentes"
@@ -122,59 +190,45 @@ export function PrintingPage() {
         actions={
           <Button
             variant="secondary"
+            size="sm"
             icon={<Plus size={16} />}
             onClick={() => setConnectOpen(true)}
           >
             Conectar computador
           </Button>
         }
+        bodyless
       >
         {agents === null ? (
-          <Spinner />
+          <div className="cm-card__body">
+            <Spinner />
+          </div>
         ) : agents.length === 0 ? (
-          <EmptyState
-            icon={<Printer size={20} />}
-            title="Nenhum computador conectado"
-            description="Sem o aplicativo, os pedidos funcionam normalmente, só não imprimem."
-          />
+          <div className="cm-card__body">
+            <EmptyState
+              icon={<Printer size={20} />}
+              title="Nenhum computador conectado"
+              description="Sem o aplicativo, os pedidos funcionam normalmente, só não imprimem."
+            />
+          </div>
         ) : (
-          <ul className="plain-list">
-            {agents.map((a) => (
-              <li key={a.id} data-search-id={`agente-${a.id}`} style={{ flexWrap: 'wrap', gap: 8 }}>
-                <span>
-                  <strong>{a.name}</strong>{' '}
-                  {!a.active ? (
-                    <Badge>desativado</Badge>
-                  ) : a.online ? (
-                    <Badge tone="success">online</Badge>
-                  ) : (
-                    <Badge tone="warning">offline</Badge>
-                  )}
-                  <span className="cm-hint">
-                    {' '}
-                    {a.lastSeenAt ? `visto ${dateTime(a.lastSeenAt)}` : 'nunca conectou'}
-                    {a.version && ` · v${a.version}`}
-                  </span>
-                </span>
-                <span className="actions-row">
-                  <button
-                    className="link-btn"
-                    onClick={async () => {
-                      const r = await call<{ token: string }>(`/printing/agents/${a.id}/token`);
-                      if (r) setSecret({ name: a.name, token: r.token });
-                    }}
-                  >
-                    gerar novo código
-                  </button>
-                  <button
-                    className="link-btn"
-                    onClick={() => call(`/printing/agents/${a.id}`, { active: !a.active }, 'PATCH')}
-                  >
-                    {a.active ? 'desativar' : 'ativar'}
-                  </button>
-                </span>
-              </li>
-            ))}
+          <ul className="print-agents">
+            {[...agents]
+              .sort(
+                (a, b) =>
+                  Number(b.active) - Number(a.active) || Number(b.online) - Number(a.online),
+              )
+              .map((a) => (
+                <AgentRow
+                  key={a.id}
+                  agent={a}
+                  onToken={async () => {
+                    const r = await call<{ token: string }>(`/printing/agents/${a.id}/token`);
+                    if (r) setSecret({ name: a.name, token: r.token });
+                  }}
+                  onToggle={() => call(`/printing/agents/${a.id}`, { active: !a.active }, 'PATCH')}
+                />
+              ))}
           </ul>
         )}
       </Card>
@@ -183,61 +237,79 @@ export function PrintingPage() {
         searchId="secao-fila"
         title="Fila de impressão"
         actions={
-          <Button
-            variant="secondary"
-            onClick={async () => {
-              if (await call('/printing/test', { target: 'Caixa' }))
-                toast('Página de teste enviada', 'success');
-            }}
-          >
-            Imprimir teste
-          </Button>
+          <>
+            {queued.length > 0 && health.state !== 'ok' && (
+              <Button variant="ghost" size="sm" onClick={() => void discard()}>
+                Limpar fila
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" onClick={() => void testPrint()}>
+              Imprimir teste
+            </Button>
+          </>
         }
         bodyless
       >
-        {jobs.length === 0 ? (
-          <EmptyState title="Nada impresso ainda" />
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="cm-table">
-              <thead>
-                <tr>
-                  <th>Quando</th>
-                  <th>O quê</th>
-                  <th>Destino</th>
-                  <th>Situação</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {jobs.map((j) => (
-                  <tr key={j.id}>
-                    <td>{dateTime(j.createdAt)}</td>
-                    <td>
-                      {KIND[j.kind]} {j.orderNumber && `#${j.orderNumber}`}
-                    </td>
-                    <td>{j.target}</td>
-                    <td>
-                      <Badge tone={STATUS[j.status][1]}>{STATUS[j.status][0]}</Badge>
-                      {j.lastError && <div className="cm-hint">{j.lastError}</div>}
-                    </td>
-                    <td className="cm-num">
-                      {j.status === 'failed' && (
-                        <Button
-                          variant="ghost"
-                          onClick={() => call(`/printing/jobs/${j.id}/retry`)}
-                        >
-                          Tentar de novo
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {jobs === null ? (
+          <div className="cm-card__body">
+            <Spinner />
           </div>
+        ) : jobs.length === 0 ? (
+          <div className="cm-card__body">
+            <EmptyState
+              icon={<Printer size={20} />}
+              title="Nada impresso ainda"
+              description="Cada comanda e conferência aparece aqui, com a hora e se saiu na impressora."
+            />
+          </div>
+        ) : (
+          <>
+            <div className="print-queue__bar">
+              <Segmented
+                label="Filtrar a fila"
+                value={filter}
+                onChange={setFilter}
+                options={[
+                  { value: 'all', label: 'Todos', count: jobs.length },
+                  { value: 'queued', label: 'Na fila', count: queued.length },
+                  { value: 'failed', label: 'Falharam', count: failed.length },
+                ]}
+              />
+              {queued.length > 0 && (
+                <span className={`print-queue__why print-queue__why--${health.state}`}>
+                  {WAIT_REASON[health.state]}
+                </span>
+              )}
+            </div>
+            {shown.length === 0 ? (
+              <div className="cm-card__body">
+                <EmptyState
+                  title={filter === 'queued' ? 'Nada esperando' : 'Nenhuma falha'}
+                  description="Tudo o que foi enviado já saiu na impressora."
+                />
+              </div>
+            ) : (
+              <ul className="print-jobs">
+                {shown.map((j) => (
+                  <JobRow
+                    key={j.id}
+                    job={j}
+                    wait={j.status === 'queued' ? WAIT_REASON[health.state] : null}
+                    onRetry={() => call(`/printing/jobs/${j.id}/retry`)}
+                    onDiscard={() => void discard([j.id])}
+                  />
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </Card>
+
+      {!needsApp && agents !== null && (
+        <DownloadHero online={health.state === 'ok'} onConnect={() => setConnectOpen(true)} />
+      )}
+
+      <ConnectionGuide />
 
       <PrintTemplatesCard />
 
@@ -261,6 +333,191 @@ export function PrintingPage() {
   );
 }
 
+/** Por que os trabalhos estão parados "Na fila", em uma frase. */
+const WAIT_REASON: Record<PrintHealthState, string> = {
+  ok: 'Saindo agora',
+  'no-printer': 'Esperando escolher a impressora no aplicativo',
+  offline: 'Esperando o computador da impressora ligar',
+  none: 'Esperando um computador com o aplicativo',
+};
+
+/** Situação no topo: uma frase dizendo se está imprimindo e, se não, o que fazer. */
+function StatusPanel({
+  state,
+  agents,
+  queued,
+  onTest,
+}: {
+  state: Exclude<PrintHealthState, 'none'>;
+  agents: PrintAgent[];
+  queued: number;
+  onTest: () => void;
+}) {
+  const active = agents.filter((a) => a.active);
+  const online = active.filter((a) => a.online);
+  const names = (list: PrintAgent[]) => list.map((a) => a.name).join(', ');
+  const last = active
+    .map((a) => a.lastSeenAt)
+    .filter((x): x is string => !!x)
+    .sort()
+    .at(-1);
+  const waiting = queued
+    ? ` ${queued === 1 ? '1 trabalho espera' : `${queued} trabalhos esperam`} na fila e ${queued === 1 ? 'sai' : 'saem'} assim que resolver.`
+    : '';
+  const copy = {
+    ok: {
+      title: 'Impressão funcionando',
+      text: `${names(online)} ${online.length === 1 ? 'está conectado' : 'estão conectados'}. Cada pedido imprime sozinho, na hora.`,
+    },
+    'no-printer': {
+      title: 'Falta escolher a impressora',
+      text: `O aplicativo está aberto em ${names(online)}, mas nenhuma impressora foi escolhida. Abra o Comandou Impressão nesse computador e clique em Usar na impressora da lista.${waiting}`,
+    },
+    offline: {
+      title: 'Impressão parada',
+      text: `${names(active)} ${last ? `deu sinal pela última vez ${ago(last)}` : 'ainda não conectou'}. Ligue o computador, confira a internet e abra o Comandou Impressão (ele fica perto do relógio).${waiting}`,
+    },
+  }[state];
+  return (
+    <section className="print-state" data-state={state} role="status">
+      <span className="print-state__dot" aria-hidden />
+      <div className="print-state__body">
+        <strong className="print-state__title">{copy.title}</strong>
+        <p className="print-state__text">{copy.text}</p>
+      </div>
+      {state === 'ok' && (
+        <Button variant="secondary" size="sm" onClick={onTest}>
+          Imprimir teste
+        </Button>
+      )}
+    </section>
+  );
+}
+
+function AgentRow({
+  agent: a,
+  onToken,
+  onToggle,
+}: {
+  agent: PrintAgent;
+  onToken: () => void;
+  onToggle: () => void;
+}) {
+  const main = mainPrinter(a);
+  const routes = (a.printers ?? []).filter((p) => p.target !== null);
+  const st = !a.active ? 'off' : !a.online ? 'offline' : a.printers && !main ? 'warn' : 'ok';
+  const when = !a.active
+    ? 'Desativado: não recebe trabalhos'
+    : a.online
+      ? 'Conectado agora'
+      : a.lastSeenAt
+        ? `Desconectado, último sinal ${ago(a.lastSeenAt)}`
+        : 'Ainda não conectou: abra o aplicativo e cole o código';
+  return (
+    <li className="print-agent" data-state={st} data-search-id={`agente-${a.id}`}>
+      <span className="print-agent__dot" aria-hidden />
+      <div className="print-agent__main">
+        <div className="print-agent__head">
+          <strong>{a.name}</strong>
+          <span className="cm-hint">
+            {when}
+            {a.version && ` · v${a.version}`}
+          </span>
+        </div>
+        {a.active && a.printers !== null && (
+          <div className="print-agent__printers">
+            {main ? (
+              <span
+                className="print-chip print-chip--main"
+                title="Recebe tudo o que não tem impressora própria"
+              >
+                {PRINTER_ICON[main.kind]}
+                <span>
+                  Principal: <strong>{main.label}</strong>
+                </span>
+              </span>
+            ) : (
+              <span className="print-chip print-chip--warn">
+                <Printer size={14} />
+                Nenhuma impressora escolhida no aplicativo
+              </span>
+            )}
+            {routes.map((p) => (
+              <span key={p.target} className="print-chip">
+                {PRINTER_ICON[p.kind]}
+                <span>
+                  {p.target}: <strong>{p.label}</strong>
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="print-agent__actions">
+        <Button variant="ghost" size="sm" onClick={onToken}>
+          Novo código
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onToggle}>
+          {a.active ? 'Desativar' : 'Ativar'}
+        </Button>
+      </div>
+    </li>
+  );
+}
+
+function JobRow({
+  job: j,
+  wait,
+  onRetry,
+  onDiscard,
+}: {
+  job: PrintJob;
+  wait: string | null;
+  onRetry: () => void;
+  onDiscard: () => void;
+}) {
+  const [label, tone] = STATUS[j.status];
+  const today = new Date(j.createdAt).toDateString() === new Date().toDateString();
+  return (
+    <li className="print-job" data-status={j.status}>
+      <span className="print-job__when" title={dateTime(j.createdAt)}>
+        {today ? time(j.createdAt) : dateTime(j.createdAt)}
+      </span>
+      <div className="print-job__what">
+        <strong>
+          {KIND[j.kind]}
+          {j.orderNumber ? ` #${j.orderNumber}` : ''}
+        </strong>
+        <span className="cm-hint">
+          {j.target}
+          {j.agentName && ` · ${j.agentName}`}
+        </span>
+      </div>
+      <div className="print-job__status">
+        <Badge tone={tone}>{label}</Badge>
+        {j.status === 'queued' && wait && (
+          <span className="cm-hint">
+            {wait} · {ago(j.createdAt)}
+          </span>
+        )}
+        {j.status === 'failed' && j.lastError && <span className="cm-hint">{j.lastError}</span>}
+      </div>
+      <div className="print-job__actions">
+        {j.status === 'failed' && (
+          <Button variant="ghost" size="sm" onClick={onRetry}>
+            Tentar de novo
+          </Button>
+        )}
+        {j.status === 'queued' && (
+          <Button variant="ghost" size="sm" onClick={onDiscard}>
+            Tirar da fila
+          </Button>
+        )}
+      </div>
+    </li>
+  );
+}
+
 /** Cartão de topo: baixar o aplicativo (sistema do visitante em destaque) e os 3 passos. */
 function DownloadHero({ online, onConnect }: { online: boolean; onConnect: () => void }) {
   const [os] = useState<DesktopOs>(() => detectOs());
@@ -279,8 +536,9 @@ function DownloadHero({ online, onConnect }: { online: boolean; onConnect: () =>
           </h2>
           <p className="print-hero__text">
             Instale no computador que fica ligado à impressora (normalmente o do caixa). Ele roda em
-            segundo plano, perto do relógio, e imprime cada pedido na hora. Funciona com impressora
-            USB, de rede (cabo ou Wi-Fi), Bluetooth ou serial.
+            segundo plano, perto do relógio (com a bolinha verde quando está conectado), e imprime
+            cada pedido na hora. Funciona com impressora térmica USB, de rede (cabo ou Wi-Fi),
+            Bluetooth ou serial, e também com impressora comum (jato de tinta ou laser).
           </p>
           <div className="print-hero__actions">
             <a className="cm-btn cm-btn--primary cm-btn--lg" href={downloadUrl(os)} download>
@@ -329,8 +587,8 @@ function DownloadHero({ online, onConnect }: { online: boolean; onConnect: () =>
           <div>
             <strong>Escolha a impressora</strong>
             <span>
-              No aplicativo, clique em Adicionar impressora, diga como ela está ligada e imprima um
-              teste.
+              O aplicativo procura sozinho (cabo, rede e Bluetooth). Clique em Usar na sua
+              impressora e imprima um teste.
             </span>
           </div>
         </li>
@@ -457,7 +715,7 @@ const CONNECTIONS: { icon: ReactNode; title: string; steps: string[] }[] = [
     steps: [
       'Ligue o cabo no computador e instale o driver do fabricante.',
       'Sem driver no Windows: adicione como "Generic / Text Only" na porta USB001.',
-      'No aplicativo: Adicionar impressora › USB.',
+      'No aplicativo ela aparece sozinha na lista: clique em Usar.',
     ],
   },
   {
@@ -466,7 +724,7 @@ const CONNECTIONS: { icon: ReactNode; title: string; steps: string[] }[] = [
     steps: [
       'Ligue o cabo da impressora no roteador.',
       'Segure o botão FEED ao ligar: a folha de autoteste mostra o IP.',
-      'No aplicativo: Adicionar impressora › Rede. Ele procura sozinho.',
+      'O aplicativo procura na rede sozinho: clique em Usar.',
     ],
   },
   {
@@ -475,7 +733,7 @@ const CONNECTIONS: { icon: ReactNode; title: string; steps: string[] }[] = [
     steps: [
       'Coloque a impressora no Wi-Fi do restaurante (programa do fabricante ou WPS).',
       'Reserve o IP dela no roteador para não mudar.',
-      'No aplicativo: Adicionar impressora › Rede.',
+      'O aplicativo acha na rede sozinho: clique em Usar.',
     ],
   },
   {
@@ -484,7 +742,16 @@ const CONNECTIONS: { icon: ReactNode; title: string; steps: string[] }[] = [
     steps: [
       'Pareie com o computador (PIN 0000 ou 1234).',
       'Desconecte do celular: ela aceita uma conexão por vez.',
-      'No aplicativo: Adicionar impressora › Bluetooth.',
+      'Ela aparece na lista do aplicativo: clique em Usar.',
+    ],
+  },
+  {
+    icon: <FileText size={18} />,
+    title: 'Impressora comum',
+    steps: [
+      'Jato de tinta ou laser (Epson, HP, Canon…) instalada no computador.',
+      'Ela imprime a comanda numa folha A4, sem abrir janela.',
+      'Na lista do aplicativo ela vem marcada como Folha: clique em Usar.',
     ],
   },
   {
@@ -493,7 +760,7 @@ const CONNECTIONS: { icon: ReactNode; title: string; steps: string[] }[] = [
     steps: [
       'Ligue o cabo RS-232 ou o adaptador USB-serial (com o driver dele).',
       'Veja a velocidade (baud rate) na folha de autoteste.',
-      'No aplicativo: Adicionar impressora › Serial.',
+      'Ela aparece na lista do aplicativo (porta COM): clique em Usar.',
     ],
   },
 ];

@@ -13,7 +13,7 @@
     <!-- Conectar -->
     <main id="view-connect" class="connect" hidden>
       <section class="connect__hero">
-        <img src="logo.svg" alt="" class="connect__logo" />
+        <img src="logo.svg" alt="" class="connect__logo" id="connect-logo" />
         <h1>Vamos ligar suas impressoras</h1>
         <p>
           Este aplicativo fica rodando perto do relógio e imprime as comandas sozinho. Funciona com
@@ -69,7 +69,7 @@
     <!-- Painel -->
     <div id="view-main" class="app" hidden>
       <header class="top">
-        <img src="logo.svg" alt="" class="top__logo" />
+        <img src="logo.svg" alt="" class="top__logo" id="brand-logo" />
         <div class="top__title">
           <strong id="restaurant">Restaurante</strong>
           <span id="agent-name" class="muted"></span>
@@ -81,28 +81,46 @@
       <div id="banner" class="banner" hidden></div>
 
       <main class="grid">
-        <section class="card card--main">
-          <div class="card__head">
-            <div>
-              <h2>Impressora principal</h2>
-              <p class="muted">Recebe tudo o que não tiver impressora própria logo abaixo.</p>
+        <div class="col">
+          <section class="card card--found" aria-labelledby="found-title">
+            <div class="card__head">
+              <div>
+                <h2 id="found-title">Impressoras deste computador</h2>
+                <p class="muted">
+                  Procuramos sozinhos no cabo USB, na rede, no Wi-Fi e no Bluetooth. Escolha uma e
+                  clique em <strong>Usar</strong>.
+                </p>
+              </div>
+              <button type="button" class="btn btn--ghost btn--sm" id="rescan">
+                Procurar de novo
+              </button>
             </div>
-          </div>
-          <div id="main-printer"></div>
-        </section>
+            <div id="scan-steps" class="steps-row" aria-live="polite"></div>
+            <div id="found" class="found"></div>
+            <p class="found__more muted">
+              Não achou a sua?
+              <button type="button" class="link" id="manual-add">Adicionar do jeito manual</button>
+              <span aria-hidden="true">·</span>
+              <button type="button" class="link" data-guide="inicio">
+                Como ligar a impressora
+              </button>
+            </p>
+          </section>
 
-        <section class="card">
-          <div class="card__head">
-            <div>
-              <h2>Uma impressora por setor</h2>
-              <p class="muted">
-                Opcional. Ex.: bebidas saem no bar, lanches na chapa, conferência no caixa.
-                <button type="button" class="link" data-guide="setores">Como funciona?</button>
-              </p>
+          <section class="card">
+            <div class="card__head">
+              <div>
+                <h2>Onde cada coisa imprime</h2>
+                <p class="muted">
+                  A principal recebe tudo. Se quiser, cada setor sai na sua.
+                  <button type="button" class="link" data-guide="setores">Como funciona?</button>
+                </p>
+              </div>
             </div>
-          </div>
-          <div id="routes" class="routes"></div>
-        </section>
+            <div id="main-printer"></div>
+            <div id="routes" class="routes"></div>
+          </section>
+        </div>
 
         <section class="card card--log">
           <div class="card__head">
@@ -608,6 +626,7 @@
       </div>
     </dialog>
 
+    <div id="use-menu" class="menu" popover></div>
     <div id="toast" class="toast" role="status" hidden></div>
     <script src="app.js"></script>
   </body>

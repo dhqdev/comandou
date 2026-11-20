@@ -70,6 +70,7 @@ import { api } from '../lib/api';
 import { PageTourHost } from '../features/tour/PageTour';
 import { useSearchSpotlight } from '../lib/deep-link';
 import { rememberStaffApp } from '../lib/staff-app';
+import { PrintStatus } from '../features/PrintStatus';
 import { ConnectionSignal } from '../features/ConnectionSignal';
 import { OfflineBanner } from './OfflineBanner';
 import { useHasUnseenRelease } from '../lib/releases';
@@ -460,6 +461,7 @@ export function AppShell() {
             <div className="topbar__spacer" />
             {/* Sinal da conexão (barrinhas): mede o tempo de resposta e o tempo real. */}
             <ConnectionSignal />
+            {allowed(['printing:manage']) && <PrintStatus />}
             <GlobalSearchTrigger icon onOpen={() => setSearchOpen(true)} />
             {location.pathname !== '/' && location.pathname !== '/pdv' && (
               <SupportButton className="topbar__support" />

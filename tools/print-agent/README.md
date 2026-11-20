@@ -23,8 +23,10 @@ sem alguém clicar em "Imprimir". O aplicativo faz essa ponte: ele só **busca**
 2. Instale (dois cliques). O aplicativo abre sozinho e passa a iniciar com o computador.
 3. No painel, **Conectar computador** → **Abrir no aplicativo** (ou copie o código `CMD1-...` e
    cole no aplicativo).
-4. Clique em **Adicionar impressora**, diga como ela está ligada, escolha a impressora,
-   imprima um teste e salve. Opcional: uma impressora por setor (Bar, Chapa, Caixa...).
+4. Ao abrir, o aplicativo já procura todas as impressoras (instaladas, cabo USB, Bluetooth e
+   rede/Wi-Fi, ao mesmo tempo). Clique em **Usar** na sua e em **Testar**. Opcional: **Usar em…**
+   um setor (Bar, Chapa, Caixa...). Não apareceu? **Adicionar manualmente** abre o passo a passo
+   antigo, por tipo de ligação.
 
 O botão **Ajuda** do aplicativo tem o passo a passo de cada tipo de ligação (Windows, macOS e
 Linux) e os problemas mais comuns.
@@ -40,8 +42,10 @@ Linux) e os problemas mais comuns.
 | Bluetooth **BLE** (portáteis sem porta COM) | **Procurar por BLE** (Web Bluetooth do Chromium, sem parear no sistema) | escreve na característica de escrita (serviços `18f0`, `ff00`, `ffe0`, `fff0`, `ae30`, ISSC…) em pedaços de 20 bytes; religa sozinho pelo endereço salvo | `ble:ENDEREÇO` |
 | Serial RS-232, USB-serial, COM virtual | portas seriais do sistema | .NET `SerialPort` no Windows; `stty` + escrita na porta no macOS/Linux | `serial:COM3?baud=19200` |
 | USB direto, sem driver (Linux) | `/dev/usb/lp*` | escreve no aparelho | `file:/dev/usb/lp0` |
+| Impressora **comum** (jato de tinta, laser: Epson EcoTank, HP, Canon, Brother…) | impressoras instaladas no sistema cujo nome/driver não é de térmica (`looksLikeReceipt` em `printers.mjs`; no Windows o driver vem do `Get-Printer`) | o texto vira uma folha HTML com letra de largura fixa e sai pelo driver, sem janela (`webContents.print({ silent: true })`, `desktop/document.mjs`); o QR Code da NFC-e vira o endereço por escrito | `printer:NOME?modo=folha` |
 
-Ajustes por impressora, no fim do texto: `papel=58` (bobina de 58 mm: fonte B, para caber as 42
+Ajustes por impressora, no fim do texto: `modo=folha` (impressora comum, só no aplicativo com
+tela; na tela de ajustes é o "Tipo de impressora"), `papel=58` (bobina de 58 mm: fonte B, para caber as 42
 colunas), `acentos=850` ou `acentos=ascii` (impressora que não tem a CP860), `baud=...` (serial),
 `mac=00-11-22-33-44-55` (rede: guardado sozinho ao escolher da lista ou testar o IP).
 A página de teste traz uma régua de 42 colunas e uma linha de acentos para conferir no papel.
@@ -58,7 +62,20 @@ pergunta à impressora (DLE EOT do ESC/POS, não imprime) se falta papel, se a t
 há erro. BLE não é conferido em segundo plano (gastaria a bateria da impressora).
 
 Impressoras aceitas: térmicas ESC/POS (Elgin, Bematech, Epson, Daruma, Tanca, Knup, genéricas de
-58/80 mm).
+58/80 mm) e, em folha, qualquer impressora comum instalada no computador.
+
+**Cara do restaurante:** o heartbeat devolve `brand` (cor, tema claro/escuro/automático e ícone, os
+mesmos do sistema). A tela usa a cor do restaurante (ajustada para ter contraste) e o tema; o ícone é
+baixado, desenhado em PNG na janela escondida (`renderIcon` em `desktop/ble/ble.js`) e salvo em
+`marca/` na pasta do aplicativo, para abrir já com ele (`desktop/brand.mjs`). Vale para a janela, a
+barra de tarefas, a bandeja (com a bolinha: verde conectado, amarela tentando, vermelha código
+recusado, cinza parado; no Windows também uma bolinha sobre o ícone da barra de tarefas) e os
+atalhos do Windows (área de trabalho e Iniciar). O instalador é o mesmo para todos: a cara muda
+quando o aplicativo conecta.
+
+**Impressoras no sistema:** o heartbeat também manda as impressoras escolhidas (`printers`: setor,
+nome e tipo, nunca o endereço), que aparecem em **Impressão › Computadores conectados**; o sistema
+mostra o ícone de impressora no topo com a mesma bolinha.
 
 **Sistemas:** Windows 10/11 em Intel, AMD ou ARM (um instalador com as duas versões), macOS Intel e
 Apple Silicon (o macOS pede permissão de Bluetooth e de rede local na primeira vez) e Linux x64 ou

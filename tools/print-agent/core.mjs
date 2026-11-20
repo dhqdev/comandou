@@ -47,6 +47,8 @@ export class PrintAgent extends EventEmitter {
    * @param {(spec: string, text: string) => Promise<void>} o.print
    * @param {number} [o.pollMs]
    * @param {() => boolean} [o.canPrint]  false = só mantém a conexão; os trabalhos esperam na fila
+   * @param {() => { target: string|null, label: string, kind: string }[]} [o.report]  impressoras
+   *   escolhidas, para a tela Impressão do sistema mostrar
    */
   constructor(o) {
     super();
@@ -87,13 +89,18 @@ export class PrintAgent extends EventEmitter {
 
   async tick() {
     if (!this.lastBeat || Date.now() - this.lastBeat > 30_000) {
-      const hb = await this.api('/heartbeat', { version: this.o.version });
+      const hb = await this.api('/heartbeat', {
+        version: this.o.version,
+        ...(this.o.report ? { printers: this.o.report() } : {}),
+      });
       this.lastBeat = Date.now();
       this.setState({
         state: 'online',
         restaurant: hb.restaurant,
         agent: hb.agent,
         targets: Array.isArray(hb.targets) ? hb.targets : this.state.targets,
+        // Cores, tema e ícone do restaurante (o aplicativo se veste com a marca dele).
+        brand: hb.brand && typeof hb.brand === 'object' ? hb.brand : this.state.brand,
       });
     }
     if (this.o.canPrint && !this.o.canPrint()) return this.setState({ state: 'online' });

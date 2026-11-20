@@ -122,6 +122,7 @@ function splitSpec(spec) {
       codepage: ['850', 'ascii'].includes(raw.get('acentos')) ? raw.get('acentos') : '860',
       baud: BAUDS.includes(baud) ? baud : 9600,
       mac,
+      mode: raw.get('modo') === 'folha' && base.startsWith('printer:') ? 'doc' : 'raw',
     },
   };
 }
@@ -132,6 +133,7 @@ function joinSpec(base, opts) {
   if (opts.codepage !== '860') p.set('acentos', opts.codepage);
   if (base.startsWith('serial:') && opts.baud !== 9600) p.set('baud', String(opts.baud));
   if (base.startsWith('tcp://') && opts.mac) p.set('mac', opts.mac);
+  if (base.startsWith('printer:') && opts.mode === 'doc') p.set('modo', 'folha');
   const q = p.toString();
   return q ? `${base}?${q}` : base;
 }
@@ -154,7 +156,12 @@ function info(spec) {
     return {
       type: 'usb',
       title: p ? p.label : name,
-      detail: (p ? 'Instalada neste computador' : 'Não encontrada neste computador') + tail,
+      detail:
+        (p
+          ? opts.mode === 'doc'
+            ? 'Impressora comum, imprime em folha'
+            : 'Instalada neste computador'
+          : 'Não encontrada neste computador') + tail,
       missing: !p,
     };
   }
@@ -218,17 +225,13 @@ function mainPrinter() {
       el(
         'div',
         { class: 'empty-printer__body' },
-        el('strong', { text: 'Nenhuma impressora escolhida' }),
+        el('strong', { text: 'Falta escolher a impressora principal' }),
         el('span', {
           class: 'muted',
-          text: 'Enquanto não escolher, as comandas esperam na fila do Comandou.',
+          text: 'Clique em Usar numa das impressoras acima. Até lá, as comandas esperam na fila do Comandou.',
         }),
       ),
-      el(
-        'button',
-        { class: 'btn btn--primary', onclick: () => openPicker(null) },
-        'Adicionar impressora',
-      ),
+      el('button', { class: 'btn btn--ghost', onclick: () => openPicker(null) }, 'Do jeito manual'),
     );
   const i = info(spec);
   const last = state.jobs.find((j) => j.printer === spec);
@@ -354,17 +357,13 @@ function render() {
         'div',
         {},
         el('strong', { text: 'Falta pouco: ' }),
-        'adicione a impressora principal e imprima um teste.',
-      ),
-      el(
-        'button',
-        { class: 'btn btn--primary', onclick: () => openPicker(null) },
-        'Adicionar impressora',
+        'escolha a impressora principal na lista abaixo (botão Usar) e imprima um teste.',
       ),
     );
     banner.hidden = false;
   } else banner.hidden = true;
 
+  renderFound();
   $('main-printer').replaceChildren(mainPrinter());
   const routes = state.targets.map(routeRow);
   $('routes').replaceChildren(
@@ -409,6 +408,7 @@ function render() {
 
 function apply(s) {
   state = s;
+  applyBrand();
   render();
 }
 
@@ -1271,6 +1271,26 @@ function adjustStage() {
           text: 'Deixe "Padrão". Se no teste os acentos saírem como símbolos, troque para CP850; se ainda sair errado, "Sem acentos".',
         }),
       ),
+      pick.base.startsWith('printer:')
+        ? el(
+            'div',
+            { class: 'field' },
+            el('span', { class: 'label', text: 'Tipo de impressora' }),
+            radioGroup(
+              'mode',
+              pick.opts.mode ?? 'raw',
+              [
+                ['raw', 'Térmica de cupom'],
+                ['doc', 'Comum (jato de tinta ou laser)'],
+              ],
+              set('mode'),
+            ),
+            el('span', {
+              class: 'muted field__hint',
+              text: 'Térmica recebe os comandos direto (corta o papel, acentos, QR Code). Comum imprime a comanda numa folha, pelo driver do computador.',
+            }),
+          )
+        : null,
       serial
         ? el(
             'div',
@@ -1589,6 +1609,298 @@ api.onLink((link) => {
 });
 
 setInterval(render, 30_000); // atualiza o "há X min"
+
+// ---------------------------------------------------------------- cor e tema do restaurante
+const hexOk = (h) => typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h);
+const rgbOf = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+const hexOf = (c) =>
+  `#${c
+    .map((v) =>
+      Math.round(Math.min(1, Math.max(0, v)) * 255)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+const lumOf = (h) => {
+  const [r, g, b] = rgbOf(h).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrastOf = (a, b) => {
+  const [x, y] = [lumOf(a), lumOf(b)].sort((m, n) => n - m);
+  return (x + 0.05) / (y + 0.05);
+};
+const mixHex = (a, b, t) => {
+  const [x, y] = [rgbOf(a), rgbOf(b)];
+  return hexOf(x.map((v, i) => v + (y[i] - v) * t));
+};
+/** Aproxima a cor de `towards` até ter o contraste pedido com `bg`. */
+function untilContrast(color, bg, min, towards) {
+  let c = color;
+  for (let i = 0; i < 24 && contrastOf(c, bg) < min; i++) c = mixHex(c, towards, 0.08);
+  return c;
+}
+
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+/** Pinta o aplicativo com a cor e o tema do restaurante (o mesmo do cardápio e do sistema). */
+function applyBrand() {
+  const b = state?.brand ?? {};
+  const pref = b.theme === 'light' || b.theme === 'dark' ? b.theme : 'auto';
+  const dark = pref === 'dark' || (pref === 'auto' && darkQuery.matches);
+  const root = document.documentElement;
+  root.dataset.theme = dark ? 'dark' : 'light';
+  const props = ['--brand', '--brand-strong', '--brand-text', '--brand-soft', '--on-brand'];
+  if (!hexOk(b.brandColor)) {
+    for (const p of props) root.style.removeProperty(p);
+  } else {
+    const surface = dark ? '#171a1f' : '#ffffff';
+    const away = dark ? '#ffffff' : '#000000';
+    // Botão: a cor do restaurante, só clareada/escurecida se sumir no fundo.
+    const brand = untilContrast(b.brandColor.toLowerCase(), surface, 2.2, away);
+    const on = contrastOf('#ffffff', brand) >= contrastOf('#111418', brand) ? '#ffffff' : '#111418';
+    root.style.setProperty('--brand', brand);
+    root.style.setProperty('--brand-strong', mixHex(brand, away, 0.14));
+    root.style.setProperty('--brand-text', untilContrast(brand, surface, 4.6, away));
+    root.style.setProperty('--brand-soft', mixHex(surface, brand, dark ? 0.16 : 0.1));
+    root.style.setProperty('--on-brand', on);
+  }
+  const logo = b.icon || 'logo.svg';
+  for (const id of ['brand-logo', 'connect-logo'])
+    if ($(id).getAttribute('src') !== logo) $(id).src = logo;
+}
+darkQuery.addEventListener?.('change', applyBrand);
+
+// ---------------------------------------------------------------- impressoras encontradas
+const FOUND_ICON = {
+  system: 'printer',
+  'usb-new': 'usb',
+  network: 'network',
+  bluetooth: 'bluetooth',
+  'bt-noport': 'bluetooth',
+  serial: 'serial',
+  direct: 'usb',
+};
+const STEP_LABEL = {
+  instaladas: 'Instaladas',
+  usb: 'Cabo USB',
+  bluetooth: 'Bluetooth',
+  rede: 'Rede e Wi-Fi',
+};
+let scanPct = 0;
+
+/** Base (sem ajustes) de uma impressora, para comparar com as já escolhidas. */
+const baseOf = (spec) => splitSpec(spec).base;
+
+/** Onde a impressora já está em uso: ["Principal", "Bar"...]. */
+function usedIn(spec) {
+  const base = baseOf(spec);
+  const out = [];
+  if (state.printers.default && baseOf(state.printers.default) === base) out.push('Principal');
+  for (const [t, s] of Object.entries(state.printers.routes))
+    if (s && s !== 'none' && baseOf(s) === base) out.push(t);
+  return out;
+}
+
+function scanSteps() {
+  const d = state.discovery ?? { steps: {} };
+  const chips = Object.entries(STEP_LABEL).map(([k, label]) => {
+    const st = d.steps?.[k];
+    const busy = st === 'busy' || (!st && d.running);
+    return el(
+      'span',
+      {
+        class: `chip ${busy ? 'chip--busy' : st === 'ok' ? 'chip--ok' : st === 'fail' ? 'chip--fail' : ''}`,
+      },
+      busy
+        ? el('span', { class: 'spinner', 'aria-hidden': 'true' })
+        : el('span', {
+            class: 'chip__check',
+            'aria-hidden': 'true',
+            text: st === 'fail' ? '!' : '✓',
+          }),
+      k === 'rede' && busy && scanPct ? `${label} ${scanPct}%` : label,
+    );
+  });
+  return chips;
+}
+
+function foundRow(f) {
+  const used = f.spec ? usedIn(f.spec) : [];
+  const inUse = f.spec
+    ? [state.printers.default, ...Object.values(state.printers.routes)].find(
+        (s) => s && s !== 'none' && baseOf(s) === baseOf(f.spec),
+      )
+    : null;
+  const h = inUse ? state.health?.[inUse] : null;
+  const actions = [];
+  if (f.action === 'install')
+    actions.push(
+      actionButton(
+        'Instalar',
+        'Instalando…',
+        async () => {
+          const { spec } = await api.usbInstall(f.installId, f.name);
+          await refreshPrinters();
+          toast('Impressora instalada. Agora clique em Usar e imprima um teste.');
+          await api.discover(true).then(apply);
+          if (!state.printers.default) await useAs(null, spec);
+        },
+        'btn btn--primary btn--sm',
+      ),
+    );
+  else if (f.action === 'bind')
+    actions.push(
+      actionButton('Criar porta', 'Criando…', async () => {
+        const { port } = await api.btBind(f.mac);
+        toast(`Porta ${port} criada.`);
+        await api.discover(true).then(apply);
+      }),
+    );
+  else if (f.action === 'com')
+    actions.push(
+      el(
+        'button',
+        { type: 'button', class: 'btn btn--sm', onclick: () => api.btSettings('com') },
+        'Criar porta COM',
+      ),
+    );
+  else if (f.spec) {
+    actions.push(
+      el(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn--ghost btn--sm',
+          onclick: (e) => runTest(f.spec, e.currentTarget),
+        },
+        'Testar',
+      ),
+      el(
+        'button',
+        {
+          type: 'button',
+          class: `btn btn--sm ${state.printers.default ? '' : 'btn--primary'}`,
+          onclick: (e) => openUseMenu(f, e.currentTarget),
+        },
+        state.printers.default ? 'Usar em…' : 'Usar',
+      ),
+    );
+  }
+  return el(
+    'div',
+    { class: `found__row${used.length ? ' is-used' : ''}` },
+    el('span', { class: 'found__icon' }, icon(FOUND_ICON[f.kind] ?? 'printer', 20)),
+    el(
+      'div',
+      { class: 'found__body' },
+      el('strong', { class: 'found__name', text: f.name }),
+      el('span', { class: 'muted found__detail', text: f.detail }),
+    ),
+    el(
+      'div',
+      { class: 'found__tags' },
+      ...used.map((u) => el('span', { class: 'tag tag--brand', text: u })),
+      f.receipt === false ? el('span', { class: 'tag', text: 'Folha' }) : null,
+      h ? el('span', { class: `dot dot--${h.ok ? 'ok' : 'fail'}`, title: h.text }) : null,
+    ),
+    el('div', { class: 'found__actions' }, ...actions),
+  );
+}
+
+function renderFound() {
+  const d = state.discovery ?? { found: [], steps: {} };
+  $('scan-steps').replaceChildren(...scanSteps());
+  $('rescan').disabled = !!d.running;
+  $('rescan').textContent = d.running ? 'Procurando…' : 'Procurar de novo';
+  const list = d.found ?? [];
+  if (!list.length) {
+    $('found').replaceChildren(
+      el(
+        'div',
+        { class: 'found__empty' },
+        d.running
+          ? el('p', {
+              class: 'muted',
+              text: 'Procurando impressoras… ligue a impressora e deixe o cabo ou a rede conectados.',
+            })
+          : el(
+              'div',
+              {},
+              el('strong', { text: 'Nenhuma impressora encontrada ainda.' }),
+              el('p', {
+                class: 'muted',
+                text: 'Ligue a impressora, confira o cabo (ou se está na mesma rede/Wi-Fi) e clique em Procurar de novo. Bluetooth: pareie no sistema primeiro.',
+              }),
+            ),
+      ),
+    );
+    return;
+  }
+  $('found').replaceChildren(...list.map(foundRow));
+}
+
+/** Menu "Usar em…": principal ou um setor. */
+function openUseMenu(f, button) {
+  const menu = $('use-menu');
+  const items = [['Principal (recebe tudo)', null], ...state.targets.map((t) => [t, t])];
+  menu.replaceChildren(
+    el('div', { class: 'menu__title', text: `Usar ${f.name} em` }),
+    ...items.map(([label, target]) =>
+      el(
+        'button',
+        {
+          type: 'button',
+          class: 'menu__item',
+          onclick: async () => {
+            menu.hidePopover();
+            await useAs(target, f.spec);
+          },
+        },
+        label,
+      ),
+    ),
+  );
+  if (!state.printers.default) {
+    void useAs(null, f.spec);
+    return;
+  }
+  const r = button.getBoundingClientRect();
+  menu.style.top = `${Math.min(r.bottom + 6, window.innerHeight - 40 - items.length * 38)}px`;
+  menu.style.left = `${Math.max(12, r.right - 240)}px`;
+  menu.showPopover();
+}
+
+/** Salva a impressora num destino, mantendo os ajustes (papel, acentos) que já tinha. */
+async function useAs(target, spec) {
+  const cur = target === null ? state.printers.default : state.printers.routes[target];
+  const keep = cur && baseOf(cur) === baseOf(spec) ? splitSpec(cur).opts : null;
+  const next = keep
+    ? joinSpec(baseOf(spec), {
+        ...keep,
+        ...splitSpec(spec).opts,
+        paper: keep.paper,
+        codepage: keep.codepage,
+      })
+    : spec;
+  try {
+    apply(await api.setPrinter(target, next));
+    const who = target === null ? 'principal' : `do setor ${target}`;
+    toast(`Pronto: ${info(next).title} é a impressora ${who}. Imprima um teste para conferir.`);
+  } catch (e) {
+    toast(errMsg(e), 'danger');
+  }
+}
+
+$('rescan').addEventListener('click', () => api.discover(true).then(apply));
+$('manual-add').addEventListener('click', () => openPicker(null));
+api.onScanProgress?.(({ done, total }) => {
+  const pct = Math.round((done / total) * 100);
+  if (pct !== scanPct) {
+    scanPct = pct;
+    if (state?.connected) $('scan-steps').replaceChildren(...scanSteps());
+  }
+});
+
 window.addEventListener('focus', () => {
   // Voltou de parear/instalar no sistema: atualiza as listas.
   void Promise.all([refreshPrinters(), refreshPorts()]).then(() => {
@@ -1598,6 +1910,9 @@ window.addEventListener('focus', () => {
 });
 
 (async () => {
-  await Promise.all([refreshPrinters(), refreshPorts()]);
   apply(await api.state());
+  await Promise.all([refreshPrinters(), refreshPorts()]);
+  render();
+  // Abriu: procura todas as impressoras sozinho.
+  if (state.connected) api.discover(false).then(apply);
 })();

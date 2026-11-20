@@ -18,7 +18,18 @@ import {
   tcpStatus,
 } from './devices.mjs';
 import { buildQuery, collectPrinters, parseResponse } from './mdns.mjs';
-import { normalizeMac, parseSpec, registerTransport, printText, withOptions } from './printers.mjs';
+import { mergeFound, toFound } from './desktop/discover.mjs';
+import { DOT, documentHtml, pngToIco } from './desktop/pure.mjs';
+import { QR_MARK } from './escpos.mjs';
+import {
+  isVirtualPrinter,
+  looksLikeReceipt,
+  normalizeMac,
+  parseSpec,
+  registerTransport,
+  printText,
+  withOptions,
+} from './printers.mjs';
 import { cupsCandidates, queueName, validCupsUri, windowsCandidates } from './usb.mjs';
 
 // ------------------------------------------------------------------ mDNS
@@ -246,4 +257,94 @@ test('BLE: transporte do aplicativo; na linha de comando avisa', async () => {
   await printText('ble:AA:BB?papel=58', 'Oi');
   assert.equal(got[0], 'ble:AA:BB');
   assert.ok(got[1] > 2);
+});
+
+// ------------------------------------------------------------------ impressora comum e busca
+
+test('térmica x impressora comum pelo nome e pelo driver', () => {
+  assert.equal(looksLikeReceipt('EPSON TM-T20X', 'EPSON TM-T20X Receipt'), true);
+  assert.equal(looksLikeReceipt('Caixa', 'Generic / Text Only'), true);
+  assert.equal(looksLikeReceipt('ELGIN i9'), true);
+  assert.equal(looksLikeReceipt('POS-80'), true);
+  assert.equal(looksLikeReceipt('EPSON L3250 Series', 'EPSON L3250 Series'), false);
+  assert.equal(looksLikeReceipt('EPSON L3250 Series'), false); // Windows sem o driver
+  assert.equal(looksLikeReceipt('HP DeskJet 2700'), false);
+  assert.equal(looksLikeReceipt('Brother_HL_L2350DW', 'Brother HL-L2350DW series'), false);
+  assert.equal(looksLikeReceipt('Impressora', 'Canon G3010 series'), false);
+  assert.equal(looksLikeReceipt('Impressora'), true); // na dúvida, térmica
+  assert.equal(looksLikeReceipt('Microsoft Print to PDF'), false);
+  assert.equal(isVirtualPrinter('Microsoft Print to PDF'), true);
+  assert.equal(isVirtualPrinter('OneNote (Desktop)'), true);
+  assert.equal(isVirtualPrinter('EPSON L3250 Series'), false);
+});
+
+test('modo folha só vale para impressora do sistema e passa pelo transporte "doc"', async () => {
+  assert.equal(parseSpec('printer:EPSON L3250?modo=folha').opts.mode, 'doc');
+  assert.equal(parseSpec('tcp://10.0.0.5:9100?modo=folha').opts.mode, undefined);
+  assert.match(withOptions('printer:EPSON L3250?modo=folha', { paper: 58 }), /modo=folha/);
+  const got = [];
+  registerTransport('doc', async (base, text, opts) => got.push({ base, text, opts }));
+  await printText('printer:EPSON L3250?modo=folha', 'Mesa 4');
+  assert.equal(got.length, 1);
+  assert.equal(got[0].base, 'printer:EPSON L3250');
+  assert.equal(got[0].text, 'Mesa 4');
+});
+
+test('lista da busca: instaladas viram folha ou térmica, sem impressora virtual', () => {
+  const sys = toFound.system(
+    [
+      { name: 'EPSON L3250 Series', displayName: 'EPSON L3250 Series' },
+      { name: 'TM-T20', displayName: 'TM-T20' },
+      { name: 'Microsoft Print to PDF' },
+    ],
+    new Map([['EPSON L3250 Series', { driver: 'EPSON L3250 Series' }]]),
+  );
+  assert.deepEqual(
+    sys.map((f) => [f.name, f.spec, f.receipt]),
+    [
+      ['EPSON L3250 Series', 'printer:EPSON L3250 Series?modo=folha', false],
+      ['TM-T20', 'printer:TM-T20', true],
+    ],
+  );
+  const net = toFound.network([
+    { host: '192.168.0.50', port: 9100, mac: 'aa:bb:cc:dd:ee:ff', name: 'Elgin i9' },
+  ]);
+  assert.equal(net[0].spec, 'tcp://192.168.0.50:9100?mac=aa:bb:cc:dd:ee:ff');
+  assert.equal(net[0].detail, 'Rede · 192.168.0.50');
+  const usb = toFound.usbNew([{ id: 'USB001', label: 'Impressora USB (USB001)' }]);
+  assert.equal(usb[0].action, 'install');
+  const bt = toFound.btNoPort([{ mac: '00:11:22:33:44:55', name: 'MPT-II' }], 'win32');
+  assert.equal(bt[0].action, 'com');
+  assert.equal(toFound.btNoPort([{ mac: 'x', name: 'y' }], 'darwin')[0].action, undefined);
+  const merged = mergeFound({
+    network: net,
+    system: sys,
+    'usb-new': usb,
+    direct: [{ id: sys[1].id, name: 'dup' }],
+  });
+  assert.deepEqual(
+    merged.map((f) => f.kind),
+    ['system', 'system', 'usb-new', 'network'],
+  );
+});
+
+test('folha da impressora comum: escapa o texto e troca o QR Code pelo endereço', () => {
+  const html = documentHtml(`Mesa <4> & "bar"\n${QR_MARK}https://nfce.fazenda/q?p=1`, {
+    paper: 58,
+  });
+  assert.match(html, /Mesa &lt;4&gt; &amp; &quot;bar&quot;/);
+  assert.match(html, /Consulte pelo QR Code: https:\/\/nfce\.fazenda\/q\?p=1/);
+  assert.match(html, /9\.5pt/);
+  assert.doesNotMatch(html, /<script/i);
+});
+
+test('ícone .ico com o PNG dentro e cores da bolinha', () => {
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+  const ico = pngToIco(png);
+  assert.equal(ico.readUInt16LE(2), 1);
+  assert.equal(ico.readUInt16LE(4), 1);
+  assert.equal(ico.readUInt32LE(6 + 8), png.length);
+  assert.equal(ico.readUInt32LE(6 + 12), 22);
+  assert.deepEqual(ico.subarray(22), png);
+  assert.equal(DOT.online, '#22c55e');
 });

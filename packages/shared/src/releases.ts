@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.203.0',
+    date: '2026-11-20',
+    title: 'Impressão com a cara do restaurante',
+    summary:
+      'O aplicativo Comandou Impressão agora usa a cor, o tema e o ícone do restaurante, procura todas as impressoras sozinho ao abrir e imprime também em impressora comum (jato de tinta ou laser). No sistema, a tela Impressão mostra na hora se está imprimindo e o que fazer quando não está.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Aplicativo de impressão (versão 1.4.0) com a cor, o tema claro/escuro e o ícone do restaurante: na janela, na barra de tarefas, perto do relógio e nos atalhos do Windows.',
+      },
+      {
+        tag: 'novo',
+        text: 'Ao abrir, o aplicativo procura todas as impressoras ao mesmo tempo (instaladas, cabo USB, Bluetooth e rede/Wi-Fi) e mostra a lista com o botão Usar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Impressora comum (Epson EcoTank, HP, Canon, Brother…) imprime a comanda numa folha, sem abrir janela. Antes ela recebia comandos de impressora térmica e não imprimia.',
+      },
+      {
+        tag: 'novo',
+        text: 'Bolinha no ícone do aplicativo perto do relógio e na impressora do topo do sistema: verde conectado, amarela sem impressora escolhida, vermelha desconectado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tela Impressão nova: a situação no topo com o que fazer, as impressoras escolhidas em cada computador, a fila com filtro e o motivo de cada trabalho estar esperando.',
+      },
+      {
+        tag: 'novo',
+        text: 'Tirar da fila: comanda antiga que não precisa mais sair não imprime de uma vez quando o computador voltar.',
+      },
+    ],
+  },
+  {
     version: '0.202.1',
     date: '2026-11-20',
     title: 'Pedido aberto pelo chat sem quebrar',

@@ -39,10 +39,24 @@ const JobsQuery = z.object({
   status: z.enum(['queued', 'printing', 'done', 'failed']).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
+const Discard = z.object({ ids: z.array(z.string().uuid()).min(1).max(200).optional() });
 const Target = z.object({ target: z.string().trim().min(1).max(60) });
 const PrintOrder = z.object({ kind: z.enum(['kitchen', 'receipt', 'delivery']) });
 const Claim = z.object({ limit: z.number().int().min(1).max(20).default(5) });
-const Heartbeat = z.object({ version: z.string().trim().max(40).optional() });
+const Heartbeat = z.object({
+  version: z.string().trim().max(40).optional(),
+  /** Impressoras escolhidas no aplicativo: destino (null = principal) e o nome para mostrar. */
+  printers: z
+    .array(
+      z.object({
+        target: z.string().trim().max(60).nullable(),
+        label: z.string().trim().max(80),
+        kind: z.enum(['usb', 'network', 'bluetooth', 'serial', 'document', 'none']),
+      }),
+    )
+    .max(40)
+    .optional(),
+});
 const Result = z.object({ ok: z.boolean(), error: z.string().max(300).optional() });
 
 const Kind = z.enum(TEMPLATE_KINDS);
@@ -53,7 +67,7 @@ const Preview = TemplateBody.extend({
 });
 
 const AGENT_COLS = `id, name, active, last_seen_at AS "lastSeenAt", version, created_at AS "createdAt",
-  (last_seen_at > now() - interval '2 minutes') AS online`;
+  (last_seen_at > now() - interval '2 minutes') AS online, printers`;
 
 /** Configuração de impressão (agentes e fila) para a equipe do restaurante. */
 /** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
@@ -269,6 +283,31 @@ export class PrintingController {
     return r;
   }
 
+  /**
+   * Tira da fila o que ainda não imprimiu (só "Na fila"): comanda antiga que não precisa mais
+   * sair quando o computador voltar. Sem ids, a fila toda. Fica como "Falhou" e pode voltar.
+   */
+  @Post('printing/jobs/discard')
+  @HttpCode(200)
+  @RequirePermission('printing:manage')
+  async discard(
+    @Body(new ZodPipe(Discard)) b: z.infer<typeof Discard>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    const rows = await this.db.withTenant(ctxOf(t, u), (tx) =>
+      q(
+        tx,
+        `UPDATE print_jobs SET status = 'failed', last_error = 'Tirado da fila na tela Impressão'
+          WHERE status = 'queued' AND ($1::uuid[] IS NULL OR id = ANY($1::uuid[]))
+          RETURNING id`,
+        [b.ids ?? null],
+      ),
+    );
+    if (rows.length) this.realtime.publish(t.id, { type: 'print.changed' });
+    return { discarded: rows.length };
+  }
+
   @Post('printing/test')
   @RequirePermission('printing:manage')
   test(
@@ -365,8 +404,12 @@ export class PrintAgentController {
     @Req() req: Request,
   ) {
     const a = await this.agent(req, t);
-    await this.printing.heartbeat(t.id, a.id, req.ip, b.version);
-    return { agent: a.name, restaurant: t.name, targets: await this.printing.targets(t.id) };
+    await this.printing.heartbeat(t.id, a.id, req.ip, b.version, b.printers);
+    const [targets, brand] = await Promise.all([
+      this.printing.targets(t.id),
+      this.printing.branding(t.id),
+    ]);
+    return { agent: a.name, restaurant: t.name, targets, brand };
   }
 
   @Post('claim')

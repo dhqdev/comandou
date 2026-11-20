@@ -1133,14 +1133,61 @@ export class PrintingService {
     );
   }
 
-  heartbeat(tenantId: string, agentId: string, ip: string | undefined, version?: string) {
-    return this.db.withTenant({ tenantId }, (tx) =>
-      q(
+  async heartbeat(
+    tenantId: string,
+    agentId: string,
+    ip: string | undefined,
+    version?: string,
+    printers?: { target: string | null; label: string; kind: string }[],
+  ) {
+    // Voltou a ficar online ou trocou de impressora: a tela Impressão e o ícone do topo
+    // atualizam na hora (o CTE enxerga a linha como estava antes do UPDATE).
+    const r = await this.db.withTenant({ tenantId }, (tx) =>
+      one<{ changed: boolean }>(
         tx,
-        `UPDATE print_agents SET last_seen_at = now(), last_ip = $2, version = COALESCE($3, version) WHERE id = $1`,
-        [agentId, ip ?? null, version ?? null],
+        `WITH old AS (SELECT last_seen_at, printers FROM print_agents WHERE id = $1)
+         UPDATE print_agents p SET last_seen_at = now(), last_ip = $2,
+                version = COALESCE($3, p.version), printers = COALESCE($4::jsonb, p.printers)
+           FROM old
+          WHERE p.id = $1
+         RETURNING (old.last_seen_at IS NULL OR old.last_seen_at < now() - interval '2 minutes'
+                    OR old.printers IS DISTINCT FROM p.printers) AS changed`,
+        [agentId, ip ?? null, version ?? null, printers ? JSON.stringify(printers) : null],
       ),
     );
+    if (r?.changed) this.realtime.publish(tenantId, { type: 'print.changed' });
+  }
+
+  /**
+   * Identidade do restaurante para o aplicativo de impressão: cores, tema e ícone (o mesmo do
+   * cardápio e do sistema). Cores desligadas no sistema da equipe (brand_staff_app) não vão.
+   */
+  async branding(tenantId: string) {
+    const r = await this.db.withTenant({ tenantId }, (tx) =>
+      one<{
+        brandColor: string | null;
+        accentColor: string | null;
+        theme: string | null;
+        staffApp: boolean | null;
+        logo: string | null;
+        icon: string | null;
+      }>(
+        tx,
+        `SELECT brand_color AS "brandColor", accent_color AS "accentColor", theme,
+                brand_staff_app AS "staffApp", logo_image_id AS logo,
+                COALESCE(favicon_image_id, logo_image_id) AS icon
+           FROM tenant_store_settings`,
+      ),
+    );
+    const colors = r?.staffApp !== false;
+    const hex = (v: string | null | undefined) => (v && /^#[0-9a-f]{6}$/i.test(v) ? v : null);
+    return {
+      brandColor: colors ? hex(r?.brandColor) : null,
+      accentColor: colors ? hex(r?.accentColor) : null,
+      theme: r?.theme === 'light' || r?.theme === 'dark' ? r.theme : 'auto',
+      logoUrl: r?.logo ? `/api/v1/media/${r.logo}` : null,
+      iconUrl: r?.icon ? `/api/v1/media/${r.icon}` : null,
+    };
   }
 
   /** Destinos possíveis (setores de produção ativos + "Caixa"), para o aplicativo listar as impressoras. */
