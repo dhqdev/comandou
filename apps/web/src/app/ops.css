@@ -605,7 +605,7 @@
    do texto. As ações de apoio moram na fileira od-tools, logo acima desta barra (0.209.3). */
 .od-foot {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   flex-basis: 100%;
   min-width: 0;
 }
@@ -649,7 +649,7 @@
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 .od-bar > .cm-btn {
@@ -700,9 +700,9 @@ button.od-fact__link {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 20px;
+  gap: 10px 24px;
   min-width: 0;
-  padding-bottom: 10px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--cm-border);
 }
 .od-tools:last-child {
@@ -712,7 +712,7 @@ button.od-fact__link {
 .od-tools__group {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
 }
 .od-tools button {
@@ -722,8 +722,8 @@ button.od-fact__link {
   flex: 0 0 auto;
   gap: 7px;
   min-width: 0;
-  height: 32px;
-  padding: 0 11px;
+  height: 34px;
+  padding: 0 14px;
   border: 1px solid color-mix(in oklab, var(--hue, var(--cm-text-muted)) 26%, var(--cm-border));
   border-radius: var(--cm-radius-md);
   background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 7%, var(--cm-surface));
@@ -771,10 +771,10 @@ button.od-fact__link {
     flex: none;
   }
   .od-tools {
-    gap: 14px;
+    gap: 20px;
     overflow-x: auto;
     margin-inline: calc(-1 * var(--cm-space-4));
-    padding: 2px var(--cm-space-4) 10px;
+    padding: 2px var(--cm-space-4) 14px;
     scrollbar-width: none;
     scroll-padding-inline: var(--cm-space-4);
     /* Esmaece a ponta direita: avisa que há mais botões correndo de lado. */
