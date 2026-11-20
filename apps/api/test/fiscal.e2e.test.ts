@@ -7,7 +7,9 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
 import { hashPassword } from '../src/auth/password';
-import { testEnv } from './env';
+import { Client } from 'pg';
+import { FiscalService } from '../src/fiscal/fiscal.service';
+import { PLATFORM_URL, testEnv } from './env';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 import { fromCents, toCents } from '@comandou/shared';
 
@@ -861,6 +863,53 @@ describe('Emissão de NFC-e', () => {
     expect(again.id).toBe(d.id);
     const ok = await waitDoc(d.id, (s) => s === 'authorized');
     expect(ok.accessKey).toMatch(/^NFe/);
+  });
+
+  it('nota parada sem trabalho na fila: a varredura retoma (o painel só vê quais restaurantes)', async () => {
+    mode = 'authorize';
+    const o = await paidOrder();
+    const d = (await post('adminA', `/orders/${o.id}/nfce`).expect(202)).body;
+    await waitDoc(d.id, (s) => s === 'authorized');
+    // Simula a nota parada: o trabalho da fila se perdeu com a nota em "processando" há 20 min.
+    await ownerQuery(`ALTER TABLE fiscal_documents DISABLE TRIGGER fiscal_documents_updated_at`);
+    try {
+      await ownerQuery(
+        `UPDATE fiscal_documents SET status = 'processing', updated_at = now() - interval '20 minutes'
+          WHERE id = $1`,
+        [d.id],
+      );
+    } finally {
+      await ownerQuery(`ALTER TABLE fiscal_documents ENABLE TRIGGER fiscal_documents_updated_at`);
+    }
+    // O papel do painel descobre o restaurante, mas não lê o conteúdo da nota.
+    const pc = new Client({ connectionString: PLATFORM_URL });
+    await pc.connect();
+    try {
+      const r = await pc.query<{ tenant_id: string }>(
+        `SELECT DISTINCT tenant_id FROM fiscal_documents
+          WHERE status IN ('pending','processing','cancelling')
+            AND updated_at < now() - interval '15 minutes'`,
+      );
+      expect(r.rows.map((x) => x.tenant_id)).toContain(fx.tenantA);
+      await expect(
+        pc.query(`SELECT request_payload FROM fiscal_documents LIMIT 1`),
+      ).rejects.toThrow(/permission denied/);
+    } finally {
+      await pc.end();
+    }
+    const gets = () =>
+      calls.filter((c) => c.method === 'GET' && c.url.endsWith(`pm-${d.id}`)).length;
+    const before = gets();
+    expect(await app.get(FiscalService).sweepStuckTenant(fx.tenantA)).toBeGreaterThanOrEqual(1);
+    await waitDoc(d.id, (s) => s === 'authorized');
+    expect(gets()).toBeGreaterThan(before);
+    // Nota que acabou de mudar não entra na varredura.
+    const o2 = await paidOrder();
+    const d2 = (await post('adminA', `/orders/${o2.id}/nfce`).expect(202)).body;
+    await waitDoc(d2.id, (s) => s === 'authorized');
+    await ownerQuery(`UPDATE fiscal_documents SET status = 'processing' WHERE id = $1`, [d2.id]);
+    expect(await app.get(FiscalService).sweepStuckTenant(fx.tenantA)).toBe(0);
+    await ownerQuery(`UPDATE fiscal_documents SET status = 'authorized' WHERE id = $1`, [d2.id]);
   });
 
   it('"Atualizar" junto com o envio não autoriza nem imprime duas vezes', async () => {

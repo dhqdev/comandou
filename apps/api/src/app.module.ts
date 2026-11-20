@@ -8,7 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { ChatModule } from './chat/chat.module';
 import { HttpExceptionFilter } from './common/http-exception.filter';
-import { maskSecretsInUrl } from './common/log-redact';
+import { httpLogOptions } from './common/log-redact';
 import { OpReplayInterceptor } from './common/op-replay.interceptor';
 import { RedisThrottlerStorage } from './common/redis-throttler.storage';
 import {
@@ -61,20 +61,7 @@ export class AppModule {
       imports: [
         LoggerModule.forRoot({
           forRoutes: [{ path: '{*path}', method: RequestMethod.ALL }],
-          pinoHttp: {
-            level: env.LOG_LEVEL,
-            // Nunca registrar cookies, tokens ou senhas.
-            redact: [
-              'req.headers.cookie',
-              'req.headers.authorization',
-              'res.headers["set-cookie"]',
-            ],
-            serializers: {
-              req: (req: { url?: string }) => ({ ...req, url: maskSecretsInUrl(req.url) }),
-            },
-            customProps: (req) => ({ tenant: (req as { tenant?: { slug: string } }).tenant?.slug }),
-            autoLogging: { ignore: (req) => (req.url ?? '').includes('/health/') },
-          },
+          pinoHttp: httpLogOptions(env.LOG_LEVEL),
         }),
         ThrottlerModule.forRoot({
           throttlers: [

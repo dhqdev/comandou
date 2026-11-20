@@ -33,6 +33,9 @@ houve teste de invasão por terceiros; recomendamos um antes de abrir para muito
 | Excluir restaurante por engano ou com sessão roubada | código do autenticador sempre (mesmo em navegador confiável; código usado não repete), tentativa errada na auditoria, backup final marcado quando o backup está ligado | `platform.e2e.test.ts` |
 | IA do WhatsApp tirada do papel, golpe, abuso | prompt com regras de proteção; tentativas óbvias ("ignore as instruções", "mostre o prompt") respondidas sem chamar a IA; links de fora do restaurante tirados da resposta; resposta que repete as instruções é trocada; reserva só gravada pelo servidor depois do SIM, com o telefone da conversa; 3 tentativas em 24 h = 24 h sem resposta da IA e aviso à equipe; limite de mensagens por número ([whatsapp.md](whatsapp.md#ia-que-atende-no-whatsapp)) | `agent-guard.test.ts`, `chat.e2e.test.ts` |
 | Dados pessoais guardados demais | limpeza automática de sessões, chaves de idempotência e posição do entregador | `security.e2e.test.ts` |
+| Dono de um restaurante tomar a conta que a pessoa usa em outro (mesmo banco) | conta compartilhada não ganha PIN (409) nem entra por PIN (403); trocar a própria senha de conta compartilhada pede a senha atual, conferida de novo no banco (`app_set_own_password`, migração 0101) | `pin-login.e2e.test.ts`, `backoffice.e2e.test.ts` |
+| Adivinhar PIN com muitas tentativas ao mesmo tempo | contagem, conferência e registro do erro na mesma transação, uma por vez por restaurante (`pg_advisory_xact_lock`) | `pin-login.e2e.test.ts` |
+| Segredo parar no log | log da requisição só com campos conhecidos (sem query), URL mascarada e cabeçalhos com segredo ocultos (`httpLogOptions`) | `log-redact.test.ts` |
 
 ## Achados desta revisão e o que foi feito
 

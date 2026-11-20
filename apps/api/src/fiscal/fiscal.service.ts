@@ -6,6 +6,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
   OnModuleInit,
   ServiceUnavailableException,
   UnprocessableEntityException,
@@ -40,6 +42,7 @@ import {
   FocusUnavailableError,
 } from './focus.client';
 import { PlanService } from '../plans/plan.service';
+import { PlatformDb } from '../platform/platform-db.service';
 
 export { unitPrice } from './fiscal-compose';
 
@@ -271,8 +274,10 @@ export interface DocumentPatch {
  * sem CPF) deixam a nota em "erro" com a explicação, sem gastar uma chamada na SEFAZ.
  */
 @Injectable()
-export class FiscalService implements OnModuleInit {
+export class FiscalService implements OnModuleInit, OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger('Fiscal');
+  private sweepTimer?: NodeJS.Timeout;
+  private sweeping = false;
 
   constructor(
     @Inject(ENV) private readonly env: Env,
@@ -286,6 +291,7 @@ export class FiscalService implements OnModuleInit {
     private readonly rules: FiscalRulesService,
     private readonly cash: CashService,
     private readonly printing: PrintingService,
+    private readonly platformDb: PlatformDb,
   ) {}
 
   onModuleInit() {
@@ -297,6 +303,97 @@ export class FiscalService implements OnModuleInit {
     this.queue.register(CONTINGENCY_JOB, (d, attempt, final) =>
       this.runContingency(d, attempt, final),
     );
+  }
+
+  onApplicationBootstrap() {
+    const s = this.env.FISCAL_SWEEP_INTERVAL_SECONDS;
+    if (!s) return;
+    this.sweepTimer = setInterval(() => void this.sweepStuckSafely(), s * 1000);
+    this.sweepTimer.unref();
+  }
+
+  onModuleDestroy() {
+    clearInterval(this.sweepTimer);
+  }
+
+  // ------------------------------------------------------------------ notas paradas
+
+  /**
+   * Restaurantes com nota parada há mais de 15 minutos em "pendente", "processando" ou
+   * "cancelando" (o trabalho da fila se perdeu ou esgotou as tentativas). Banco central e bancos
+   * próprios; banco ainda sem a migração 0102 (versão anterior) só fica de fora.
+   */
+  private async tenantsWithStuckNotes(): Promise<string[]> {
+    if (!this.platformDb.enabled) return [];
+    const sql = `SELECT DISTINCT tenant_id FROM fiscal_documents
+                  WHERE status IN ('pending','processing','cancelling')
+                    AND updated_at < now() - interval '15 minutes'`;
+    const ids = new Set<string>();
+    for (const r of await this.platformDb.query<{ tenant_id: string }>(sql)) ids.add(r.tenant_id);
+    for (const d of await this.platformDb.eachDedicated<{ tenant_id: string }>(sql))
+      for (const r of d.rows) ids.add(r.tenant_id);
+    return [...ids];
+  }
+
+  /**
+   * Reenfileira as notas paradas de um restaurante (até 50 por vez). Seguro mesmo se o trabalho
+   * original ainda existir: a referência na Focus é fixa (reenviar nunca emite duas notas) e quem
+   * grava confere a situação antes. O id do trabalho muda só a cada rodada, então duas réplicas na
+   * mesma rodada não duplicam o trabalho no Redis.
+   */
+  async sweepStuckTenant(tenantId: string) {
+    const docs = await this.db.withTenant({ tenantId }, (tx) =>
+      q<{ id: string; status: FiscalStatus }>(
+        tx,
+        `SELECT id, status FROM fiscal_documents
+          WHERE status IN ('pending','processing','cancelling')
+            AND updated_at < now() - interval '15 minutes'
+          ORDER BY updated_at LIMIT 50`,
+      ),
+    );
+    const round = Math.floor(
+      Date.now() / (Math.max(60, this.env.FISCAL_SWEEP_INTERVAL_SECONDS || 300) * 1000),
+    );
+    for (const d of docs) {
+      const job = d.status === 'pending' ? EMIT_JOB : CHECK_JOB;
+      try {
+        await this.queue.add(
+          job,
+          { tenantId, documentId: d.id },
+          {
+            jobId: `${job}-${d.id}-sweep${round}`,
+            attempts: job === CHECK_JOB ? CHECK_ATTEMPTS : 5,
+            delayMs: 0,
+          },
+        );
+      } catch (err) {
+        this.logger.warn(
+          `varredura fiscal: falha ao enfileirar ${d.id}: ${(err as Error).message}`,
+        );
+      }
+    }
+    return docs.length;
+  }
+
+  async sweepStuck() {
+    if (this.sweeping) return;
+    this.sweeping = true;
+    try {
+      for (const t of await this.tenantsWithStuckNotes())
+        await this.sweepStuckTenant(t).catch((e) =>
+          this.logger.warn(`notas paradas de ${t}: ${(e as Error).message}`),
+        );
+    } finally {
+      this.sweeping = false;
+    }
+  }
+
+  private async sweepStuckSafely() {
+    try {
+      await this.sweepStuck();
+    } catch (e) {
+      this.logger.warn(`varredura das notas paradas: ${(e as Error).message}`);
+    }
   }
 
   // ------------------------------------------------------------------ configuração

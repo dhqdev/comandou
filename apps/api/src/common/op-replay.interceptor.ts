@@ -10,7 +10,7 @@ import type { Request } from 'express';
 import { createHash } from 'node:crypto';
 import { from, mergeMap, Observable, of, switchMap } from 'rxjs';
 import { DatabaseService } from '../database/database.service';
-import { validIdempotencyKey } from './idempotency';
+import { IDEMPOTENCY_MISMATCH, validIdempotencyKey } from './idempotency';
 import { one } from './sql';
 
 /** Cabeçalho que o app manda em cada gravação que pode ir para a fila offline. */
@@ -64,9 +64,10 @@ export class OpReplayInterceptor implements NestInterceptor {
       switchMap((prev) => {
         if (prev) {
           if (prev.request_hash !== hash)
-            throw new UnprocessableEntityException(
-              'Este envio já foi registrado com outros dados. Atualize a tela e confira.',
-            );
+            throw new UnprocessableEntityException({
+              message: 'Este envio já foi registrado com outros dados. Atualize a tela e confira.',
+              code: IDEMPOTENCY_MISMATCH,
+            });
           return of(prev.response);
         }
         return next.handle().pipe(

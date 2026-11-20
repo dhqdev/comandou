@@ -5,6 +5,13 @@ import { parseBrlInput } from '../lib/money';
 export interface PayRow {
   method: PaymentMethod;
   amount: string;
+  /** Já confirmado pelo servidor: fica fixo e já está no pago do pedido (não abate o saldo). */
+  done?: boolean;
+}
+
+/** Linha com a chave de idempotência: reenviar depois de uma falha não cobra duas vezes. */
+export interface KeyedPayRow extends PayRow {
+  key: string;
 }
 
 /** Lê "12,90" / "12.90" em centavos; texto vazio vale 0 e texto inválido vale null. */
@@ -81,7 +88,7 @@ export interface PayPlan {
  * troco da última linha em dinheiro (o servidor recebe o valor aplicado e o valor entregue).
  */
 export function planPayments(rows: PayRow[], balance: number): PayPlan {
-  const values = rows.map((r) => centsOf(r.amount));
+  const values = rows.map((r) => (r.done ? 0 : centsOf(r.amount)));
   const invalid = values.some((v) => v === null);
   const cents = values.map((v) => v ?? 0);
   const typed = cents.reduce((s, v) => s + v, 0);
@@ -118,4 +125,34 @@ export function splitRows(rows: PayRow[], balance: number, n: number): PayRow[] 
     method: rows[i]?.method ?? fallback,
     amount: (c / 100).toFixed(2).replace('.', ','),
   }));
+}
+
+/**
+ * Refaz a divisão sobre o saldo de agora sem mexer no que já foi recebido: as linhas confirmadas
+ * ficam como estão e só as que faltam enviar dividem o saldo. Linha cujo valor muda ganha chave
+ * nova (a chave antiga já pode ter ido ao servidor com o outro valor).
+ */
+export function resplitRows(
+  rows: KeyedPayRow[],
+  balance: number,
+  n: number,
+  newKey: () => string,
+): KeyedPayRow[] {
+  const done = rows.filter((r) => r.done);
+  const pending = rows.filter((r) => !r.done);
+  // Tudo recebido e nada mais a cobrar: não cria linha nova.
+  if (!pending.length && balance <= 0) return rows;
+  const parts = splitRows(
+    pending.length ? pending : rows.slice(-1),
+    balance,
+    Math.max(n - done.length, 1),
+  );
+  return [
+    ...done,
+    ...parts.map((p, i) => {
+      const old = pending[i];
+      const same = old && centsOf(old.amount) === centsOf(p.amount);
+      return { ...p, key: same ? old.key : newKey() };
+    }),
+  ];
 }

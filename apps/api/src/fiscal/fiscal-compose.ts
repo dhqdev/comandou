@@ -232,20 +232,24 @@ function recipientPayload(kind: 'nfce' | 'nfe', r: Recipient | null) {
   if (!cpf && !cnpj && !r.name) return {};
   if (kind === 'nfe' || cpf || cnpj) out.indicador_inscricao_estadual_destinatario = String(ind);
   if (ind === 1 && r.ie) out.inscricao_estadual_destinatario = digits(r.ie);
+  // Campos de endereço e e-mail têm até 60 caracteres no leiaute (xLgr, nro, xCpl, xBairro, xMun,
+  // email); o endereço salvo pelo cliente no cardápio aceita mais e seria recusado pela SEFAZ.
+  const cut = (v: string | null | undefined) => (v ?? '').trim().slice(0, 60);
   if (hasAddress) {
     Object.assign(out, {
-      logradouro_destinatario: r.street,
-      numero_destinatario: r.number,
-      ...(r.complement ? { complemento_destinatario: r.complement } : {}),
-      bairro_destinatario: r.district,
-      municipio_destinatario: r.city,
+      logradouro_destinatario: cut(r.street),
+      numero_destinatario: cut(r.number),
+      ...(cut(r.complement) ? { complemento_destinatario: cut(r.complement) } : {}),
+      bairro_destinatario: r.district == null ? r.district : cut(r.district),
+      municipio_destinatario: cut(r.city),
       uf_destinatario: (r.state ?? '').toUpperCase(),
       ...(digits(r.cep) ? { cep_destinatario: digits(r.cep) } : {}),
       ...(kind === 'nfe' ? { pais_destinatario: 'Brasil' } : {}),
     });
   }
   if (r.phone && kind === 'nfe') out.telefone_destinatario = digits(r.phone);
-  if (r.email && kind === 'nfe') out.email_destinatario = r.email;
+  if (r.email && kind === 'nfe' && r.email.trim().length <= 60)
+    out.email_destinatario = r.email.trim();
   return out;
 }
 

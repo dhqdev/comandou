@@ -267,6 +267,8 @@ describe('extrato OFX', () => {
   it('normaliza valores do banco', () => {
     expect(normalizeBankAmount('-1.234,56')).toBe('-1234.56');
     expect(normalizeBankAmount('1,234.56')).toBe('1234.56');
+    expect(normalizeBankAmount('-.50')).toBe('-0.50');
+    expect(normalizeBankAmount('.75')).toBe('0.75');
     expect(normalizeBankAmount('+10')).toBe('10.00');
     expect(normalizeBankAmount('12.345')).toBe('12.35');
     expect(normalizeBankAmount('abc')).toBeNull();

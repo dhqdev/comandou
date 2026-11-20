@@ -11,6 +11,7 @@ import {
   Skeleton,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
+import { parseDecimalInput } from '../../lib/money';
 import {
   fold,
   ListTable,
@@ -222,8 +223,8 @@ function FactorModal({
   const [error, setError] = useState<string | null>(null);
   const item = items.find((i) => i.id === itemId);
   const destUnit = item?.unit ?? unit;
-  const clean = value.trim().replace(/\./g, '').replace(',', '.');
-  const parsed = /^\d{1,8}(\.\d{1,4})?$/.test(clean) && Number(clean) > 0 ? clean : null;
+  const clean = parseDecimalInput(value, 4, 8);
+  const parsed = clean && Number(clean) > 0 ? clean : null;
   const codeOk = /^[A-Za-z0-9.-]{1,12}$/.test(code.trim());
   const valid = codeOk && !!name.trim() && !!parsed;
 

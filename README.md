@@ -222,7 +222,7 @@ docs/                 arquitetura, decisões (ADR), operação, deploy, testes
 - [Desenvolvimento local](docs/development.md) · [Testes](docs/testing.md) · [Carga](docs/load-testing.md)
 - [Financeiro: fechamento, conciliação e DRE](docs/financeiro.md) · [Site público e teste grátis](docs/site.md) · [E-mail (Resend)](docs/email.md) · [Contratos](docs/contratos.md) · [Cobrança](docs/cobranca.md) · [WhatsApp com muitos restaurantes](docs/whatsapp.md) · [Agenda](docs/agenda.md)
 - [Aplicativos de delivery: como ligar e problemas comuns](docs/delivery-apps.md) · [Desenho dos canais (ADR 0015)](docs/decisions/0015-canais-de-delivery.md)
-- [Credenciais: todas as chaves e como conseguir](docs/credenciais.md) · [Instalação](docs/install.md) · [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md) · [Auditoria de 2026-11](docs/auditoria-2026-11.md) · [Auditoria das integrações e da nota fiscal](docs/auditoria-integracoes-2026-11.md) · [CrowdSec](docs/crowdsec.md)
+- [Credenciais: todas as chaves e como conseguir](docs/credenciais.md) · [Instalação](docs/install.md) · [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md) · [Auditoria de 2026-11](docs/auditoria-2026-11.md) · [Auditoria das integrações e da nota fiscal](docs/auditoria-integracoes-2026-11.md) · [Comparativo com os concorrentes](docs/comparativo-concorrentes.md) · [CrowdSec](docs/crowdsec.md)
 
 ## Licença
 

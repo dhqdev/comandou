@@ -23,8 +23,8 @@ import {
   percentFrom,
   percentOf,
   planPayments,
-  splitRows,
-  type PayRow,
+  resplitRows,
+  type KeyedPayRow,
 } from './close-math';
 import { PAYMENT_METHOD_LABELS } from './format';
 import { PAYMENT_FISCAL_HELP } from './help/fiscal-help';
@@ -36,12 +36,8 @@ import './close-order.css';
 const money = (cents: number) => formatBRL(cents);
 const input = (cents: number) => (cents / 100).toFixed(2).replace('.', ',');
 
-interface Row extends PayRow {
-  /** Chave de idempotência da linha: reenviar depois de uma falha não cobra duas vezes. */
-  key: string;
-  /** Já confirmado pelo servidor (numa tentativa anterior que parou no meio). */
-  done?: boolean;
-}
+/** Linha de pagamento com chave própria; `done` = confirmada numa tentativa que parou no meio. */
+type Row = KeyedPayRow;
 
 const newRow = (method: Row['method'], cents: number): Row => ({
   method,
@@ -72,9 +68,14 @@ export function CloseOrderPanel({
   const canReceivable = useCan('orders:cancel');
   const { sessions, sessionId, choose } = useOpenSessions(open);
 
-  const subtotal = toCents(order.subtotal);
-  const paid = toCents(order.paidAmount);
-  const base0 = subtotal - toCents(order.discount);
+  /** Pedido mais novo que o próprio painel recebeu do servidor (pagamento ou ajuste aceito). */
+  const [fresh, setFresh] = useState<Order | null>(null);
+  // O mais novo entre o que veio em tempo real e o que o servidor devolveu ao painel: o saldo
+  // já desconta as linhas confirmadas, mesmo antes do tempo real chegar.
+  const live = fresh && fresh.version > order.version ? fresh : order;
+  const subtotal = toCents(live.subtotal);
+  const paid = toCents(live.paidAmount);
+  const base0 = subtotal - toCents(live.discount);
   const [feePct, setFeePct] = useState('0');
   const [freight, setFreight] = useState('0,00');
   const [discMode, setDiscMode] = useState<'brl' | 'pct'>('brl');
@@ -98,6 +99,7 @@ export function CloseOrderPanel({
     setDiscMode('brl');
     setDisc(input(toCents(order.discount)));
     setWhen('now');
+    setFresh(null);
     setRows([newRow(order.paymentHint ?? 'cash', toCents(order.balance))]);
     setSplit(1);
     setTaxDoc('');
@@ -117,9 +119,9 @@ export function CloseOrderPanel({
     pct === null || discountC === null
       ? null
       : // Mantém o centavo já cobrado quando o percentual não mudou (ex.: 10% arredondado).
-        feePct === percentFrom(toCents(order.surcharge), base0) &&
-          discountC === toCents(order.discount)
-        ? toCents(order.surcharge)
+        feePct === percentFrom(toCents(live.surcharge), base0) &&
+          discountC === toCents(live.discount)
+        ? toCents(live.surcharge)
         : percentCents(subtotal - discountC, pct);
   const valid =
     pct !== null &&
@@ -136,21 +138,18 @@ export function CloseOrderPanel({
   });
   const changedValues =
     valid &&
-    (totals.discount !== toCents(order.discount) ||
-      totals.surcharge !== toCents(order.surcharge) ||
-      totals.deliveryFee !== toCents(order.deliveryFee));
+    (totals.discount !== toCents(live.discount) ||
+      totals.surcharge !== toCents(live.surcharge) ||
+      totals.deliveryFee !== toCents(live.deliveryFee));
 
-  // Total mudou e o caixa ainda não mexeu nas linhas: refaz a divisão sobre o novo saldo.
+  // Total mudou e o caixa ainda não mexeu nas linhas: refaz a divisão sobre o novo saldo
+  // (o que já foi recebido fica; linha com valor novo ganha chave nova). Durante o envio espera:
+  // as linhas que estão indo ao servidor não podem mudar no meio.
   useEffect(() => {
-    if (!open || typed.current || !valid) return;
-    setRows((cur) =>
-      splitRows(cur, totals.balance, Math.max(split, 1)).map((r, i) => ({
-        ...r,
-        key: cur[i]?.key ?? newIdempotencyKey(),
-      })),
-    );
+    if (!open || busy || typed.current || !valid) return;
+    setRows((cur) => resplitRows(cur, totals.balance, Math.max(split, 1), newIdempotencyKey));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totals.balance, open]);
+  }, [totals.balance, open, busy]);
 
   const plan = useMemo(() => planPayments(rows, totals.balance), [rows, totals.balance]);
   const perPerson = split > 1 ? Math.ceil(Math.max(totals.total, 0) / split) : null;
@@ -193,12 +192,7 @@ export function CloseOrderPanel({
     const next = Math.min(Math.max(n, 1), 20);
     setSplit(next);
     typed.current = false;
-    setRows((cur) =>
-      splitRows(cur, totals.balance, next).map((r, i) => ({
-        ...r,
-        key: cur[i]?.done ? newIdempotencyKey() : (cur[i]?.key ?? newIdempotencyKey()),
-      })),
-    );
+    setRows((cur) => resplitRows(cur, totals.balance, next, newIdempotencyKey));
   }
 
   const nowReady =
@@ -231,6 +225,7 @@ export function CloseOrderPanel({
             reason: 'Ajuste no fechamento da conta',
           },
         });
+        setFresh(current);
         if (toCents(current.balance) !== totals.balance) {
           setError(
             'O pedido mudou enquanto a conta era fechada. Confira os valores e tente de novo.',
@@ -239,13 +234,14 @@ export function CloseOrderPanel({
         }
       }
       if (when === 'now' && totals.balance > 0) {
+        // O saldo já desconta as linhas confirmadas antes; só as que faltam abatem dele.
         let left = totals.balance;
         for (let i = 0; i < rows.length; i++) {
           const r = rows[i]!;
           const amount = plan.applied[i] ?? 0;
           if (r.done || amount <= 0) continue;
           const tendered = plan.tendered[i];
-          await api(`/orders/${order.id}/payments`, {
+          const res = await api<{ order?: Order }>(`/orders/${order.id}/payments`, {
             method: 'POST',
             headers: { 'Idempotency-Key': r.key },
             json: {
@@ -257,9 +253,13 @@ export function CloseOrderPanel({
             },
           });
           left -= amount;
-          setRows((cur) => cur.map((x, k) => (k === i ? { ...x, done: true } : x)));
+          if (res?.order) setFresh(res.order);
+          setRows((cur) => cur.map((x) => (x.key === r.key ? { ...x, done: true } : x)));
         }
-        if (left > 0) return;
+        if (left > 0) {
+          setError(`Ainda falta receber ${money(left)}. Confira os valores e tente de novo.`);
+          return;
+        }
       }
       current = await api<Order>(`/orders/${order.id}`);
       // Conta paga e pedido pronto no salão/balcão: fecha de vez. Entrega segue para despacho.

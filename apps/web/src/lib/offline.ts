@@ -40,6 +40,11 @@ export interface QueuedOp {
   error?: string;
   /** Recusada sem enviar: depende do registro provisório (offline-…) que não subiu. */
   blockedBy?: string;
+  /**
+   * Já foi ao servidor sem resposta clara (rede caiu, servidor fora): o servidor pode ter gravado,
+   * então a repetição leva exatamente o mesmo corpo (a versão esperada não muda mais).
+   */
+  sent?: boolean;
 }
 
 interface CacheEntry {
@@ -570,6 +575,9 @@ function unresolvedTemp(op: QueuedOp): string | null {
   return null;
 }
 
+/** Registro que o envio muda (`/orders/<id>/status` → `<id>`). */
+const targetOf = (path: string) => path.split('?')[0]!.split('/')[2];
+
 /**
  * Ajusta um envio da fila com o que os anteriores criaram:
  *  - troca o id provisório (offline-…) pelo id que o servidor deu;
@@ -588,13 +596,40 @@ export function remap(
     if (json) json = json.split(tmp).join(real);
   }
   let body = json === undefined ? undefined : (JSON.parse(json) as unknown);
-  const target = path.split('?')[0]!.split('/')[2];
+  const target = targetOf(path);
   const b = body as { expectedVersion?: unknown } | undefined;
-  if (target && b && typeof b === 'object' && typeof b.expectedVersion === 'number') {
+  if (!op.sent && target && b && typeof b === 'object' && typeof b.expectedVersion === 'number') {
     const v = versions.get(target);
     if (v !== undefined && v > b.expectedVersion) body = { ...b, expectedVersion: v };
   }
   return { ...op, path, json: body };
+}
+
+/**
+ * Envio aceito com versão nova: as mudanças seguintes no mesmo registro guardam essa versão no
+ * próprio envio. Se a fila parar no meio, a próxima tentativa manda o mesmo corpo que a primeira
+ * (sem conflito de versão velha e sem "já registrado com outros dados" na repetição).
+ */
+async function carryVersion(after: QueuedOp, id: string, version: number) {
+  const from = ops.findIndex((o) => o.id === after.id);
+  if (from < 0) return;
+  for (const o of ops.slice(from + 1)) {
+    const b = o.json as { expectedVersion?: unknown } | undefined;
+    if (!mine(o) || o.sent || !b || typeof b !== 'object') continue;
+    if (typeof b.expectedVersion !== 'number' || b.expectedVersion >= version) continue;
+    if (targetOf(remap(o, idMap).path) !== id) continue;
+    const next: QueuedOp = { ...o, json: { ...b, expectedVersion: version } };
+    await offlineStore().put('outbox', o.id, next);
+    ops = ops.map((x) => (x.id === o.id ? next : x));
+  }
+}
+
+/** Saiu sem resposta clara: guarda o corpo enviado para repetir igual. */
+async function markSent(original: QueuedOp, op: QueuedOp) {
+  if (original.sent) return;
+  const next: QueuedOp = { ...original, json: op.json, sent: true };
+  await offlineStore().put('outbox', original.id, next);
+  ops = ops.map((o) => (o.id === original.id ? next : o));
 }
 
 export type Sender = (op: QueuedOp) => Promise<{ status: number; body: unknown }>;
@@ -650,7 +685,9 @@ async function runFlush() {
   const versions = new Map<string, number>();
   let sent = 0;
   try {
-    for (const original of queue) {
+    for (const queued of queue) {
+      // Um envio anterior pode ter gravado a versão nova neste: usa o que está guardado agora.
+      const original = ops.find((o) => o.id === queued.id) ?? queued;
       const op = remap(original, idMap, versions);
       // Fala de um registro criado sem internet que foi recusado (ou descartado): o servidor não
       // o conhece, então nem envia; fica para revisão junto com ele.
@@ -677,6 +714,7 @@ async function runFlush() {
         res = await sender(op);
       } catch {
         markServerDown();
+        await markSent(original, op);
         break; // sem rede: tenta de novo quando voltar
       }
       if (res.status < 502) markServerUp();
@@ -684,7 +722,10 @@ async function runFlush() {
         const out = res.body as { id?: unknown; version?: unknown } | undefined;
         if (typeof out?.id === 'string') {
           await rememberId(tempId(original), out.id);
-          if (typeof out.version === 'number') versions.set(out.id, out.version);
+          if (typeof out.version === 'number') {
+            versions.set(out.id, out.version);
+            await carryVersion(original, out.id, out.version);
+          }
         }
         await offlineStore().delete('outbox', original.id);
         ops = ops.filter((o) => o.id !== original.id);
@@ -695,6 +736,7 @@ async function runFlush() {
       // Sessão vencida, servidor fora ou ocupado: mantém e tenta depois (na mesma ordem).
       if (res.status === 401 || res.status === 408 || res.status === 429 || res.status >= 500) {
         if (res.status >= 502) markServerDown();
+        if (res.status >= 500) await markSent(original, op);
         break;
       }
       // Recusada (dado inválido, item apagado por outra pessoa…): separa para revisão.

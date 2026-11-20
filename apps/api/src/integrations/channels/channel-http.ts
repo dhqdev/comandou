@@ -95,62 +95,67 @@ export class ChannelHttp {
       let status = 0;
       let retryAfter = 0;
       let res: Response | undefined;
+      // O tempo limite vale até terminar de ler o corpo (sucesso ou erro): um aplicativo que manda
+      // o cabeçalho e segura o corpo não prende a rodada.
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), this.timeoutMs);
+      let err: ChannelHttpError;
       try {
-        const headers: Record<string, string> = { Accept: 'application/json', ...r.headers };
-        if (r.token) headers.Authorization = `Bearer ${r.token}`;
-        let body: string | undefined;
-        if (r.form) {
-          headers['Content-Type'] = 'application/x-www-form-urlencoded';
-          body = new URLSearchParams(r.form).toString();
-        } else if (r.json !== undefined) {
-          headers['Content-Type'] = 'application/json';
-          body = this.encode(r.json);
-        }
-        if (this.signer) {
-          const u = new URL(`${this.base}${r.path}`);
-          const params: Record<string, string> = {};
-          u.searchParams.forEach((v, k) => (params[k] = v));
-          Object.assign(
+        try {
+          const headers: Record<string, string> = { Accept: 'application/json', ...r.headers };
+          if (r.token) headers.Authorization = `Bearer ${r.token}`;
+          let body: string | undefined;
+          if (r.form) {
+            headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            body = new URLSearchParams(r.form).toString();
+          } else if (r.json !== undefined) {
+            headers['Content-Type'] = 'application/json';
+            body = this.encode(r.json);
+          }
+          if (this.signer) {
+            const u = new URL(`${this.base}${r.path}`);
+            const params: Record<string, string> = {};
+            u.searchParams.forEach((v, k) => (params[k] = v));
+            Object.assign(
+              headers,
+              this.signer({
+                url: `${u.origin}${u.pathname}`,
+                params,
+                body: r.form ? undefined : body,
+              }),
+            );
+          }
+          res = await this.fetcher()(`${this.base}${r.path}`, {
+            method: r.method,
             headers,
-            this.signer({
-              url: `${u.origin}${u.pathname}`,
-              params,
-              body: r.form ? undefined : body,
-            }),
-          );
+            body,
+            signal: ctrl.signal,
+            redirect: 'error',
+          });
+          status = res.status;
+          retryAfter = Number(res.headers.get('retry-after')) || 0;
+        } catch {
+          status = 0;
         }
-        res = await this.fetcher()(`${this.base}${r.path}`, {
-          method: r.method,
-          headers,
-          body,
-          signal: ctrl.signal,
-          redirect: 'error',
-        });
-        status = res.status;
-        retryAfter = Number(res.headers.get('retry-after')) || 0;
-      } catch {
-        status = 0;
+        const result = ChannelMetrics.resultOf(status);
+        this.metrics.requests.inc({ channel: this.channel, endpoint: r.endpoint, result });
+        this.metrics.record(this.channel, 'request', `${r.endpoint}|${result}`);
+        if (res && status >= 200 && status < 300) {
+          const text = await res.text().catch(() => '');
+          let body: unknown = null;
+          if (text) {
+            try {
+              body = JSON.parse(text);
+            } catch {
+              body = text;
+            }
+          }
+          return { status, body: body as T, headers: res.headers };
+        }
+        err = new ChannelHttpError(status, await messageOf(this.channel, status, res));
       } finally {
         clearTimeout(timer);
       }
-      const result = ChannelMetrics.resultOf(status);
-      this.metrics.requests.inc({ channel: this.channel, endpoint: r.endpoint, result });
-      this.metrics.record(this.channel, 'request', `${r.endpoint}|${result}`);
-      if (res && status >= 200 && status < 300) {
-        const text = await res.text().catch(() => '');
-        let body: unknown = null;
-        if (text) {
-          try {
-            body = JSON.parse(text);
-          } catch {
-            body = text;
-          }
-        }
-        return { status, body: body as T, headers: res.headers };
-      }
-      const err = new ChannelHttpError(status, await messageOf(this.channel, status, res));
       if (!err.retryable || attempt >= retries) throw err;
       // Espera crescente com um pouco de sorteio; o Retry-After do canal manda (até 30 s).
       const backoff = Math.min(30_000, 500 * 2 ** attempt + Math.floor(Math.random() * 250));

@@ -24,6 +24,7 @@ export const PINNED_ENV: Record<string, string> = {
   BILLING_INTERVAL_MINUTES: '0',
   ONLINE_PAY_INTERVAL_SECONDS: '0',
   AGENDA_INTERVAL_SECONDS: '0',
+  FISCAL_SWEEP_INTERVAL_SECONDS: '0',
   TICKETS_PIPELINE_SECONDS: '0',
   TENANT_UPDATE_INTERVAL_SECONDS: '0',
   // Polling e varredura dos aplicativos de delivery: só a versão principal (uma trava por credencial).

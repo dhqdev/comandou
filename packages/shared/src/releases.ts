@@ -20,6 +20,64 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.207.0',
+    date: '2026-11-20',
+    title:
+      'Auditoria completa: segurança das contas, nota fiscal, DRE e valores digitados com ponto',
+    summary:
+      'Revisão do sistema inteiro, com testes de ponta a ponta e uma leitura do código por área. Esta versão traz as correções já conferidas: a conta de quem trabalha em dois restaurantes ficou protegida, a nota fiscal não é mais recusada por endereço longo, as notas paradas voltam sozinhas para a fila, o DRE não conta a mesma taxa duas vezes e valores digitados com ponto valem o que se espera.',
+    notes: [
+      {
+        tag: 'segurança',
+        text: 'Quem usa a mesma conta em outro restaurante não recebe PIN, e para trocar a senha dela é preciso digitar a senha atual: o dono de um restaurante não consegue mais tomar a conta que a pessoa usa em outro.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Muitas tentativas de PIN ao mesmo tempo não passam mais do limite de erros do restaurante.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Os registros do servidor não guardam mais tokens de links nem os cabeçalhos com a chave do Asaas e as assinaturas dos aplicativos.',
+      },
+      {
+        tag: 'novo',
+        text: 'Nota fiscal parada em "pendente", "processando" ou "cancelando" há mais de 15 minutos (por exemplo, depois de o servidor reiniciar) volta sozinha para a fila, sem ninguém precisar tocar em Atualizar.',
+      },
+      {
+        tag: 'correção',
+        text: 'Nota fiscal com endereço do cliente longo (rua, bairro, complemento ou cidade com mais de 60 letras) era recusada pela SEFAZ: agora o endereço vai no tamanho que o leiaute aceita, e e-mail longo demais fica fora da nota.',
+      },
+      {
+        tag: 'correção',
+        text: 'DRE: a diferença da conciliação de um repasse que junta vendas de dias diferentes (sexta a domingo, que caem na segunda) contava nos dois meses; agora conta uma vez só, no mês do último dia.',
+      },
+      {
+        tag: 'correção',
+        text: 'Extrato OFX com valor sem o zero antes da vírgula ("-.50") deixava a linha de fora sem avisar; agora entra.',
+      },
+      {
+        tag: 'correção',
+        text: 'Valor digitado com ponto (ex.: 12.90, em teclado que só mostra ponto) agora vale R$ 12,90, e não mais R$ 1.290,00: troco, taxa de entrega, valor entregue, fidelidade, cobrança, quantidade e custo do estoque.',
+      },
+      {
+        tag: 'correção',
+        text: 'Fechar conta: se um dos pagamentos divididos falhar, dá para tentar de novo sem erro e sem cobrar duas vezes.',
+      },
+      {
+        tag: 'correção',
+        text: 'Fila sem internet: mudanças seguidas no mesmo pedido não travam mais em "Conflito" depois de uma sincronização que parou no meio.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cardápio online: se o pedido já tinha chegado à loja e o cliente mudou a sacola antes de reenviar, não cria um segundo pedido; mostra o pedido que já está na loja.',
+      },
+      {
+        tag: 'correção',
+        text: 'Aplicativos de delivery: um aplicativo que demora a mandar a resposta não segura mais a busca de pedidos além do tempo limite.',
+      },
+    ],
+  },
+  {
     version: '0.206.0',
     date: '2026-11-20',
     title: 'App abre no celular mesmo quando algo falha, e carregamento em esqueleto',

@@ -171,6 +171,48 @@ describe('composeNote', () => {
     expect(composeNote(base).payload.presenca_comprador).toBe('9');
   });
 
+  it('endereço e e-mail do destinatário respeitam os 60 caracteres do leiaute', () => {
+    const long = (t: string) => `${t} ${'x'.repeat(90)}`;
+    const p = composeNote(
+      input({
+        kind: 'nfe',
+        recipient: {
+          name: 'Cliente',
+          cpf: '52998224725',
+          street: long('Avenida'),
+          number: '1',
+          complement: long('Bloco'),
+          district: long('Bairro'),
+          city: long('Cidade'),
+          state: 'SP',
+          cep: '01001000',
+          email: `${'a'.repeat(60)}@exemplo.com.br`,
+        },
+      }),
+    ).payload;
+    for (const k of [
+      'logradouro_destinatario',
+      'complemento_destinatario',
+      'bairro_destinatario',
+      'municipio_destinatario',
+    ])
+      expect(String(p[k]).length, k).toBeLessThanOrEqual(60);
+    expect(String(p.logradouro_destinatario).startsWith('Avenida')).toBe(true);
+    // E-mail com mais de 60 caracteres sai da nota (o leiaute não aceita cortar um endereço).
+    expect(p.email_destinatario).toBeUndefined();
+    const ok = composeNote(
+      input({
+        kind: 'nfe',
+        recipient: {
+          name: 'Cliente',
+          cpf: '52998224725',
+          email: 'cliente@exemplo.com.br',
+        },
+      }),
+    ).payload;
+    expect(ok.email_destinatario).toBe('cliente@exemplo.com.br');
+  });
+
   it('NF-e para não contribuinte de outro estado usa 6108; o 5405 vira 6404', () => {
     const rec = {
       name: 'Cliente',

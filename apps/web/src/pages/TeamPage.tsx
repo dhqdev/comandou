@@ -23,7 +23,7 @@ import {
 import { useAuth } from '../app/auth';
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import { useLiveData } from '../lib/realtime';
 import type { Member } from '../lib/types';
@@ -444,11 +444,15 @@ function MemberPasswordModal({ member, onClose }: { member: Member | null; onClo
   );
 }
 
-/** Troca da própria senha (qualquer pessoa da equipe). */
+/**
+ * Troca da própria senha (qualquer pessoa da equipe). A senha atual só aparece quando a API pede
+ * (conta usada também em outro restaurante).
+ */
 export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose(): void }) {
   const toast = useToast();
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [current, setCurrent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mismatch = confirm.length > 0 && confirm !== next;
@@ -457,12 +461,18 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose(
     setBusy(true);
     setError(null);
     try {
-      await api('/auth/password', { method: 'POST', json: { next } });
+      await api('/auth/password', {
+        method: 'POST',
+        json: { next, ...(current ? { current } : {}) },
+      });
       toast('Senha alterada. Outros aparelhos foram desconectados.', 'success');
       setNext('');
       setConfirm('');
+      setCurrent(null);
       onClose();
     } catch (e) {
+      if (e instanceof ApiError && (e.body as { code?: string })?.code === 'current_password')
+        setCurrent((c) => c ?? '');
       setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -479,13 +489,26 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose(
           <Button variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button loading={busy} disabled={next.length < 8 || next !== confirm} onClick={save}>
+          <Button
+            loading={busy}
+            disabled={next.length < 8 || next !== confirm || current === ''}
+            onClick={save}
+          >
             Salvar
           </Button>
         </>
       }
     >
       {error && <Alert tone="danger">{error}</Alert>}
+      {current !== null && (
+        <TextField
+          label="Senha atual"
+          type="password"
+          autoComplete="current-password"
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+        />
+      )}
       <TextField
         label="Nova senha"
         type="password"

@@ -17,6 +17,22 @@ export function pinHash(tenantId: string, pin: string): Buffer {
   return createHash('sha256').update(`comandou-pin:${tenantId}:${pin}`).digest();
 }
 
+/**
+ * A conta (e-mail e senha) é uma só em todos os restaurantes da pessoa. PIN só para conta que é
+ * SÓ deste restaurante: senão o administrador daqui, ao pôr o e-mail de alguém na equipe e dar um
+ * PIN, entraria como essa pessoa e mexeria na conta que ela usa em outro restaurante (ver 0055).
+ */
+export const SHARED_ACCOUNT_PIN_MESSAGE =
+  'Esta pessoa usa a mesma conta (e-mail) em outro restaurante. Por segurança, ela entra com o e-mail e a senha dela, sem PIN.';
+
+/** A conta também entra em outro restaurante (ou no painel)? */
+export async function accountShared(tx: Tx, userId: string): Promise<boolean> {
+  const r = await one<{ shared: boolean }>(tx, `SELECT app_member_account_shared($1) AS shared`, [
+    userId,
+  ]);
+  return !!r?.shared;
+}
+
 async function taken(tx: Tx, tenantId: string, pin: string, exceptUser?: string) {
   const r = await one<{ user_id: string }>(
     tx,
@@ -27,8 +43,9 @@ async function taken(tx: Tx, tenantId: string, pin: string, exceptUser?: string)
 }
 
 /**
- * Grava o PIN da pessoa (o informado ou um sorteado). Recusa PIN fraco ou já usado por outra
- * pessoa do restaurante. Devolve o PIN em claro (a tela mostra uma vez para o gerente).
+ * Grava o PIN da pessoa (o informado ou um sorteado). Recusa conta usada em outro restaurante,
+ * PIN fraco ou já usado por outra pessoa do restaurante. Devolve o PIN em claro (a tela mostra
+ * uma vez para o gerente).
  */
 export async function assignPin(
   tx: Tx,
@@ -36,6 +53,7 @@ export async function assignPin(
   userId: string,
   wanted?: string,
 ): Promise<string> {
+  if (await accountShared(tx, userId)) throw new ConflictException(SHARED_ACCOUNT_PIN_MESSAGE);
   let pin = wanted;
   if (pin) {
     if (isWeakPin(pin))

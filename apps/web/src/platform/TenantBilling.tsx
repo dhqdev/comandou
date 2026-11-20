@@ -2,7 +2,7 @@ import { BLOCK_LABELS, INVOICE_KIND_LABELS, INVOICE_LABELS } from '@comandou/sha
 import { FormEvent, useState } from 'react';
 import { Alert, Button, TextField, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
-import { brl } from '../lib/money';
+import { brl, parseBrlInput } from '../lib/money';
 import { AdminInvoice, day, INVOICE_LEVEL } from './BillingPage';
 import { useLoad } from './OverviewPages';
 import { Dot, Tag } from './ui';
@@ -81,7 +81,7 @@ export function TenantBillingPanel({
   }
   async function createManual(e: FormEvent) {
     e.preventDefault();
-    const amount = form.amount.replace(/\./g, '').replace(',', '.');
+    const amount = parseBrlInput(form.amount) ?? form.amount;
     if (
       await act('manual', `/platform/billing/tenants/${tenantId}/invoices`, 'Cobrança criada', {
         method: 'POST',

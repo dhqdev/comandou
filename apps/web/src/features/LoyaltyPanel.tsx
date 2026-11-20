@@ -14,7 +14,7 @@ import {
   Skeleton,
 } from '../design-system';
 import { api, Product } from '../lib/api';
-import { brl } from '../lib/money';
+import { brl, parseBrlInput } from '../lib/money';
 import { SelectField } from './forms';
 import './loyalty-panel.css';
 
@@ -66,10 +66,8 @@ const unitOf = (mode: LoyaltySettings['mode'], n = 2) =>
 const int = (n: number) => n.toLocaleString('pt-BR');
 /** "12,50" ou "12.5" → "12.50" (vazio = null). */
 const moneyIn = (v: string) => {
-  const t = v.trim().replace(/\./g, '').replace(',', '.');
-  if (!t) return null;
-  const n = Number(t);
-  return Number.isFinite(n) && n >= 0 ? n.toFixed(2) : undefined;
+  if (!v.trim()) return null;
+  return parseBrlInput(v) ?? undefined;
 };
 const moneyOut = (v: string | null) => (v ? v.replace('.', ',') : '');
 

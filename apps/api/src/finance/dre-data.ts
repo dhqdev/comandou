@@ -49,10 +49,14 @@ export async function loadDreRaw(
   const fees = await one<{ fees: string; adjust: string }>(
     tx,
     `SELECT COALESCE((SELECT sum(fee) FROM finance_settlements WHERE day BETWEEN $1 AND $2), 0)::numeric(14,2)::text AS fees,
+            -- Uma conciliação pode juntar recebíveis de dias diferentes (sexta a domingo caem na
+            -- segunda): a diferença conta uma vez só, no período do último recebível dela.
             COALESCE((SELECT sum(r.difference) FROM bank_reconciliations r
                        WHERE r.kind IN ('settlement','manual')
                          AND r.id IN (SELECT reconciliation_id FROM finance_settlements
-                                       WHERE day BETWEEN $1 AND $2 AND method <> 'cash')), 0)::numeric(14,2)::text AS adjust`,
+                                       WHERE day BETWEEN $1 AND $2 AND method <> 'cash')
+                         AND (SELECT max(s.day) FROM finance_settlements s
+                               WHERE s.reconciliation_id = r.id AND s.method <> 'cash') <= $2), 0)::numeric(14,2)::text AS adjust`,
     [from, to],
   );
   // Caixas ainda sem lançamento (abertos agora, ou fechados antes desta versão): estimativa.

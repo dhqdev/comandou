@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   Inject,
@@ -172,7 +173,12 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    // Contar, conferir e gravar o erro na MESMA transação, uma tentativa por vez no restaurante:
+    // muitas tentativas juntas não passam do limite lendo a contagem antes das outras gravarem.
     const found = await this.db.withTenant({ tenantId: tenant.id }, async (tx) => {
+      await one(tx, `SELECT pg_advisory_xact_lock(hashtext('comandou.pin:' || $1::text))`, [
+        tenant.id,
+      ]);
       const f = await one<{ n: number }>(
         tx,
         `SELECT count(*)::int AS n FROM audit_log
@@ -181,31 +187,37 @@ export class AuthController {
         [tenant.id, PIN_LOCK_MINUTES],
       );
       if ((f?.n ?? 0) >= PIN_LOCK_THRESHOLD) return 'locked' as const;
-      return one<{ user_id: string; name: string; role: string }>(
+      const m = await one<{ user_id: string; name: string; role: string; shared: boolean }>(
         tx,
-        `SELECT u.id AS user_id, u.name, m.role
+        `SELECT u.id AS user_id, u.name, m.role, app_member_account_shared(u.id) AS shared
            FROM memberships m JOIN users u ON u.id = m.user_id
           WHERE m.pin_hash = $1 AND m.status = 'active' AND u.disabled_at IS NULL`,
         [pinHash(tenant.id, body.pin)],
       );
-    });
-    if (found === 'locked')
-      throw new ThrottlerException(
-        'Muitos PINs errados neste restaurante. Aguarde alguns minutos ou peça ajuda ao gerente.',
-      );
-    // PIN de outro papel (o do entregador digitado no app do garçom) conta como errado.
-    if (!found || found.role !== body.app) {
-      await this.db.withTenant({ tenantId: tenant.id }, (tx) =>
-        this.audit.record(tx, {
+      // PIN de outro papel (o do entregador digitado no app do garçom) conta como errado.
+      if (!m || m.role !== body.app) {
+        await this.audit.record(tx, {
           tenantId: tenant.id,
           action: 'auth.pin_failed',
           entity: 'user',
           data: { app: body.app },
           ip: req.ip,
-        }),
+        });
+        return 'wrong' as const;
+      }
+      return m;
+    });
+    if (found === 'locked')
+      throw new ThrottlerException(
+        'Muitos PINs errados neste restaurante. Aguarde alguns minutos ou peça ajuda ao gerente.',
       );
-      throw new UnauthorizedException('PIN incorreto');
-    }
+    if (found === 'wrong') throw new UnauthorizedException('PIN incorreto');
+    // PIN antigo de uma conta que também entra em outro restaurante: só com e-mail e senha (ver
+    // SHARED_ACCOUNT_PIN_MESSAGE; o PIN daqui não pode abrir a conta que vale lá).
+    if (found.shared)
+      throw new ForbiddenException(
+        'Esta conta também é usada em outro restaurante. Entre com o e-mail e a senha.',
+      );
     return this.db.withTenant({ tenantId: tenant.id, userId: found.user_id }, async (tx) => {
       const s = await this.sessions.create(tx, tenant.id, found.user_id, {
         ip: req.ip,

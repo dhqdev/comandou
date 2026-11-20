@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  centsOf,
   closeTotals,
   percentCents,
   percentFrom,
   percentOf,
   planPayments,
+  resplitRows,
   splitRows,
+  type KeyedPayRow,
 } from './close-math';
 
 describe('fechar conta do pedido', () => {
@@ -68,5 +71,66 @@ describe('fechar conta do pedido', () => {
       { method: 'pix', amount: '27,90' },
     ]);
     expect(splitRows(rows, 1000, 3).map((r) => r.amount)).toEqual(['3,34', '3,33', '3,33']);
+  });
+
+  it('lê ponto como vírgula só quando é a casa decimal', () => {
+    expect(centsOf('12.90')).toBe(1290);
+    expect(centsOf('100.00')).toBe(10000);
+    expect(centsOf('50.5')).toBe(5050);
+    expect(centsOf('0.5')).toBe(50);
+    expect(centsOf('1.234')).toBe(123400);
+    expect(centsOf('1.234,56')).toBe(123456);
+    expect(centsOf('12,9')).toBe(1290);
+    expect(centsOf('')).toBe(0);
+  });
+
+  describe('nova tentativa depois de um pagamento que parou no meio', () => {
+    let n = 0;
+    const key = () => `k${++n}`;
+    const rows: KeyedPayRow[] = [
+      { method: 'pix', amount: '50,00', key: 'a', done: true },
+      { method: 'credit', amount: '50,00', key: 'b' },
+    ];
+
+    it('linha já recebida não abate de novo o saldo (que já a desconta)', () => {
+      const p = planPayments(rows, 5000);
+      expect(p.applied).toEqual([0, 5000]);
+      expect(p.typed).toBe(5000);
+      expect(p.missing).toBe(0);
+      expect(p.excess).toBe(0);
+    });
+
+    it('refaz a divisão só nas linhas que faltam e mantém a chave quando o valor é o mesmo', () => {
+      const out = resplitRows(rows, 5000, 2, key);
+      expect(out).toEqual([rows[0], { method: 'credit', amount: '50,00', key: 'b' }]);
+    });
+
+    it('linha com valor novo ganha chave nova; a recebida fica como está', () => {
+      const out = resplitRows(rows, 3000, 2, key);
+      expect(out[0]).toBe(rows[0]);
+      expect(out[1]!.amount).toBe('30,00');
+      expect(out[1]!.key).not.toBe('b');
+      expect(out[1]!.done).toBeUndefined();
+    });
+
+    it('dividir por 3 com uma já recebida reparte o saldo entre as outras duas', () => {
+      const out = resplitRows(rows, 5000, 3, key);
+      expect(out.map((r) => [r.amount, !!r.done])).toEqual([
+        ['50,00', true],
+        ['25,00', false],
+        ['25,00', false],
+      ]);
+      expect(out[1]!.key).not.toBe('b');
+      expect(new Set(out.map((r) => r.key)).size).toBe(3);
+    });
+
+    it('tudo recebido: não cria linha nova; saldo novo ganha uma linha só para ele', () => {
+      const all = rows.map((r) => ({ ...r, done: true }));
+      expect(resplitRows(all, 0, 2, key)).toBe(all);
+      const more = resplitRows(all, 700, 2, key);
+      expect(more.slice(0, 2)).toEqual(all);
+      expect(more[2]).toMatchObject({ method: 'credit', amount: '7,00' });
+      expect(more[2]!.done).toBeUndefined();
+    });
   });
 });

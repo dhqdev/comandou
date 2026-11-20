@@ -252,6 +252,66 @@ describe('recusas em cadeia e conflitos', () => {
     expect(offlineSnapshot().failed).toHaveLength(0);
   });
 
+  it('fila parou no meio: a próxima tentativa leva a versão nova e o mesmo corpo', async () => {
+    await queue('/orders/o1/status', { to: 'preparing', expectedVersion: 2 });
+    await queue('/orders/o1/status', { to: 'ready', expectedVersion: 2 });
+    const sent: { key: string; body: unknown }[] = [];
+    let n = 0;
+    setSender(async (op) => {
+      sent.push({ key: op.headers['X-Comandou-Op']!, body: op.json });
+      // 1º aceito (versão 3); o 2º chega ao servidor mas a resposta não volta.
+      if (n++ === 0) return { status: 200, body: { id: 'o1', version: 3 } };
+      throw new TypeError('Failed to fetch');
+    });
+    await flushOutbox();
+    expect(offlineSnapshot().pending).toHaveLength(1);
+    expect(offlineSnapshot().pending[0]!.json).toEqual({ to: 'ready', expectedVersion: 3 });
+
+    setSender(async (op) => {
+      sent.push({ key: op.headers['X-Comandou-Op']!, body: op.json });
+      return { status: 200, body: { id: 'o1', version: 4 } };
+    });
+    await flushOutbox();
+    expect(sent.slice(1)).toEqual([sent[1], sent[1]]);
+    expect(sent[2]!.body).toEqual({ to: 'ready', expectedVersion: 3 });
+    expect(offlineSnapshot().pending).toHaveLength(0);
+  });
+
+  it('recusada depois de outra aceita: "Tentar de novo" leva a versão nova', async () => {
+    await queue('/orders/o1/status', { to: 'preparing', expectedVersion: 2 });
+    await queue('/orders/o1/status', { to: 'ready', expectedVersion: 2 });
+    let n = 0;
+    setSender(async () =>
+      n++ === 0
+        ? { status: 200, body: { id: 'o1', version: 3 } }
+        : { status: 422, body: { message: 'Cozinha fechada' } },
+    );
+    await flushOutbox();
+    const failed = offlineSnapshot().failed[0]!;
+    expect(failed.json).toEqual({ to: 'ready', expectedVersion: 3 });
+
+    const bodies: unknown[] = [];
+    setSender(async (op) => {
+      bodies.push(op.json);
+      return { status: 200, body: { id: 'o1', version: 4 } };
+    });
+    await retryOp(failed.id);
+    await flushOutbox();
+    expect(bodies).toEqual([{ to: 'ready', expectedVersion: 3 }]);
+  });
+
+  it('a versão nova não passa para outro registro', async () => {
+    await queue('/orders/o1/status', { to: 'ready', expectedVersion: 2 });
+    await queue('/orders/o2/status', { to: 'ready', expectedVersion: 2 });
+    let n = 0;
+    setSender(async () => {
+      if (n++ === 0) return { status: 200, body: { id: 'o1', version: 3 } };
+      throw new TypeError('Failed to fetch');
+    });
+    await flushOutbox();
+    expect(offlineSnapshot().pending[0]!.json).toEqual({ to: 'ready', expectedVersion: 2 });
+  });
+
   it('409 (outra pessoa mudou antes) fica para revisão como conflito', async () => {
     await queue('/orders/o1/status', { to: 'ready', expectedVersion: 2 });
     setSender(async () => ({ status: 409, body: { message: 'O pedido mudou' } }));

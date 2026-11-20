@@ -33,6 +33,7 @@ import {
   type PayerInput,
 } from './OnlinePay';
 import { prefetchOrder } from './PublicOrderPage';
+import { isIdempotencyMismatch } from './checkout-retry';
 import { api, ApiError } from '../../lib/api';
 import { newIdempotencyKey } from '../../lib/idempotency';
 import { brl, parseBrlInput } from '../../lib/money';
@@ -112,6 +113,8 @@ export function CartScreen() {
   const [payer, setPayer] = useState<PayerInput>({ cpf: '', email: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** O primeiro envio já virou pedido (a resposta não voltou e a sacola mudou depois). */
+  const [already, setAlready] = useState<{ token: string; number?: number } | null>(null);
   // Pedido que acabou de entrar: mostra a comemoração antes de abrir o acompanhamento.
   const [sent, setSent] = useState<{
     number: number;
@@ -287,6 +290,7 @@ export function CartScreen() {
     const { key, token } = attempt.current;
     setBusy(true);
     setError(null);
+    setAlready(null);
     const typed = addressPayload(customer);
     const point = zones && pinned ? { lat: pinned.lat, lng: pinned.lng } : {};
     const address =
@@ -432,8 +436,15 @@ export function CartScreen() {
       setChangeFor('');
     } catch (e) {
       const err = e as ApiError;
+      const mismatch = isIdempotencyMismatch(err);
       // Erro de regra (loja fechou, produto esgotou): o próximo envio é um pedido novo.
-      if (err.status >= 400 && err.status < 500 && err.status !== 409 && err.status !== 429)
+      if (
+        err.status >= 400 &&
+        err.status < 500 &&
+        err.status !== 409 &&
+        err.status !== 429 &&
+        !mismatch
+      )
         attempt.current = null;
       // 409 pode ser "a loja fechou": atualiza a situação para a tela mostrar fechada.
       if (err.status === 409) void refreshStatus();
@@ -441,6 +452,26 @@ export function CartScreen() {
       if (err.status === 422) void refreshMenu();
       if (err.status === 422 && rewardId) void refreshLoyalty();
       const code = (err.body as { code?: string } | undefined)?.code;
+      // Mesma chave com outra sacola: o primeiro envio já chegou à loja. Mantém a chave (tocar de
+      // novo não cria um segundo pedido) e guarda o pedido neste aparelho para o acompanhamento.
+      if (mismatch) {
+        const first = await api<{ number: number; total?: string }>(
+          `/store/orders/${encodeURIComponent(token)}`,
+        ).catch(() => null);
+        if (first)
+          rememberOrder({
+            token,
+            number: first.number,
+            at: new Date().toISOString(),
+            tableId: atTable ? table?.id : undefined,
+            totalCents: first.total ? toCents(first.total) : undefined,
+          });
+        setAlready({ token, number: first?.number });
+        setError(
+          `Seu pedido${first ? ` #${first.number}` : ''} já tinha chegado à loja. O que você mudou na sacola depois não entrou nele.`,
+        );
+        return;
+      }
       // Acabou no estoque enquanto o cliente montava a sacola: o cardápio volta com "Esgotado".
       if (code === 'stock_out') {
         attempt.current = null;
@@ -955,6 +986,14 @@ export function CartScreen() {
           {error && (
             <p className="form-error" role="alert">
               {error}
+              {already && (
+                <>
+                  {' '}
+                  <Link to={`/pedido/${encodeURIComponent(already.token)}`}>
+                    Acompanhar o pedido
+                  </Link>
+                </>
+              )}
             </p>
           )}
           {!s.isOpen && (

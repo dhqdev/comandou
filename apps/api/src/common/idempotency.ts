@@ -5,6 +5,9 @@ import { one } from './sql';
 
 const KEY_RE = /^[A-Za-z0-9_.:-]{8,100}$/;
 
+/** `code` do 422 "já registrado com outros dados": o app reconhece sem depender do texto. */
+export const IDEMPOTENCY_MISMATCH = 'idempotency_mismatch';
+
 export function validIdempotencyKey(key: string | undefined): string | undefined {
   if (key === undefined || key === '') return undefined;
   if (!KEY_RE.test(key)) throw new UnprocessableEntityException('Idempotency-Key inválida');
@@ -55,9 +58,11 @@ export async function withIdempotency<T>(
     if (!prev) throw new ConflictException('Operação em andamento; tente novamente');
     if (prev.request_hash !== hash) {
       // Na prática: a rede caiu depois de gravar e a pessoa mudou algo antes de reenviar.
-      throw new UnprocessableEntityException(
-        'Este envio já foi registrado com outros dados. Atualize a tela e confira antes de enviar de novo.',
-      );
+      throw new UnprocessableEntityException({
+        message:
+          'Este envio já foi registrado com outros dados. Atualize a tela e confira antes de enviar de novo.',
+        code: IDEMPOTENCY_MISMATCH,
+      });
     }
     if (prev.response === null)
       throw new ConflictException('Operação em andamento; tente novamente');

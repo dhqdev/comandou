@@ -1,5 +1,6 @@
 import { ReactNode, SelectHTMLAttributes, useId } from 'react';
 import { HelpTip, Segmented, Select, useHelp } from '../design-system';
+import { parseDecimalInput } from '../lib/money';
 
 /** Campo de seleção com rótulo, no mesmo visual do TextField. */
 export function SelectField({
@@ -93,18 +94,12 @@ export function Tabs<T extends string>({
 
 /** Quantidade de estoque digitada no padrão brasileiro ("0,350") → "0.350". */
 export function parseQtyInput(input: string): string | null {
-  const clean = input.trim().replace(/\./g, '').replace(',', '.');
-  return /^\d{1,10}(\.\d{1,3})?$/.test(clean) ? clean : null;
+  return parseDecimalInput(input, 3);
 }
 
 /** Custo unitário com até 4 casas ("12,3456"). */
 export function parseCostInput(input: string): string | null {
-  const clean = input
-    .trim()
-    .replace(/\s|R\$/g, '')
-    .replace(/\./g, '')
-    .replace(',', '.');
-  return /^\d{1,10}(\.\d{1,4})?$/.test(clean) ? clean : null;
+  return parseDecimalInput(input, 4);
 }
 
 /** "12.500" → "12,5" para exibição (sem float). */

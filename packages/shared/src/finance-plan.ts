@@ -752,6 +752,8 @@ export function normalizeBankAmount(raw: string): string | null {
         ? s.replace(/\./g, '').replace(',', '.')
         : s.replace(/,/g, '');
   } else if (s.includes(',')) s = s.replace(',', '.');
+  // Alguns bancos mandam "-.50" (sem o zero antes da vírgula).
+  if (s.startsWith('.')) s = `0${s}`;
   if (!/^\d{1,12}(\.\d+)?$/.test(s)) return null;
   const [i, f = ''] = s.split('.');
   let cents = Number(i) * 100 + Number((f + '00').slice(0, 2));

@@ -21,7 +21,7 @@ import { z } from 'zod';
 import { newPassword } from '../common/schemas';
 import { AuditService } from '../audit/audit.service';
 import { hashPassword, verifyPassword } from '../auth/password';
-import { assignPin } from '../auth/pin';
+import { accountShared, assignPin, SHARED_ACCOUNT_PIN_MESSAGE } from '../auth/pin';
 import { ctxOf } from '../common/context';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { one, q } from '../common/sql';
@@ -56,7 +56,10 @@ const SetPin = z.object({ pin: pin.optional() });
 const UpdateMember = z
   .object({ role: z.enum(ROLES).optional(), status: z.enum(['active', 'revoked']).optional() })
   .refine((b) => b.role || b.status, 'informe papel ou situação');
-/** `current` ficou opcional e é ignorado: quem já entrou troca a senha sem digitar a atual. */
+/**
+ * `current` (senha atual) só é pedida quando a conta também entra em outro restaurante: quem já
+ * entrou aqui troca a senha só deste restaurante sem digitar a atual.
+ */
 const ChangePassword = z.object({ current: z.string().max(200).optional(), next: password });
 const SetMemberPassword = z.object({ password });
 
@@ -126,8 +129,12 @@ export class UsersController {
         data: { role: b.role, existingAccount: !r!.created, pinOnly },
         ip: req.ip,
       });
-      // Garçom e entregador já saem com PIN (o gerente vê uma vez e passa para a pessoa).
-      const newPin = isPinRole(b.role) ? await assignPin(tx, t.id, r!.user_id, b.pin) : null;
+      // Garçom e entregador já saem com PIN (o gerente vê uma vez e passa para a pessoa). Conta
+      // que também entra em outro restaurante não ganha PIN: continua com o e-mail e a senha dela.
+      const shared = isPinRole(b.role) && (await accountShared(tx, r!.user_id));
+      if (shared && b.pin) throw new ConflictException(SHARED_ACCOUNT_PIN_MESSAGE);
+      const newPin =
+        isPinRole(b.role) && !shared ? await assignPin(tx, t.id, r!.user_id, b.pin) : null;
       if (b.role === 'driver') await ensureCourier(tx, t.id, r!.user_id, b.name);
       const member = await one(tx, `${MEMBER_SELECT} WHERE u.id = $1`, [r!.user_id]);
       // Conta já existente (de outro restaurante): a senha informada NÃO substitui a dela.
@@ -286,7 +293,12 @@ export class UsersController {
     });
   }
 
-  /** Troca da própria senha. Quem já entrou não precisa da atual; encerra as outras sessões neste restaurante. */
+  /**
+   * Troca da própria senha; encerra as outras sessões neste restaurante. Quem tem conta só neste
+   * restaurante não precisa da atual. Conta que também entra em outro restaurante (ou no painel)
+   * precisa: uma sessão aqui não basta para mudar o acesso de lá (o administrador daqui pode ter
+   * posto o e-mail da pessoa na equipe). O banco confere de novo (0101).
+   */
   @Post('auth/password')
   @HttpCode(204)
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
@@ -298,13 +310,53 @@ export class UsersController {
   ) {
     const ctx = ctxOf(t, u);
     const row = await this.db.withTenant(ctx, (tx) =>
-      one<{ hash: string | null }>(tx, `SELECT app_own_password_hash() AS hash`),
+      one<{ hash: string | null; shared: boolean }>(
+        tx,
+        `SELECT app_own_password_hash() AS hash, app_member_account_shared($1) AS shared`,
+        [u.id],
+      ),
     );
+    // Conta usada em outro restaurante: só com a senha atual certa (e o hash conferido vai ao
+    // banco, que só troca se ele ainda for o atual).
+    const confirmed = row?.shared ? row.hash : null;
+    if (row?.shared) {
+      if (!b.current)
+        throw new UnauthorizedException({
+          message:
+            'Você usa esta conta em outro restaurante também. Para trocar a senha, digite a senha atual.',
+          code: 'current_password',
+        });
+      if (!row.hash || !(await verifyPassword(b.current, row.hash)))
+        throw new UnauthorizedException({
+          message: 'Senha atual incorreta',
+          code: 'current_password',
+        });
+    }
     if (row?.hash && (await verifyPassword(b.next, row.hash)))
       throw new ConflictException('A nova senha deve ser diferente da atual');
     const hash = await hashPassword(b.next);
     await this.db.withTenant(ctx, async (tx) => {
-      await q(tx, `SELECT app_set_own_password($1)`, [hash]);
+      if (confirmed) {
+        const r = await one<{ ok: boolean }>(tx, `SELECT app_set_own_password($1, $2) AS ok`, [
+          hash,
+          confirmed,
+        ]);
+        // A senha mudou entre a conferência e agora (outro aparelho): confira de novo.
+        if (!r?.ok)
+          throw new UnauthorizedException({
+            message: 'Senha atual incorreta',
+            code: 'current_password',
+          });
+      } else
+        await q(tx, `SELECT app_set_own_password($1)`, [hash]).catch((err: { code?: string }) => {
+          // Virou conta de outro restaurante agora há pouco: o banco pede a senha atual.
+          if (err.code === '42501')
+            throw new UnauthorizedException({
+              message: 'Para trocar a senha, digite a senha atual.',
+              code: 'current_password',
+            });
+          throw err;
+        });
       await q(
         tx,
         `UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND id <> $2 AND revoked_at IS NULL`,
