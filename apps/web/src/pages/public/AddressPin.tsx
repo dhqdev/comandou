@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { LocateFixed, MapPin, RotateCw } from 'lucide-react';
+import { Check, LocateFixed, MapPin, RotateCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
@@ -32,8 +32,8 @@ interface Located {
   precision: Precision;
 }
 
-/** Só a casa ou a rua valem sozinhas; bairro, cidade ou loja: o cliente marca no mapa. */
-const ROUGH: Precision[] = ['district', 'city', 'store'];
+/** Cidade ou loja: o mapa não sabe onde é a casa, o cliente tem de marcar. */
+const ROUGH: Precision[] = ['city', 'store'];
 const ZOOM: Record<Precision, number> = {
   house: 17,
   street: 17,
@@ -44,8 +44,9 @@ const ZOOM: Record<Precision, number> = {
 
 /**
  * Confirma o endereço no mapa (OpenStreetMap) e calcula a taxa da área de entrega. A API procura
- * o endereço em etapas (a casa, a rua, o bairro, a cidade); o mapa sempre aparece, e quando só
- * achou o bairro (ou nada) o cliente toca no mapa ou arrasta o pino até a casa dele.
+ * o endereço em etapas (a casa, a rua, o bairro, a cidade); o mapa sempre aparece e o ponto só
+ * vale depois que o cliente confirma: toca em "É aqui", arrasta o pino ou toca no mapa. Achou só
+ * a cidade (ou nada): o cliente tem de marcar a casa.
  */
 export default function AddressPin({
   address,
@@ -62,7 +63,7 @@ export default function AddressPin({
   const map = useRef<L.Map | null>(null);
   const marker = useRef<L.Marker | null>(null);
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(saved ?? null);
-  // Ponto que vale para a taxa: a casa ou a rua achadas, o ponto salvo ou o que o cliente marcou.
+  // Ponto que vale para a taxa: o salvo ou o que o cliente confirmou ou marcou.
   const [confirmed, setConfirmed] = useState(!!saved);
   const [precision, setPrecision] = useState<Precision | 'saved' | 'marked'>(
     saved ? 'saved' : 'house',
@@ -111,7 +112,8 @@ export default function AddressPin({
         setStatus(r ? 'idle' : 'error');
         setPoint(r ? { lat: r.lat, lng: r.lng } : null);
         setPrecision(r?.precision ?? 'store');
-        setConfirmed(!!r && !ROUGH.includes(r.precision));
+        // Endereço novo: o cliente confirma o pino antes de valer (a busca pode errar a casa).
+        setConfirmed(false);
       } catch {
         if (alive) setStatus('error');
       }
@@ -206,6 +208,8 @@ export default function AddressPin({
   }
 
   const rough = !confirmed && !!point;
+  // Achou a casa, a rua ou o bairro: um toque confirma. Cidade ou loja: tem de marcar no mapa.
+  const canConfirm = rough && !ROUGH.includes(precision as Precision);
   return (
     <div className="addr-map">
       {point && (
@@ -221,18 +225,20 @@ export default function AddressPin({
       ) : rough ? (
         <p className="form-hint addr-map__ask" role="status">
           <MapPin size={14} />
-          {precision === 'district'
-            ? 'Achamos o bairro, mas não a rua. Toque no mapa ou arraste o pino até a sua casa.'
-            : 'Não achamos esse endereço no mapa. Toque no mapa ou arraste o pino até a sua casa.'}
+          {precision === 'house'
+            ? 'Confira no mapa: o pino está na sua casa? Se não, arraste até ela.'
+            : precision === 'street'
+              ? 'Achamos a rua. Arraste o pino até a sua casa e confirme.'
+              : precision === 'district'
+                ? 'Achamos o bairro, mas não a rua. Toque no mapa ou arraste o pino até a sua casa.'
+                : 'Não achamos esse endereço no mapa. Toque no mapa ou arraste o pino até a sua casa.'}
         </p>
       ) : point ? (
         <p className="form-hint">
           <MapPin size={14} />
-          {precision === 'marked'
-            ? 'Pronto: a entrega vai para o ponto que você marcou.'
-            : precision === 'street'
-              ? 'Achamos a rua. Arraste o pino até a sua porta se precisar.'
-              : 'Confira o pino: arraste até a sua porta se precisar.'}
+          {precision === 'saved'
+            ? 'Confira o pino: arraste até a sua porta se precisar.'
+            : 'Pronto: a entrega vai para o ponto marcado. Arraste o pino se precisar.'}
         </p>
       ) : status === 'error' ? (
         <p className="form-hint">
@@ -245,9 +251,23 @@ export default function AddressPin({
       ) : (
         <p className="form-hint">Preencha rua, número e bairro para calcular a entrega.</p>
       )}
-      <button type="button" className="addr-map__locate" onClick={useMyLocation}>
-        <LocateFixed size={16} /> Usar minha localização
-      </button>
+      <div className="addr-map__actions">
+        {canConfirm && status !== 'searching' && (
+          <button
+            type="button"
+            className="addr-map__confirm"
+            onClick={() => {
+              setPrecision('marked');
+              setConfirmed(true);
+            }}
+          >
+            <Check size={16} /> É aqui, confirmar local
+          </button>
+        )}
+        <button type="button" className="addr-map__locate" onClick={useMyLocation}>
+          <LocateFixed size={16} /> Usar minha localização
+        </button>
+      </div>
       {quote &&
         confirmed &&
         (quote.covered ? (

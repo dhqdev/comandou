@@ -20,7 +20,16 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react';
-import { CSSProperties, FormEvent, MouseEvent, ReactNode, useEffect, useState } from 'react';
+import {
+  CSSProperties,
+  FormEvent,
+  lazy,
+  MouseEvent,
+  ReactNode,
+  Suspense,
+  useEffect,
+  useState,
+} from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { clickPoint, Mascot, switchTheme, useTheme, useToast, Skeleton } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
@@ -32,6 +41,7 @@ import { useStoreChat } from './chat';
 import { useStore } from './context';
 import { AddressFields, addressPayload } from './AddressFields';
 import { movedAddress } from './AddressEdit';
+import type { PinnedQuote } from './store';
 import { nextGoal, useLoyalty } from './LoyaltyScreens';
 import {
   AccountOrder,
@@ -644,6 +654,8 @@ export function ProfileScreen() {
   );
 }
 
+const AddressPin = lazy(() => import('./AddressPin'));
+
 const EMPTY_ADDR = {
   label: '',
   cep: '',
@@ -662,6 +674,9 @@ export function AddressesScreen() {
   const toast = useToast();
   const [editing, setEditing] = useState<SavedAddress | 'new' | null>(null);
   const [form, setForm] = useState(EMPTY_ADDR);
+  // Ponto confirmado no mapa para o endereço do formulário.
+  const [pinned, setPinned] = useState<PinnedQuote | null>(null);
+  const [pinAsk, setPinAsk] = useState(false);
   const { busy, error, run } = useAsync();
   if (!me || !account) return null;
   const list = account.addresses;
@@ -672,6 +687,8 @@ export function AddressesScreen() {
   }
   function edit(a: SavedAddress | 'new') {
     setEditing(a);
+    setPinned(null);
+    setPinAsk(false);
     setForm(
       a === 'new'
         ? EMPTY_ADDR
@@ -688,6 +705,15 @@ export function AddressesScreen() {
           },
     );
   }
+
+  const typedOk = !!(form.street.trim() && form.number.trim() && form.district.trim());
+  const moved = editing && editing !== 'new' ? movedAddress(editing, form) : true;
+  const savedPoint =
+    editing && editing !== 'new' && !moved && editing.lat && editing.lng
+      ? { lat: Number(editing.lat), lng: Number(editing.lng) }
+      : null;
+  // Com áreas de entrega, o endereço só entra com o local confirmado no mapa.
+  const needsPin = !!menu.store.deliveryZones && !savedPoint && !pinned;
 
   if (editing)
     return (
@@ -708,6 +734,10 @@ export function AddressesScreen() {
           className="auth__form"
           onSubmit={async (e) => {
             e.preventDefault();
+            if (needsPin) {
+              setPinAsk(true);
+              return;
+            }
             const p = addressPayload(form);
             const body = {
               ...p,
@@ -717,8 +747,12 @@ export function AddressesScreen() {
               cep: p.cep ?? null,
               city: p.city ?? null,
               state: p.state ?? null,
-              // Endereço mudou: o ponto antigo do mapa sai e o mapa procura de novo.
-              ...(editing !== 'new' && movedAddress(editing, form) ? { lat: null, lng: null } : {}),
+              // Ponto confirmado no mapa; endereço mudou sem ponto novo: o antigo sai.
+              ...(pinned
+                ? { lat: pinned.lat, lng: pinned.lng }
+                : editing !== 'new' && moved
+                  ? { lat: null, lng: null }
+                  : {}),
             };
             const ok = await run(() =>
               editing === 'new'
@@ -753,6 +787,24 @@ export function AddressesScreen() {
             city={menu.restaurant.city}
             state={menu.restaurant.state}
           />
+          <Suspense fallback={<p className="form-hint">Carregando o mapa…</p>}>
+            <AddressPin
+              key={editing === 'new' ? 'novo' : editing.id}
+              address={typedOk ? form : null}
+              saved={savedPoint}
+              onChange={(v) => {
+                setPinned(v);
+                if (v) setPinAsk(false);
+              }}
+            />
+          </Suspense>
+          {pinAsk && needsPin && (
+            <p className="form-error" role="alert">
+              {typedOk
+                ? 'Confirme o local no mapa antes de salvar.'
+                : 'Preencha rua, número e bairro e confirme o local no mapa.'}
+            </p>
+          )}
           {error && <p className="form-error">{error}</p>}
           <button className="cta" disabled={busy}>
             {busy ? 'Salvando…' : 'Salvar endereço'}

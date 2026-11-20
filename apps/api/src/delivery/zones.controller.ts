@@ -181,11 +181,16 @@ export class ZonesController {
       return {
         s,
         region: await this.store.regionIn(tx, s),
-        zones: s.storeLat && s.storeLng ? [] : await this.zones.listIn(tx),
+        zones: (await this.zones.listIn(tx)).filter((z) => z.active),
       };
     });
-    const at = near(s) ?? zoneCenter(zones.filter((z) => z.active));
-    return this.geocoder.locate(f, { near: at, city: region.city, state: region.state });
+    // As áreas também dizem onde a loja atende: uma loja marcada longe das áreas não pode fazer a
+    // busca jogar fora os endereços dentro delas.
+    const refs = zones
+      .map((z) => zoneCenter([z]))
+      .filter((p): p is { lat: number; lng: number } => !!p);
+    const at = near(s) ?? refs[0];
+    return this.geocoder.locate(f, { near: at, refs, city: region.city, state: region.state });
   }
 
   /** Cliente final: taxa e tempo de entrega para um ponto. A API recalcula no pedido. */

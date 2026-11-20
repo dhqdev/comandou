@@ -3405,6 +3405,30 @@ html.sf-root {
   font-weight: 600;
   cursor: pointer;
 }
+/* "É aqui" (confirma o pino achado) e "Usar minha localização". */
+.addr-map__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.addr-map__confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.addr-map__confirm:active {
+  transform: scale(0.97);
+}
 .addr-map__quote {
   margin: 0;
   padding: 10px 12px;

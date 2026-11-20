@@ -4,6 +4,7 @@ import type { CepService } from '../store/cep.service';
 import {
   districtVariants,
   GeocoderService,
+  inPlace,
   sameStreet,
   streetCore,
   streetTokens,
@@ -67,6 +68,22 @@ describe('nomes de rua e bairro', () => {
     ]);
     expect(districtVariants('Centro')).toEqual(['Centro']);
     expect(districtVariants('')).toEqual([]);
+  });
+});
+
+describe('inPlace', () => {
+  it('compara a cidade inteira e o estado', () => {
+    const l = 'Rua X, Jardim Nova Europa, Campinas, São Paulo, Região Sudeste, 13044-902, Brasil';
+    expect(inPlace(l, 'Campinas', 'SP')).toBe(true);
+    expect(inPlace(l, 'campinas', '')).toBe(true);
+    expect(inPlace(l, 'Campinas', 'RS')).toBe(false);
+    expect(inPlace('Rua X, Centro, Campinas do Sul, Rio Grande do Sul', 'Campinas', 'RS')).toBe(
+      false,
+    );
+    expect(inPlace('Rua X, Vila Mariana, São Paulo, São Paulo, Brasil', 'São Paulo', 'SP')).toBe(
+      true,
+    );
+    expect(inPlace('Rua X, Vila Mariana, São Paulo, Brasil', 'Campinas', 'SP')).toBe(false);
   });
 });
 
@@ -167,10 +184,73 @@ describe('locate', () => {
   it('descarta a mesma rua em outra cidade, longe da loja', async () => {
     fakeNet((p) =>
       p.get('street')
-        ? [{ ...ROAD, lat: '-23.55', lon: '-46.63', address: { house_number: '460' } }]
+        ? [
+            {
+              ...ROAD,
+              lat: '-23.55',
+              lon: '-46.63',
+              display_name: 'Rua Doutor Herculano Gouvêa Neto, Vila Mariana, São Paulo, SP, Brasil',
+              address: { house_number: '460' },
+            },
+          ]
         : [],
     );
     expect((await geocoder().locate(addr, ctx))?.precision).toBe('store');
+  });
+
+  it('loja longe (São Paulo) e endereço em Campinas: vale a cidade do cliente', async () => {
+    // O caso real: a loja marcada em Vila Mariana, o cliente em Campinas (uns 85 km).
+    const SP = { lat: -23.589, lng: -46.634 };
+    fakeNet((p) =>
+      p.get('street') === '460 Rua Doutor Herculano Gouvea Neto' && p.get('city') === 'Campinas'
+        ? [
+            {
+              ...ROAD,
+              display_name:
+                'Rua Doutor Herculano Golveia Neto, Jardim Nova Europa, Campinas, São Paulo, Brasil',
+            },
+          ]
+        : [],
+    );
+    const r = await geocoder().locate(
+      { ...addr, city: 'Campinas', state: 'SP' },
+      { near: SP, city: 'São Paulo', state: 'SP' },
+    );
+    expect(r).toMatchObject({ precision: 'street', lat: -22.95 });
+  });
+
+  it('com a cidade do cliente, a mesma rua em outra cidade perto da loja não vale', async () => {
+    fakeNet((p) =>
+      p.get('street') || p.get('q')
+        ? [{ ...ROAD, display_name: 'Rua Doutor Herculano Gouvêa Neto, Centro, Valinhos, SP' }]
+        : [],
+    );
+    const r = await geocoder().locate({ ...addr, city: 'Campinas', state: 'SP' }, ctx);
+    expect(r?.precision).toBe('store');
+  });
+
+  it('a área de entrega também vale como perto, mesmo com a loja longe', async () => {
+    const SP = { lat: -23.589, lng: -46.634 };
+    fakeNet((p) =>
+      p.get('street')
+        ? [
+            {
+              ...ROAD,
+              display_name: 'Rua Doutor Herculano Gouvêa Neto, Campinas',
+              address: { house_number: '460' },
+            },
+          ]
+        : [],
+    );
+    const far = await geocoder().locate(addr, { near: SP, city: 'Itu', state: 'SP' });
+    expect(far?.precision).toBe('store');
+    const r = await geocoder().locate(addr, {
+      near: SP,
+      refs: [STORE],
+      city: 'Itu',
+      state: 'SP',
+    });
+    expect(r?.precision).toBe('house');
   });
 
   it('o CEP corrige a grafia da rua e a cidade', async () => {

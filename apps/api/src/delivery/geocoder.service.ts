@@ -164,7 +164,13 @@ export class GeocoderService {
    */
   async locate(
     input: AddressQuery,
-    ctx: { near?: { lat: number; lng: number }; city?: string | null; state?: string | null },
+    ctx: {
+      near?: { lat: number; lng: number };
+      /** Outros pontos onde a loja atende (centro das áreas de entrega). */
+      refs?: { lat: number; lng: number }[];
+      city?: string | null;
+      state?: string | null;
+    },
   ): Promise<Located | null> {
     const deadline = Date.now() + LOCATE_BUDGET_MS;
     let a = {
@@ -175,7 +181,9 @@ export class GeocoderService {
       state: clean(input.state).toUpperCase() || (ctx.state ?? '').toUpperCase(),
     };
     const cepDigits = (input.cep ?? '').replace(/\D/g, '');
-    const key = `loc|${fold([a.street, a.number, a.district, a.city, a.state, cepDigits].join('|'))}|${nearKey(ctx.near)}`;
+    // Cidade que o cliente digitou ou que veio do CEP: o resultado tem de ser nela.
+    let ownCity = !!clean(input.city);
+    const key = `loc|${fold([a.street, a.number, a.district, a.city, a.state, cepDigits].join('|'))}|${nearKey(ctx.near)}|${(ctx.refs ?? []).map((r) => nearKey(r)).join(';')}`;
     const hit = this.hit<Located | null>(key);
     if (hit) return hit.value;
 
@@ -185,6 +193,7 @@ export class GeocoderService {
       const c = await this.cep.lookup(cepDigits).catch(() => null);
       if (c) {
         if (c.street && fold(c.street) !== fold(a.street)) streets.unshift(c.street);
+        if (c.city) ownCity = true;
         a = {
           ...a,
           street: a.street || c.street,
@@ -196,8 +205,16 @@ export class GeocoderService {
     }
 
     const near = ctx.near;
-    const ok = (p: { lat: number; lng: number }) =>
-      !near || distanceM([near.lat, near.lng], [p.lat, p.lng]) <= MAX_FROM_STORE_M;
+    const refs = [...(near ? [near] : []), ...(ctx.refs ?? [])];
+    // O resultado é na cidade do endereço? Com a cidade do cliente (ou do CEP) é o que decide:
+    // uma loja de São Paulo pode entregar em Campinas, e a mesma rua existe em outras cidades.
+    // Com a cidade só da loja, vale também estar perto da loja ou de uma área de entrega.
+    const inCity = (label: string) => !!a.city && inPlace(label, a.city, a.state);
+    const nearby = (p: { lat: number; lng: number }) =>
+      !refs.length ||
+      refs.some((r) => distanceM([r.lat, r.lng], [p.lat, p.lng]) <= MAX_FROM_STORE_M);
+    const ok = (p: { lat: number; lng: number; label: string }) =>
+      inCity(p.label) || (!(ownCity && a.city) && nearby(p));
     const where = [a.city, a.state].filter(Boolean).join(', ');
     const time = () => Date.now() < deadline;
     let found: Located | null = null;
@@ -417,6 +434,55 @@ function nominatimPrecision(r: NominatimRow): GeoPrecision {
   // Resposta sem detalhes (instância antiga ou de teste): trata como rua.
   if (!r.addresstype && !r.category && !r.address) return 'street';
   return 'district';
+}
+
+const UF_NAME: Record<string, string> = {
+  AC: 'acre',
+  AL: 'alagoas',
+  AP: 'amapa',
+  AM: 'amazonas',
+  BA: 'bahia',
+  CE: 'ceara',
+  DF: 'distrito federal',
+  ES: 'espirito santo',
+  GO: 'goias',
+  MA: 'maranhao',
+  MT: 'mato grosso',
+  MS: 'mato grosso do sul',
+  MG: 'minas gerais',
+  PA: 'para',
+  PB: 'paraiba',
+  PR: 'parana',
+  PE: 'pernambuco',
+  PI: 'piaui',
+  RJ: 'rio de janeiro',
+  RN: 'rio grande do norte',
+  RS: 'rio grande do sul',
+  RO: 'rondonia',
+  RR: 'roraima',
+  SC: 'santa catarina',
+  SP: 'sao paulo',
+  SE: 'sergipe',
+  TO: 'tocantins',
+};
+
+/**
+ * O endereço achado fica nesta cidade (e UF)? Compara as partes do rótulo ("Rua X, Bairro,
+ * Campinas, São Paulo, Brasil"): uma parte tem de ser a cidade inteira, para "Campinas" não
+ * aceitar "Campinas do Sul".
+ */
+export function inPlace(label: string, city: string, state?: string): boolean {
+  const parts = label.split(',').map((p) => fold(p).replace(/\s+/g, ' ').trim());
+  const c = fold(city).replace(/\s+/g, ' ').trim();
+  if (!c || !parts.includes(c)) return false;
+  const uf = (state ?? '').trim().toUpperCase();
+  const name = UF_NAME[uf];
+  if (!name) return true;
+  // O rótulo traz o estado por extenso ("São Paulo") ou a sigla ("SP"); sem estado no rótulo, vale.
+  const states = new Set(Object.values(UF_NAME));
+  const ufs = new Set(Object.keys(UF_NAME).map((k) => k.toLowerCase()));
+  const named = parts.filter((p) => states.has(p) || ufs.has(p));
+  return !named.length || named.some((p) => p === name || p === uf.toLowerCase());
 }
 
 const nearKey = (near?: { lat: number; lng: number }) =>

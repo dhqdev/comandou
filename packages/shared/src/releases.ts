@@ -20,6 +20,32 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.211.0',
+    date: '2026-11-20',
+    title:
+      'Endereço de entrega certo no mapa, mesmo em outra cidade, e pino confirmado pelo cliente',
+    summary:
+      'A busca do endereço do cliente não cai mais no ponto da loja quando o endereço fica em outra cidade ou a mais de 80 km da loja: vale a cidade digitada ou a do CEP, e as áreas de entrega também contam. Ao adicionar um endereço, o cliente confirma o local no mapa antes de valer.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Cardápio online: endereço em outra cidade (por exemplo, loja marcada em São Paulo e cliente em Campinas) mostrava "Não achamos esse endereço no mapa" e o pino na loja. A busca descartava tudo a mais de 80 km do ponto da loja; agora vale o resultado na cidade do cliente (digitada ou do CEP) e o que fica perto de qualquer área de entrega.',
+      },
+      {
+        tag: 'correção',
+        text: 'Com a cidade informada pelo cliente, a mesma rua em outra cidade vizinha não é mais aceita por engano.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Endereço novo (na sacola e em Conta › Endereços): o mapa aparece logo e o cliente confirma o local com "É aqui, confirmar local", arrastando o pino ou tocando no mapa. A taxa só é calculada depois disso.',
+      },
+      {
+        tag: 'novo',
+        text: 'Conta › Endereços: o endereço salvo guarda o ponto confirmado no mapa, e com áreas de entrega ele só é salvo depois de confirmar o local. O próximo pedido já abre com o pino certo.',
+      },
+    ],
+  },
+  {
     version: '0.210.2',
     date: '2026-11-20',
     title: 'Nova barra de ações do pedido',
