@@ -447,6 +447,8 @@ export interface DeliveryQuote {
   minOrder: string | null;
   etaMin: number | null;
   etaMax: number | null;
+  /** Fora de todas as áreas: os nomes delas (onde a loja entrega). */
+  areas?: string[];
 }
 export interface PinnedQuote {
   lat: number;

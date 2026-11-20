@@ -3693,3 +3693,65 @@ html.sf-root {
 .ck-pay-when {
   margin: 8px 0 0;
 }
+
+/* Endereço salvo na sacola: escolher (o cartão) e editar ali mesmo (o lápis ao lado). */
+.addr-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.addr-row .addr-opt {
+  flex: 1;
+  min-width: 0;
+}
+.addr-row__edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--sf-r-sm);
+  background: var(--cm-surface);
+  color: var(--cm-brand-700);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--cm-dur);
+}
+.addr-row__edit:hover {
+  border-color: var(--cm-brand-500);
+}
+@media (max-width: 480px) {
+  .addr-row__edit span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+}
+.addr-edit {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--cm-brand-500);
+  border-radius: var(--sf-r-sm);
+  background: color-mix(in oklab, var(--cm-brand-500) 5%, var(--cm-surface));
+}
+.addr-edit__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.addr-edit__actions .cta {
+  width: auto;
+  flex: 0 1 auto;
+  min-height: 46px;
+  margin-top: 0;
+}
+.addr-map__areas {
+  display: block;
+  margin-top: 4px;
+  font-weight: 500;
+}

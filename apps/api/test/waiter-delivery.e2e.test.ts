@@ -7,7 +7,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
 import { hashPassword } from '../src/auth/password';
-import { findZone, insidePolygon, distanceM, Zone } from '../src/delivery/zones';
+import { findZone, findZoneFor, insidePolygon, distanceM, Zone } from '../src/delivery/zones';
 import { testEnv } from './env';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
@@ -159,6 +159,27 @@ describe('Geometria das áreas', () => {
     expect(findZone([far, { ...near, active: false }], [-23.55, -46.63])?.id).toBe('longe');
     expect(findZone([far, near], [-23.0, -46.0])).toBeUndefined();
   });
+  it('taxa por bairro: fora do desenho, vale a área com o nome do bairro', () => {
+    const sm = zone({ id: 'sm', name: 'Parque São Martinho', position: 2 });
+    const centro = zone({
+      id: 'c',
+      name: 'Centro',
+      polygon: [
+        [0, 0],
+        [0, 1],
+        [1, 1],
+      ],
+    });
+    const out: [number, number] = [-23.0, -46.0];
+    expect(findZoneFor([centro, sm], out, 'Loteamento Parque São Martinho')?.id).toBe('sm');
+    expect(findZoneFor([centro, sm], out, 'Pq. S. Martinho')?.id).toBe('sm');
+    expect(findZoneFor([centro, sm], out, 'Jardim Centro Oeste')).toBeUndefined();
+    expect(
+      findZoneFor([centro, { ...sm, active: false }], out, 'Parque São Martinho'),
+    ).toBeUndefined();
+    // Dentro de um desenho, o ponto manda (o bairro não troca a área).
+    expect(findZoneFor([centro, sm], [-23.55, -46.63], 'Centro')?.id).toBe('sm');
+  });
 });
 
 describe('Garçom: pedir a conta', () => {
@@ -281,7 +302,14 @@ describe('Áreas de entrega e taxa por área', () => {
     expect(q2).toMatchObject({ covered: true, fee: '8.50', minOrder: '40.00' });
     const q3 = (await pub.post('/store/delivery-quote', { lat: -22.9, lng: -43.2 }).expect(201))
       .body;
-    expect(q3).toMatchObject({ covered: false, zone: null });
+    expect(q3).toMatchObject({ covered: false, zone: null, areas: ['Até 1 km', 'Bairro vizinho'] });
+    // Ponto fora do desenho, mas o bairro tem o nome de uma área: vale a área (taxa por bairro).
+    const q4 = (
+      await pub
+        .post('/store/delivery-quote', { lat: -22.9, lng: -43.2, district: 'Lot. Bairro Vizinho' })
+        .expect(201)
+    ).body;
+    expect(q4).toMatchObject({ covered: true, fee: '8.50', zone: { name: 'Bairro vizinho' } });
     // Sem áreas, vale a taxa fixa da loja.
     const qb = (
       await pub
@@ -312,6 +340,19 @@ describe('Áreas de entrega e taxa por área', () => {
       )
       .expect(422);
     expect(out.body.message).toContain('Ainda não entregamos');
+    // Mesmo ponto, com o bairro de uma área: o pedido passa pela área do bairro (mínimo 40,00).
+    const byName = await pub
+      .post(
+        '/store/orders',
+        {
+          ...base,
+          token: tk(),
+          address: { ...addr, district: 'Loteamento Bairro Vizinho', lat: -22.9, lng: -43.2 },
+        },
+        key(),
+      )
+      .expect(422);
+    expect(byName.body.message).toContain('mínimo');
     // Área perto: taxa 3,00.
     const ok = (
       await pub

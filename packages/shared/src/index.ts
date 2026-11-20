@@ -27,3 +27,4 @@ export * from './security';
 export * from './channels';
 export * from './channel-usage';
 export * from './store-rules';
+export * from './district';

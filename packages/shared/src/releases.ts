@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.210.0',
+    date: '2026-11-20',
+    title: 'Endereço de entrega pelo bairro, editar endereço na sacola e CEP pelo bairro',
+    summary:
+      'Na loja com taxa por bairro, o endereço do cliente vale pelo nome do bairro mesmo quando o pino fica um pouco fora da área desenhada. Na sacola dá para editar o endereço salvo, o CEP entra sozinho ao digitar o bairro e a tela de acompanhar o pedido ganhou a seta de voltar e ficou maior no notebook.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Cardápio online: "Ainda não entregamos neste ponto" aparecia para endereços dentro da área quando o pino caía fora do desenho. Agora, se o ponto não está em nenhuma área, vale a área com o nome do bairro do endereço ("Parque São Martinho" acha "Loteamento Parque São Martinho", "Pq. S. Martinho"…). A API confere igual ao fechar o pedido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio online: fora da área, o aviso mostra os bairros onde a loja entrega, para o cliente conferir o nome do bairro.',
+      },
+      {
+        tag: 'novo',
+        text: 'Sacola: botão Editar em cada endereço salvo, para corrigir rua, número, bairro ou CEP ali mesmo. Mudou o endereço, o mapa procura o ponto de novo (o ponto antigo é apagado, também em Conta › Endereços).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Endereço: com a rua preenchida, digitar o bairro já coloca o CEP do trecho daquele bairro (e a busca pela rua escolhe sozinha o CEP do bairro já digitado).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Acompanhar pedido: seta de voltar no topo e, no notebook e no monitor grande, letras, ícones, etapas, fotos e botões maiores.',
+      },
+    ],
+  },
+  {
     version: '0.209.1',
     date: '2026-11-20',
     title: 'Tela Impressão arrumada no notebook e no celular',

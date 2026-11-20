@@ -65,6 +65,7 @@ const ZoneUpdate = ZoneFields.partial().refine(
   'nada para atualizar',
 );
 const Point = z.object({ lat, lng });
+const QuotePoint = Point.extend({ district: z.string().trim().max(80).optional() });
 const Search = z.object({ q: z.string().trim().min(3).max(200) });
 const opt = (n: number) => z.string().trim().max(n).optional();
 const Locate = z.object({
@@ -192,12 +193,17 @@ export class ZonesController {
   @Post('store/delivery-quote')
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
   async quote(
-    @Body(new ZodPipe(Point)) p: z.infer<typeof Point>,
+    @Body(new ZodPipe(QuotePoint)) p: z.infer<typeof QuotePoint>,
     @CurrentTenant() t: ResolvedTenant,
   ) {
     return this.db.withTenant({ tenantId: t.id }, async (tx) => {
       const s = await this.store.settingsIn(tx);
-      const { hasZones: _h, ...q } = await this.zones.quoteIn(tx, [p.lat, p.lng], s.deliveryFee);
+      const { hasZones: _h, ...q } = await this.zones.quoteIn(
+        tx,
+        [p.lat, p.lng],
+        s.deliveryFee,
+        p.district,
+      );
       return q;
     });
   }

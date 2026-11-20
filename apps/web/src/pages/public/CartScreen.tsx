@@ -1,3 +1,4 @@
+import { AddressEdit } from './AddressEdit';
 import { AddressFields, addressPayload } from './AddressFields';
 import { fromCents, pixBrCode, toCents } from '@comandou/shared';
 import {
@@ -8,6 +9,7 @@ import {
   LockKeyhole,
   MapPin,
   Moon,
+  Pencil,
   Plus,
   Store,
   UserRound,
@@ -140,6 +142,8 @@ export function CartScreen() {
   }, [me?.email]);
   const saved = account?.addresses ?? [];
   const [addrId, setAddrId] = useState<string | 'new'>('new');
+  // Endereço salvo aberto para editar ali mesmo, na sacola.
+  const [editingAddr, setEditingAddr] = useState<string | null>(null);
   const [saveAddr, setSaveAddr] = useState(true);
   // Mesma chave e mesmo token em cada nova tentativa: reenviar não duplica o pedido.
   const attempt = useRef<{ key: string; token: string } | null>(null);
@@ -738,28 +742,63 @@ export function CartScreen() {
               </h2>
               {saved.length > 0 && (
                 <div className="addr-pick" role="radiogroup" aria-label="Endereço">
-                  {saved.map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={addrId === a.id}
-                      className="addr-opt"
-                      onClick={() => setAddrId(a.id)}
-                    >
-                      <MapPin size={16} />
-                      <span>
-                        <strong>{a.label || 'Endereço'}</strong>
-                        <small>{addressLine(a)}</small>
-                      </span>
-                    </button>
-                  ))}
+                  {saved.map((a) =>
+                    editingAddr === a.id ? (
+                      <AddressEdit
+                        key={a.id}
+                        address={a}
+                        city={menu.restaurant.city}
+                        state={menu.restaurant.state}
+                        onCancel={() => setEditingAddr(null)}
+                        onSaved={(n) => {
+                          if (me)
+                            setAccount({
+                              customer: me,
+                              addresses: saved.map((x) => (x.id === n.id ? n : x)),
+                            });
+                          setAddrId(n.id);
+                          setEditingAddr(null);
+                        }}
+                      />
+                    ) : (
+                      <div key={a.id} className="addr-row">
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={addrId === a.id}
+                          className="addr-opt"
+                          onClick={() => setAddrId(a.id)}
+                        >
+                          <MapPin size={16} />
+                          <span>
+                            <strong>{a.label || 'Endereço'}</strong>
+                            <small>{addressLine(a)}</small>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="addr-row__edit"
+                          aria-label={`Editar ${a.label || 'endereço'}`}
+                          onClick={() => {
+                            setAddrId(a.id);
+                            setEditingAddr(a.id);
+                          }}
+                        >
+                          <Pencil size={15} />
+                          <span>Editar</span>
+                        </button>
+                      </div>
+                    ),
+                  )}
                   <button
                     type="button"
                     role="radio"
                     aria-checked={addrId === 'new'}
                     className="addr-opt"
-                    onClick={() => setAddrId('new')}
+                    onClick={() => {
+                      setAddrId('new');
+                      setEditingAddr(null);
+                    }}
                   >
                     <Plus size={16} />
                     <span>
@@ -787,10 +826,12 @@ export function CartScreen() {
                   )}
                 </AddressFields>
               )}
-              {zones && (
+              {zones && !(chosen && editingAddr === chosen.id) && (
                 <Suspense fallback={<p className="form-hint">Carregando o mapa…</p>}>
                   <AddressPin
-                    key={chosen?.id ?? 'novo'}
+                    key={
+                      chosen ? `${chosen.id}:${chosen.lat ?? '-'}:${addressLine(chosen)}` : 'novo'
+                    }
                     address={chosen ?? (typedOk ? customer : null)}
                     saved={
                       chosen?.lat && chosen.lng

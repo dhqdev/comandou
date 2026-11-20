@@ -942,7 +942,7 @@ export class StoreService {
       a?.lat !== undefined && a?.lng !== undefined ? { lat: a.lat, lng: a.lng } : undefined;
     if (input.channel === 'delivery') {
       const quote = await this.db.withTenant(ctx, async (tx) =>
-        point ? this.zones.quoteIn(tx, [point.lat, point.lng], s.deliveryFee) : null,
+        point ? this.zones.quoteIn(tx, [point.lat, point.lng], s.deliveryFee, a?.district) : null,
       );
       const hasZones =
         quote?.hasZones ??

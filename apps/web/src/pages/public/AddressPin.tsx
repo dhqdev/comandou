@@ -72,6 +72,7 @@ export default function AddressPin({
   const [retry, setRetry] = useState(0);
   const cb = useRef(onChange);
   cb.current = onChange;
+  const district = address?.district.trim().slice(0, 80) ?? '';
 
   const params = address
     ? new URLSearchParams(
@@ -129,7 +130,12 @@ export default function AddressPin({
       return;
     }
     let alive = true;
-    api<DeliveryQuote>('/store/delivery-quote', { method: 'POST', json: point })
+    // O bairro vai junto: na taxa por bairro, a área com o nome dele vale mesmo com o pino um
+    // pouco fora do desenho.
+    api<DeliveryQuote>('/store/delivery-quote', {
+      method: 'POST',
+      json: { ...point, district: district || undefined },
+    })
       .then((q) => {
         if (!alive) return;
         setQuote(q);
@@ -139,7 +145,7 @@ export default function AddressPin({
     return () => {
       alive = false;
     };
-  }, [point?.lat, point?.lng, confirmed]);
+  }, [point?.lat, point?.lng, confirmed, district]);
 
   // Mapa pequeno com o pino arrastável; tocar no mapa também move o pino.
   useEffect(() => {
@@ -254,6 +260,12 @@ export default function AddressPin({
         ) : (
           <p className="addr-map__quote">
             Ainda não entregamos neste ponto. Se o pino não está na sua casa, arraste até ela.
+            {quote.areas?.length ? (
+              <span className="addr-map__areas">
+                Entregamos em: {quote.areas.join(', ')}. Se o seu bairro é um desses, confira o nome
+                do bairro no endereço.
+              </span>
+            ) : null}
           </p>
         ))}
     </div>

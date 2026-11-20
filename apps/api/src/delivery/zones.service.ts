@@ -4,7 +4,7 @@ import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
-import { findZone, LatLng, Zone } from './zones';
+import { findZoneFor, LatLng, Zone } from './zones';
 
 export const ZONE_COLS = `id, name, color, kind, polygon, center_lat::text AS "centerLat",
   center_lng::text AS "centerLng", radius_m AS "radiusM", fee::text, min_order::text AS "minOrder",
@@ -33,6 +33,8 @@ export interface DeliveryQuote {
   minOrder: string | null;
   etaMin: number | null;
   etaMax: number | null;
+  /** Fora de todas as áreas: os nomes delas (o cliente vê onde a loja entrega). */
+  areas?: string[];
 }
 
 const MAX_ZONES = 30;
@@ -55,6 +57,8 @@ export class ZonesService {
     tx: Tx,
     p: LatLng,
     flatFee: string,
+    /** Bairro do endereço: vale quando o ponto cai fora das áreas desenhadas (taxa por bairro). */
+    district?: string | null,
   ): Promise<DeliveryQuote & { hasZones: boolean }> {
     const zones = (await this.listIn(tx)).filter((z) => z.active);
     if (zones.length === 0)
@@ -67,7 +71,7 @@ export class ZonesService {
         etaMin: null,
         etaMax: null,
       };
-    const z = findZone(zones, p);
+    const z = findZoneFor(zones, p, district);
     if (!z)
       return {
         hasZones: true,
@@ -77,6 +81,7 @@ export class ZonesService {
         minOrder: null,
         etaMin: null,
         etaMax: null,
+        areas: [...new Set(zones.sort((a, b) => a.position - b.position).map((z) => z.name))],
       };
     return {
       hasZones: true,

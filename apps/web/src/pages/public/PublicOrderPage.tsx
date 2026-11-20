@@ -6,6 +6,7 @@ import {
   qtyLabel,
 } from '@comandou/shared';
 import {
+  ArrowLeft,
   BadgeCheck,
   Bike,
   Check,
@@ -23,7 +24,7 @@ import {
   Clock3,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { CustomerLiveMap, DeliveryCode, type CustomerCourier } from '../../features/CustomerTrack';
 import { time } from '../../features/format';
 import { api, ApiError } from '../../lib/api';
@@ -167,6 +168,7 @@ export function prefetchOrder(token: string) {
  */
 export function PublicOrderPage() {
   const { token = '', id = '' } = useParams();
+  const navigate = useNavigate();
   const base = id
     ? `/store/account/orders/${encodeURIComponent(id)}`
     : `/store/orders/${encodeURIComponent(token)}`;
@@ -292,6 +294,18 @@ export function PublicOrderPage() {
     <main className="store store--track">
       <div className="track">
         <header className="track__top">
+          <button
+            type="button"
+            className="track__back"
+            aria-label="Voltar"
+            title="Voltar"
+            onClick={() =>
+              // Veio de outra tela do cardápio: volta para ela; abriu pelo link: Meus pedidos.
+              (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/pedir/pedidos')
+            }
+          >
+            <ArrowLeft size={20} aria-hidden />
+          </button>
           <Photo src={o.restaurant.logoUrl} alt={o.restaurant.name} />
           <strong>{o.restaurant.name}</strong>
           <Link to="/pedir">

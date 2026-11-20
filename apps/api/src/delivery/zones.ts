@@ -2,6 +2,8 @@
  * Áreas de entrega: geometria simples (sem PostGIS). As áreas de um restaurante são poucas e
  * pequenas; a conta é feita na API, que sempre decide a taxa (o navegador só mostra).
  */
+import { zoneNamesDistrict } from '@comandou/shared';
+
 export type LatLng = [number, number];
 
 export interface Zone {
@@ -62,4 +64,17 @@ export function findZone(zones: Zone[], p: LatLng): Zone | undefined {
     .filter((z) => z.active)
     .sort((a, b) => a.position - b.position)
     .find((z) => zoneContains(z, p));
+}
+
+/**
+ * Área do pedido: a que contém o ponto no mapa; se nenhuma contém (área desenhada um pouco
+ * menor que o bairro, pino no limite), a área com o nome do bairro informado.
+ */
+export function findZoneFor(zones: Zone[], p: LatLng, district?: string | null): Zone | undefined {
+  const byPoint = findZone(zones, p);
+  if (byPoint || !district?.trim()) return byPoint;
+  return [...zones]
+    .filter((z) => z.active)
+    .sort((a, b) => a.position - b.position)
+    .find((z) => zoneNamesDistrict(z.name, district));
 }

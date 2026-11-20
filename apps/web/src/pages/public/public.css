@@ -246,6 +246,28 @@
   gap: 12px;
   min-width: 0;
 }
+.track__back {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-left: -4px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  cursor: pointer;
+  transition:
+    border-color var(--cm-dur),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.track__back:hover {
+  border-color: var(--cm-border-strong);
+}
+.track__back:active {
+  transform: scale(0.92);
+}
 .track__top .ph {
   flex: none;
   width: 44px;
@@ -671,6 +693,120 @@
   }
   .track__map .ctrack__map.live-map {
     height: clamp(220px, calc(100dvh - 490px), 560px);
+  }
+}
+
+/*
+ * Notebook e monitor grandes (1100px úteis ou mais): tudo maior, para a página não parecer
+ * pequena no meio da tela — letras, ícones, desenho, etapas, fotos e botões.
+ */
+@container track (min-width: 1100px) {
+  .track {
+    max-width: 1280px;
+    padding: 28px 40px 32px;
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 420px);
+    gap: 24px 28px;
+  }
+  .track__back {
+    width: 48px;
+    height: 48px;
+  }
+  .track__back svg {
+    width: 24px;
+    height: 24px;
+  }
+  .track__top .ph {
+    width: 56px;
+  }
+  .track__top strong {
+    font-size: var(--cm-text-xl);
+  }
+  .track__top a {
+    min-height: 44px;
+    padding: 0 18px;
+    font-size: var(--cm-text-md);
+  }
+  .track__top a svg {
+    width: 18px;
+    height: 18px;
+  }
+  .track__card {
+    padding: 24px;
+  }
+  .track__status {
+    gap: 28px;
+    padding: 32px 36px;
+  }
+  .track__art {
+    width: 190px;
+  }
+  .track__badge {
+    width: 88px;
+    height: 88px;
+  }
+  .track__head .cm-hint {
+    font-size: var(--cm-text-md);
+  }
+  .track__hero h1 {
+    font-size: var(--cm-text-3xl);
+  }
+  .track__hero p {
+    font-size: var(--cm-text-xl);
+  }
+  .track__live {
+    top: 30px;
+    right: 36px;
+    font-size: var(--cm-text-sm);
+  }
+  .step__dot {
+    width: 36px;
+    height: 36px;
+  }
+  .step__dot svg {
+    width: 18px;
+    height: 18px;
+  }
+  .step[data-state='current'] .step__dot::after {
+    width: 14px;
+    height: 14px;
+  }
+  .step::before {
+    left: calc(50% + 22px);
+    right: calc(-50% + 22px);
+    top: 17px;
+  }
+  .step__label {
+    font-size: var(--cm-text-md);
+  }
+  .step__time {
+    font-size: var(--cm-text-sm);
+  }
+  .track h2 {
+    font-size: var(--cm-text-lg);
+  }
+  .track__items {
+    font-size: var(--cm-text-md);
+  }
+  .track__photo {
+    width: 56px;
+  }
+  .track__row {
+    font-size: var(--cm-text-md);
+  }
+  .track__row > svg {
+    width: 18px;
+    height: 18px;
+  }
+  .sum {
+    font-size: var(--cm-text-md);
+  }
+  .btn-line {
+    min-height: 52px;
+    font-size: var(--cm-text-md);
+  }
+  .btn-line svg {
+    width: 20px;
+    height: 20px;
   }
 }
 

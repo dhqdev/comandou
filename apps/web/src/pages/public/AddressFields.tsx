@@ -45,6 +45,15 @@ export function AddressFields({
   }, []);
 
   const cep = useCepAutofill(value, (a, from) => {
+    // Pelo bairro: só o CEP (e a cidade, se faltar); o resto já foi digitado.
+    if (from === 'district') {
+      onChange({
+        cep: maskCep(a.cep),
+        city: value.city || a.city,
+        state: value.state || a.state,
+      });
+      return;
+    }
     if (from === 'street') {
       onChange({
         cep: maskCep(a.cep),
@@ -115,11 +124,14 @@ export function AddressFields({
           onChange={(e) => onChange({ number: e.target.value })}
         />
       </Field>
-      <Field label="Bairro" className="af-district">
+      <Field label="Bairro" className="af-district" hint={cep.districtHint}>
         <input
           value={value.district}
           maxLength={80}
-          onChange={(e) => onChange({ district: e.target.value })}
+          onChange={(e) => {
+            cep.districtTyped();
+            onChange({ district: e.target.value });
+          }}
         />
       </Field>
       <div className="city-uf">

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { sameDistrict } from '@comandou/shared';
 import { api, ApiError } from './api';
 
 /** Endereço que a consulta de CEP devolve. */
@@ -152,6 +153,23 @@ export interface CepFields {
   street: string;
   city: string;
   state: string;
+  /** Bairro: com ele, a busca pela rua escolhe sozinha o CEP do trecho daquele bairro. */
+  district?: string;
+}
+
+/**
+ * CEP da rua naquele bairro: os resultados da rua cujo bairro é o digitado, quando todos dão o
+ * mesmo CEP. Rua só com um CEP na cidade também vale (o bairro digitado pode estar com outro
+ * nome, como "São Martinho" no lugar de "Loteamento Parque São Martinho").
+ */
+export function cepForDistrict(hits: CepAddress[], district: string): CepAddress | null {
+  if (!hits.length) return null;
+  const ceps = (l: CepAddress[]) => new Set(l.map((h) => h.cep)).size;
+  const d = district.trim();
+  const match = d ? hits.filter((h) => sameDistrict(h.district, d)) : [];
+  if (match.length && ceps(match) === 1) return match[0]!;
+  if (!match.length && ceps(hits) === 1) return hits[0]!;
+  return null;
 }
 
 export type CepState = 'idle' | 'busy' | 'ok' | 'missing' | 'error';
@@ -165,7 +183,7 @@ export type CepState = 'idle' | 'busy' | 'ok' | 'missing' | 'error';
  */
 export function useCepAutofill(
   v: CepFields,
-  onFill: (a: CepAddress, from: 'cep' | 'street') => void,
+  onFill: (a: CepAddress, from: 'cep' | 'street' | 'district') => void,
 ) {
   const [cepState, setCepState] = useState<CepState>('idle');
   const [hits, setHits] = useState<CepAddress[]>([]);
@@ -179,6 +197,11 @@ export function useCepAutofill(
   // consulta o CEP que ela digitou (endereço salvo que acabou de carregar não é reescrito).
   const typedStreet = useRef(false);
   const typedCep = useRef(false);
+  const typedDistrict = useRef(false);
+  const [districtState, setDistrictState] = useState<'idle' | 'busy' | 'ok' | 'many' | 'none'>(
+    'idle',
+  );
+  const districtSeq = useRef(0);
   const cepSeq = useRef(0);
   const streetSeq = useRef(0);
   const fill = useRef(onFill);
@@ -227,6 +250,15 @@ export function useCepAutofill(
           if (my !== streetSeq.current || !typedStreet.current) return;
           setSearchError(false);
           setSearched(q);
+          // Bairro já digitado e um só CEP da rua nele: o CEP entra sozinho.
+          const byDistrict =
+            v.district?.trim() && !looked.current ? cepForDistrict(r, v.district) : null;
+          if (byDistrict) {
+            looked.current = byDistrict.cep;
+            setCepState('ok');
+            setDistrictState('ok');
+            fill.current(byDistrict, 'district');
+          }
           setHits(r);
           setOpen(r.length > 0);
         })
@@ -239,6 +271,37 @@ export function useCepAutofill(
     }, 400);
     return () => clearTimeout(t);
   }, [v.street, city, state, canSearch]);
+
+  // Bairro digitado sem CEP: procura a rua na cidade e fica com o CEP do trecho desse bairro.
+  const district = v.district?.trim() ?? '';
+  const streetQ = v.street.trim();
+  useEffect(() => {
+    if (!typedDistrict.current || district.length < 3 || digits.length === 8) {
+      setDistrictState('idle');
+      return;
+    }
+    if (streetQ.replace(/\s/g, '').length < 3 || !canSearch) {
+      setDistrictState('idle');
+      return;
+    }
+    const t = setTimeout(() => {
+      const my = ++districtSeq.current;
+      setDistrictState('busy');
+      searchStreet(streetQ, city, state)
+        .then((r) => {
+          if (my !== districtSeq.current) return;
+          const a = cepForDistrict(r, district);
+          if (!a) return setDistrictState(r.length ? 'many' : 'none');
+          looked.current = a.cep;
+          setCepState('ok');
+          setDistrictState('ok');
+          fill.current(a, 'district');
+        })
+        .catch(() => my === districtSeq.current && setDistrictState('none'));
+    }, 500);
+    return () => clearTimeout(t);
+    // O CEP preenchido não dispara de novo (digits fica com 8 e a busca para).
+  }, [district, streetQ, city, state, canSearch, digits.length === 8]);
 
   function pick(a: CepAddress) {
     typedStreet.current = false;
@@ -265,6 +328,21 @@ export function useCepAutofill(
             ? `Sem o CEP? Digite a rua: buscamos em ${city}.`
             : undefined;
 
+  const districtHint =
+    !typedDistrict.current || digits.length === 8
+      ? districtState === 'ok'
+        ? 'CEP preenchido pelo bairro.'
+        : undefined
+      : districtState === 'busy'
+        ? 'Procurando o CEP da rua neste bairro…'
+        : districtState === 'many'
+          ? 'Essa rua tem mais de um CEP. Escolha na lista da rua ou digite o CEP.'
+          : districtState === 'none'
+            ? 'Não achamos o CEP. Confira a rua ou digite o CEP.'
+            : district.length >= 3 && streetQ.length < 3
+              ? 'Preencha a rua e a gente acha o CEP pelo bairro.'
+              : undefined;
+
   const cepHint =
     cepState === 'busy'
       ? 'Buscando o endereço…'
@@ -280,6 +358,7 @@ export function useCepAutofill(
     cepState,
     cepHint,
     streetHint,
+    districtHint,
     hits,
     open,
     setOpen,
@@ -288,6 +367,10 @@ export function useCepAutofill(
     /** Chame no onChange do campo do CEP. */
     cepTyped() {
       typedCep.current = true;
+    },
+    /** Chame no onChange do campo do bairro. */
+    districtTyped() {
+      typedDistrict.current = true;
     },
     /** Chame no onChange do campo da rua. */
     streetTyped() {

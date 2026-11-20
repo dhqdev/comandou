@@ -31,6 +31,7 @@ import { ProfilePhoto } from './ProfilePhoto';
 import { useStoreChat } from './chat';
 import { useStore } from './context';
 import { AddressFields, addressPayload } from './AddressFields';
+import { movedAddress } from './AddressEdit';
 import { nextGoal, useLoyalty } from './LoyaltyScreens';
 import {
   AccountOrder,
@@ -716,6 +717,8 @@ export function AddressesScreen() {
               cep: p.cep ?? null,
               city: p.city ?? null,
               state: p.state ?? null,
+              // Endereço mudou: o ponto antigo do mapa sai e o mapa procura de novo.
+              ...(editing !== 'new' && movedAddress(editing, form) ? { lat: null, lng: null } : {}),
             };
             const ok = await run(() =>
               editing === 'new'
