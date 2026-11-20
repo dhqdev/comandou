@@ -713,7 +713,8 @@ button.od-fact__link {
 }
 .od-tools__group {
   display: flex;
-  flex: none;
+  flex: 1 0 auto;
+  justify-content: space-evenly;
   gap: 2px;
 }
 .od-tools__group + .od-tools__group {
@@ -779,6 +780,77 @@ button.od-fact__link {
   opacity: 0.5;
   cursor: default;
 }
+/* Pedido sem botões que decidem (fechado, cancelado): a barra ocupa a largura toda, cada botão
+   vira um cartão maior com o ícone ao lado do nome, dividindo o espaço por igual (0.211.1). */
+.od-tools--solo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: visible;
+  mask-image: none;
+}
+.od-tools--solo > .od-tools__group {
+  display: contents;
+}
+.od-tools--solo > .od-tools__group + .od-tools__group {
+  padding: 0;
+  border: 0;
+}
+.od-tools--solo .od-tool {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 12px;
+  width: auto;
+  min-height: 60px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in oklab, var(--hue, var(--cm-text-muted)) 24%, var(--cm-border));
+  border-radius: var(--cm-radius-lg, 12px);
+  background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 5%, var(--cm-surface));
+  color: var(--cm-text);
+}
+.od-tools--solo .od-tool:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 11%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 42%, var(--cm-border));
+}
+.od-tools--solo .od-tool__icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+.od-tools--solo .od-tool__label {
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  text-align: left;
+}
+@container od (min-width: 820px) {
+  /* Duas linhas no notebook: a barra de ícones em cima e, embaixo, os passos e o Fechar conta numa
+     fileira só, dividindo a largura (o Fechar conta um pouco maior), todos da mesma altura. */
+  .od-bar {
+    flex-wrap: nowrap;
+  }
+  .od-bar > .cm-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 46px;
+    min-height: 46px;
+    padding: 0 12px;
+  }
+  .od-bar > .od-bar__cancel {
+    margin-right: 0;
+  }
+  .od-bar > .cm-btn.od-bar__close {
+    flex: 1.4 1 0;
+    min-width: 0;
+  }
+  .od-foot > .od-tools--solo {
+    grid-row: 1 / span 2;
+    align-self: stretch;
+    align-content: center;
+  }
+}
 /* Fechar conta: o botão grande e verde do rodapé, com a seta no fim. */
 .od-bar > .cm-btn.od-bar__close {
   height: 46px;
@@ -816,6 +888,11 @@ button.od-fact__link {
   }
   .od-tool {
     width: 72px;
+  }
+  .od-tools.od-tools--solo {
+    margin-inline: 0;
+    mask-image: none;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
   .od-bar > .cm-btn.od-bar__close {
     flex-basis: 100%;
@@ -1544,6 +1621,8 @@ button.pay-part {
   .od-foot > .od-sum {
     grid-column: 2;
     grid-row: 1 / span 2;
+    align-self: stretch;
+    align-content: center;
   }
   .od-foot > :not(.od-sum) {
     grid-column: 1;

@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.211.1',
+    date: '2026-11-20',
+    title: 'Todo botão do pedido com ícone, em duas linhas',
+    summary:
+      'O rodapé do pedido ficou em duas linhas: a barra de ícones em cima e, embaixo, os passos e o Fechar conta lado a lado, todos com ícone. Pedido fechado mostra os botões que sobram grandes, ocupando a largura.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Pedido: Aceitar, Iniciar preparo, Marcar pronto, Concluir, Entregue, Despachar entregador, Entregue na mesa, Recusar e Manter pedido ganharam ícone.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pedido: no notebook, os passos e o Fechar conta ficam numa linha só, do mesmo tamanho, embaixo da barra de ícones; o resumo de valores acompanha a altura das duas linhas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pedido fechado ou cancelado: Imprimir pedido e Imprimir cozinha viram botões grandes, com ícone ao lado do nome, dividindo a largura.',
+      },
+    ],
+  },
+  {
     version: '0.211.0',
     date: '2026-11-20',
     title:

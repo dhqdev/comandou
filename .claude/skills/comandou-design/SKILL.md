@@ -153,7 +153,10 @@ botões `od-tool`: ícone num círculo no tom do `data-hue` e o nome curto embai
 Cobrança (desconto, fiado, a receber) e Cancelar (vermelho, `danger`). A barra corre de lado se
 não couber (no celular com a ponta esmaecida). O `od-bar` embaixo só tem Recusar, os passos e o
 **Fechar conta** grande e verde (`od-bar__close`, 46px, seta no fim; no escuro o verde escurece).
-Nada de ações no topo do pedido.
+Todo botão do rodapé tem ícone (passos em `STEP_ICON`). No notebook são duas linhas: a barra de
+ícones e, embaixo, os passos e o Fechar conta numa fileira só, dividindo a largura (0.211.1). Sem
+botões que decidem (pedido fechado), a barra vira `od-tools--solo`: cartões grandes com ícone ao
+lado do nome, dividindo a largura. Nada de ações no topo do pedido.
 Editar itens fica só no botão Editar ao lado de "Itens do pedido" (não repita na fileira). Fora dessa gaveta, o resto do sistema
 segue neutro; não copie os tons para outras telas sem pedido.
 

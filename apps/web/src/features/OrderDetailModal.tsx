@@ -9,10 +9,17 @@ import {
   qtyLabel,
 } from '@comandou/shared';
 import {
+  Ban,
+  BellRing,
   Bike,
   CalendarClock,
   ChefHat,
+  Check,
   ChevronRight,
+  CircleCheckBig,
+  Flame,
+  PackageCheck,
+  RotateCcw,
   HandCoins,
   Pencil,
   Percent,
@@ -88,6 +95,14 @@ import { AppDriverCard, appDriverTakes } from './channels/AppDriver';
 import { AppOrderFinance } from './channels/AppOrderFinance';
 import { OrderReviewNote } from './channels/AppReviews';
 import { ChannelBadge } from './channels/ChannelBadge';
+
+// Ícone de cada passo do rodapé (0.211.1, pedido do David: todo botão do pedido com símbolo).
+const STEP_ICON: Partial<Record<OrderStatus, ReactNode>> = {
+  new: <Check size={18} />,
+  in_production: <Flame size={18} />,
+  ready: <BellRing size={18} />,
+  completed: <CircleCheckBig size={18} />,
+};
 
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> = {
   awaiting: [{ to: 'new', label: 'Aceitar pedido' }],
@@ -438,7 +453,13 @@ export function OrderDetailModal({
   ].filter((g) => g.items.length > 0);
   const tools =
     order && toolGroups.length > 0 ? (
-      <div className="od-tools" role="toolbar" aria-label="Ações do pedido">
+      // Sem botões que decidem o pedido (fechado, cancelado, sem permissão), a barra ocupa a
+      // largura toda com botões maiores, ícone ao lado do nome.
+      <div
+        className={hasBar ? 'od-tools' : 'od-tools od-tools--solo'}
+        role="toolbar"
+        aria-label="Ações do pedido"
+      >
         {toolGroups.map((g) => (
           <div key={g.label} className="od-tools__group" role="group" aria-label={g.label}>
             {g.items.map((a) => (
@@ -507,7 +528,7 @@ export function OrderDetailModal({
               className="od-bar__cancel"
               onClick={() => setMode('reject')}
             >
-              Recusar
+              <Ban size={18} aria-hidden /> Recusar
             </Button>
           )}
           {nextSteps.map((a, i) => (
@@ -517,16 +538,30 @@ export function OrderDetailModal({
                 (leadIsStep || order.status === 'awaiting') && i === 0 ? 'primary' : 'secondary'
               }
               loading={busy}
+              icon={
+                order.status === 'cancel_requested' ? (
+                  <RotateCcw size={18} />
+                ) : order.status === 'dispatched' ? (
+                  <PackageCheck size={18} />
+                ) : (
+                  STEP_ICON[a.to]
+                )
+              }
               onClick={() => go(a.to)}
             >
               {a.label}
             </Button>
           ))}
-          {canSend && <Button onClick={() => setMode('dispatch')}>Despachar entregador</Button>}
+          {canSend && (
+            <Button icon={<Bike size={18} />} onClick={() => setMode('dispatch')}>
+              Despachar entregador
+            </Button>
+          )}
           {canServe && (
             <Button
               variant={canReceive ? 'secondary' : 'primary'}
               loading={busy}
+              icon={<UtensilsCrossed size={18} />}
               onClick={() => void serve()}
             >
               Entregue na mesa
