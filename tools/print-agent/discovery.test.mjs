@@ -42,7 +42,7 @@ import {
   summarize as snmpSummary,
   supplyOids,
 } from './snmp.mjs';
-import { DOT, documentHtml, pngToIco } from './desktop/pure.mjs';
+import { DOT, documentHtml, isNewer, pngToIco, updateFile } from './desktop/pure.mjs';
 import { QR_MARK } from './escpos.mjs';
 import {
   isVirtualPrinter,
@@ -634,4 +634,18 @@ test('ícone .ico com o PNG dentro e cores da bolinha', () => {
   assert.equal(ico.readUInt32LE(6 + 12), 22);
   assert.deepEqual(ico.subarray(22), png);
   assert.equal(DOT.online, '#22c55e');
+});
+
+test('atualização: compara versões e escolhe o instalador de cada sistema', () => {
+  assert.equal(isNewer('1.7.0', '1.6.0'), true);
+  assert.equal(isNewer('1.10.0', '1.9.9'), true);
+  assert.equal(isNewer('1.6.0', '1.6.0'), false);
+  assert.equal(isNewer('1.5.9', '1.6.0'), false);
+  assert.equal(isNewer('2', '1.99.99'), true);
+  assert.equal(isNewer('', '1.0.0'), false);
+  assert.equal(updateFile('win32', 'arm64'), 'Comandou-Impressao-Setup.exe');
+  assert.equal(updateFile('linux', 'arm64'), 'Comandou-Impressao-arm64.AppImage');
+  assert.equal(updateFile('linux', 'x64'), 'Comandou-Impressao.AppImage');
+  assert.equal(updateFile('darwin', 'arm64'), 'Comandou-Impressao.dmg');
+  assert.equal(updateFile('aix', 'x64'), null);
 });

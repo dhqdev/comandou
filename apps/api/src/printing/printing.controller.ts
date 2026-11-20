@@ -36,10 +36,29 @@ import { TEMPLATE_KINDS, TEMPLATE_MAX, TemplateKind } from './templates';
 
 const Agent = z.object({ name: z.string().trim().min(1).max(60), active: z.boolean().optional() });
 const JobsQuery = z.object({
-  status: z.enum(['queued', 'printing', 'done', 'failed', 'cancelled']).optional(),
+  /** pending = na fila ou imprimindo (o que ainda vai sair). */
+  status: z.enum(['queued', 'printing', 'done', 'failed', 'cancelled', 'pending']).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
+  /** Destino (setor ou "Caixa"). */
+  target: z.string().trim().min(1).max(60).optional(),
+  /** Número do pedido ou parte do destino. */
+  q: z.string().trim().min(1).max(60).optional(),
+  /** Paginação: só os criados antes deste (o último da página anterior). */
+  before: z.string().datetime({ offset: true }).optional(),
 });
 const Discard = z.object({ ids: z.array(z.string().uuid()).min(1).max(200).optional() });
+const JobIds = z.object({ ids: z.array(z.string().uuid()).min(1).max(200) });
+/** Apagar: os escolhidos (ids) ou o histórico inteiro de uma ou mais situações. */
+const DeleteJobs = z
+  .object({
+    ids: z.array(z.string().uuid()).min(1).max(200).optional(),
+    statuses: z
+      .array(z.enum(['done', 'failed', 'cancelled']))
+      .min(1)
+      .max(3)
+      .optional(),
+  })
+  .refine((b) => !!b.ids !== !!b.statuses, { message: 'Informe ids ou statuses' });
 const Target = z.object({ target: z.string().trim().min(1).max(60) });
 const PrintOrder = z.object({ kind: z.enum(['kitchen', 'receipt', 'delivery']) });
 const Claim = z.object({ limit: z.number().int().min(1).max(20).default(5) });
@@ -429,13 +448,122 @@ export class PrintingController {
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
   ) {
+    const num = f.q && /^#?\d{1,9}$/.test(f.q) ? Number(f.q.replace('#', '')) : null;
     return this.db.withTenant(ctxOf(t, u), (tx) =>
       q(
         tx,
-        `${JOB_SELECT} WHERE ($1::text IS NULL OR j.status = $1) ORDER BY j.created_at DESC LIMIT $2`,
-        [f.status ?? null, f.limit],
+        `${JOB_SELECT}
+          WHERE ($1::text IS NULL OR j.status = $1
+                 OR ($1 = 'pending' AND j.status IN ('queued','printing')))
+            AND ($3::text IS NULL OR j.target = $3)
+            AND ($4::text IS NULL OR ($5::int IS NOT NULL AND o.number = $5)
+                 OR j.target ILIKE '%' || $4 || '%' OR a.name ILIKE '%' || $4 || '%')
+            AND ($6::timestamptz IS NULL OR j.created_at < $6)
+          ORDER BY j.created_at DESC, j.id DESC LIMIT $2`,
+        [
+          f.status ?? null,
+          f.limit,
+          f.target ?? null,
+          f.q?.replace(/[%_\\]/g, '') || null,
+          num,
+          f.before ?? null,
+        ],
       ),
     );
+  }
+
+  /** Quantos trabalhos há em cada situação e os destinos usados (abas e filtro da tela). */
+  @Get('printing/jobs/summary')
+  @RequirePermission('printing:manage')
+  jobsSummary(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const rows = await q<{ status: string; n: number }>(
+        tx,
+        `SELECT status, count(*)::int AS n FROM print_jobs GROUP BY status`,
+      );
+      const targets = await q<{ target: string }>(
+        tx,
+        `SELECT DISTINCT target FROM print_jobs ORDER BY target LIMIT 60`,
+      );
+      const counts = { queued: 0, printing: 0, done: 0, failed: 0, cancelled: 0 } as Record<
+        string,
+        number
+      >;
+      for (const r of rows) counts[r.status] = r.n;
+      return { counts, targets: targets.map((r) => r.target) };
+    });
+  }
+
+  /** Recoloca na fila vários trabalhos (falharam ou foram tirados da fila). */
+  @Post('printing/jobs/requeue')
+  @HttpCode(200)
+  @RequirePermission('printing:manage')
+  async requeue(
+    @Body(new ZodPipe(JobIds)) b: z.infer<typeof JobIds>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    const rows = await this.db.withTenant(ctxOf(t, u), (tx) =>
+      q(
+        tx,
+        `UPDATE print_jobs SET status = 'queued', attempts = 0, claimed_by = NULL, claimed_at = NULL,
+                retry_at = NULL
+          WHERE id = ANY($1::uuid[]) AND status IN ('failed','cancelled') RETURNING id`,
+        [b.ids],
+      ),
+    );
+    if (rows.length) this.realtime.publish(t.id, { type: 'print.changed' });
+    return { requeued: rows.length };
+  }
+
+  /**
+   * Apaga trabalhos da lista. Por ids, apaga qualquer um (o que ainda ia sair deixa de sair; o
+   * computador que já tinha pegado não confirma mais e limpa a fila do Windows). Por situação,
+   * só o histórico: impressos, com falha ou tirados da fila (a fila de espera fica).
+   */
+  @Post('printing/jobs/delete')
+  @HttpCode(200)
+  @RequirePermission('printing:manage')
+  async deleteJobs(
+    @Body(new ZodPipe(DeleteJobs)) b: z.infer<typeof DeleteJobs>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const deleted = await this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const rows = await q<{ status: string; claimed_by: string | null }>(
+        tx,
+        `DELETE FROM print_jobs
+          WHERE ($1::uuid[] IS NOT NULL AND id = ANY($1::uuid[]))
+             OR ($2::text[] IS NOT NULL AND status = ANY($2::text[]))
+          RETURNING status, claimed_by`,
+        [b.ids ?? null, b.statuses ?? null],
+      );
+      const busy = [
+        ...new Set(
+          rows.filter((r) => r.status === 'printing' && r.claimed_by).map((r) => r.claimed_by),
+        ),
+      ];
+      if (busy.length)
+        await q(
+          tx,
+          `UPDATE print_agents SET purge_requested_at = now() WHERE id = ANY($1::uuid[])`,
+          [busy],
+        );
+      if (rows.length)
+        await this.audit.record(tx, {
+          tenantId: t.id,
+          actorUserId: u.id,
+          action: 'printing.jobs_deleted',
+          entity: 'print_job',
+          entityId: t.id,
+          data: { count: rows.length, statuses: b.statuses ?? null },
+          ip: req.ip,
+        });
+      return rows.length;
+    });
+    if (deleted) this.realtime.publish(t.id, { type: 'print.changed' });
+    return { deleted };
   }
 
   /** Recoloca na fila um trabalho que falhou. */

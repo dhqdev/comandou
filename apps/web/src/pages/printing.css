@@ -529,3 +529,96 @@ button.print-chip:focus-visible {
   border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-lg);
 }
+
+/* Fila: busca, destino, seleção e ações em lote */
+.print-queue__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+  padding: 0 var(--cm-space-5) var(--cm-space-3);
+}
+.print-queue__search {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.print-queue__search svg {
+  position: absolute;
+  left: 10px;
+  color: var(--cm-text-muted);
+  pointer-events: none;
+}
+.print-queue__search .cm-input {
+  width: 100%;
+  padding-left: 34px;
+}
+.print-queue__tools .cm-picker {
+  flex: 0 1 220px;
+  min-width: 0;
+}
+.print-queue__select {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-2);
+  min-height: 44px;
+  padding: var(--cm-space-2) var(--cm-space-5);
+  border-top: 1px solid var(--cm-border);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.print-queue__select[data-active] {
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+  font-weight: 600;
+}
+.print-queue__all {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  cursor: pointer;
+}
+.print-queue__bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-1);
+}
+.print-job__check,
+.print-queue__all input,
+.print-history__row input {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  accent-color: var(--cm-brand-500);
+  cursor: pointer;
+}
+.print-job[data-selected] {
+  background: color-mix(in oklab, var(--cm-brand-500) 7%, transparent);
+}
+.print-queue__more {
+  display: flex;
+  justify-content: center;
+  padding: var(--cm-space-3);
+  border-top: 1px solid var(--cm-border);
+}
+.print-history {
+  display: grid;
+  gap: var(--cm-space-2);
+  margin-top: var(--cm-space-3);
+}
+.print-history__row {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+  min-height: 44px;
+  padding: 0 var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  cursor: pointer;
+}
+.print-history__row span {
+  flex: 1;
+}

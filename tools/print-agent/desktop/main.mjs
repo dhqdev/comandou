@@ -56,6 +56,7 @@ import { BleBridge } from './ble.mjs';
 import { Brand } from './brand.mjs';
 import { printDocument } from './document.mjs';
 import { discoverAll } from './discover.mjs';
+import { Updater } from './updater.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROTOCOL = 'comandou-impressao';
@@ -123,6 +124,28 @@ const ble = new BleBridge({ onDevices: (list) => win?.webContents.send('ble-devi
 registerTransport('ble:', (base, data) => ble.write(base.slice(4), data));
 // Impressora comum (jato de tinta, laser): o texto vai numa folha, pelo driver do sistema.
 registerTransport('doc', (base, text, opts) => printDocument(base.slice(8), text, opts));
+
+// Atualização pelo botão Atualizar (sem reinstalar na mão).
+let updateNotified = '';
+const updater = new Updater({
+  version: VERSION,
+  onChange: () => {
+    const u = updater.state;
+    if (u.available && u.latest && u.latest !== updateNotified && u.progress === null) {
+      updateNotified = u.latest;
+      notify(
+        'Versão nova do Comandou Impressão',
+        `A ${u.latest} está pronta. Abra o aplicativo e clique em Atualizar.`,
+      );
+    }
+    push();
+  },
+  quit: () => {
+    quitting = true;
+    app.quit();
+  },
+  openExternal: (url) => shell.openExternal(url),
+});
 
 const brand = new Brand({
   helper: ble,
@@ -348,6 +371,7 @@ function publicState() {
     bleNames: config.bleNames,
     brand: { ...(config.brand ?? {}), icon: brand.icon },
     discovery,
+    update: updater.state,
   };
 }
 
@@ -475,6 +499,16 @@ function updateTray() {
         enabled: !!(config.printers.default && config.printers.default !== 'none'),
         click: () => void testPrint(config.printers.default),
       },
+      ...(updater.state.available
+        ? [
+            { type: 'separator' },
+            {
+              label: `Atualizar para a ${updater.state.latest}`,
+              enabled: updater.state.progress === null,
+              click: () => void updater.install(),
+            },
+          ]
+        : []),
       { type: 'separator' },
       {
         label: 'Sair (para de imprimir)',
@@ -740,6 +774,14 @@ function registerIpc() {
       isDefault: !!p.isDefault,
     }));
   });
+  ipcMain.handle('update-check', async () => {
+    await updater.check(false);
+    return publicState();
+  });
+  ipcMain.handle('update-install', async () => {
+    await updater.install();
+    return publicState();
+  });
   ipcMain.handle('set-printer', async (_e, target, spec) => {
     spec = String(spec ?? '');
     if (!validSpec(spec)) throw new Error('Impressora inválida.');
@@ -899,6 +941,9 @@ if (!app.requestSingleInstanceLock()) {
     powerMonitor.on('unlock-screen', () => agent?.poke());
     void checkAll();
     setInterval(() => void checkAll(), 120_000);
+    // Versão nova: confere logo depois de abrir e a cada 6 horas (sem atrapalhar a impressão).
+    setTimeout(() => void updater.check(true), 15_000);
+    setInterval(() => void updater.check(true), 6 * 60 * 60_000);
   });
   app.on('window-all-closed', () => {
     /* continua na bandeja */

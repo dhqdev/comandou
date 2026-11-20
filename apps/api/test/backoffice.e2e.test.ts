@@ -1545,6 +1545,75 @@ describe('Impressão (agente local e fila)', () => {
     await agentPost(agentToken, '/heartbeat', { removed: [null] }).expect(200);
   });
 
+  it('fila: filtra, conta por situação, recoloca e apaga (um, escolhidos e o histórico)', async () => {
+    const a = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body as {
+      id: string;
+    };
+    const b = (await post('adminA', '/printing/test', { target: 'Bar teste' }).expect(201))
+      .body as {
+      id: string;
+    };
+    const pend = (
+      await get('adminA', '/printing/jobs?status=pending&target=Bar%20teste').expect(200)
+    ).body as { id: string }[];
+    expect(pend.map((j) => j.id)).toEqual([b.id]);
+    const found = (await get('adminA', '/printing/jobs?q=bar%20tes').expect(200)).body as {
+      id: string;
+    }[];
+    expect(found.map((j) => j.id)).toContain(b.id);
+    const page1 = (await get('adminA', '/printing/jobs?limit=1').expect(200)).body as {
+      id: string;
+      createdAt: string;
+    }[];
+    const page2 = (
+      await get(
+        'adminA',
+        `/printing/jobs?limit=1&before=${encodeURIComponent(page1[0].createdAt)}`,
+      ).expect(200)
+    ).body as { id: string }[];
+    expect(page2[0]?.id).not.toBe(page1[0].id);
+
+    const sum = (await get('adminA', '/printing/jobs/summary').expect(200)).body as {
+      counts: Record<string, number>;
+      targets: string[];
+    };
+    expect(sum.counts.queued).toBeGreaterThanOrEqual(2);
+    expect(sum.targets).toContain('Bar teste');
+
+    await post('adminA', '/printing/jobs/discard', { ids: [a.id] }).expect(200);
+    expect(
+      (await post('adminA', '/printing/jobs/requeue', { ids: [a.id] }).expect(200)).body.requeued,
+    ).toBe(1);
+    await post('waiterA', '/printing/jobs/delete', { ids: [a.id] }).expect(403);
+    await post('adminA', '/printing/jobs/delete', {}).expect(400);
+    // Por ids apaga até o que está na fila: não sai mais.
+    expect(
+      (await post('adminA', '/printing/jobs/delete', { ids: [a.id, b.id] }).expect(200)).body
+        .deleted,
+    ).toBe(2);
+    const c = (await agentPost(agentToken, '/claim', { limit: 20 }).expect(200)).body.jobs as {
+      id: string;
+    }[];
+    expect(c.map((j) => j.id)).not.toContain(a.id);
+    for (const j of c) await agentPost(agentToken, `/jobs/${j.id}/result`, { ok: true });
+    // Histórico por situação: a fila de espera fica.
+    const keep = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body as {
+      id: string;
+    };
+    await post('adminA', '/printing/jobs/delete', { statuses: ['done', 'cancelled'] }).expect(200);
+    const left = (await get('adminA', '/printing/jobs/summary').expect(200)).body.counts;
+    expect(left.done).toBe(0);
+    expect(left.cancelled).toBe(0);
+    expect(left.queued).toBeGreaterThanOrEqual(1);
+    await post('adminB', '/printing/jobs/delete', { ids: [keep.id] }).expect(200);
+    expect(
+      (await get('adminA', '/printing/jobs?status=queued').expect(200)).body.map(
+        (j: { id: string }) => j.id,
+      ),
+    ).toContain(keep.id);
+    await post('adminA', '/printing/jobs/discard', { ids: [keep.id] }).expect(200);
+  });
+
   it('exclui um computador: token para de valer e o que ele imprimia volta para a fila', async () => {
     const extra = (await post('adminA', '/printing/agents', { name: 'PC velho' }).expect(201))
       .body as { agent: { id: string }; token: string };

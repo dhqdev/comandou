@@ -9,11 +9,12 @@ import {
   Network,
   Plus,
   Printer,
+  Search,
   Trash2,
   Usb,
   Wifi,
 } from 'lucide-react';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -22,6 +23,7 @@ import {
   EmptyState,
   Modal,
   Segmented,
+  Select,
   TextField,
   useToast,
   Skeleton,
@@ -78,7 +80,10 @@ function ago(iso: string) {
   return dateTime(iso);
 }
 
-type JobFilter = 'all' | 'queued' | 'failed' | 'cancelled';
+type JobFilter = 'all' | 'pending' | 'done' | 'failed' | 'cancelled';
+/** Quantos trabalhos há em cada situação e os destinos já usados. */
+type JobsSummary = { counts: Record<PrintJob['status'], number>; targets: string[] };
+const PAGE = 50;
 /** Impressora aberta na janela de trabalhos: computador + destino (null = principal). */
 type OpenPrinter = { agent: PrintAgent; printer: PrintAgentPrinter };
 
@@ -89,22 +94,21 @@ type OpenPrinter = { agent: PrintAgent; printer: PrintAgentPrinter };
 export function PrintingPage() {
   const toast = useToast();
   const [agents, setAgents] = useState<PrintAgent[] | null>(null);
-  const [jobs, setJobs] = useState<PrintJob[] | null>(null);
+  const [summary, setSummary] = useState<JobsSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
   const [secret, setSecret] = useState<{ name: string; token: string } | null>(null);
-  const [filter, setFilter] = useState<JobFilter>('all');
   const [openPrinter, setOpenPrinter] = useState<OpenPrinter | null>(null);
   const [, tick] = useState(0);
 
   const load = useCallback(async () => {
     try {
-      const [a, j] = await Promise.all([
+      const [a, sum] = await Promise.all([
         api<PrintAgent[]>('/printing/agents'),
-        api<PrintJob[]>('/printing/jobs?limit=100'),
+        api<JobsSummary>('/printing/jobs/summary'),
       ]);
       setAgents(a);
-      setJobs(j);
+      setSummary(sum);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -141,16 +145,7 @@ export function PrintingPage() {
   }
 
   const health = printHealth(agents);
-  const queued = jobs?.filter(pending) ?? [];
-  const failed = jobs?.filter((j) => j.status === 'failed') ?? [];
-  const cancelled = jobs?.filter((j) => j.status === 'cancelled') ?? [];
-  const shown = useMemo(
-    () =>
-      (jobs ?? []).filter(
-        (j) => filter === 'all' || (filter === 'queued' ? pending(j) : j.status === filter),
-      ),
-    [jobs, filter],
-  );
+  const queuedCount = summary ? summary.counts.queued + summary.counts.printing : 0;
   // Sem computador nenhum, o aplicativo vem primeiro; com computador, fica no fim da tela.
   const needsApp = agents !== null && health.state === 'none';
 
@@ -160,24 +155,6 @@ export function PrintingPage() {
         health.state === 'ok'
           ? 'Página de teste enviada para a impressora'
           : 'Página de teste na fila: sai quando o computador da impressora estiver conectado',
-        'success',
-      );
-  }
-
-  async function discard(ids?: string[]) {
-    if (
-      !ids &&
-      !window.confirm(
-        'Tirar da fila tudo o que ainda não imprimiu? Os computadores também apagam as comandas que estão paradas na fila do Windows.',
-      )
-    )
-      return;
-    const r = await call<{ discarded: number }>('/printing/jobs/discard', ids ? { ids } : {});
-    if (r)
-      toast(
-        r.discarded === 1
-          ? '1 trabalho tirado da fila'
-          : `${r.discarded} trabalhos tirados da fila`,
         'success',
       );
   }
@@ -199,7 +176,7 @@ export function PrintingPage() {
         <StatusPanel
           state={health.state}
           agents={agents}
-          queued={queued.length}
+          queued={queuedCount}
           onTest={() => void testPrint()}
         />
       )}
@@ -275,84 +252,13 @@ export function PrintingPage() {
         )}
       </Card>
 
-      <Card
-        searchId="secao-fila"
-        title="Fila de impressão"
-        actions={
-          <>
-            {queued.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => void discard()}>
-                Limpar fila
-              </Button>
-            )}
-            <Button variant="secondary" size="sm" onClick={() => void testPrint()}>
-              Imprimir teste
-            </Button>
-          </>
-        }
-        bodyless
-      >
-        {jobs === null ? (
-          <div className="cm-card__body">
-            <Skeleton variant="table" />
-          </div>
-        ) : jobs.length === 0 ? (
-          <div className="cm-card__body">
-            <EmptyState
-              icon={<Printer size={20} />}
-              title="Nada impresso ainda"
-              description="Cada comanda e conferência aparece aqui, com a hora e se saiu na impressora."
-            />
-          </div>
-        ) : (
-          <>
-            <div className="print-queue__bar">
-              <Segmented
-                label="Filtrar a fila"
-                value={filter}
-                onChange={setFilter}
-                options={[
-                  { value: 'all', label: 'Todos', count: jobs.length },
-                  { value: 'queued', label: 'Na fila', count: queued.length },
-                  { value: 'failed', label: 'Falharam', count: failed.length },
-                  { value: 'cancelled', label: 'Tirados', count: cancelled.length },
-                ]}
-              />
-              {queued.length > 0 && (
-                <span className={`print-queue__why print-queue__why--${health.state}`}>
-                  {WAIT_REASON[health.state]}
-                </span>
-              )}
-            </div>
-            {shown.length === 0 ? (
-              <div className="cm-card__body">
-                <EmptyState
-                  title={
-                    filter === 'queued'
-                      ? 'Nada esperando'
-                      : filter === 'cancelled'
-                        ? 'Nada tirado da fila'
-                        : 'Nenhuma falha'
-                  }
-                  description="Tudo o que foi enviado já saiu na impressora."
-                />
-              </div>
-            ) : (
-              <ul className="print-jobs">
-                {shown.map((j) => (
-                  <JobRow
-                    key={j.id}
-                    job={j}
-                    wait={j.status === 'queued' ? WAIT_REASON[health.state] : null}
-                    onRetry={() => call(`/printing/jobs/${j.id}/retry`)}
-                    onDiscard={() => void discard([j.id])}
-                  />
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </Card>
+      <PrintQueueCard
+        summary={summary}
+        waitReason={WAIT_REASON[health.state]}
+        healthState={health.state}
+        onTest={() => void testPrint()}
+        onChanged={() => void load()}
+      />
 
       {!needsApp && agents !== null && (
         <DownloadHero online={health.state === 'ok'} onConnect={() => setConnectOpen(true)} />
@@ -715,16 +621,32 @@ function JobRow({
   wait,
   onRetry,
   onDiscard,
+  onDelete,
+  selected,
+  onSelect,
 }: {
   job: PrintJob;
   wait: string | null;
   onRetry: () => void;
   onDiscard: () => void;
+  onDelete?: () => void;
+  selected?: boolean;
+  onSelect?: (on: boolean) => void;
 }) {
   const [label, tone] = STATUS[j.status];
   const today = new Date(j.createdAt).toDateString() === new Date().toDateString();
+  const name = `${KIND[j.kind]}${j.orderNumber ? ` #${j.orderNumber}` : ''}`;
   return (
-    <li className="print-job" data-status={j.status}>
+    <li className="print-job" data-status={j.status} data-selected={selected || undefined}>
+      {onSelect && (
+        <input
+          type="checkbox"
+          className="print-job__check"
+          checked={!!selected}
+          onChange={(e) => onSelect(e.target.checked)}
+          aria-label={`Escolher ${name} (${time(j.createdAt)})`}
+        />
+      )}
       <span className="print-job__when" title={dateTime(j.createdAt)}>
         {today ? time(j.createdAt) : dateTime(j.createdAt)}
       </span>
@@ -769,8 +691,439 @@ function JobRow({
             Tirar da fila
           </Button>
         )}
+        {onDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Trash2 size={16} />}
+            onClick={onDelete}
+            aria-label={`Apagar ${name}`}
+            title="Apagar da lista"
+          />
+        )}
       </div>
     </li>
+  );
+}
+
+/**
+ * Fila de impressão: filtros por situação, destino e busca, seleção com ações em lote
+ * (tirar da fila, imprimir de novo, apagar) e "Apagar histórico" por situação.
+ */
+function PrintQueueCard({
+  summary,
+  waitReason,
+  healthState,
+  onTest,
+  onChanged,
+}: {
+  summary: JobsSummary | null;
+  waitReason: string;
+  healthState: PrintHealthState;
+  onTest: () => void;
+  onChanged: () => void;
+}) {
+  const toast = useToast();
+  const [filter, setFilter] = useState<JobFilter>('all');
+  const [target, setTarget] = useState('');
+  const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
+  const [items, setItems] = useState<PrintJob[] | null>(null);
+  const [more, setMore] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const shownRef = useRef(PAGE);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setQ(search.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [search]);
+
+  const query = useCallback(
+    (limit: number, before?: string) => {
+      const p = new URLSearchParams({ limit: String(limit) });
+      if (filter !== 'all') p.set('status', filter);
+      if (target) p.set('target', target);
+      if (q) p.set('q', q);
+      if (before) p.set('before', before);
+      return api<PrintJob[]>(`/printing/jobs?${p}`);
+    },
+    [filter, target, q],
+  );
+
+  // Recarrega mantendo quantos já estavam na tela (até 200).
+  const load = useCallback(async () => {
+    try {
+      const limit = Math.min(200, Math.max(PAGE, shownRef.current));
+      const list = await query(limit);
+      setItems(list);
+      setMore(list.length === limit);
+      setSelected((s) => new Set([...s].filter((id) => list.some((j) => j.id === id))));
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    }
+  }, [query, toast]);
+  useEffect(() => {
+    shownRef.current = PAGE;
+    setItems(null);
+    setSelected(new Set());
+    void load();
+  }, [load]);
+  const reload = useDebounced(load);
+  useRealtime((e) => {
+    if (e.type === 'print.changed') reload();
+  }, load);
+
+  async function loadMore() {
+    const last = items?.at(-1);
+    if (!last) return;
+    try {
+      const next = await query(PAGE, last.createdAt);
+      setItems((cur) => [...(cur ?? []), ...next]);
+      shownRef.current = (items?.length ?? 0) + next.length;
+      setMore(next.length === PAGE);
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    }
+  }
+
+  async function run<T>(fn: () => Promise<T>, done: (r: T) => string) {
+    setBusy(true);
+    try {
+      const r = await fn();
+      toast(done(r), 'success');
+      setSelected(new Set());
+      onChanged();
+      await load();
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+  const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
+
+  const discard = (ids?: string[]) => {
+    if (
+      !ids &&
+      !window.confirm(
+        'Tirar da fila tudo o que ainda não imprimiu? Os computadores também apagam as comandas que estão paradas na fila do Windows.',
+      )
+    )
+      return;
+    void run(
+      () =>
+        api<{ discarded: number }>('/printing/jobs/discard', {
+          method: 'POST',
+          json: ids ? { ids } : {},
+        }),
+      (r) => `${plural(r.discarded, 'trabalho tirado', 'trabalhos tirados')} da fila`,
+    );
+  };
+  const requeue = (ids: string[]) =>
+    void run(
+      () => api<{ requeued: number }>('/printing/jobs/requeue', { method: 'POST', json: { ids } }),
+      (r) => `${plural(r.requeued, 'trabalho voltou', 'trabalhos voltaram')} para a fila`,
+    );
+  const remove = (ids: string[]) => {
+    const pend = (items ?? []).filter((j) => ids.includes(j.id) && pending(j)).length;
+    if (
+      !window.confirm(
+        `Apagar ${plural(ids.length, 'trabalho', 'trabalhos')} da lista?${pend ? ` ${plural(pend, 'ainda ia', 'ainda iam')} imprimir e não ${pend === 1 ? 'sai' : 'saem'} mais.` : ''} Não dá para desfazer.`,
+      )
+    )
+      return;
+    void run(
+      () => api<{ deleted: number }>('/printing/jobs/delete', { method: 'POST', json: { ids } }),
+      (r) => `${plural(r.deleted, 'trabalho apagado', 'trabalhos apagados')}`,
+    );
+  };
+
+  const counts = summary?.counts;
+  const pendingCount = counts ? counts.queued + counts.printing : 0;
+  const total = counts ? Object.values(counts).reduce((a, b) => a + b, 0) : 0;
+  const historyCount = counts ? counts.done + counts.failed + counts.cancelled : 0;
+  const chosen = (items ?? []).filter((j) => selected.has(j.id));
+  const allOn = !!items?.length && items.every((j) => selected.has(j.id));
+  const toggle = (id: string, on: boolean) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (on) n.add(id);
+      else n.delete(id);
+      return n;
+    });
+  const filtered = !!target || !!q;
+
+  return (
+    <Card
+      searchId="secao-fila"
+      title="Fila de impressão"
+      actions={
+        <>
+          {pendingCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => discard()} disabled={busy}>
+              Limpar fila
+            </Button>
+          )}
+          {historyCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Trash2 size={16} />}
+              onClick={() => setHistoryOpen(true)}
+              disabled={busy}
+            >
+              Apagar histórico
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={onTest}>
+            Imprimir teste
+          </Button>
+        </>
+      }
+      bodyless
+    >
+      {total === 0 && summary ? (
+        <div className="cm-card__body">
+          <EmptyState
+            icon={<Printer size={20} />}
+            title="Nada impresso ainda"
+            description="Cada comanda e conferência aparece aqui, com a hora e se saiu na impressora."
+          />
+        </div>
+      ) : (
+        <>
+          <div className="print-queue__bar">
+            <Segmented
+              label="Filtrar a fila"
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: 'all', label: 'Todos', count: total },
+                { value: 'pending', label: 'Na fila', count: pendingCount },
+                { value: 'done', label: 'Impressos', count: counts?.done ?? 0 },
+                { value: 'failed', label: 'Falharam', count: counts?.failed ?? 0 },
+                { value: 'cancelled', label: 'Tirados', count: counts?.cancelled ?? 0 },
+              ]}
+            />
+            {pendingCount > 0 && (
+              <span className={`print-queue__why print-queue__why--${healthState}`}>
+                {waitReason}
+              </span>
+            )}
+          </div>
+          <div className="print-queue__tools">
+            <label className="print-queue__search">
+              <Search size={16} aria-hidden />
+              <input
+                className="cm-input"
+                type="search"
+                placeholder="Nº do pedido, destino ou computador"
+                aria-label="Buscar na fila"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </label>
+            <Select
+              aria-label="Destino"
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              className="print-queue__target"
+            >
+              <option value="">Todos os destinos</option>
+              {(summary?.targets ?? []).map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {items && items.length > 0 && (
+            <div className="print-queue__select" data-active={chosen.length > 0 || undefined}>
+              <label className="print-queue__all">
+                <input
+                  type="checkbox"
+                  checked={allOn}
+                  onChange={(e) =>
+                    setSelected(e.target.checked ? new Set(items.map((j) => j.id)) : new Set())
+                  }
+                />
+                {chosen.length
+                  ? `${plural(chosen.length, 'escolhido', 'escolhidos')}`
+                  : 'Escolher todos'}
+              </label>
+              {chosen.length > 0 && (
+                <div className="print-queue__bulk">
+                  {chosen.some(pending) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => discard(chosen.filter(pending).map((j) => j.id))}
+                    >
+                      Tirar da fila
+                    </Button>
+                  )}
+                  {chosen.some((j) => j.status === 'failed' || j.status === 'cancelled') && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() =>
+                        requeue(
+                          chosen
+                            .filter((j) => j.status === 'failed' || j.status === 'cancelled')
+                            .map((j) => j.id),
+                        )
+                      }
+                    >
+                      Imprimir de novo
+                    </Button>
+                  )}
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={<Trash2 size={16} />}
+                    disabled={busy}
+                    onClick={() => remove(chosen.map((j) => j.id))}
+                  >
+                    Apagar
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+                    Cancelar
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+          {items === null ? (
+            <div className="cm-card__body">
+              <Skeleton variant="table" />
+            </div>
+          ) : items.length === 0 ? (
+            <div className="cm-card__body">
+              <EmptyState
+                title={
+                  filtered
+                    ? 'Nada com esses filtros'
+                    : filter === 'pending'
+                      ? 'Nada esperando'
+                      : 'Nada aqui'
+                }
+                description={
+                  filtered
+                    ? 'Troque a aba, o destino ou a busca.'
+                    : 'Tudo o que foi enviado já saiu na impressora.'
+                }
+              />
+            </div>
+          ) : (
+            <>
+              <ul className="print-jobs">
+                {items.map((j) => (
+                  <JobRow
+                    key={j.id}
+                    job={j}
+                    wait={j.status === 'queued' ? waitReason : null}
+                    selected={selected.has(j.id)}
+                    onSelect={(on) => toggle(j.id, on)}
+                    onRetry={() => requeue([j.id])}
+                    onDiscard={() => discard([j.id])}
+                    onDelete={() => remove([j.id])}
+                  />
+                ))}
+              </ul>
+              {more && (
+                <div className="print-queue__more">
+                  <Button variant="ghost" size="sm" onClick={() => void loadMore()}>
+                    Mostrar mais
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+      <HistoryModal
+        open={historyOpen}
+        counts={counts}
+        onClose={() => setHistoryOpen(false)}
+        onConfirm={(statuses) => {
+          setHistoryOpen(false);
+          void run(
+            () =>
+              api<{ deleted: number }>('/printing/jobs/delete', {
+                method: 'POST',
+                json: { statuses },
+              }),
+            (r) => `${plural(r.deleted, 'trabalho apagado', 'trabalhos apagados')} do histórico`,
+          );
+        }}
+      />
+    </Card>
+  );
+}
+
+/** Apagar o histórico por situação (a fila de espera nunca entra). */
+function HistoryModal({
+  open,
+  counts,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  counts: JobsSummary['counts'] | undefined;
+  onClose: () => void;
+  onConfirm: (statuses: ('done' | 'failed' | 'cancelled')[]) => void;
+}) {
+  const [pick, setPick] = useState({ done: true, failed: true, cancelled: true });
+  const chosen = (Object.keys(pick) as (keyof typeof pick)[]).filter((k) => pick[k]);
+  const n = chosen.reduce((a, k) => a + (counts?.[k] ?? 0), 0);
+  const rows: [keyof typeof pick, string][] = [
+    ['done', 'Impressos'],
+    ['failed', 'Falharam'],
+    ['cancelled', 'Tirados da fila'],
+  ];
+  return (
+    <Modal
+      open={open}
+      title="Apagar histórico"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            variant="danger"
+            icon={<Trash2 size={16} />}
+            disabled={n === 0}
+            onClick={() => onConfirm(chosen)}
+          >
+            Apagar {n}
+          </Button>
+        </>
+      }
+    >
+      <p className="cm-hint">
+        Apaga da lista o que já passou pela impressora. O que ainda está na fila não muda. Não dá
+        para desfazer.
+      </p>
+      <div className="print-history">
+        {rows.map(([k, label]) => (
+          <label key={k} className="print-history__row">
+            <input
+              type="checkbox"
+              checked={pick[k]}
+              onChange={(e) => setPick((p) => ({ ...p, [k]: e.target.checked }))}
+            />
+            <span>{label}</span>
+            <Badge tone="neutral">{counts?.[k] ?? 0}</Badge>
+          </label>
+        ))}
+      </div>
+    </Modal>
   );
 }
 

@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.209.0',
+    date: '2026-11-20',
+    title: 'Fila de impressão com apagar e filtros, e aplicativo que se atualiza sozinho',
+    summary:
+      'A fila da tela Impressão agora deixa apagar trabalhos (um, os escolhidos ou o histórico inteiro), escolher vários de uma vez, buscar pelo número do pedido e filtrar por destino. O aplicativo Comandou Impressão 1.7.0 ganhou o botão Atualizar, que baixa a versão nova, fecha e abre de novo sozinho, e uma tela mais simples: impressoras de um lado, onde cada coisa imprime do outro.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Impressão: apagar trabalhos da fila, um por um pela lixeira ou vários de uma vez (escolha e toque em Apagar). O que ainda ia imprimir não sai mais.',
+      },
+      {
+        tag: 'novo',
+        text: 'Impressão: botão Apagar histórico, que limpa os impressos, os que falharam e os tirados da fila (a fila de espera fica).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Impressão: aba Impressos, busca pelo número do pedido, destino ou computador, filtro por destino, "Mostrar mais" e contagem de cada aba pela fila inteira (não só pelos últimos 100).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Impressão: escolher vários trabalhos e tirar da fila ou imprimir de novo todos juntos.',
+      },
+      {
+        tag: 'correção',
+        text: 'Trabalhos tirados da fila antes da versão anterior apareciam como "Falhou": agora aparecem como "Tirado da fila".',
+      },
+      {
+        tag: 'novo',
+        text: 'Aplicativo de impressão 1.7.0: botão Atualizar no topo quando há versão nova (e "Procurar atualização" no rodapé). No Windows e no Linux ele baixa, fecha e abre de novo sozinho; no Mac abre o download. Depois desta, não precisa mais reinstalar na mão.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Aplicativo de impressão 1.7.0: impressoras deste computador de um lado e onde cada coisa imprime do outro, com o botão Desconectar em cada impressora escolhida. "Últimas impressões" saiu do aplicativo: o histórico fica na tela Impressão do Comandou.',
+      },
+    ],
+  },
+  {
     version: '0.208.0',
     date: '2026-11-20',
     title: 'Impressão sem cópias repetidas, excluir computador e trabalhos de cada impressora',

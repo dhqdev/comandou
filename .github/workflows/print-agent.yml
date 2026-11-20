@@ -78,6 +78,15 @@ jobs:
         with:
           path: out
           merge-multiple: true
+      - name: Baixar a versão do aplicativo
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools/print-agent/package.json
+          sparse-checkout-cone-mode: false
+          path: src
+      # O botão Atualizar do aplicativo lê este arquivo para saber se há versão nova.
+      - name: Gerar versao.json
+        run: node -e "const v=require('./src/tools/print-agent/package.json').version;require('fs').writeFileSync('out/versao.json',JSON.stringify({version:v}))"
       - name: Publicar
         env:
           GH_TOKEN: ${{ github.token }}

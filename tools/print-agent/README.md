@@ -22,6 +22,15 @@ sem alguém clicar em "Imprimir". O aplicativo faz essa ponte: ele só **busca**
   confirma mais) e **Limpar fila** / **Limpar fila do Windows** apaga os documentos "Comandou"
   da fila do sistema (`purgeSpool`, só os nossos; os de outros programas ficam). O pedido vem no
   heartbeat (`purge`) e o aplicativo confirma no seguinte (`purgedAt`).
+- **Atualizar (1.7.0):** `desktop/updater.mjs` lê `versao.json` da Release "impressora" (o
+  workflow `print-agent.yml` gera junto com os instaladores) ao abrir e a cada 6 horas. Com
+  versão nova, aparece **Atualizar para a X** no topo e na bandeja. Windows: baixa o
+  `Comandou-Impressao-Setup.exe`, roda com `/S --force-run` (instala em silêncio e reabre) e
+  fecha; Linux (AppImage): troca o próprio arquivo e reabre; macOS: abre o download do `.dmg`.
+  Quem está na 1.6.0 ou antes instala a 1.7.0 na mão uma última vez.
+- A tela do aplicativo não tem mais histórico (fica na tela Impressão do Comandou): de um lado as
+  impressoras deste computador, do outro onde cada coisa imprime, com **Desconectar** em cada
+  impressora escolhida (a principal para de imprimir; o setor volta a usar a principal).
 - A tela Impressão também tira uma impressora do aplicativo (`remove` no heartbeat, confirmado
   em `removed`) e exclui o computador.
 - Jato de tinta ou laser escolhida como térmica pela rede (texto cru na porta 9100, que não sai

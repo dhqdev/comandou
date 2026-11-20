@@ -392,7 +392,7 @@ textarea {
 .grid {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: start;
   gap: 16px;
   padding: 16px 24px;
@@ -406,12 +406,36 @@ textarea {
 .card--main {
   grid-column: 1;
 }
-.card--log {
-  grid-column: 2;
-  grid-row: 1;
+.card--found,
+.card--routes {
+  min-width: 0;
+}
+.routes__hint {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+}
+.route__info {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  gap: 2px;
+}
+.route__actions,
+.tile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.tile--main {
+  flex-wrap: wrap;
+}
+.btn--danger-text {
+  color: var(--danger);
+}
+.btn--danger-text:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 .route__name {
   font-weight: 600;
@@ -431,50 +455,6 @@ textarea {
 }
 .dot--fail {
   background: var(--danger);
-}
-.log {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-  flex: 1;
-  min-height: 120px;
-}
-.log__item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 4px;
-  border-bottom: 1px solid var(--border);
-}
-.log__item:last-child {
-  border-bottom: 0;
-}
-.log__body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  line-height: 1.35;
-}
-.log__body span {
-  font-size: 12.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.log__item--fail .log__body span {
-  color: var(--danger);
-  white-space: normal;
-}
-.log time {
-  font-size: 12px;
-  white-space: nowrap;
-}
-.log__empty {
-  color: var(--muted);
-  padding: 30px 10px;
-  text-align: center;
 }
 .foot {
   display: flex;
@@ -675,7 +655,7 @@ textarea {
 }
 .route {
   display: grid;
-  grid-template-columns: 10px minmax(0, 0.7fr) minmax(0, 1.3fr) auto auto;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
@@ -1223,12 +1203,8 @@ textarea {
   .guide__nav button {
     white-space: nowrap;
   }
-  .route {
-    grid-template-columns: 10px minmax(0, 1fr) auto auto;
-  }
-  .route__printer {
+  .route__actions {
     grid-column: 2 / -1;
-    grid-row: 2;
   }
 
   .connect {
@@ -1238,10 +1214,6 @@ textarea {
   }
   .grid {
     grid-template-columns: 1fr;
-  }
-  .card--log {
-    grid-column: 1;
-    grid-row: auto;
   }
   .foot__hint {
     display: none;
@@ -1520,10 +1492,6 @@ textarea {
 @media (max-width: 880px) {
   .grid {
     grid-template-columns: 1fr;
-  }
-  .card--log {
-    grid-column: 1;
-    grid-row: auto;
   }
   .found__row {
     grid-template-columns: auto minmax(0, 1fr);

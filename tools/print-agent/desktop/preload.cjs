@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('agent', {
   discover: (force) => ipcRenderer.invoke('discover', force),
   onScanProgress: (fn) => ipcRenderer.on('scan-progress', (_e, p) => fn(p)),
   setPrinter: (target, spec) => ipcRenderer.invoke('set-printer', target, spec),
+  updateCheck: () => ipcRenderer.invoke('update-check'),
+  updateInstall: () => ipcRenderer.invoke('update-install'),
   testPrint: (spec) => ipcRenderer.invoke('test-print', spec),
   setAutostart: (on) => ipcRenderer.invoke('set-autostart', on),
   openPanel: () => ipcRenderer.invoke('open-panel'),

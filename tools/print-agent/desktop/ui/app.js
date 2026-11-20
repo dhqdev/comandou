@@ -17,13 +17,6 @@ const STATUS = {
   offline: ['Sem conexão', 'warning'],
   unauthorized: ['Desconectado', 'danger'],
 };
-const KIND = {
-  kitchen_ticket: 'Comanda',
-  receipt: 'Conferência',
-  test: 'Teste',
-  fiscal_receipt: 'Cupom fiscal',
-  kitchen_cancel: 'Item cancelado',
-};
 const BAUDS = [9600, 19200, 38400, 57600, 115200];
 
 function el(tag, attrs = {}, ...children) {
@@ -50,13 +43,6 @@ function toast(msg, tone = 'success') {
 
 const errMsg = (e) =>
   String(e?.message ?? e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
-
-function timeAgo(at) {
-  const s = Math.round((Date.now() - at) / 1000);
-  if (s < 60) return 'agora';
-  if (s < 3600) return `há ${Math.floor(s / 60)} min`;
-  return new Date(at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
 
 const OS = () =>
   state?.platform === 'win32' ? 'win' : state?.platform === 'darwin' ? 'mac' : 'linux';
@@ -247,8 +233,35 @@ function mainPrinter() {
       healthLine(spec) ??
         (last && !last.ok ? el('span', { class: 'tile__error', text: last.error }) : null),
     ),
-    el('button', { class: 'btn', onclick: (e) => runTest(spec, e.currentTarget) }, 'Testar'),
-    el('button', { class: 'btn btn--ghost', onclick: () => openPicker(null) }, 'Trocar'),
+    el(
+      'div',
+      { class: 'tile__actions' },
+      el('button', { class: 'btn', onclick: (e) => runTest(spec, e.currentTarget) }, 'Testar'),
+      el('button', { class: 'btn btn--ghost', onclick: () => openPicker(null) }, 'Trocar'),
+      el(
+        'button',
+        {
+          class: 'btn btn--ghost btn--danger-text',
+          title: 'Este computador para de imprimir até escolher outra',
+          onclick: () => unassign(null, i.title),
+        },
+        'Desconectar',
+      ),
+    ),
+  );
+}
+
+/** Tira a impressora de um destino (null = principal). Setor volta a sair na principal. */
+async function unassign(target, title) {
+  const ok = confirm(
+    target === null
+      ? `Desconectar ${title} como principal? Este computador para de imprimir até você escolher outra; as comandas esperam na fila do Comandou.`
+      : `Desconectar ${title} de ${target}? O que for para ${target} passa a sair na principal.`,
+  );
+  if (!ok) return;
+  apply(await api.setPrinter(target, ''));
+  toast(
+    target === null ? 'Impressora principal desconectada.' : `${target} agora usa a principal.`,
   );
 }
 
@@ -284,23 +297,42 @@ function routeRow(target) {
             : last.error
           : 'Nada impresso ainda',
     }),
-    el('div', { class: 'route__name' }, target),
     el(
       'div',
-      { class: 'route__printer' },
-      i ? icon(i.type, 16) : null,
-      el('span', { text: i ? i.title : 'Usa a principal', class: i ? '' : 'muted' }),
+      { class: 'route__info' },
+      el('div', { class: 'route__name' }, target),
+      el(
+        'div',
+        { class: 'route__printer' },
+        i ? icon(i.type, 16) : null,
+        el('span', { text: i ? i.title : 'Usa a principal', class: i ? '' : 'muted' }),
+      ),
     ),
     el(
-      'button',
-      {
-        class: 'btn btn--ghost btn--sm',
-        disabled: !effective || effective === 'none',
-        onclick: (e) => runTest(effective, e.currentTarget),
-      },
-      'Testar',
+      'div',
+      { class: 'route__actions' },
+      el(
+        'button',
+        {
+          class: 'btn btn--ghost btn--sm',
+          disabled: !effective || effective === 'none',
+          onclick: (e) => runTest(effective, e.currentTarget),
+        },
+        'Testar',
+      ),
+      el('button', { class: 'btn btn--sm', onclick: () => openPicker(target) }, 'Escolher'),
+      own
+        ? el(
+            'button',
+            {
+              class: 'btn btn--ghost btn--sm btn--danger-text',
+              title: 'Volta a usar a principal',
+              onclick: () => unassign(target, i.title),
+            },
+            'Desconectar',
+          )
+        : null,
     ),
-    el('button', { class: 'btn btn--sm', onclick: () => openPicker(target) }, 'Escolher'),
   );
 }
 
@@ -377,33 +409,28 @@ function render() {
         ]),
   );
 
-  const log = $('log');
-  if (!state.jobs.length) {
-    log.replaceChildren(
-      el(
-        'li',
-        { class: 'log__empty' },
-        'Nada impresso ainda. As comandas aparecem aqui assim que saírem.',
-      ),
-    );
-  } else {
-    log.replaceChildren(
-      ...state.jobs.map((j) =>
-        el(
-          'li',
-          { class: `log__item ${j.ok ? '' : 'log__item--fail'}` },
-          el('span', { class: `dot dot--${j.ok ? 'ok' : 'fail'}` }),
-          el(
-            'div',
-            { class: 'log__body' },
-            el('strong', { text: `${KIND[j.kind] ?? j.kind} · ${j.target}` }),
-            el('span', { class: 'muted', text: j.ok ? j.printerLabel : j.error }),
-          ),
-          el('time', { class: 'muted', text: timeAgo(j.at) }),
-        ),
-      ),
-    );
-  }
+  renderUpdate();
+}
+
+/** Botão Atualizar no topo: aparece quando há versão nova; mostra o download. */
+function renderUpdate() {
+  const u = state.update ?? {};
+  const btn = $('update-btn');
+  btn.hidden = !u.available && u.progress == null;
+  btn.disabled = u.progress != null;
+  btn.textContent =
+    u.progress != null
+      ? u.progress >= 1
+        ? 'Reabrindo…'
+        : `Baixando ${Math.round(u.progress * 100)}%`
+      : `Atualizar para a ${u.latest}`;
+  btn.title =
+    state.platform === 'darwin' || u.auto === false
+      ? 'Abre o download da versão nova'
+      : 'Baixa a versão nova, fecha e abre de novo sozinho';
+  const check = $('update-check');
+  check.disabled = !!u.checking || u.progress != null;
+  check.textContent = u.checking ? 'Procurando…' : 'Procurar atualização';
 }
 
 function apply(s) {
@@ -1594,6 +1621,30 @@ $('autostart').addEventListener('change', async (e) =>
   apply(await api.setAutostart(e.target.checked)),
 );
 $('open-panel').addEventListener('click', () => api.openPanel());
+$('update-btn').addEventListener('click', async () => {
+  const mac = state.platform === 'darwin' || state.update?.auto === false;
+  if (
+    !mac &&
+    !confirm(
+      `Atualizar para a ${state.update?.latest}? O aplicativo baixa a versão nova, fecha e abre de novo sozinho (leva menos de um minuto). As comandas esperam na fila do Comandou.`,
+    )
+  )
+    return;
+  try {
+    apply(await api.updateInstall());
+    if (mac) toast('Abrimos o download. Abra o arquivo e arraste para Aplicativos.');
+  } catch (err) {
+    toast(errMsg(err), 'danger');
+  }
+});
+$('update-check').addEventListener('click', async () => {
+  const s = await api.updateCheck();
+  apply(s);
+  const u = s.update ?? {};
+  if (u.error) toast(u.error, 'danger');
+  else if (u.available) toast(`A versão ${u.latest} está pronta. Clique em Atualizar no topo.`);
+  else toast(`Você já está na versão mais nova (${s.version}).`);
+});
 $('disconnect').addEventListener('click', async () => {
   if (confirm('Desconectar este computador? As comandas param de sair aqui até conectar de novo.'))
     apply(await api.disconnect());

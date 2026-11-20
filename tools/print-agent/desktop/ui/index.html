@@ -75,58 +75,51 @@
           <span id="agent-name" class="muted"></span>
         </div>
         <div id="status" class="pill"></div>
+        <button type="button" class="btn btn--primary btn--sm" id="update-btn" hidden></button>
         <button type="button" class="btn btn--ghost top__help" data-guide="inicio">Ajuda</button>
       </header>
 
       <div id="banner" class="banner" hidden></div>
 
       <main class="grid">
-        <div class="col">
-          <section class="card card--found" aria-labelledby="found-title">
-            <div class="card__head">
-              <div>
-                <h2 id="found-title">Impressoras deste computador</h2>
-                <p class="muted">
-                  Procuramos sozinhos no cabo USB, na rede, no Wi-Fi e no Bluetooth. Escolha uma e
-                  clique em <strong>Usar</strong>.
-                </p>
-              </div>
-              <button type="button" class="btn btn--ghost btn--sm" id="rescan">
-                Procurar de novo
-              </button>
-            </div>
-            <div id="scan-steps" class="steps-row" aria-live="polite"></div>
-            <div id="found" class="found"></div>
-            <p class="found__more muted">
-              Não achou a sua?
-              <button type="button" class="link" id="manual-add">Adicionar do jeito manual</button>
-              <span aria-hidden="true">·</span>
-              <button type="button" class="link" data-guide="inicio">
-                Como ligar a impressora
-              </button>
-            </p>
-          </section>
-
-          <section class="card">
-            <div class="card__head">
-              <div>
-                <h2>Onde cada coisa imprime</h2>
-                <p class="muted">
-                  A principal recebe tudo. Se quiser, cada setor sai na sua.
-                  <button type="button" class="link" data-guide="setores">Como funciona?</button>
-                </p>
-              </div>
-            </div>
-            <div id="main-printer"></div>
-            <div id="routes" class="routes"></div>
-          </section>
-        </div>
-
-        <section class="card card--log">
+        <section class="card card--found" aria-labelledby="found-title">
           <div class="card__head">
-            <h2>Últimas impressões</h2>
+            <div>
+              <h2 id="found-title">Impressoras deste computador</h2>
+              <p class="muted">
+                Procuramos sozinhos no cabo USB, na rede, no Wi-Fi e no Bluetooth. Escolha uma e
+                clique em <strong>Usar</strong>.
+              </p>
+            </div>
+            <button type="button" class="btn btn--ghost btn--sm" id="rescan">
+              Procurar de novo
+            </button>
           </div>
-          <ul id="log" class="log"></ul>
+          <div id="scan-steps" class="steps-row" aria-live="polite"></div>
+          <div id="found" class="found"></div>
+          <p class="found__more muted">
+            Não achou a sua?
+            <button type="button" class="link" id="manual-add">Adicionar do jeito manual</button>
+            <span aria-hidden="true">·</span>
+            <button type="button" class="link" data-guide="inicio">Como ligar a impressora</button>
+          </p>
+        </section>
+
+        <section class="card card--routes" aria-labelledby="routes-title">
+          <div class="card__head">
+            <div>
+              <h2 id="routes-title">Onde cada coisa imprime</h2>
+              <p class="muted">
+                A principal recebe tudo. Se quiser, cada setor sai na sua.
+                <button type="button" class="link" data-guide="setores">Como funciona?</button>
+              </p>
+            </div>
+          </div>
+          <div id="main-printer"></div>
+          <div id="routes" class="routes"></div>
+          <p class="muted routes__hint">
+            O histórico do que saiu fica no painel do Comandou, em Impressão.
+          </p>
         </section>
       </main>
 
@@ -141,6 +134,7 @@
         </span>
         <span class="foot__links">
           <button class="link" id="open-panel">Abrir o painel</button>
+          <button class="link" id="update-check">Procurar atualização</button>
           <button class="link link--danger" id="disconnect">Desconectar</button>
           <span class="muted" id="version"></span>
         </span>
