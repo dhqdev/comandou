@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.209.1',
+    date: '2026-11-20',
+    title: 'Tela Impressão arrumada no notebook e no celular',
+    summary:
+      'A fila de impressão quebrava no notebook: os botões de cada trabalho caíam para baixo e sumiam pela esquerda. Agora cada linha se ajeita ao espaço da lista, com os botões embaixo do texto quando não cabem.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Impressão: no notebook e no celular, os botões de cada trabalho da fila (Imprimir de novo, Voltar para a fila, Apagar) ficam embaixo do texto e inteiros, sem cortar.',
+      },
+      {
+        tag: 'correção',
+        text: 'Impressão: nome comprido da impressora não passa mais da borda no celular, os botões dos computadores descem para a linha de baixo quando falta espaço e o filtro de destino ocupa a largura toda no celular.',
+      },
+    ],
+  },
+  {
     version: '0.209.0',
     date: '2026-11-20',
     title: 'Fila de impressão com apagar e filtros, e aplicativo que se atualiza sozinho',
