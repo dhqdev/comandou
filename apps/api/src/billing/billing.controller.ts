@@ -221,6 +221,18 @@ export class TenantBillingController {
     return this.svc.payInfo(t.id, iid);
   }
 
+  /** A tela de pagamento confere se o Pix já caiu (`asaas=1` pergunta ao banco também). */
+  @Get('invoices/:iid/status')
+  @RequirePermission('plan:read')
+  @Throttle({ default: { ttl: 60_000, limit: 40 } })
+  payStatus(
+    @CurrentTenant() t: ResolvedTenant,
+    @Param('iid', ParseUUIDPipe) iid: string,
+    @Query('asaas') asaas?: string,
+  ) {
+    return this.svc.payStatus(t.id, iid, asaas === '1');
+  }
+
   @Get('plans/:pid/quote')
   @RequirePermission('plan:read')
   quote(@CurrentTenant() t: ResolvedTenant, @Param('pid', ParseUUIDPipe) pid: string) {

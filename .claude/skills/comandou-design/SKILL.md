@@ -203,6 +203,18 @@ linhas, sem seta). Sair é o botão largo vermelho de linha fina no fim. Bloco n
 `sections` com a mesma checagem de permissão do menu. No celular, o cartão do topo da tela Mais
 (`account.to`) abre a Conta e a Mais só guarda o Sair da conta.
 
+## Pagamento da assinatura
+
+`pages/subscription/PayPage.tsx` (`pay.css`, prefixo `pay-`; pedido do David na 0.205, "bonita e
+minimalista"): rota própria `/plano/pagar/:fatura`, nunca janela. À esquerda o resumo sem cartão
+em volta (voltar, tipo · plano, valor grande tabular, descrição, bolinha do vencimento, linhas
+rótulo/valor e a frase do Asaas com cadeado); à direita "Como você quer pagar" com Pix, Boleto e
+Cartão em três blocos de rádio (escolhido com contorno laranja e fundo `color-mix` de 6%) e um
+painel por forma, com um botão primário só. QR Code sempre em fundo branco (no escuro também);
+no celular o Copia e Cola vem antes do QR e o resumo perde as linhas. Pago: visto verde em
+círculo e "Voltar para a assinatura". O formulário do cartão é o `CardForm` (mesmo da janela de
+forma de pagamento da Assinatura).
+
 ## Agenda pessoal (restaurante)
 
 No menu se chama **Agenda pessoal** e fica no pé da barra, acima do nome; Novidades vai na tela

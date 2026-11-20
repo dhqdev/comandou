@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.205.0',
+    date: '2026-11-20',
+    title: 'Tela de pagamento nova: Pix, boleto e cartão automático',
+    summary:
+      'Pagar a assinatura agora abre uma tela própria, limpa e direta: o resumo da fatura de um lado e, do outro, Pix, boleto ou cartão. No cartão, o pagamento já deixa a cobrança automática ligada para os próximos vencimentos.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Tela de pagamento em Assinatura › Pagar: valor, vencimento e o que a fatura cobre à esquerda, e as três formas lado a lado à direita. Funciona no celular, com o Copia e Cola antes do QR Code.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pix com espera automática: depois de pagar no app do banco, a tela confere sozinha e mostra "Pagamento confirmado" assim que o Pix cai, sem precisar atualizar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cartão de crédito: pague a fatura e deixe o cartão salvo no Asaas; as próximas mensalidades saem sozinhas no dia do vencimento. Com cartão já salvo, é um toque só. Também dá para pagar só uma vez, sem salvar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Boleto com a linha digitável para copiar e o PDF a um toque.',
+      },
+    ],
+  },
+  {
     version: '0.204.0',
     date: '2026-11-20',
     title: 'Aplicativo de impressão vê qualquer impressora',

@@ -8,14 +8,15 @@ import {
   type PlanResource,
 } from '@comandou/shared';
 import { Check, CreditCard, FileText, QrCode } from 'lucide-react';
-import { FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useAuth, useCan } from '../app/auth';
-import { Alert, Badge, Button, Modal, Spinner, TextField, useToast } from '../design-system';
-import { useCepLookup } from '../lib/cep';
+import { Alert, Badge, Button, Modal, Spinner, useToast } from '../design-system';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import type { TenantSubscription } from '../lib/types';
 import { singlePlan, singlePlanList } from './pricing-data';
+import { CardForm } from './subscription/CardForm';
 import './subscription.css';
 
 const RESOURCES: PlanResource[] = ['users', 'products', 'orders_month'];
@@ -147,7 +148,8 @@ function Subscription() {
   const [data, setData] = useState<BillingView | null>(null);
   const [usage, setUsage] = useState<TenantSubscription | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [paying, setPaying] = useState<Invoice | null>(null);
+  const navigate = useNavigate();
+  const pay = (i: Invoice) => navigate(`/plano/pagar/${i.id}`);
   const [methodOpen, setMethodOpen] = useState(false);
   const load = useCallback(() => {
     api<BillingView | null>('/subscription/billing')
@@ -182,7 +184,7 @@ function Subscription() {
           view={data}
           open={open}
           owner={owner}
-          onPay={setPaying}
+          onPay={pay}
           onMethod={() => setMethodOpen(true)}
         />
         {usage?.current && hasLimits(usage) && <UsagePanel data={usage} />}
@@ -193,18 +195,8 @@ function Subscription() {
         {data.billing.auto && (
           <MethodPanel view={data} owner={owner} onEdit={() => setMethodOpen(true)} />
         )}
-        {data.invoices.length > 0 && <Invoices list={data.invoices} onPay={setPaying} />}
+        {data.invoices.length > 0 && <Invoices list={data.invoices} onPay={pay} />}
       </div>
-      <PayModal
-        invoice={paying}
-        view={data}
-        owner={owner}
-        onClose={() => setPaying(null)}
-        onPaid={() => {
-          setPaying(null);
-          load();
-        }}
-      />
       <MethodModal
         open={methodOpen}
         view={data}
@@ -751,357 +743,6 @@ function MethodModal({
       )}
       {needCard && (
         <CardForm onCancel={card ? () => setNewCard(false) : onClose} onSaved={onDone} />
-      )}
-    </Modal>
-  );
-}
-
-const onlyDigits = (v: string, max: number) => v.replace(/\D/g, '').slice(0, max);
-const fmtCardNumber = (v: string) => onlyDigits(v, 19).replace(/(\d{4})(?=\d)/g, '$1 ');
-const fmtExpiry = (v: string) => {
-  const d = onlyDigits(v, 4);
-  return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
-};
-
-function CardForm({ onCancel, onSaved }: { onCancel(): void; onSaved(): void }) {
-  const toast = useToast();
-  const [f, setF] = useState({
-    holderName: '',
-    number: '',
-    expiry: '',
-    ccv: '',
-    document: '',
-    email: '',
-    phone: '',
-    postalCode: '',
-    addressNumber: '',
-  });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const holderCep = useCepLookup(f.postalCode);
-  const set =
-    (k: keyof typeof f, fmt?: (v: string) => string) => (e: { target: { value: string } }) =>
-      setF((x) => ({ ...x, [k]: fmt ? fmt(e.target.value) : e.target.value }));
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await api<{
-        brand: string;
-        last4: string;
-        charged: { ok: boolean; error?: string }[];
-      }>('/subscription/card', { method: 'POST', json: f });
-      toast(`Cartão ${r.brand} •••• ${r.last4} salvo. Cobrança automática ligada.`, 'success');
-      if (r.charged.some((c) => c.ok)) toast('Fatura em aberto paga no cartão', 'success');
-      const fail = r.charged.find((c) => !c.ok);
-      if (fail) toast(`A fatura em aberto não passou no cartão: ${fail.error ?? ''}`, 'danger');
-      onSaved();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <form className="sub-cardform" onSubmit={submit}>
-      <TextField
-        label="Número do cartão"
-        inputMode="numeric"
-        autoComplete="cc-number"
-        value={f.number}
-        onChange={set('number', fmtCardNumber)}
-        wrapClass="sub-cardform__full"
-      />
-      <TextField
-        label="Nome impresso no cartão"
-        autoComplete="cc-name"
-        value={f.holderName}
-        onChange={set('holderName')}
-        wrapClass="sub-cardform__full"
-      />
-      <TextField
-        label="Validade (MM/AA)"
-        inputMode="numeric"
-        autoComplete="cc-exp"
-        placeholder="08/29"
-        value={f.expiry}
-        onChange={set('expiry', fmtExpiry)}
-      />
-      <TextField
-        label="Código de segurança"
-        inputMode="numeric"
-        autoComplete="cc-csc"
-        value={f.ccv}
-        onChange={set('ccv', (v) => onlyDigits(v, 4))}
-      />
-      <TextField
-        label="CPF ou CNPJ do titular"
-        inputMode="numeric"
-        value={f.document}
-        onChange={set('document', (v) => onlyDigits(v, 14))}
-      />
-      <TextField
-        label="Celular do titular"
-        inputMode="tel"
-        autoComplete="tel"
-        value={f.phone}
-        onChange={set('phone', (v) => onlyDigits(v, 11))}
-      />
-      <TextField
-        label="E-mail do titular"
-        type="email"
-        autoComplete="email"
-        value={f.email}
-        onChange={set('email')}
-        wrapClass="sub-cardform__full"
-      />
-      <TextField
-        label="CEP"
-        inputMode="numeric"
-        autoComplete="postal-code"
-        value={f.postalCode}
-        onChange={set('postalCode', (v) => onlyDigits(v, 8))}
-        hint={
-          holderCep.state === 'busy'
-            ? 'Buscando o endereço…'
-            : holderCep.address
-              ? [
-                  holderCep.address.street,
-                  holderCep.address.district,
-                  `${holderCep.address.city}/${holderCep.address.state}`,
-                ]
-                  .filter(Boolean)
-                  .join(', ')
-              : holderCep.state === 'missing'
-                ? 'CEP não encontrado. Confira.'
-                : undefined
-        }
-      />
-      <TextField
-        label="Número do endereço"
-        value={f.addressNumber}
-        onChange={set('addressNumber', (v) => v.slice(0, 10))}
-      />
-      <p className="sub-muted sub-cardform__full">
-        Os dados do cartão vão direto para o Asaas, nosso banco de cobrança. O Comandou guarda só a
-        bandeira e os 4 últimos números. Cobramos apenas a mensalidade, no dia do vencimento.
-      </p>
-      {error && (
-        <div className="sub-cardform__full">
-          <Alert tone="danger">{error}</Alert>
-        </div>
-      )}
-      <div className="sub-cardform__actions sub-cardform__full">
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Voltar
-        </Button>
-        <Button type="submit" loading={busy}>
-          Salvar cartão e ligar automático
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-interface PayInfo {
-  paid: boolean;
-  amount?: string;
-  pix: { image: string; payload: string } | null;
-  boleto: { line: string; url: string | null } | null;
-  invoiceUrl: string | null;
-}
-
-function PayModal({
-  invoice,
-  view,
-  owner,
-  onClose,
-  onPaid,
-}: {
-  invoice: Invoice | null;
-  view: BillingView;
-  owner: boolean;
-  onClose(): void;
-  onPaid(): void;
-}) {
-  const toast = useToast();
-  const [info, setInfo] = useState<PayInfo | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'pix' | 'boleto' | 'card'>('pix');
-  const [checking, setChecking] = useState(false);
-  const [charging, setCharging] = useState(false);
-  const card = view.billing.cardAvailable ? (view.payment?.card ?? null) : null;
-  const preferred = view.payment?.method ?? 'pix';
-  const fetchInfo = useCallback(
-    async (quiet = false) => {
-      if (!invoice) return;
-      try {
-        const r = await api<PayInfo>(`/subscription/invoices/${invoice.id}/pay`);
-        if (r.paid) {
-          toast('Pagamento confirmado. Obrigado!', 'success');
-          onPaid();
-          return;
-        }
-        setInfo(r);
-        if (quiet) toast('Ainda não recebemos a confirmação. Pix leva alguns segundos.', 'neutral');
-      } catch (e) {
-        setError((e as Error).message);
-      }
-    },
-    [invoice, onPaid, toast],
-  );
-  useEffect(() => {
-    setInfo(null);
-    setError(null);
-    setTab(preferred);
-    void fetchInfo();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchInfo]);
-  async function copy(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast('Copiado', 'success');
-    } catch {
-      toast('Não deu para copiar: selecione o texto', 'danger');
-    }
-  }
-  async function payWithCard() {
-    if (!invoice) return;
-    setCharging(true);
-    try {
-      const r = await api<{ ok: boolean; error?: string }>(
-        `/subscription/invoices/${invoice.id}/card`,
-        { method: 'POST' },
-      );
-      if (r.ok) {
-        toast('Pago no cartão. Obrigado!', 'success');
-        onPaid();
-      } else toast(`Cartão recusado: ${r.error ?? ''}`, 'danger');
-    } catch (e) {
-      toast((e as Error).message, 'danger');
-    } finally {
-      setCharging(false);
-    }
-  }
-  return (
-    <Modal
-      open={!!invoice}
-      title={invoice ? `Pagar ${brl(invoice.amount)}` : ''}
-      onClose={onClose}
-      footer={
-        <Button
-          variant="secondary"
-          loading={checking}
-          onClick={async () => {
-            setChecking(true);
-            await fetchInfo(true);
-            setChecking(false);
-          }}
-        >
-          Já paguei
-        </Button>
-      }
-    >
-      {error && <Alert tone="danger">{error}</Alert>}
-      {!info && !error && <Spinner />}
-      {info && (
-        <div className="sub-paybox">
-          <div className="sub-tabs" role="tablist">
-            {(
-              [
-                ['pix', 'Pix'],
-                ['boleto', 'Boleto'],
-                ['card', 'Cartão'],
-              ] as const
-            ).map(([k, label]) => (
-              <button
-                key={k}
-                type="button"
-                role="tab"
-                aria-selected={tab === k}
-                className="sub-tab"
-                onClick={() => setTab(k)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {tab === 'pix' &&
-            (info.pix ? (
-              <div className="sub-pix">
-                <img
-                  src={`data:image/png;base64,${info.pix.image}`}
-                  alt="QR Code do Pix"
-                  width={200}
-                  height={200}
-                />
-                <p className="sub-muted">Aponte a câmera do app do banco ou copie o código.</p>
-                <code className="sub-code">{info.pix.payload}</code>
-                <Button variant="secondary" onClick={() => copy(info.pix!.payload)}>
-                  Copiar código Pix
-                </Button>
-              </div>
-            ) : (
-              <p className="sub-muted">Pix indisponível para esta fatura. Use boleto ou cartão.</p>
-            ))}
-          {tab === 'boleto' &&
-            (info.boleto ? (
-              <div className="sub-pix">
-                <code className="sub-code">{info.boleto.line}</code>
-                <Button
-                  variant="secondary"
-                  onClick={() => copy(info.boleto!.line.replace(/\D/g, ''))}
-                >
-                  Copiar linha digitável
-                </Button>
-                {info.boleto.url && (
-                  <a href={info.boleto.url} target="_blank" rel="noreferrer" className="sub-link">
-                    Abrir boleto em PDF
-                  </a>
-                )}
-                <p className="sub-muted">O boleto leva até 3 dias úteis para ser confirmado.</p>
-              </div>
-            ) : (
-              <p className="sub-muted">Boleto indisponível para esta fatura.</p>
-            ))}
-          {tab === 'card' && (
-            <div className="sub-pix">
-              {card && owner && (
-                <>
-                  <p>
-                    Pagar com o cartão salvo{' '}
-                    <strong>
-                      {card.brand} •••• {card.last4}
-                    </strong>
-                  </p>
-                  <Button onClick={payWithCard} loading={charging}>
-                    Pagar {invoice ? brl(invoice.amount) : ''} no cartão
-                  </Button>
-                  <p className="sub-muted">Ou use outro cartão na página segura do Asaas:</p>
-                </>
-              )}
-              {!card && (
-                <p className="sub-muted">
-                  O pagamento com cartão é feito na página segura do Asaas. Os dados do cartão não
-                  passam pelo Comandou.
-                </p>
-              )}
-              {info.invoiceUrl ? (
-                <a
-                  href={info.invoiceUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`cm-btn ${card && owner ? 'cm-btn--secondary' : 'cm-btn--primary'}`}
-                >
-                  {card && owner ? 'Usar outro cartão' : 'Pagar com cartão'}
-                </a>
-              ) : (
-                <p className="sub-muted">Página de pagamento indisponível.</p>
-              )}
-            </div>
-          )}
-        </div>
       )}
     </Modal>
   );

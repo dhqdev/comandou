@@ -1,0 +1,496 @@
+/*
+ * Tela de pagamento da assinatura (PayPage): resumo à esquerda, forma de pagamento à direita.
+ * Minimalista: linhas finas, um botão laranja por forma, nada de cartão colorido. Só --cm-*.
+ */
+.pay {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: var(--cm-space-8, 40px);
+  align-items: start;
+  max-width: 1040px;
+  margin: 0 auto;
+  width: 100%;
+}
+.pay > .pay-back,
+.pay > .cm-alert {
+  grid-column: 1 / -1;
+}
+
+/* ------------------------------------------------------------ resumo */
+.pay-sum {
+  position: sticky;
+  top: var(--cm-space-4);
+  display: grid;
+  gap: var(--cm-space-5);
+}
+.pay-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  text-decoration: none;
+  padding: 6px 10px 6px 6px;
+  margin-left: -6px;
+  border-radius: var(--cm-radius-full);
+  transition: transform var(--cm-spring-dur) var(--cm-spring-snappy);
+}
+.pay-back:hover {
+  color: var(--cm-text);
+  background: var(--cm-surface-sunken);
+}
+.pay-back:active {
+  transform: scale(0.97);
+}
+.pay-sum__body {
+  display: grid;
+  gap: var(--cm-space-2);
+}
+.pay-sum__kind {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+}
+.pay-sum__amount {
+  font-size: clamp(2.25rem, 1.6rem + 2vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.pay-sum__desc {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  line-height: 1.5;
+}
+.pay-sum__due {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.pay-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--cm-text-subtle);
+}
+.pay-dot[data-tone='ok'] {
+  background: var(--cm-info);
+}
+.pay-dot[data-tone='warn'] {
+  background: var(--cm-warning);
+}
+.pay-dot[data-tone='late'] {
+  background: var(--cm-danger);
+}
+.pay-dot[data-tone='paid'] {
+  background: var(--cm-success);
+}
+.pay-sum__kv {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--cm-border);
+}
+.pay-sum__kv > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--cm-space-4);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cm-border);
+  font-size: var(--cm-text-sm);
+}
+.pay-sum__kv dt {
+  color: var(--cm-text-muted);
+}
+.pay-sum__kv dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+.pay-safe {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  line-height: 1.5;
+}
+.pay-safe svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* ------------------------------------------------------------ formas */
+.pay-main {
+  display: grid;
+  gap: var(--cm-space-4);
+  min-width: 0;
+}
+.pay-h {
+  margin: 0;
+  font-size: var(--cm-text-xl);
+  font-weight: 650;
+  letter-spacing: var(--cm-tracking-tight);
+}
+.pay-methods {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--cm-space-3);
+}
+.pay-method {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform var(--cm-spring-dur) var(--cm-spring-snappy),
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+.pay-method:hover {
+  background: var(--cm-surface-sunken);
+}
+.pay-method:active {
+  transform: scale(0.97);
+}
+.pay-method:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: 2px;
+}
+.pay-method[aria-checked='true'] {
+  border-color: var(--cm-brand-500);
+  box-shadow: inset 0 0 0 1px var(--cm-brand-500);
+  background: color-mix(in oklab, var(--cm-brand-500) 6%, var(--cm-surface));
+}
+.pay-method__icon {
+  display: inline-flex;
+  color: var(--cm-text-muted);
+  margin-bottom: 6px;
+}
+.pay-method[aria-checked='true'] .pay-method__icon {
+  color: var(--cm-brand-600);
+}
+.pay-method__title {
+  font-weight: 650;
+}
+.pay-method__sub {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-panel {
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  border-radius: 20px;
+  padding: var(--cm-space-6);
+  animation: pay-in var(--cm-spring-dur) var(--cm-spring) both;
+}
+.pay-panel--wait {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+}
+@keyframes pay-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.pay-text {
+  margin: 0;
+  line-height: 1.55;
+}
+.pay-label {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+}
+.pay-code {
+  padding: 12px 14px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-sunken);
+  border: 1px solid var(--cm-border);
+  min-width: 0;
+}
+.pay-code code {
+  display: block;
+  font-family: var(--cm-font-mono);
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: all;
+}
+.pay-code--line code {
+  white-space: normal;
+  word-break: break-all;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text);
+  letter-spacing: 0.02em;
+}
+.pay-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-4);
+  flex-wrap: wrap;
+}
+
+/* Pix */
+.pay-pix {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--cm-space-6);
+  align-items: center;
+}
+.pay-qr {
+  /* QR Code sempre em fundo branco (no escuro também), senão o app do banco não lê. */
+  background: #fff;
+  border: 1px solid var(--cm-border);
+  border-radius: 16px;
+  padding: 12px;
+  line-height: 0;
+}
+.pay-qr img {
+  width: 208px;
+  height: 208px;
+  image-rendering: pixelated;
+}
+.pay-pix__side {
+  display: grid;
+  gap: var(--cm-space-4);
+  min-width: 0;
+}
+.pay-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: pay-step;
+  display: grid;
+  gap: 10px;
+  font-size: var(--cm-text-sm);
+}
+.pay-steps li {
+  counter-increment: pay-step;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.pay-steps li::before {
+  content: counter(pay-step);
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--cm-text-muted);
+  border: 1px solid var(--cm-border-strong);
+  transform: translateY(-1px);
+}
+.pay-waiting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.pay-pulse {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cm-brand-500);
+  flex: none;
+}
+.pay-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--cm-brand-500);
+  animation: pay-pulse 1.6s ease-out infinite;
+}
+@keyframes pay-pulse {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+
+/* Boleto */
+.pay-boleto {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.pay-actions {
+  display: flex;
+  gap: var(--cm-space-3);
+  flex-wrap: wrap;
+}
+.pay-actions .cm-btn {
+  text-decoration: none;
+}
+
+/* Cartão */
+.pay-card {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.pay-card > a.cm-btn {
+  text-decoration: none;
+  justify-self: start;
+}
+.pay-card .sub-cardform {
+  margin: 0;
+}
+.pay-saved {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+  padding: 14px 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+}
+.pay-saved > svg {
+  color: var(--cm-text-muted);
+  flex: none;
+}
+.pay-saved__text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.pay-auto {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.5;
+}
+.pay-auto .pay-dot {
+  transform: translateY(-1px);
+}
+
+.pay-once {
+  justify-self: center;
+}
+
+/* Pago */
+.pay-done {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-10, 56px) var(--cm-space-6);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  border-radius: 20px;
+}
+.pay-done__mark {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--cm-success);
+  background: var(--cm-success-bg);
+  margin-bottom: var(--cm-space-2);
+  animation: pay-pop var(--cm-spring-dur) var(--cm-spring) both;
+}
+@keyframes pay-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+.pay-done__title {
+  margin: 0;
+  font-size: var(--cm-text-2xl);
+  font-weight: 700;
+  letter-spacing: var(--cm-tracking-tight);
+}
+.pay-done .cm-btn {
+  margin-top: var(--cm-space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pay-panel,
+  .pay-done__mark,
+  .pay-pulse::after {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------ telas menores */
+@media (max-width: 900px) {
+  .pay {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--cm-space-6);
+  }
+  .pay-sum {
+    position: static;
+  }
+  .pay-sum {
+    gap: var(--cm-space-3);
+  }
+  .pay-sum__kv,
+  .pay-sum .pay-safe {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .pay-panel {
+    padding: var(--cm-space-5);
+  }
+  .pay-method {
+    padding: 12px;
+  }
+  /* No celular quem paga costuma estar no próprio aparelho: o Copia e Cola vem antes do QR. */
+  .pay-pix {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pay-qr {
+    order: 2;
+    justify-self: center;
+  }
+  .pay-qr img {
+    width: 184px;
+    height: 184px;
+  }
+  .pay-actions .cm-btn,
+  .pay-card > a.cm-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .pay-foot .cm-btn,
+  .pay-card .sub-cardform__actions .cm-btn {
+    width: 100%;
+  }
+}

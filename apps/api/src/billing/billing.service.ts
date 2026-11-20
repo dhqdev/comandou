@@ -1879,6 +1879,26 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   /**
+   * Tela de pagamento esperando o Pix: lê a fatura no banco (o webhook marca na hora) e, só com
+   * `ask`, pergunta ao Asaas (aviso perdido). A tela pede ao Asaas de vez em quando, não a cada
+   * consulta, para não gastar o limite da conta.
+   */
+  async payStatus(tenantId: string, invoiceId: string, ask: boolean) {
+    const inv = await this.invoiceOf(invoiceId, tenantId);
+    if (inv.status === 'paid') return { paid: true, status: inv.status };
+    if (!['pending', 'overdue'].includes(inv.status) || !ask || !inv.provider_id)
+      return { paid: false, status: inv.status };
+    const pay = await this.client(await this.settingsRow())
+      .payment(inv.provider_id)
+      .catch(() => null);
+    if (pay && invoiceStatusOf(pay) === 'paid') {
+      await this.applyPayment(inv.id, pay);
+      return { paid: true, status: 'paid' as const };
+    }
+    return { paid: false, status: inv.status };
+  }
+
+  /**
    * Subir de plano pelo próprio restaurante: o plano novo vale na hora (limites maiores já) e a
    * diferença proporcional dos dias que faltam vira uma fatura com vencimento curto. Durante o
    * teste não há cobrança. Plano menor só pelo suporte.

@@ -53,6 +53,13 @@ continuam manuais até alguém ligar na aba Assinatura do restaurante.
   hoje (ou já venceu) é paga com o token (`/payments/{id}/payWithCreditCard`); a diferença de
   troca de plano sai na hora. Recusou: o motivo fica na fatura, o restaurante vê o aviso, e o
   ciclo tenta de novo uma vez por dia, até 3 vezes. Pix e boleto seguem valendo.
+- **Tela de pagamento** (`/plano/pagar/:fatura`, `pages/subscription/PayPage.tsx`): o botão Pagar
+  da Assinatura abre esta tela, com o resumo da fatura e Pix, boleto ou cartão. O Pix espera
+  sozinho: a cada 5 s a tela lê `GET /subscription/invoices/:id/status` (só o banco, que o webhook
+  atualiza) e a cada 30 s pergunta também ao Asaas (`?asaas=1`), por até 15 minutos. No cartão, sem
+  cartão salvo, o formulário salva o cartão (`POST /subscription/card`, que liga o automático) e
+  paga esta fatura na hora, mesmo antes do vencimento; com cartão salvo, um botão paga. "Pagar só
+  esta vez" leva à página do Asaas sem salvar nada.
 - Para ligar: peça ao Asaas para liberar a **tokenização de cartão** na conta e marque
   **Liberar cartão automático** em Super Admin → Cobrança. Sem isso, a opção aparece como
   "Em breve".

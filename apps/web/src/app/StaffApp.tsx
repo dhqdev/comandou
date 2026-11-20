@@ -96,6 +96,10 @@ const PlanPage = lazyPage(
   () => import('../pages/PlanPage'),
   (m) => m.PlanPage,
 );
+const PayPage = lazyPage(
+  () => import('../pages/subscription/PayPage'),
+  (m) => m.PayPage,
+);
 const ReleasesPage = lazyPage(
   () => import('../pages/ReleasesPage'),
   (m) => m.ReleasesPage,
@@ -452,6 +456,14 @@ function Gate() {
             element={
               <Guard path="plano">
                 <PlanPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="plano/pagar/:invoiceId"
+            element={
+              <Guard path="plano">
+                <PayPage />
               </Guard>
             }
           />

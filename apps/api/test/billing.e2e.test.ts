@@ -372,8 +372,16 @@ describe('Ciclo: 7 dias de teste, pagou +30 dias, não pagou bloqueia', () => {
     ).expect(200);
     expect(pay.body.pix.payload).toContain(firstPay);
     expect(pay.body.boleto.line).toContain(firstPay);
+    // A tela de pagamento confere o Pix: em aberto, pelo banco e perguntando ao Asaas.
+    const st = `/subscription/invoices/${r.body.invoices[0].id}/status`;
+    expect((await tget(HOST_A, ownerA, st).expect(200)).body).toMatchObject({ paid: false });
+    expect((await tget(HOST_A, ownerA, `${st}?asaas=1`).expect(200)).body).toMatchObject({
+      paid: false,
+      status: 'pending',
+    });
     // B não enxerga a fatura de A.
     const ownerB = await tenantLogin(HOST_B, 'admin@bl-b.test');
+    await tget(HOST_B, ownerB, st).expect(404);
     await tget(HOST_B, ownerB, `/subscription/invoices/${r.body.invoices[0].id}/pay`).expect(404);
     const nb = await tget(HOST_B, ownerB, '/subscription/billing').expect(200);
     expect(nb.body.invoices).toHaveLength(0);
