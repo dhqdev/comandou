@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.209.3',
+    date: '2026-11-20',
+    title: 'Botões do pedido todos embaixo',
+    summary:
+      'Imprimir pedido, Desconto ou acréscimo, Vender fiado e Reimprimir na cozinha saíram do topo do pedido e agora ficam no rodapé, logo acima de Cancelar pedido e Fechar conta, separados em Impressão e Cobrança.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Pedido: as ações de apoio (Imprimir pedido, Via de entrega, Reimprimir na cozinha, Desconto ou acréscimo, Vender fiado, Concluir a receber) moram no rodapé, numa fileira própria acima dos botões que decidem o pedido, em dois grupos: Impressão e Cobrança.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pedido: no celular, a fileira de ações corre de lado no rodapé, sem deixar o rodapé alto; no notebook, os botões descem para a linha de baixo quando não cabem.',
+      },
+    ],
+  },
+  {
     version: '0.209.2',
     date: '2026-11-20',
     title: 'Prato em 3D só no celular e leitor de QR mais firme',

@@ -602,7 +602,7 @@
 }
 /* Rodapé fixo: resumo de valores e a barra dos botões que decidem o pedido (0.201.1, pedido do
    David): Cancelar sozinho à esquerda, os passos e o botão principal à direita, cada um do tamanho
-   do texto. As ações de apoio moram na fileira od-tools, no topo do pedido. */
+   do texto. As ações de apoio moram na fileira od-tools, logo acima desta barra (0.209.3). */
 .od-foot {
   display: grid;
   gap: 10px;
@@ -692,15 +692,30 @@ button.od-fact__link {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-/* Ações de apoio do pedido (imprimir, editar, desconto, fiado, cozinha): fileira de botões
-   pequenos no topo do pedido (0.201.1), cada um do tamanho do texto e num tom suave próprio
-   (data-hue) para achar de relance, ícone na cor e texto normal. */
+/* Ações de apoio do pedido no rodapé (0.209.3, pedido do David): uma fileira logo acima dos botões
+   que decidem o pedido, separada deles por um traço fino. Dois grupos (Impressão e Cobrança), com
+   folga maior entre eles; quando não cabem lado a lado, cada grupo fica na sua linha. Botões menores que os do od-bar, cada um num tom suave próprio
+   (data-hue), ícone na cor e texto normal. */
 .od-tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 6px 20px;
+  min-width: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--cm-border);
 }
-.od-tools > button {
+.od-tools:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.od-tools__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.od-tools button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -723,43 +738,53 @@ button.od-fact__link {
     border-color var(--cm-dur-fast) var(--cm-ease),
     transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
-.od-tools > button > svg {
+.od-tools button > svg {
   flex: none;
   color: var(--hue, var(--cm-text-muted));
 }
-.od-tools > button > span {
+.od-tools button > span {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.od-tools > button:hover:not(:disabled) {
+.od-tools button:hover:not(:disabled) {
   background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 13%, var(--cm-surface));
   border-color: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 45%, var(--cm-border));
 }
-.od-tools > button:focus-visible {
+.od-tools button:focus-visible {
   outline: 2px solid var(--cm-focus);
   outline-offset: 1px;
 }
-.od-tools > button:active:not(:disabled) {
+.od-tools button:active:not(:disabled) {
   transform: scale(0.97);
 }
-.od-tools > button:disabled {
+.od-tools button:disabled {
   opacity: 0.5;
   cursor: default;
 }
-/* Celular: uma fileira só que corre de lado, sem empurrar o pedido para baixo. */
+/* Celular: uma fileira só que corre de lado, para o rodapé fixo não crescer e tampar o pedido. */
 @media (max-width: 640px) {
-  .od-tools {
+  .od-tools,
+  .od-tools__group {
     flex-wrap: nowrap;
+  }
+  .od-tools__group {
+    flex: none;
+  }
+  .od-tools {
+    gap: 14px;
     overflow-x: auto;
-    margin-inline: calc(-1 * var(--cm-space-3));
-    padding: 2px var(--cm-space-3);
+    margin-inline: calc(-1 * var(--cm-space-4));
+    padding: 2px var(--cm-space-4) 10px;
     scrollbar-width: none;
+    scroll-padding-inline: var(--cm-space-4);
+    /* Esmaece a ponta direita: avisa que há mais botões correndo de lado. */
+    mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
   }
   .od-tools::-webkit-scrollbar {
     display: none;
   }
-  .od-tools > button {
-    height: 40px;
+  .od-tools button {
+    height: 38px;
   }
 }
 .od-block__edit {
