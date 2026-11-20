@@ -16,10 +16,13 @@ export const STATE_LABEL: Record<TableState, string> = {
   paying: 'Em pagamento',
 };
 
-/** Lê o QR da mesa: aceita o link /mesa/<id>, o id puro ou o número da mesa. */
+/**
+ * Lê o QR da mesa: aceita o link /mesa/<id>, o do cardápio (/pedir?mesa=<id>), o id puro ou o
+ * número da mesa.
+ */
 export function tableFromQr(text: string, tables: DiningTable[]): DiningTable | undefined {
   const raw = text.trim();
-  const m = raw.match(/\/mesa\/([0-9a-f-]{36})/i);
+  const m = raw.match(/(?:\/mesa\/|[?&]mesa=)([0-9a-f-]{36})/i);
   const id = m?.[1] ?? raw;
   return (
     tables.find((t) => t.id === id) ??

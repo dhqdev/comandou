@@ -125,6 +125,17 @@ export function arSupport(
   return null;
 }
 
+/**
+ * O prato em 3D só aparece no celular (e no tablet): é lá que a câmera põe o prato na mesa. No
+ * computador e no notebook o botão some, mesmo com tela de toque.
+ */
+export function mobileDevice(
+  ua: string = navigator.userAgent,
+  touchMac = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1,
+): boolean {
+  return touchMac || /Android|iPhone|iPad|iPod|Mobi/i.test(ua);
+}
+
 /** Hash que o Android usa para voltar quando não tem o visualizador de RA (abre o giro em 3D). */
 const NO_AR = '#sem-camera-3d';
 
@@ -162,6 +173,7 @@ export function Model3DButton({
   name: string;
   poster: string | null;
 }) {
+  const [phone] = useState(() => mobileDevice());
   const [open, setOpen] = useState(false);
   const [ar] = useState(() => {
     const k = arSupport();
@@ -170,6 +182,7 @@ export function Model3DButton({
   });
 
   useEffect(() => {
+    if (!phone) return;
     // Android sem o visualizador de RA do Google volta com este hash: abre o giro em 3D.
     const back = () => {
       if (location.hash !== NO_AR) return;
@@ -179,7 +192,9 @@ export function Model3DButton({
     back();
     addEventListener('hashchange', back);
     return () => removeEventListener('hashchange', back);
-  }, []);
+  }, [phone]);
+
+  if (!phone) return null;
 
   const viewer = open && (
     <Viewer model={model} name={name} poster={poster} onClose={() => setOpen(false)} />
@@ -189,7 +204,7 @@ export function Model3DButton({
       <>
         <button type="button" className="m3d-btn" onClick={() => setOpen(true)}>
           <Box size={17} aria-hidden /> Ver em 3D
-          <small>no celular, aparece na sua mesa</small>
+          <small>gire o prato com o dedo</small>
         </button>
         {viewer}
       </>

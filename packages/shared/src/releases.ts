@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.209.2',
+    date: '2026-11-20',
+    title: 'Prato em 3D só no celular e leitor de QR mais firme',
+    summary:
+      'O botão do prato em 3D no cardápio agora aparece só no celular e no tablet, onde a câmera coloca o prato na mesa. O leitor de QR Code da mesa ficou mais firme em aparelhos que diziam ler QR e não liam.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cardápio: "Ver na sua mesa" e "Ver em 3D" aparecem só para quem abre o cardápio no celular ou no tablet. No computador e no notebook o botão não aparece.',
+      },
+      {
+        tag: 'correção',
+        text: 'Escanear mesa: quando o leitor de QR do próprio navegador não lê QR Code (comum no computador), o Comandou usa o leitor dele, em vez de deixar a câmera aberta sem ler nada.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Escanear mesa: também lê o QR com o link do cardápio da mesa (/pedir?mesa=...), além do QR colado na mesa.',
+      },
+    ],
+  },
+  {
     version: '0.209.1',
     date: '2026-11-20',
     title: 'Tela Impressão arrumada no notebook e no celular',

@@ -5,9 +5,28 @@ import './qr-scanner.css';
 interface Detector {
   detect(source: CanvasImageSource): Promise<{ rawValue: string }[]>;
 }
+interface DetectorClass {
+  new (o: { formats: string[] }): Detector;
+  getSupportedFormats?(): Promise<string[]>;
+}
 declare global {
   interface Window {
-    BarcodeDetector?: new (o: { formats: string[] }) => Detector;
+    BarcodeDetector?: DetectorClass;
+  }
+}
+
+/**
+ * Leitor nativo só quando ele lê QR de verdade: no computador o Chrome pode ter o
+ * BarcodeDetector sem nenhum formato, e aí a câmera ficaria aberta sem nunca ler nada.
+ */
+async function nativeDetector(): Promise<Detector | null> {
+  const D = window.BarcodeDetector;
+  if (!D) return null;
+  try {
+    const formats = (await D.getSupportedFormats?.()) ?? ['qr_code'];
+    return formats.includes('qr_code') ? new D({ formats: ['qr_code'] }) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -60,17 +79,27 @@ export function QrScanner({
       const v = video.current!;
       v.srcObject = stream;
       await v.play().catch(() => undefined);
-      const native = window.BarcodeDetector
-        ? new window.BarcodeDetector({ formats: ['qr_code'] })
-        : null;
-      const jsQR = native ? null : (await import('jsqr')).default;
+      let native = await nativeDetector();
+      const jsQR = (await import('jsqr').catch(() => null))?.default ?? null;
+      if (!native && !jsQR) {
+        setError('Não deu para abrir o leitor. Confira a conexão e tente de novo.');
+        return;
+      }
+      let nativeFails = 0;
       const tick = async () => {
         if (stopped) return;
         try {
           if (v.readyState >= 2 && v.videoWidth) {
             let text: string | undefined;
             if (native) {
-              text = (await native.detect(v))[0]?.rawValue;
+              try {
+                text = (await native.detect(v))[0]?.rawValue;
+                nativeFails = 0;
+              } catch (e) {
+                // Leitor nativo que falha sempre: passa para o jsQR.
+                if (++nativeFails >= 5 && jsQR) native = null;
+                throw e;
+              }
             } else if (jsQR && ctx) {
               // Reduz o quadro: mais rápido e suficiente para um QR de mesa.
               const scale = Math.min(1, 640 / v.videoWidth);
