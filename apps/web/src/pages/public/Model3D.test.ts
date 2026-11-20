@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arSupport, sceneViewerUrl } from './Model3D';
+import { arSupport, mobileDevice, sceneViewerUrl } from './Model3D';
 
 const IPHONE_CHROME =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/131.0 Mobile/15E148 Safari/604.1';
@@ -33,5 +33,16 @@ describe('Ver na sua mesa (câmera do celular)', () => {
     expect(url).toContain(
       `S.browser_fallback_url=${encodeURIComponent('https://fumaca.comandou.com/pedir/produto/abc#sem-camera-3d')}`,
     );
+  });
+
+  it('mostra o 3D só no celular e no tablet, nunca no computador', () => {
+    expect(mobileDevice(IPHONE_CHROME, false)).toBe(true);
+    expect(mobileDevice(ANDROID, false)).toBe(true);
+    expect(mobileDevice(DESKTOP, false)).toBe(false);
+    const MAC =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
+    expect(mobileDevice(MAC, false)).toBe(false);
+    // iPad novo se apresenta como Mac, mas tem toque.
+    expect(mobileDevice(MAC, true)).toBe(true);
   });
 });

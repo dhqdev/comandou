@@ -150,9 +150,10 @@ export function Item3DCard({ productId, canWrite }: { productId: string; canWrit
         <p className="cm-hint i3d__lead">
           O cliente abre o item no cardápio, toca em “Ver em 3D” e vê o prato em cima da mesa dele
           pela câmera do celular. Para criar o modelo, escaneie o prato pronto com um aplicativo ou
-          use um site de IA (lista abaixo), exporte em .glb e envie o arquivo aqui.
+          use um site de IA (lista abaixo), exporte em .glb e envie o arquivo aqui. O 3D aparece só
+          para quem abre o cardápio no celular ou no tablet; no computador o botão não aparece.
         </p>
-        {row('glb', 'Modelo (.glb)', 'Obrigatório. Funciona em qualquer celular e no computador.')}
+        {row('glb', 'Modelo (.glb)', 'Obrigatório. Funciona em qualquer celular.')}
         {row(
           'usdz',
           'iPhone (.usdz)',
