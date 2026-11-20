@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.211.3',
+    date: '2026-11-20',
+    title: 'Ícones próprios na barra do pedido',
+    summary:
+      'Cada botão da barra do pedido tem um ícone que diz o que ele faz, maior e num círculo com leve degradê: impressora, chapéu de cozinheiro, selo de porcentagem, caderneta do fiado, mão com moedas e o X de cancelar.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Pedido: Desconto / Acréscimo com selo de porcentagem e Vender fiado com a caderneta; os ícones da barra ficaram maiores, num círculo com degradê e contorno que acende ao passar o mouse.',
+      },
+    ],
+  },
+  {
     version: '0.211.2',
     date: '2026-11-20',
     title: 'Cardápio do cliente abre mais rápido e sem peças trocando de lugar',

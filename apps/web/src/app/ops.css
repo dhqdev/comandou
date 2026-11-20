@@ -743,11 +743,17 @@ button.od-fact__link {
 .od-tool__icon {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border: 1px solid color-mix(in oklab, var(--hue, var(--cm-text-muted)) 28%, var(--cm-border));
+  width: 40px;
+  height: 40px;
+  border: 1px solid color-mix(in oklab, var(--hue, var(--cm-text-muted)) 32%, var(--cm-border));
   border-radius: 999px;
-  background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 12%, var(--cm-surface));
+  /* Leve degradê de cima para baixo e um brilho fino no alto: o círculo parece uma peça. */
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--hue, var(--cm-text-muted)) 22%, var(--cm-surface)),
+    color-mix(in oklab, var(--hue, var(--cm-text-muted)) 9%, var(--cm-surface))
+  );
+  box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 14%, transparent);
   color: var(--hue, var(--cm-text-muted));
   transition: background-color var(--cm-dur-fast) var(--cm-ease);
 }
@@ -767,7 +773,8 @@ button.od-fact__link {
   color: var(--cm-text);
 }
 .od-tool:hover:not(:disabled) .od-tool__icon {
-  background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 22%, var(--cm-surface));
+  background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 26%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 55%, var(--cm-border));
 }
 .od-tool:focus-visible {
   outline: 2px solid var(--cm-focus);

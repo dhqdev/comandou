@@ -9,6 +9,7 @@ import {
   qtyLabel,
 } from '@comandou/shared';
 import {
+  BadgePercent,
   Ban,
   BellRing,
   Bike,
@@ -22,11 +23,11 @@ import {
   RotateCcw,
   HandCoins,
   Pencil,
-  Percent,
   CreditCard,
   MapPin,
   MessageCircle,
   MessageSquare,
+  NotebookPen,
   Phone,
   Printer,
   Receipt,
@@ -337,7 +338,7 @@ export function OrderDetailModal({
           ? [
               {
                 label: 'Desconto ou acréscimo',
-                icon: <Percent size={18} />,
+                icon: <BadgePercent size={20} />,
                 hue: 'green' as const,
                 run: () => setMode('adjust'),
               },
@@ -347,7 +348,7 @@ export function OrderDetailModal({
           ? [
               {
                 label: order.fiadoAt ? 'Editar fiado' : 'Vender fiado',
-                icon: <CalendarClock size={18} />,
+                icon: <NotebookPen size={20} />,
                 hue: 'amber' as const,
                 run: () => setMode('fiado'),
               },
@@ -357,7 +358,7 @@ export function OrderDetailModal({
           ? [
               {
                 label: 'Concluir a receber',
-                icon: <HandCoins size={18} />,
+                icon: <HandCoins size={20} />,
                 hue: 'rose' as const,
                 run: () => setMode('receivable'),
               },
@@ -367,7 +368,7 @@ export function OrderDetailModal({
           ? [
               {
                 label: 'Reimprimir na cozinha',
-                icon: <ChefHat size={18} />,
+                icon: <ChefHat size={20} />,
                 hue: 'slate' as const,
                 run: () => void print('kitchen'),
               },
@@ -405,7 +406,7 @@ export function OrderDetailModal({
   // arredondada com botões de ícone num círculo e o nome embaixo, em grupos separados por um traço:
   // Impressão (pedido, via de entrega, cozinha), Cobrança (desconto, fiado, a receber) e, por
   // último, Cancelar em vermelho. Embaixo dela ficam só os passos e o Fechar conta grande.
-  const ICON = 18;
+  const ICON = 20;
   const SHORT: Record<string, string> = {
     'Reimprimir na cozinha': 'Imprimir cozinha',
     'Desconto ou acréscimo': 'Desconto / Acréscimo',
