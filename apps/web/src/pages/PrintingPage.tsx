@@ -21,9 +21,9 @@ import {
   EmptyState,
   Modal,
   Segmented,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { dateTime, elapsed, minutesSince, time } from '../features/format';
 import {
@@ -201,7 +201,7 @@ export function PrintingPage() {
       >
         {agents === null ? (
           <div className="cm-card__body">
-            <Spinner />
+            <Skeleton />
           </div>
         ) : agents.length === 0 ? (
           <div className="cm-card__body">
@@ -252,7 +252,7 @@ export function PrintingPage() {
       >
         {jobs === null ? (
           <div className="cm-card__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : jobs.length === 0 ? (
           <div className="cm-card__body">

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { Alert, Button, EmptyState, Modal, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, EmptyState, Modal, TextField, useToast, Skeleton } from '../design-system';
 import { useAuth } from '../app/auth';
 import { QrScanner } from '../features/QrScanner';
 import { SlideTabs } from '../features/SlideTabs';
@@ -219,7 +219,7 @@ export function WaiterTables() {
 
       {error && <Alert tone="danger">{error}</Alert>}
       {tables === null ? (
-        <Spinner />
+        <Skeleton variant="grid" />
       ) : view === 'tables' ? (
         tables.length === 0 ? (
           <EmptyState

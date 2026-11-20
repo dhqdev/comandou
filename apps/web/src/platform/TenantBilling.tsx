@@ -1,6 +1,6 @@
 import { BLOCK_LABELS, INVOICE_KIND_LABELS, INVOICE_LABELS } from '@comandou/shared';
 import { FormEvent, useState } from 'react';
-import { Alert, Button, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, TextField, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { AdminInvoice, day, INVOICE_LEVEL } from './BillingPage';
@@ -55,7 +55,7 @@ export function TenantBillingPanel({
   const [form, setForm] = useState({ description: '', amount: '', dueDate: '' });
   const v = data.data;
   if (data.error) return <Alert tone="danger">{data.error}</Alert>;
-  if (v === null && !data.error) return <Spinner />;
+  if (v === null && !data.error) return <Skeleton variant="detail" />;
   if (!v) return null;
   const s = v.subscription;
 

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Route, Routes, useNavigate } from 'react-router';
-import { Alert, Badge, Button, Card, EmptyState, Spinner } from '../design-system';
+import { Alert, Badge, Button, Card, EmptyState, Skeleton } from '../design-system';
 import { useCan } from '../app/auth';
 import {
   fold,
@@ -98,7 +98,7 @@ function Overview() {
       </StockHead>
       {items && <StockSummary items={items} onFocus={setView} />}
       {items === null ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : (
         <ItemsTab items={items} canWrite={canWrite} view={view} onChanged={reload} />
       )}
@@ -115,7 +115,7 @@ function InventorySection() {
         Conte o que tem na prateleira e conclua: o sistema ajusta os saldos.
       </StockHead>
       {items === null ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : (
         <InventoryTab items={items} canWrite={canWrite} onChanged={reload} />
       )}

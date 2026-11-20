@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router';
-import { Alert, Card, Spinner } from '../../design-system';
+import { Alert, Card, Skeleton } from '../../design-system';
 import { useLoad } from '../OverviewPages';
 import { PageHead, Tabs } from '../ui';
 import './mail.css';
@@ -42,7 +42,7 @@ export function MailPage() {
       {overview.error && <Alert tone="danger">{overview.error}</Alert>}
       {!data ? (
         <Card>
-          <Spinner />
+          <Skeleton variant="form" />
         </Card>
       ) : (
         <>

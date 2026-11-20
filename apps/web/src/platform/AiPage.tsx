@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { KeyInUse } from './credentials/KeyInUse';
 import { Gift, KeyRound, MinusCircle, RefreshCw } from 'lucide-react';
-import { Alert, Button, Card, LivePanda, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, Card, LivePanda, TextField, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
 import { ago, Dot, Level, levelFor, PageHead, Section, Sparkline, Tabs, Tag, Tile } from './ui';
@@ -148,7 +148,7 @@ export function AiPage() {
   const data = useLoad<AiOverview>(`/platform/ai${fresh ? `?fresh=${fresh}` : ''}`);
   const o = data.data;
   if (data.error) return <Alert tone="danger">{data.error}</Alert>;
-  if (!o) return <Spinner />;
+  if (!o) return <Skeleton variant="page" />;
   return (
     <>
       <PageHead

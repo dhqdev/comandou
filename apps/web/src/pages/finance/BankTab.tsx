@@ -18,9 +18,9 @@ import {
   Card,
   EmptyState,
   Modal,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { PAYMENT_METHOD_LABELS } from '../../features/format';
@@ -291,7 +291,7 @@ export function BankTab() {
           </div>
           {!data ? (
             <div className="cm-card__body">
-              <Spinner />
+              <Skeleton variant="table" />
             </div>
           ) : data.lines.length === 0 ? (
             <EmptyState
@@ -394,7 +394,7 @@ export function BankTab() {
         <Card title="A receber dos caixas" bodyless>
           {!pending ? (
             <div className="cm-card__body">
-              <Spinner />
+              <Skeleton variant="table" />
             </div>
           ) : pending.rows.filter((s) => s.method !== 'cash').length === 0 ? (
             <EmptyState
@@ -762,7 +762,7 @@ function LineModal({ line, onClose, onDone }: { line: BankLine; onClose(): void;
         </SelectField>
       </div>
       {!c ? (
-        <Spinner />
+        <Skeleton variant="detail" />
       ) : mode === 'settlement' ? (
         <>
           {c.settlements.length === 0 ? (
@@ -974,7 +974,7 @@ function SettlementModal({
         ]}
       />
       {!c ? (
-        <Spinner />
+        <Skeleton variant="detail" />
       ) : manual ? (
         <>
           <TextField

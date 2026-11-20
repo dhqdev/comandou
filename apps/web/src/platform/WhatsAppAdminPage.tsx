@@ -2,7 +2,16 @@ import { ArrowLeft, ExternalLink, MessageCircle, Plus, Search, SendHorizontal } 
 import QRCode from 'qrcode';
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { Alert, Badge, Button, Modal, Spinner, TextField, useToast } from '../design-system';
+import {
+  Alert,
+  Badge,
+  Button,
+  Modal,
+  Spinner,
+  TextField,
+  useToast,
+  Skeleton,
+} from '../design-system';
 import '../features/store-chat/support-inbox.css';
 import { api } from '../lib/api';
 import { Monogram, PageHead } from './ui';
@@ -180,7 +189,7 @@ function ConnectPanel({
             height={240}
           />
         ) : s.status === 'qr' || s.status === 'connecting' ? (
-          <Spinner />
+          <Skeleton variant="qr" size={264} />
         ) : (
           <MessageCircle size={48} aria-hidden />
         )}
@@ -293,7 +302,10 @@ function Conversation({
     }
   }
 
-  if (!chat) return <div className="sinbox__empty">{error ? <p>{error}</p> : <Spinner />}</div>;
+  if (!chat)
+    return (
+      <div className="sinbox__empty">{error ? <p>{error}</p> : <Skeleton variant="chat" />}</div>
+    );
   const name = titleOf(chat);
   let lastDay = '';
   return (
@@ -552,7 +564,7 @@ export function WhatsAppAdminPage() {
       />
       {!s ? (
         <div className="sinbox__empty">
-          <Spinner />
+          <Skeleton variant="detail" />
         </div>
       ) : (
         !connected && <ConnectPanel s={s} acting={acting} onConnect={() => void call('connect')} />
@@ -574,7 +586,7 @@ export function WhatsAppAdminPage() {
               </div>
               {!list ? (
                 <div className="sinbox__empty">
-                  <Spinner />
+                  <Skeleton />
                 </div>
               ) : list.length === 0 ? (
                 <div className="sinbox__empty">

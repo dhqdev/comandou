@@ -1,6 +1,6 @@
 import { Camera, FileText, ImageOff, Images, RotateCcw, Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { Alert, Button, Spinner } from '../../design-system';
+import { Alert, Button, Skeleton, Spinner } from '../../design-system';
 import {
   analyzeMenuFile,
   draftPrice,
@@ -131,7 +131,7 @@ export function MenuImport({
   // Depois de salvar, o que sobrou marcado na conferência é o que falhou ou ficou para trás.
   const left = stage.at === 'done' ? ready : 0;
 
-  if (!status) return <Spinner inline label="Carregando" />;
+  if (!status) return <Skeleton variant="form" />;
   if (!status.enabled && status.reason)
     return (
       <Alert tone="warning">

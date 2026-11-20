@@ -238,9 +238,10 @@ function storeIcon() {
 }
 
 /**
- * O ÚNICO indicador de carregamento do sistema: o ícone da loja pulsando dentro de um anel.
- * Só aparece se a carga demorar (atraso no CSS): troca rápida de tela não pisca nada.
- * `inline` é a versão pequena para dentro de uma linha (ex.: caixa de busca).
+ * Ação em andamento (entrar, salvar, enviar, buscar, abrir um link): o ícone da loja pulsando
+ * dentro de um anel. Conteúdo carregando usa `Skeleton` (skeleton.tsx), no formato do que vem.
+ * Só aparece se a ação demorar (atraso no CSS). `inline` é a versão pequena para dentro de uma
+ * linha (ex.: caixa de busca).
  */
 export function Spinner({ label = 'Carregando', inline }: { label?: string; inline?: boolean }) {
   return (
@@ -250,14 +251,6 @@ export function Spinner({ label = 'Carregando', inline }: { label?: string; inli
       </span>
       <span className="cm-sr-only">{label}</span>
     </span>
-  );
-}
-/** Mesmo carregamento, ocupando a altura do conteúdo que vai chegar (não pula o layout). */
-export function Skeleton({ height = 16 }: { height?: number; width?: number | string }) {
-  return (
-    <div className="cm-loader-box" style={{ minHeight: height }}>
-      <Spinner />
-    </div>
   );
 }
 

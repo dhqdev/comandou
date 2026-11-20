@@ -6,9 +6,9 @@ import {
   Card,
   EmptyState,
   Modal,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import {
@@ -119,7 +119,7 @@ export function FactorsSection() {
         />
         {rows === null ? (
           <div className="cm-card__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : rows.length === 0 ? (
           <EmptyState

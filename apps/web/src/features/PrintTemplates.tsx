@@ -1,6 +1,6 @@
 import { Eye, RotateCcw, Save } from 'lucide-react';
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Alert, Badge, Button, Card, Spinner, useToast } from '../design-system';
+import { Alert, Badge, Button, Card, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { Tabs } from './forms';
 
@@ -143,7 +143,7 @@ export function PrintTemplatesCard() {
         error ? (
           <Alert tone="danger">{error}</Alert>
         ) : (
-          <Spinner />
+          <Skeleton variant="grid" />
         )
       ) : (
         <div className="print-tpl">

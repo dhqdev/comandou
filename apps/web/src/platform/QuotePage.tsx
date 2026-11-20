@@ -15,9 +15,9 @@ import {
   Card,
   EmptyState,
   Modal,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
@@ -113,7 +113,7 @@ export function QuotePage() {
       {error && <Alert tone="danger">{error}</Alert>}
       {!data ? (
         <Card>
-          <Spinner />
+          <Skeleton variant="form" />
         </Card>
       ) : (
         <>

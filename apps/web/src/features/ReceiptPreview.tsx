@@ -1,6 +1,6 @@
 import { Printer } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Alert, Button, Modal, Spinner, useToast } from '../design-system';
+import { Alert, Button, Modal, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { paperCss } from '../lib/pos-device';
 
@@ -105,7 +105,7 @@ export function ReceiptPreview({
       {error ? (
         <Alert tone="danger">{error}</Alert>
       ) : !data ? (
-        <Spinner />
+        <Skeleton variant="detail" />
       ) : (
         <pre className="receipt-paper" aria-label="Comprovante">
           {data.text}

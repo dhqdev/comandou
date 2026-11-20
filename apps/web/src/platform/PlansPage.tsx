@@ -8,9 +8,9 @@ import {
   Card,
   EmptyState,
   Modal,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
@@ -62,7 +62,7 @@ export function PlansPage() {
       />
       {error && <Alert tone="danger">{error}</Alert>}
       {!data ? (
-        <Spinner />
+        <Skeleton variant="cards" />
       ) : !single ? (
         <Card>
           <EmptyState

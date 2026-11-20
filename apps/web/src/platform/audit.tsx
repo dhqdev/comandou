@@ -1,6 +1,6 @@
 import { SUBSCRIPTION_LABELS } from '@comandou/shared';
 import { useState } from 'react';
-import { Alert, Button, Modal, Spinner } from '../design-system';
+import { Alert, Button, Modal, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { brl } from '../lib/money';
 import { useLoad } from './OverviewPages';
@@ -451,7 +451,7 @@ export function TenantHistory({ tenantId, plans }: { tenantId: string; plans: Pl
   if (!data)
     return (
       <div className="adm-panel adm-panel__body">
-        <Spinner />
+        <Skeleton variant="table" />
       </div>
     );
   const counts = new Map<Group, number>();
@@ -511,7 +511,7 @@ export function PanelLogModal({ onClose }: { onClose: () => void }) {
         aba Histórico dele.
       </p>
       {error && <Alert tone="danger">{error}</Alert>}
-      {!data ? <Spinner /> : <AuditTable rows={data} />}
+      {!data ? <Skeleton variant="table" /> : <AuditTable rows={data} />}
     </Modal>
   );
 }

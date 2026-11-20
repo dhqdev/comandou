@@ -21,7 +21,7 @@ import {
   useState,
 } from 'react';
 import { useAuth } from '../../app/auth';
-import { Alert, Button, Calendar, Modal, Segmented, Spinner, useToast } from '../../design-system';
+import { Alert, Button, Calendar, Modal, Segmented, useToast, Skeleton } from '../../design-system';
 import { api } from '../../lib/api';
 import { useLiveData } from '../../lib/realtime';
 import { TagsDialog, WhatsAppDialog } from './AgendaDialogs';
@@ -447,7 +447,7 @@ export function AgendaPage() {
         <div className={`ag-body ag-body--${view}`}>
           {events === null ? (
             <div className="ag-loading">
-              <Spinner />
+              <Skeleton />
             </div>
           ) : view === 'month' ? (
             <MonthView

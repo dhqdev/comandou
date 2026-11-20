@@ -27,7 +27,7 @@ import {
   X,
 } from 'lucide-react';
 import { ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Select, Spinner, TextField, showLiquid, useToast } from '../design-system';
+import { Alert, Button, Select, TextField, showLiquid, useToast, Skeleton } from '../design-system';
 import { useCan } from '../app/auth';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
@@ -428,7 +428,7 @@ export function NewSaleModal({
 
         <div className="nsale__grid" aria-label="Produtos">
           {menu === null ? (
-            <Spinner />
+            <Skeleton variant="grid" />
           ) : products.length === 0 ? (
             <p className="nsale__none">Nenhum produto encontrado.</p>
           ) : (

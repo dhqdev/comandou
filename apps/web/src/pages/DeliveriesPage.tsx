@@ -20,10 +20,10 @@ import {
   Card,
   EmptyState,
   Modal,
-  Spinner,
   TextField,
   useToast,
   Select,
+  Skeleton,
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { minutesSince, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE, time } from '../features/format';
@@ -299,7 +299,7 @@ export function DeliveriesPage() {
                   <Badge tone={out?.length ? 'brand' : 'neutral'}>{out?.length ?? 0}</Badge>
                 </header>
                 {out === null ? (
-                  <Spinner />
+                  <Skeleton />
                 ) : out.length === 0 ? (
                   <p className="dl-panel__empty">Nenhuma entrega em andamento.</p>
                 ) : (
@@ -529,7 +529,7 @@ function RouteReplay({ d, color }: { d: Delivery; color: string }) {
       )
       .catch(() => setData({ store: null, trail: [] }));
   }, [d.id]);
-  if (!data) return <Spinner />;
+  if (!data) return <Skeleton variant="detail" />;
   const last = data.trail.at(-1) ?? toPoint(d.lastLat, d.lastLng);
   return (
     <div className="dl-replay">

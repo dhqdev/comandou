@@ -67,6 +67,7 @@ export default defineConfig({
         'apple-touch-icon.png',
         'manifest.webmanifest',
         'app-manifest.js',
+        'boot.js',
       ],
       workbox: {
         // Somente assets estáticos versionados vão para cache. A API NUNCA é cacheada pelo SW:

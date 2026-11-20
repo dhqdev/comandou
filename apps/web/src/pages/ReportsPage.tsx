@@ -1,7 +1,7 @@
 import { formatBRL, toCents } from '@comandou/shared';
 import { AlertTriangle, CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, DateInput, EmptyState, Segmented, Spinner } from '../design-system';
+import { Alert, Button, Card, DateInput, EmptyState, Segmented, Skeleton } from '../design-system';
 import { CHANNEL_LABELS, PAYMENT_METHOD_LABELS, qty } from '../features/format';
 import { Link, useSearchParams } from 'react-router';
 import { useCan } from '../app/auth';
@@ -265,7 +265,7 @@ function CalendarView({
 
       {error && <Alert tone="danger">{error}</Alert>}
       {!data || !sum ? (
-        !error && <Spinner />
+        !error && <Skeleton variant="page" />
       ) : (
         <>
           <div className="rp-kpis">
@@ -669,7 +669,7 @@ function DayView({ day, onDay }: { day: string; onDay(d: string): void }) {
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
       {!data || !t ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : (
         <>
           <div className="rp-kpis">

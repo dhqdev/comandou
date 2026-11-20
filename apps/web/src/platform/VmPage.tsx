@@ -9,7 +9,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Spinner, useToast } from '../design-system';
+import { Alert, Modal, useToast, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
@@ -207,7 +207,7 @@ export function VmPage() {
   }
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!data) return <Spinner />;
+  if (!data) return <Skeleton variant="page" />;
   if (!data.enabled)
     return (
       <>
@@ -401,7 +401,7 @@ export function VmPage() {
         }
       >
         {comps.error && <Alert tone="danger">{comps.error}</Alert>}
-        {!comps.data && !comps.error && <Spinner />}
+        {!comps.data && !comps.error && <Skeleton variant="table" />}
         {comps.data && (
           <div className="adm-panel">
             <div className="adm-rows">
@@ -882,7 +882,7 @@ function JobSheet({ id, onClose }: { id: string; onClose: () => void }) {
       size="xl"
     >
       {error && <Alert tone="danger">{error}</Alert>}
-      {!data && !error && <Spinner />}
+      {!data && !error && <Skeleton variant="detail" />}
       {data && (
         <>
           <dl className="adm-kv">

@@ -43,10 +43,10 @@ import {
   ItemThumb,
   Modal,
   Sheet,
-  Spinner,
   switchTheme,
   useTheme,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { SoundControl } from '../features/SoundControl';
@@ -393,7 +393,7 @@ export function KitchenPage({
     />
   );
 
-  if (!config) return <Spinner />;
+  if (!config) return <Skeleton variant="board" />;
   if (mustChoose)
     return (
       <div className="kds-root kds-root--choose" data-standalone>
@@ -544,7 +544,7 @@ export function KitchenPage({
 
       {error && <Alert tone="danger">{error}</Alert>}
       {!board ? (
-        <Spinner />
+        <Skeleton variant="board" />
       ) : (
         <div className="kds" data-cols={columns.length}>
           {columns.map((c) => (

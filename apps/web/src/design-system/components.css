@@ -812,10 +812,6 @@ input[type='radio'] {
   height: 14px;
   border-radius: 3px;
 }
-.cm-loader-box {
-  display: grid;
-  place-items: center;
-}
 @keyframes cm-loader-in {
   from {
     opacity: 0;

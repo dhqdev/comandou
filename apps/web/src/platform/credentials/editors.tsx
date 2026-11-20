@@ -1,7 +1,7 @@
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { customOdId } from '@comandou/shared';
 import { FormEvent, ReactNode, useState } from 'react';
-import { Alert, Button, Spinner, TextField, useToast } from '../../design-system';
+import { Alert, Button, TextField, useToast, Skeleton } from '../../design-system';
 import { SelectField } from '../../features/forms';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
@@ -47,7 +47,7 @@ function Loading<T>({
   children(d: T): ReactNode;
 }) {
   if (load.error) return <Alert tone="danger">{load.error}</Alert>;
-  if (!load.data) return <Spinner />;
+  if (!load.data) return <Skeleton variant="form" />;
   return <>{children(load.data)}</>;
 }
 

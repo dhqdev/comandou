@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, ReactNode, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Modal, Select, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Modal, Select, TextField, useToast, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
@@ -95,7 +95,7 @@ export function MigrationsPage() {
   );
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!data) return <Spinner />;
+  if (!data) return <Skeleton variant="table" />;
 
   async function run<T>(fn: () => Promise<T>, ok: string) {
     setBusy(true);

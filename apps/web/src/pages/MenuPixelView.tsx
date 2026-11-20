@@ -1,7 +1,7 @@
 import { toCents } from '@comandou/shared';
 import { MousePointerClick } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, DateInput, EmptyState, Spinner } from '../design-system';
+import { Alert, Button, Card, DateInput, EmptyState, Skeleton } from '../design-system';
 import { qty } from '../features/format';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
@@ -185,7 +185,7 @@ export function MenuPixelView() {
 
       {error && <Alert tone="danger">{error}</Alert>}
       {!data ? (
-        !error && <Spinner />
+        !error && <Skeleton variant="cards" />
       ) : data.totals.visits === 0 && data.totals.itemViews === 0 ? (
         <Card>
           <EmptyState

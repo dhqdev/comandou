@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Mascot, Spinner, useToast } from '../../design-system';
+import { Mascot, useToast, Skeleton } from '../../design-system';
 import { api } from '../../lib/api';
 import { useRealtimeEvents } from '../../lib/realtime';
 import { ChatMessage, ChatPane, mergeMessages } from '../store-chat/ChatKit';
@@ -98,7 +98,7 @@ export function HelpTab({
   if (!d)
     return (
       <div className="tc-placeholder">
-        <Spinner />
+        <Skeleton variant="chat" />
       </div>
     );
 

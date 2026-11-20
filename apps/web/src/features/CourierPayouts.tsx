@@ -38,9 +38,9 @@ import {
   Card,
   EmptyState,
   Modal,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { useAuth, useCan } from '../app/auth';
 import { api } from '../lib/api';
@@ -262,7 +262,7 @@ export function CourierPayouts() {
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
       {!data || !t ? (
-        !error && <Spinner />
+        !error && <Skeleton variant="table" />
       ) : (
         <>
           <div className="dl-kpis">

@@ -1,6 +1,6 @@
 import { CloudUpload, DatabaseBackup, RotateCcw } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Badge, Button, Card, TextField, useToast, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
@@ -71,7 +71,7 @@ export function BackupsPage() {
   }, [pending]);
 
   if (settings.error) return <Alert tone="danger">{settings.error}</Alert>;
-  if (!s) return <Spinner />;
+  if (!s) return <Skeleton variant="page" />;
   return (
     <>
       <PageHead
@@ -341,7 +341,7 @@ function HistorySection({ runs, error }: { runs: BackupRun[] | null; error: stri
       <div className="adm-panel">
         {!runs ? (
           <div className="adm-panel__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : runs.length === 0 ? (
           <div className="adm-empty">Nenhuma execução registrada</div>

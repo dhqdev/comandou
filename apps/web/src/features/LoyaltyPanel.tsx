@@ -9,9 +9,9 @@ import {
   EmptyState,
   Modal,
   Segmented,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { api, Product } from '../lib/api';
 import { brl } from '../lib/money';
@@ -221,7 +221,7 @@ export function LoyaltyPanel({
     if (ok) setEdit(null);
   }
 
-  if (!s) return <Spinner />;
+  if (!s) return <Skeleton variant="form" />;
   const unit = unitOf(s.mode);
   const invalid =
     !form.name.trim() ||
@@ -413,7 +413,7 @@ export function LoyaltyPanel({
         }
       >
         {!report ? (
-          <Spinner />
+          <Skeleton variant="cards" />
         ) : (
           <>
             <div className="lp-kpis">

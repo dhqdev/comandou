@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '../../app/auth';
-import { Alert, Button, Modal, Select, Spinner, TextField, useToast } from '../../design-system';
+import { Alert, Button, Modal, Select, TextField, useToast, Skeleton } from '../../design-system';
 import { api } from '../../lib/api';
 import { UFS, maskDocument, maskPhone, onlyDigits } from '../../lib/br-format';
 
@@ -208,7 +208,7 @@ export function RestaurantDataModal({ open, onClose }: { open: boolean; onClose:
       }
     >
       {error && <Alert tone="danger">{error}</Alert>}
-      {!form && !error && <Spinner />}
+      {!form && !error && <Skeleton variant="form" />}
       {form && (
         <form className="cm-form" onSubmit={save}>
           <p className="cm-hint cm-form__wide" style={{ margin: 0 }}>

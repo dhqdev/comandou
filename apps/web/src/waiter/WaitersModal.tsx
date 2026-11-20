@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Alert, Button, EmptyState, Modal, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, EmptyState, Modal, TextField, useToast, Skeleton } from '../design-system';
 import { useCan } from '../app/auth';
 import { WAITER_PATH, waiterLink } from '../app/WaiterEntry';
 import { SlideTabs } from '../features/SlideTabs';
@@ -166,7 +166,7 @@ export function WaitersModal({ open, onClose }: { open: boolean; onClose(): void
           </label>
           {error && <Alert tone="danger">{error}</Alert>}
           {rows === null ? (
-            !error && <Spinner />
+            !error && <Skeleton />
           ) : shown.length === 0 ? (
             <EmptyState
               mascot="joy"
@@ -320,7 +320,7 @@ export function WaitersModal({ open, onClose }: { open: boolean; onClose(): void
             </div>
             {showQr && (
               <figure className="qr-card wt-share__qr">
-                {qr ? <img src={qr} alt="QR Code do app do garçom" /> : <Spinner />}
+                {qr ? <img src={qr} alt="QR Code do app do garçom" /> : <Skeleton variant="qr" />}
                 <figcaption>Aponte a câmera do celular</figcaption>
               </figure>
             )}

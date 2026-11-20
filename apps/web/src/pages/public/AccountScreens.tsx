@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { CSSProperties, FormEvent, MouseEvent, ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { clickPoint, Mascot, Spinner, switchTheme, useTheme, useToast } from '../../design-system';
+import { clickPoint, Mascot, switchTheme, useTheme, useToast, Skeleton } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
 import { AddressArt, LoyaltyArt } from './art';
@@ -457,7 +457,7 @@ export function AccountScreen() {
   if (!account)
     return (
       <div className="sf-wrap sf-page">
-        <Spinner />
+        <Skeleton />
       </div>
     );
   const themeRow = menu.appearance.theme === 'auto';

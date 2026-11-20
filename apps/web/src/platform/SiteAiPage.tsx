@@ -8,9 +8,9 @@ import {
   EmptyState,
   LivePanda,
   Modal,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { CheckField, SelectField } from '../features/forms';
 import { api } from '../lib/api';
@@ -128,7 +128,7 @@ export function SiteAiPage() {
       {error && <Alert tone="danger">{error}</Alert>}
       {!data ? (
         <Card>
-          <Spinner />
+          <Skeleton variant="page" />
         </Card>
       ) : (
         <>
@@ -547,7 +547,7 @@ function DraftModal({ id, onClose }: { id: string | null; onClose(): void }) {
       }
     >
       {!d ? (
-        <Spinner />
+        <Skeleton variant="detail" />
       ) : (
         <div className="adm-sia">
           {d.tagline && <p className="adm-sia__tag">{d.tagline}</p>}

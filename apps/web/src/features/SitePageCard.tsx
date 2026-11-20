@@ -1,6 +1,6 @@
 import { ExternalLink, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Alert, Button, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, TextField, useToast, Skeleton } from '../design-system';
 import { api, ApiError } from '../lib/api';
 
 export interface SiteCopy {
@@ -93,7 +93,7 @@ export function SitePageCard({ canManage }: { canManage: boolean }) {
         </div>
       </div>
     );
-  if (!copy) return <Spinner />;
+  if (!copy) return <Skeleton variant="form" />;
 
   const set = (p: Partial<SiteCopy>) => setCopy({ ...copy, ...p });
   const highlights = [

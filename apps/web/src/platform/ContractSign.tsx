@@ -1,6 +1,6 @@
 import { CheckCircle2, Clock, Download, Eraser, FileText, Lock, PenLine, Type } from 'lucide-react';
 import { FormEvent, PointerEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Mascot, Spinner, TextField, ThemeToggle } from '../design-system';
+import { Alert, Button, Mascot, TextField, ThemeToggle, Skeleton } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { brl } from '../lib/money';
 import { maskDocument } from './NewTenant';
@@ -300,7 +300,7 @@ export function ContractSignPage({ token }: { token: string }) {
           className="cs-main"
           style={{ display: 'grid', placeItems: 'center', minHeight: '50vh' }}
         >
-          <Spinner />
+          <Skeleton variant="detail" />
         </main>
       </div>
     );

@@ -10,7 +10,7 @@ import {
 import { Download } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Button, Card, Spinner } from '../../design-system';
+import { Alert, Button, Card, Skeleton } from '../../design-system';
 import { fmtDate, Tabs } from '../../features/forms';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
@@ -130,7 +130,7 @@ export function DreTab({
         </Button>
       </div>
       {!data ? (
-        !error && <Spinner />
+        !error && <Skeleton variant="table" />
       ) : (
         <>
           {waterfall(data) && (

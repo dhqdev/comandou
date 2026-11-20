@@ -15,7 +15,7 @@ import {
   Type,
 } from 'lucide-react';
 import { FormEvent, useId, useState } from 'react';
-import { Alert, Button, Modal, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, Modal, TextField, useToast, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import { addressLine, CepField } from '../features/CepField';
@@ -114,7 +114,7 @@ export function ContractsPanel({ t, initialOpen }: { t: TenantDetail; initialOpe
         </div>
       ) : !list.data ? (
         <div className="adm-panel__body">
-          <Spinner />
+          <Skeleton />
         </div>
       ) : list.data.length === 0 ? (
         <div className="adm-empty">Nenhum contrato gerado ainda.</div>
@@ -582,7 +582,7 @@ function ContractSheet({
   if (!c)
     return (
       <Modal open title="Contrato" onClose={onClose}>
-        <Spinner />
+        <Skeleton variant="detail" />
       </Modal>
     );
   // Ainda dá para (re)enviar ao cliente: ele não assinou.
@@ -1005,7 +1005,7 @@ export function ContractSettingsModal({
       }
     >
       {!form || !s ? (
-        <Spinner />
+        <Skeleton variant="form" />
       ) : (
         <form id="contract-settings" className="adm-form-stack" onSubmit={save} noValidate>
           <fieldset className="adm-fieldset">

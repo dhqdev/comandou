@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../app/auth';
-import { Alert, Badge, Button, EmptyState, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Badge, Button, EmptyState, TextField, useToast, Skeleton } from '../design-system';
 import { SelectField } from '../features/forms';
 import { CHANNEL_LABELS, dateTime, ORDER_STATUS_LABELS, STATUS_TONE } from '../features/format';
 import {
@@ -117,7 +117,7 @@ function CustomerPanel({
   return (
     <SidePanel open={id !== null} title="Cliente" size="xl" onClose={onClose}>
       {!c ? (
-        <Spinner />
+        <Skeleton variant="detail" />
       ) : (
         <div className="cl-detail">
           <div className="cl-head">
@@ -501,7 +501,7 @@ export function CustomersPage() {
           }
         />
         {!rows ? (
-          <Spinner />
+          <Skeleton variant="table" />
         ) : rows.length === 0 ? (
           <EmptyState
             icon={<Users size={20} />}

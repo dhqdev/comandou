@@ -15,10 +15,10 @@ import {
   Card,
   EmptyState,
   Modal,
-  Spinner,
   TextField,
   useToast,
   Select,
+  Skeleton,
 } from '../design-system';
 import { useAuth } from '../app/auth';
 import { dateTime } from '../features/format';
@@ -87,7 +87,7 @@ export function TeamPage() {
       <Card bodyless>
         {members === null ? (
           <div className="cm-card__body">
-            <Spinner />
+            <Skeleton />
           </div>
         ) : members.length === 0 ? (
           <EmptyState icon={<Users size={20} />} title="Ninguém na equipe ainda" />

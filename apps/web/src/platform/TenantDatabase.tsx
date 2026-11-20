@@ -1,7 +1,7 @@
 import { ArrowRightLeft, Copy, Database, RotateCcw, Trash2, Truck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Modal, Select, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Modal, Select, Spinner, TextField, useToast, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
@@ -369,7 +369,7 @@ export function DatabasePanel({
         }
       >
         {!loaded ? (
-          <Spinner />
+          <Skeleton />
         ) : targets.length === 0 ? (
           <Alert tone="info">
             Não há outro servidor cadastrado. Cadastre um em <Link to="/bancos">Bancos</Link>.

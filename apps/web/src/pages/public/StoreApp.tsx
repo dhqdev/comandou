@@ -30,7 +30,7 @@ import {
   useNavigate,
   useNavigationType,
 } from 'react-router';
-import { applyTheme, Mascot, setPullRefreshHandler, Spinner } from '../../design-system';
+import { applyTheme, Bone, Mascot, setPullRefreshHandler, Skeleton } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { lazyPage, preloadPages } from '../../lib/lazy-page';
 import { brl } from '../../lib/money';
@@ -274,8 +274,8 @@ function Allowed({ screen, el }: { screen: string; el: ReactElement }) {
 /** Tela que ainda não chegou (só se o cliente tocar antes de ela baixar). */
 function ScreenLoading() {
   return (
-    <div className="sf-wrap sf-page sf-page--loading" aria-busy="true">
-      <Spinner />
+    <div className="sf-wrap sf-page">
+      <Skeleton />
     </div>
   );
 }
@@ -384,10 +384,36 @@ function Chrome() {
   );
 }
 
-function Skeleton() {
+/** Cardápio abrindo: o formato da loja (capa, nome, categorias e pratos com foto). */
+function MenuSkeleton() {
   return (
-    <main className="sf sf--loading" aria-busy="true">
-      <Spinner label="Abrindo o cardápio" />
+    <main className="sf sf--loading" role="status" aria-busy="true">
+      <Bone className="sf-sk__cover" w="100%" h={148} r={0} />
+      <div className="sf-wrap sf-sk">
+        <div className="sf-sk__brand">
+          <Bone w={64} h={64} r={16} />
+          <div className="sf-sk__lines">
+            <Bone w="62%" h={18} />
+            <Bone w="44%" h={12} />
+          </div>
+        </div>
+        <div className="sf-sk__chips">
+          {[72, 96, 64, 88].map((w, i) => (
+            <Bone key={i} w={w} h={32} r="full" />
+          ))}
+        </div>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div className="sf-sk__dish" key={i}>
+            <div className="sf-sk__lines">
+              <Bone w={['58%', '72%', '50%', '66%', '44%'][i]} h={14} />
+              <Bone w="90%" h={10} />
+              <Bone w="30%" h={12} />
+            </div>
+            <Bone w={88} h={88} r={12} />
+          </div>
+        ))}
+      </div>
+      <span className="cm-sr-only">Abrindo o cardápio</span>
     </main>
   );
 }
@@ -519,7 +545,7 @@ export function StoreApp() {
         <p>{error}</p>
       </main>
     );
-  if (!menu) return <Skeleton />;
+  if (!menu) return <MenuSkeleton />;
   return (
     <StoreProvider
       menu={menu}

@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Button, Card, EmptyState, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, Card, EmptyState, TextField, useToast, Skeleton } from '../design-system';
 import { CheckField } from '../features/forms';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
@@ -66,7 +66,7 @@ export function SitePage() {
       {error && <Alert tone="danger">{error}</Alert>}
       {!data ? (
         <Card>
-          <Spinner />
+          <Skeleton variant="form" />
         </Card>
       ) : (
         <>

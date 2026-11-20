@@ -7,7 +7,7 @@ import {
 import { ArrowRight, Check, ChevronDown, Link2, RotateCcw, Store } from 'lucide-react';
 import { Link } from 'react-router';
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../design-system';
+import { Alert, Badge, Button, Card, EmptyState, useToast, Skeleton } from '../design-system';
 import { useCan } from '../app/auth';
 import { AppReviewsCard } from '../features/channels/AppReviews';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
@@ -197,7 +197,7 @@ export function IntegrationsPage() {
       )}
 
       {channels === null ? (
-        <Spinner />
+        <Skeleton variant="cards" />
       ) : (
         <>
           <Overview channels={ordered} failures={failures} />

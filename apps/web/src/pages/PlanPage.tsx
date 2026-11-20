@@ -11,7 +11,7 @@ import { Check, CreditCard, FileText, QrCode } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth, useCan } from '../app/auth';
-import { Alert, Badge, Button, Modal, Spinner, useToast } from '../design-system';
+import { Alert, Badge, Button, Modal, Skeleton, useToast } from '../design-system';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import type { TenantSubscription } from '../lib/types';
@@ -162,7 +162,7 @@ function Subscription() {
   useEffect(load, [load]);
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!data && !usage) return <Spinner />;
+  if (!data && !usage) return <Skeleton variant="page" />;
   const s = data?.subscription ?? null;
   const open = (data?.invoices ?? [])
     .filter(isOpen)

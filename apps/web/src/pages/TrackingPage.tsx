@@ -1,7 +1,7 @@
 import { Bike, CheckCircle2, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
-import { Alert, Logo, Spinner, ThemeToggle } from '../design-system';
+import { Alert, Logo, ThemeToggle, Skeleton } from '../design-system';
 import {
   CustomerLiveMap,
   customerEta,
@@ -111,7 +111,7 @@ export function TrackingPage() {
       </header>
       <div className="trk__body">
         {error && <Alert tone={data ? 'warning' : 'danger'}>{error}</Alert>}
-        {!data && !error && <Spinner />}
+        {!data && !error && <Skeleton variant="detail" />}
         {data?.status === 'out' && data.code && <DeliveryCode code={data.code} />}
         {courier && <CustomerLiveMap courier={courier} />}
         {data && (

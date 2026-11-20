@@ -10,9 +10,9 @@ import {
   HelpLabel,
   HelpTip,
   Modal,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../../design-system';
 import { FiscalCompanySetup, fmtCnpj, saveFiscalCompany } from '../../features/FiscalCompanySetup';
 import { CheckField, Tabs } from '../../features/forms';
@@ -91,7 +91,7 @@ export function SettingsSection() {
     }
   }
 
-  if (!s) return error ? <Alert tone="danger">{error}</Alert> : <Spinner />;
+  if (!s) return error ? <Alert tone="danger">{error}</Alert> : <Skeleton variant="form" />;
   const managed = connect === 'managed';
   return (
     <div className="fi-page fi-cfg">

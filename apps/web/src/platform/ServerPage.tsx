@@ -1,6 +1,6 @@
 import { RefreshCw, RotateCcw, ScrollText, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Alert, Modal, Spinner, useToast, Select } from '../design-system';
+import { Alert, Modal, useToast, Select, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
@@ -68,7 +68,7 @@ export function ServerPage() {
   useInterval(reload, 10_000);
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!data) return <Spinner />;
+  if (!data) return <Skeleton variant="page" />;
   if (!data.enabled)
     return (
       <>

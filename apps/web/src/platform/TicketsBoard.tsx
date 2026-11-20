@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Alert, Button, Modal, Select, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, Modal, Select, TextField, useToast, Skeleton } from '../design-system';
 import type { Prepared } from '../features/store-chat/chat-media';
 import { AgentAvatar, AttachPicker, EventLine, FileGrid } from '../features/tickets/TicketParts';
 import {
@@ -275,7 +275,7 @@ export function TicketsBoardPage() {
 
   const b = data.data;
   if (data.error) return <Alert tone="danger">{data.error}</Alert>;
-  if (!b) return <Spinner />;
+  if (!b) return <Skeleton variant="board" />;
   const s = b.settings;
   return (
     <div className="tk-board-page">
@@ -530,7 +530,7 @@ function TicketDrawer({
       >
         {!t ? (
           <div style={{ padding: 24 }}>
-            {d.error ? <Alert tone="danger">{d.error}</Alert> : <Spinner />}
+            {d.error ? <Alert tone="danger">{d.error}</Alert> : <Skeleton variant="detail" />}
           </div>
         ) : (
           <>
@@ -1072,7 +1072,7 @@ function DiffTab({ id, branch }: { id: string; branch: string | null }) {
   const d = useLoad<Diff>(branch ? `${BASE}/${id}/diff` : null);
   if (!branch) return <p className="adm-empty">A branch nasce na etapa Desenvolvimento.</p>;
   if (d.error) return <Alert tone="danger">{d.error}</Alert>;
-  if (!d.data) return <Spinner />;
+  if (!d.data) return <Skeleton />;
   return (
     <div className="tk-diff">
       <p className="adm-sub">

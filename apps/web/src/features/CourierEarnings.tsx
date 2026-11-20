@@ -6,7 +6,7 @@ import {
 } from '@comandou/shared';
 import { Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Alert, Badge, Segmented, Spinner } from '../design-system';
+import { Alert, Badge, Segmented, Skeleton } from '../design-system';
 import { brl } from '../lib/money';
 import { dateTime } from './format';
 import { kmLabel } from './live-geo';
@@ -83,7 +83,7 @@ export function CourierEarnings({ load }: { load(): Promise<CourierEarningsData>
   }, [load]);
 
   if (error) return <Alert tone="warning">{error}</Alert>;
-  if (!data) return <Spinner />;
+  if (!data) return <Skeleton variant="cards" />;
   const p = data[period];
   const hasDaily = data.dailyRate !== '0.00';
   return (

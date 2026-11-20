@@ -6,7 +6,7 @@ import {
 } from '@comandou/shared';
 import { CircleCheck, Target } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { Spinner } from '../design-system';
+import { Skeleton } from '../design-system';
 import { brl } from '../lib/money';
 import { Seal, useWaiterStats, WaiterHead } from './common';
 
@@ -26,7 +26,7 @@ export function WaiterChallenges() {
     el?.scrollIntoView?.({ inline: 'center', block: 'nearest' });
   }, [level.index, stats]);
 
-  if (!stats) return <Spinner />;
+  if (!stats) return <Skeleton variant="cards" />;
   const day = stats.today;
   const done = WAITER_DAILY_CHALLENGES.filter((c) => challengeProgress(c, day) >= 1).length;
 

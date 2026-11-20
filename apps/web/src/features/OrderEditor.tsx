@@ -1,7 +1,7 @@
 import { fromCents, multiplyCents, optionsTotalCents, qtyLabel, toCents } from '@comandou/shared';
 import { Check, Minus, Plus, Scale, Search, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, ItemThumb, Spinner } from '../design-system';
+import { Alert, Button, ItemThumb, Spinner, Skeleton } from '../design-system';
 import { useCan } from '../app/auth';
 import { api } from '../lib/api';
 import { mediaUrl } from '../lib/media';
@@ -346,7 +346,7 @@ export function OrderEditor({
               }
             }}
           />
-          {menu === null && <Spinner />}
+          {menu === null && <Skeleton variant="grid" />}
         </label>
         {search.trim() && menu && (
           <ul className="oed__results" aria-label="Produtos">

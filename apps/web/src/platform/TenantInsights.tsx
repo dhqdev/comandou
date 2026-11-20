@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import { brl } from '../lib/money';
 
-import { Alert, Spinner } from '../design-system';
+import { Alert, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { useLoad } from './OverviewPages';
 import { isOnline, ROLE } from './TenantOverview';
@@ -243,7 +243,7 @@ function Loading({ error }: { error: string | null }) {
     <Alert tone="danger">{error}</Alert>
   ) : (
     <div className="adm-panel adm-panel__body">
-      <Spinner />
+      <Skeleton variant="cards" />
     </div>
   );
 }
@@ -530,7 +530,7 @@ export function OperationPanel({
       <Block title="Atividade da equipe (30 dias)">
         {!team ? (
           <div className="adm-panel__body">
-            <Spinner />
+            <Skeleton />
           </div>
         ) : (
           <div className="adm-rows">
@@ -584,7 +584,7 @@ export function ConsumptionRanking() {
       <div className="adm-panel">
         {!data ? (
           <div className="adm-panel__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : data.tenants.length === 0 ? (
           <div className="adm-empty">Nenhum restaurante</div>

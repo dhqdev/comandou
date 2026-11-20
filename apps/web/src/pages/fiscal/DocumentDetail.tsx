@@ -24,11 +24,11 @@ import {
   Button,
   Card,
   Modal,
-  Spinner,
   TextField,
   useToast,
   HelpLabel,
   HelpScope,
+  Skeleton,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { SelectField } from '../../features/forms';
@@ -226,7 +226,7 @@ export function DocumentDetail() {
         <Alert tone="danger">{error}</Alert>
       </div>
     ) : (
-      <Spinner />
+      <Skeleton variant="detail" />
     );
 
   const listPath = isNfe ? '/fiscal/nfe' : '/fiscal/nfce';

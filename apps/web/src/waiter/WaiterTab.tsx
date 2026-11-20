@@ -9,9 +9,9 @@ import {
   EmptyState,
   ItemThumb,
   Modal,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { mediaUrl } from '../lib/media';
 import { ORDER_STATUS_LABELS, STATUS_TONE, time } from '../features/format';
@@ -122,7 +122,7 @@ export function WaiterTab() {
       />
       {error && <Alert tone="danger">{error}</Alert>}
       {!tab ? (
-        !error && <Spinner />
+        !error && <Skeleton variant="detail" />
       ) : (
         <>
           {!open && <Alert tone="info">Esta comanda já foi fechada no caixa.</Alert>}
@@ -388,7 +388,7 @@ function TransferModal({
   return (
     <Modal open={open} onClose={onClose} title={`Transferir mesa ${tab.tableLabel ?? ''}`}>
       {tables === null ? (
-        <Spinner />
+        <Skeleton variant="grid" />
       ) : tables.length === 0 ? (
         <EmptyState title="Nenhuma mesa livre agora" />
       ) : (

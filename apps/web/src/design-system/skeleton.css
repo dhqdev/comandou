@@ -1,0 +1,216 @@
+/* Esqueleto de carregamento (skeleton.tsx). Blocos na cor do campo vazio, com um brilho que passa
+   devagar. Entra com um atraso curto: carga rápida não pisca cinza. */
+.cm-bone {
+  display: block;
+  flex: none;
+  max-width: 100%;
+  border-radius: var(--cm-radius-md);
+  background-color: var(--cm-sk-bone);
+  background-image: linear-gradient(90deg, transparent 0, var(--cm-sk-shine) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: cm-sk-shine 1.4s ease-in-out infinite;
+}
+:root {
+  --cm-sk-bone: color-mix(in oklab, var(--cm-text) 7%, transparent);
+  --cm-sk-shine: color-mix(in oklab, var(--cm-surface) 70%, transparent);
+}
+:root[data-theme='dark'] {
+  --cm-sk-bone: color-mix(in oklab, var(--cm-text) 9%, transparent);
+  --cm-sk-shine: color-mix(in oklab, var(--cm-text) 6%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --cm-sk-bone: color-mix(in oklab, var(--cm-text) 9%, transparent);
+    --cm-sk-shine: color-mix(in oklab, var(--cm-text) 6%, transparent);
+  }
+}
+
+.cm-sk {
+  display: grid;
+  gap: var(--cm-space-4);
+  width: 100%;
+  padding: var(--cm-space-2) 0;
+  animation: cm-sk-in 0.18s var(--cm-ease) 0.12s both;
+}
+.cm-sk__list,
+.cm-sk__table,
+.cm-sk__form,
+.cm-sk__chat {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.cm-sk__row {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+  min-width: 0;
+}
+.cm-sk__lines {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+}
+.cm-sk__thead,
+.cm-sk__tr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-4);
+}
+.cm-sk__thead {
+  padding-bottom: var(--cm-space-3);
+  border-bottom: 1px solid var(--cm-border);
+}
+.cm-sk__head {
+  display: grid;
+  gap: var(--cm-space-2);
+}
+.cm-sk__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--cm-space-3);
+}
+.cm-sk__card {
+  display: grid;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-4);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+}
+.cm-sk__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: var(--cm-space-3);
+}
+.cm-sk__tile {
+  display: grid;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-2);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+}
+.cm-sk__photo {
+  aspect-ratio: 4 / 3;
+  border-radius: calc(var(--cm-radius-lg) - 4px);
+}
+.cm-sk__field {
+  display: grid;
+  gap: var(--cm-space-2);
+}
+.cm-sk__board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(220px, 1fr);
+  gap: var(--cm-space-3);
+  overflow: hidden;
+}
+.cm-sk__col {
+  display: grid;
+  align-content: start;
+  gap: var(--cm-space-3);
+}
+.cm-sk__ticket {
+  display: grid;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+}
+.cm-sk__chat {
+  padding: var(--cm-space-2) 0;
+}
+.cm-sk__mine {
+  justify-self: end;
+}
+.cm-sk--qr {
+  justify-items: center;
+}
+@keyframes cm-sk-shine {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+@keyframes cm-sk-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-bone {
+    animation: none;
+  }
+}
+
+/* Moldura carregando (AppSkeleton): mesmo desenho do #cm-boot do index.html. */
+.cm-appsk {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr auto;
+  background: var(--cm-bg);
+}
+.cm-appsk__top {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+  height: 56px;
+  padding: env(safe-area-inset-top) var(--cm-space-4) 0;
+  background: var(--cm-frame);
+  border-bottom: 1px solid var(--cm-border);
+}
+.cm-appsk__side {
+  display: none;
+}
+.cm-appsk__main {
+  padding: var(--cm-space-5) var(--cm-space-4);
+  overflow: hidden;
+}
+.cm-appsk__tabs {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 60px;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--cm-frame);
+  border-top: 1px solid var(--cm-border);
+}
+@media (min-width: 901px) {
+  .cm-appsk:not(.cm-appsk--plain) {
+    grid-template-columns: 252px 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .cm-appsk__top {
+    grid-column: 1 / -1;
+  }
+  .cm-appsk:not(.cm-appsk--plain) .cm-appsk__side {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+    padding: var(--cm-space-5) var(--cm-space-4);
+    background: var(--cm-frame);
+  }
+  .cm-appsk__main {
+    padding: 28px 32px;
+  }
+  .cm-appsk__tabs {
+    display: none;
+  }
+}
+.cm-appsk--plain .cm-appsk__side,
+.cm-appsk--plain .cm-appsk__tabs {
+  display: none;
+}
+
+/* Tela que ainda não chegou (PageLoading), dentro da moldura. */
+.cm-page-loading {
+  padding: var(--cm-space-2) 0;
+}
+.cm-appsk .cm-sk {
+  animation: none;
+}

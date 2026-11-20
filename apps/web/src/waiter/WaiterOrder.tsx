@@ -25,9 +25,9 @@ import {
   EmptyState,
   ItemThumb,
   Modal,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
@@ -338,7 +338,7 @@ export function WaiterOrder() {
         {error && <Alert tone="danger">{error}</Alert>}
         <div className="wt-products" ref={listRef}>
           {menu === null ? (
-            <Spinner />
+            <Skeleton variant="grid" />
           ) : shown.length === 0 ? (
             <EmptyState title={search ? 'Nenhum produto encontrado' : 'Cardápio vazio'} />
           ) : (

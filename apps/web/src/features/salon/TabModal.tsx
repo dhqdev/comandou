@@ -16,8 +16,8 @@ import {
   EmptyState,
   ItemThumbStrip,
   Modal,
-  Spinner,
   useToast,
+  Skeleton,
 } from '../../design-system';
 import { mediaUrl } from '../../lib/media';
 import { useCan } from '../../app/auth';
@@ -210,7 +210,7 @@ export function TabModal({
   return (
     <Modal open={!!tabId} onClose={onClose} title={title} size="lg" footer={footer}>
       {!tab ? (
-        <Spinner />
+        <Skeleton variant="detail" />
       ) : (
         <div className="order-detail">
           {tab.billRequestedAt && (

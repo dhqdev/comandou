@@ -1,6 +1,6 @@
 import { Armchair, GripVertical, LayoutGrid, Minus, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Alert, Button, EmptyState, Modal, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, EmptyState, Modal, TextField, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import type { DiningTable, TableShape } from '../lib/types';
 import './table-editor.css';
@@ -339,7 +339,7 @@ export function TableEditor({
           alça para mudar a ordem do mapa.
         </p>
         {tables === null ? (
-          <Spinner />
+          <Skeleton variant="grid" />
         ) : active.length === 0 ? (
           <EmptyState
             icon={<LayoutGrid size={20} />}

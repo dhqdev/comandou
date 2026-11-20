@@ -1626,8 +1626,3 @@
 }
 
 /* Tela que ainda está chegando (só se tocou antes de ela baixar em segundo plano). */
-.sf-page--loading {
-  display: grid;
-  place-items: center;
-  min-height: 40vh;
-}

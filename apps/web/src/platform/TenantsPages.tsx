@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { Alert, Button, Modal, Spinner, TextField, useToast, Select } from '../design-system';
+import { Alert, Button, Modal, TextField, useToast, Select, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
@@ -160,7 +160,7 @@ export function TenantsPage() {
         <div className="adm-panel">
           {!data ? (
             <div className="adm-panel__body">
-              <Spinner />
+              <Skeleton variant="table" />
             </div>
           ) : data.length === 0 ? (
             <div className="adm-empty">Nenhum restaurante encontrado</div>
@@ -320,7 +320,7 @@ export function TenantDetailPage() {
   } | null>(null);
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!t) return <Spinner />;
+  if (!t) return <Skeleton variant="detail" />;
   const s = t.subscription;
   const form = sub ?? {
     planId: s?.planId ?? '',
@@ -576,7 +576,7 @@ export function TenantDetailPage() {
           <div className="adm-panel">
             {!team.data ? (
               <div className="adm-panel__body">
-                <Spinner />
+                <Skeleton />
               </div>
             ) : team.data.length === 0 ? (
               <div className="adm-empty">Sem equipe</div>

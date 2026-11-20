@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Card, EmptyState, Spinner, useToast } from '../../design-system';
+import { Alert, Button, Card, EmptyState, useToast, Skeleton } from '../../design-system';
 import { api } from '../../lib/api';
 import { useLoad } from '../OverviewPages';
 import { ago, Section, Tag, Tile, type Level } from '../ui';
@@ -81,7 +81,7 @@ export function OutboxTab() {
         {data.error && <Alert tone="danger">{data.error}</Alert>}
         {!data.data ? (
           <Card>
-            <Spinner />
+            <Skeleton variant="table" />
           </Card>
         ) : !data.data.rows.length ? (
           <Card>

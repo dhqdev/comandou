@@ -8,7 +8,7 @@ import {
 } from '@comandou/shared';
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Button, Card, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, Card, TextField, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { CalendarSection } from './BillingCalendar';
@@ -134,7 +134,7 @@ export function BillingPage() {
     return (
       <>
         {head}
-        <Spinner />
+        <Skeleton variant="page" />
       </>
     );
   return (

@@ -1,7 +1,7 @@
 import { ExternalLink } from 'lucide-react';
 import { ReactNode, useEffect } from 'react';
 import { Link, useLocation } from 'react-router';
-import { Alert, Spinner } from '../../design-system';
+import { Alert, Skeleton } from '../../design-system';
 import { useLoad } from '../OverviewPages';
 import { Dot, Level, PageHead, Section, Tag, Tile } from '../ui';
 import { CREDENTIALS, CredDef, CredGroup, TENANT_CREDENTIALS } from './catalog';
@@ -95,7 +95,7 @@ export function CredentialsPage() {
     document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: 'start' });
   }, [loaded, hash]);
   if (data.error) return <Alert tone="danger">{data.error}</Alert>;
-  if (!o) return <Spinner />;
+  if (!o) return <Skeleton variant="page" />;
   const byId = new Map(o.items.map((i) => [i.id, i]));
   const known = o.items.filter((i) => i.configured !== null);
   const ready = known.filter((i) => i.configured && !i.unreadable).length;

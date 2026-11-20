@@ -1,7 +1,7 @@
 import { channelInfo, fromCents, toCents, type FinanceMonth, withArticle } from '@comandou/shared';
 import { RefreshCw, Smartphone } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../../design-system';
+import { Alert, Badge, Button, Card, EmptyState, useToast, Skeleton } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { fmtDate } from '../../features/forms';
 import { api } from '../../lib/api';
@@ -120,7 +120,7 @@ export function AppsTab({ period }: { period: FinanceMonth | null }) {
   }
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!d) return <Spinner />;
+  if (!d) return <Skeleton variant="page" />;
   if (!d.stores.length && !d.payouts.length && !d.sales.length)
     return (
       <EmptyState

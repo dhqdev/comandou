@@ -1,7 +1,7 @@
 import { FileText, RefreshCw, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Badge, Button, Card, EmptyState, Spinner } from '../../design-system';
+import { Badge, Button, Card, EmptyState, Skeleton } from '../../design-system';
 import {
   fold,
   ListTable,
@@ -140,7 +140,7 @@ export function DocumentsList({ kind }: { kind: FiscalKind }) {
         />
         {docs === null ? (
           <div className="cm-card__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : docs.length === 0 ? (
           <EmptyState

@@ -25,9 +25,9 @@ import {
   Modal,
   Segmented,
   Select,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { BrandingCard } from '../features/BrandingCard';
 import { ImagePicker } from '../features/ImagePicker';
@@ -132,7 +132,7 @@ function AppearanceTab({
       setBusy(false);
     }
   }
-  if (!s) return <Spinner />;
+  if (!s) return <Skeleton variant="form" />;
   return (
     <div className="os-stack">
       <BrandingCard
@@ -389,7 +389,7 @@ function BannersTab({
       }
     >
       {list === null ? (
-        <Spinner />
+        <Skeleton />
       ) : list.length === 0 ? (
         <EmptyState
           icon={<ImagePlus size={20} />}

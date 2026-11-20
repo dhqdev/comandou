@@ -18,9 +18,9 @@ import {
   EmptyState,
   Modal,
   Select,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import type { Prepared } from '../features/store-chat/chat-media';
 import { ago, TicketHistory } from '../features/tickets/TicketHistory';
@@ -120,7 +120,7 @@ function TicketList() {
           </span>
         </div>
       )}
-      {!list && !error && <Spinner />}
+      {!list && !error && <Skeleton />}
       {list && list.length === 0 && (
         <EmptyState
           icon={<LifeBuoy />}
@@ -425,7 +425,7 @@ function TicketView({ id }: { id: string }) {
   }
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!t) return <Spinner />;
+  if (!t) return <Skeleton variant="detail" />;
   const opening = t.files.filter((f) => f.eventId === null);
   const off = t.statusLabel === 'Não será feito' || t.statusLabel === 'Cancelado';
   const cancelled = t.statusLabel === 'Cancelado';

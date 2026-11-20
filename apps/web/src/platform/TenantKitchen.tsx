@@ -8,7 +8,7 @@ import {
 } from '@comandou/shared';
 import { ChefHat, Palette, Plus } from 'lucide-react';
 import { FormEvent, useState } from 'react';
-import { Alert, Button, Modal, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, Modal, TextField, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
 import type { TenantDetail } from './types';
@@ -58,7 +58,7 @@ export function KitchenPanel({ t }: { t: TenantDetail }) {
   const [busy, setBusy] = useState<string | null>(null);
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!data) return <Spinner />;
+  if (!data) return <Skeleton variant="page" />;
 
   async function toggle(key: keyof KitchenDisplay, on: boolean) {
     setBusy(key);

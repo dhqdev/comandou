@@ -1,4 +1,4 @@
-import { Spinner } from '../../design-system';
+import { Skeleton } from '../../design-system';
 import { fromCents } from '@comandou/shared';
 import { Check, Gift } from 'lucide-react';
 import { Link } from 'react-router';
@@ -106,7 +106,7 @@ export function LoyaltyScreen() {
   if (!loyalty)
     return (
       <div className="sf-wrap sf-page">
-        <Spinner />
+        <Skeleton variant="cards" />
       </div>
     );
   if (!l)

@@ -9,9 +9,9 @@ import {
   Card,
   EmptyState,
   Modal,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import {
@@ -273,7 +273,7 @@ export function RecipesSection() {
         />
         {rows === null ? (
           <div className="cm-card__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : shown.length === 0 ? (
           <EmptyState
@@ -784,7 +784,7 @@ export function PrepRecipeCard({
       setLines(r.filter((l) => l.itemId === item.id)),
     );
   }, [item.id]);
-  if (!lines) return <Spinner />;
+  if (!lines) return <Skeleton />;
   return (
     <PrepCardBody
       key={lines.length}

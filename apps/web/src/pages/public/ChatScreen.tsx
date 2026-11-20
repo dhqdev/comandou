@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Mascot, Spinner, useToast } from '../../design-system';
+import { Mascot, useToast, Skeleton } from '../../design-system';
 import { dateTime } from '../../features/format';
 import { ChatMessage, ChatPane, mergeMessages } from '../../features/store-chat/ChatKit';
 import { api, ApiError } from '../../lib/api';
@@ -373,7 +373,7 @@ export function ChatScreen() {
       </div>
     ) : (
       <div className="sfchat__center">
-        <Spinner label="Abrindo a conversa" />
+        <Skeleton variant="chat" />
       </div>
     );
   } else if (!state.enabled) {

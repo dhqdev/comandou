@@ -40,11 +40,11 @@ import {
   FrameItem,
   LivePanda,
   Modal,
-  Spinner,
   TextField,
   ThemeToggle,
   ToastProvider,
   useToast,
+  AppSkeleton,
 } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import '../app/shell.css';
@@ -645,12 +645,7 @@ function PlatformShell() {
 
 function Gate() {
   const { status, error } = usePlatformAuth();
-  if (status === 'loading')
-    return (
-      <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
-        <Spinner />
-      </div>
-    );
+  if (status === 'loading') return <AppSkeleton />;
   if (status === 'unavailable')
     return (
       <div style={{ maxWidth: 480, margin: '15vh auto', padding: 16 }}>

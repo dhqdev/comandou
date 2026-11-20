@@ -18,7 +18,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Alert, Button, Card, DateInput, EmptyState, Spinner, useToast } from '../design-system';
+import { Alert, Button, Card, DateInput, EmptyState, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { downloadFile } from '../lib/download';
 import { type Preset, presetRange } from './reports-insights';
@@ -260,7 +260,7 @@ export function ReportDocView({ id, onBack }: { id: string; onBack(): void }) {
 
       {error && <Alert tone="danger">{error}</Alert>}
       {!doc ? (
-        !error && <Spinner />
+        !error && <Skeleton variant="detail" />
       ) : (
         <>
           <div className="rp-kpis rd-kpis">

@@ -202,8 +202,6 @@
   animation: pay-in var(--cm-spring-dur) var(--cm-spring) both;
 }
 .pay-panel--wait {
-  display: grid;
-  place-items: center;
   min-height: 260px;
 }
 @keyframes pay-in {

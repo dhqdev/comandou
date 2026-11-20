@@ -22,7 +22,7 @@ import {
   Utensils,
 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, EmptyState, Modal, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, EmptyState, Modal, TextField, useToast, Skeleton } from '../design-system';
 import { useCan } from '../app/auth';
 import { WaitersModal } from '../waiter/WaitersModal';
 import { NewSaleModal } from '../features/NewSaleModal';
@@ -451,7 +451,7 @@ export function TablesPage() {
       </div>
 
       {tables === null ? (
-        <Spinner />
+        <Skeleton variant="grid" />
       ) : view === 'tables' ? (
         tables.length === 0 ? (
           <div className="salon-empty">
@@ -752,7 +752,7 @@ function TableQrModal({
             {codes[t.id] ? (
               <img src={codes[t.id]} alt={`QR Code da mesa ${t.label}`} />
             ) : (
-              <Spinner />
+              <Skeleton variant="qr" />
             )}
             <figcaption>Mesa {t.label}</figcaption>
           </figure>

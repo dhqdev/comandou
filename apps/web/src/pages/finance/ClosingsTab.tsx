@@ -9,8 +9,8 @@ import {
   Card,
   EmptyState,
   Segmented,
-  Spinner,
   useToast,
+  Skeleton,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { PAYMENT_METHOD_LABELS } from '../../features/format';
@@ -215,7 +215,7 @@ export function ClosingsTab({
       <Card title="Fechamentos de caixa" bodyless>
         {days === null ? (
           <div className="cm-card__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : days.length === 0 ? (
           <EmptyState

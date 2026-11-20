@@ -1,6 +1,6 @@
 import { Clock, MapPin, MessageCircle, ShoppingBag } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Mascot, Spinner } from '../../design-system';
+import { Mascot, Skeleton } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
 import './restaurant-site.css';
@@ -69,7 +69,7 @@ export function RestaurantSite() {
         <p>{error}</p>
       </main>
     );
-  if (!data) return <Spinner />;
+  if (!data) return <Skeleton variant="page" />;
 
   const { restaurant: r, copy: c } = data;
   const where = [r.city, r.state].filter(Boolean).join(' · ');

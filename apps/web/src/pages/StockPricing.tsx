@@ -9,9 +9,9 @@ import {
   EmptyState,
   Modal,
   Segmented,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { useCan } from '../app/auth';
 import {
@@ -98,7 +98,7 @@ export function PricingTab() {
   }, [data]);
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!data) return <Spinner />;
+  if (!data) return <Skeleton variant="table" />;
 
   const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const q = fold(query.trim());

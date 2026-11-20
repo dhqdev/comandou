@@ -7,7 +7,7 @@ import {
 } from '@comandou/shared';
 import { Check, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
-import { Alert, Button, Segmented, Spinner, useToast } from '../design-system';
+import { Alert, Button, Segmented, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
 import { ago, Dot, type Level, PageHead, Section, Tag, Tile, useInterval } from './ui';
@@ -115,7 +115,7 @@ export function ChannelsPage() {
       />
       {error && <Alert tone="danger">{error}</Alert>}
       {!usage.data || !homolog.data
-        ? !error && <Spinner />
+        ? !error && <Skeleton variant="page" />
         : usage.data.channels.map((c) => (
             <ChannelBlock
               key={c.channel}

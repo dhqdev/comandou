@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Spinner } from '../design-system';
+import { Alert, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import type { BackupSettings, HealthState, Overview, PendingContract, ServerStatus } from './types';
@@ -241,7 +241,7 @@ export function OverviewPage() {
       <div className="adm-two">
         <Section title="Servidor" sub={s ? s.host.hostname : undefined}>
           {!server.data ? (
-            <Spinner />
+            <Skeleton variant="cards" />
           ) : !s ? (
             <button
               type="button"

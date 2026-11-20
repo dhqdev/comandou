@@ -8,9 +8,9 @@ import {
   Card,
   EmptyState,
   Modal,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import {
@@ -177,7 +177,7 @@ export function LotsSection() {
         />
         {lots === null ? (
           <div className="cm-card__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : lots.length === 0 ? (
           <EmptyState

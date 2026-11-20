@@ -7,9 +7,9 @@ import {
   Button,
   Card,
   EmptyState,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { dateTime } from '../features/format';
 import { CheckField, Tabs } from '../features/forms';
@@ -101,7 +101,7 @@ export function WhatsAppPage() {
     }
   }
 
-  if (!s) return error ? <Alert tone="danger">{error}</Alert> : <Spinner />;
+  if (!s) return error ? <Alert tone="danger">{error}</Alert> : <Skeleton variant="detail" />;
   return (
     <>
       <div>
@@ -326,7 +326,7 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
               {qrImg ? (
                 <img src={qrImg} alt="QR Code para conectar o WhatsApp" width={264} height={264} />
               ) : (
-                <Spinner />
+                <Skeleton variant="qr" size={264} />
               )}
             </div>
           )}

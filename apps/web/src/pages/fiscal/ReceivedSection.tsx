@@ -7,10 +7,10 @@ import {
   Card,
   EmptyState,
   Modal,
-  Spinner,
   TextField,
   useToast,
   HelpScope,
+  Skeleton,
 } from '../../design-system';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
@@ -99,7 +99,7 @@ export function ReceivedSection() {
       <Card bodyless>
         {data === null ? (
           <div className="cm-card__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : rows.length === 0 ? (
           <EmptyState

@@ -8,7 +8,6 @@ import {
   Card,
   EmptyState,
   Skeleton,
-  Spinner,
   TextField,
   useToast,
 } from '../../design-system';
@@ -114,7 +113,7 @@ export function ReceiptsSection() {
         />
         {rows === null ? (
           <div className="cm-card__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : rows.length === 0 ? (
           <EmptyState

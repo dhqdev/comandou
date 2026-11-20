@@ -11,7 +11,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject } from 'react';
-import { Alert, Button, Spinner, TextField } from '../../design-system';
+import { Alert, Button, Skeleton, Spinner, TextField } from '../../design-system';
 import {
   importStatus,
   readyDrafts,
@@ -447,7 +447,7 @@ export function QuickStart({
     }
   };
 
-  if (!status) return <Spinner inline label="Carregando" />;
+  if (!status) return <Skeleton variant="form" />;
   const aiOn = status.enabled;
 
   // Voltou da conferência: o que já foi lido continua guardado.

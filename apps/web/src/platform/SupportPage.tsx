@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Spinner, useToast } from '../design-system';
+import { useToast, Skeleton } from '../design-system';
 import { SlideTabs } from '../features/SlideTabs';
 import { ChatMessage, ChatPane, mergeMessages } from '../features/store-chat/ChatKit';
 import type { ChatTicket } from '../features/store-chat/chat-media';
@@ -174,7 +174,10 @@ function Conversation({
     }
   }
 
-  if (!d) return <div className="sinbox__empty">{error ? <p>{error}</p> : <Spinner />}</div>;
+  if (!d)
+    return (
+      <div className="sinbox__empty">{error ? <p>{error}</p> : <Skeleton variant="chat" />}</div>
+    );
   const t = d.tenant;
   const [tenantLabel, tenantLevel] = TENANT_STATUS[t.status] ?? [t.status, 'off' as Level];
   const closed = d.status === 'closed';
@@ -423,7 +426,7 @@ export function SupportPage() {
             </div>
             {!list ? (
               <div className="sinbox__empty">
-                <Spinner />
+                <Skeleton />
               </div>
             ) : list.length === 0 ? (
               <div className="sinbox__empty">

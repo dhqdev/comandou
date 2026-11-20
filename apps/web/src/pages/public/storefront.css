@@ -3572,9 +3572,35 @@ html.sf-root {
 
 /* Abrindo o cardápio: só o carregamento único (ícone da loja), centralizado. */
 .sf--loading {
-  display: grid;
-  place-items: center;
   min-height: 100dvh;
+}
+/* Cardápio abrindo (MenuSkeleton). */
+.sf-sk {
+  display: grid;
+  gap: 18px;
+  padding-top: 16px;
+  padding-bottom: 24px;
+}
+.sf-sk__brand,
+.sf-sk__dish {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sf-sk__lines {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+.sf-sk__chips {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+}
+.sf-sk__dish {
+  padding: 14px 0;
+  border-top: 1px solid var(--cm-border);
 }
 
 /* ---------------------------------------------------------------- finalização: passos e avisos */

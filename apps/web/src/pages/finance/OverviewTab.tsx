@@ -1,7 +1,7 @@
 import { financeMonthName, toCents, type FinanceMonth } from '@comandou/shared';
 import { ChevronRight, LineChart } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Card, EmptyState, Segmented, Spinner } from '../../design-system';
+import { Alert, Button, Card, EmptyState, Segmented, Skeleton } from '../../design-system';
 import { fmtDate } from '../../features/forms';
 import { api } from '../../lib/api';
 import { useLiveData } from '../../lib/realtime';
@@ -254,7 +254,7 @@ export function OverviewTab({
   }, [data, period, today, prevName, vs]);
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!view || !data) return <Spinner />;
+  if (!view || !data) return <Skeleton variant="page" />;
 
   if (view.empty)
     return (

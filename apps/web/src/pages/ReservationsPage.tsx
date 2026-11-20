@@ -21,7 +21,7 @@ import {
   useState,
 } from 'react';
 import { useAuth } from '../app/auth';
-import { Alert, Button, Calendar, Modal, Segmented, Spinner, useToast } from '../design-system';
+import { Alert, Button, Calendar, Modal, Segmented, useToast, Skeleton } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { useRealtime } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
@@ -546,7 +546,7 @@ export function ReservationsPage() {
         <div className={`ag-body ag-body--${view}`}>
           {list === null ? (
             <div className="ag-loading">
-              <Spinner />
+              <Skeleton />
             </div>
           ) : view === 'month' ? (
             <MonthView

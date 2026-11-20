@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Button, Card, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, Card, TextField, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useLoad } from './OverviewPages';
@@ -58,7 +58,7 @@ export function OnlinePayPage() {
   const data = useLoad<Overview>('/platform/online-pay');
   const o = data.data;
   if (data.error) return <Alert tone="danger">{data.error}</Alert>;
-  if (!o) return <Spinner />;
+  if (!o) return <Skeleton variant="page" />;
   return (
     <>
       <PageHead

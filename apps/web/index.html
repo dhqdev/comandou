@@ -13,10 +13,269 @@
     <title>Comandou</title>
     <!-- Manifesto do app instalado conforme a tela (cardápio, entregador, painel). -->
     <script src="/app-manifest.js"></script>
+    <!-- Tema salvo e a saída quando o app não abre (arquivo que não veio, rede ruim). -->
+    <script src="/boot.js"></script>
+    <!--
+      Esqueleto da abertura: aparece já no primeiro byte, antes de qualquer arquivo do app, e some
+      quando o React desenha a primeira tela. Cores iguais às de design-system/tokens.css.
+    -->
+    <style>
+      .cm-boot {
+        --b-bg: #f6f6f7;
+        --b-frame: #ffffff;
+        --b-bone: #ececef;
+        --b-shine: #f6f6f8;
+        --b-line: rgb(24 24 27 / 7%);
+        --b-text: #18181b;
+        --b-muted: #5b5b63;
+        position: fixed;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+        background: var(--b-bg);
+        font-family:
+          'Inter',
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        color: var(--b-text);
+        animation: cm-boot-in 0.2s ease 0.15s both;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) .cm-boot {
+          --b-bg: #222a37;
+          --b-frame: #1b2230;
+          --b-bone: #2e3849;
+          --b-shine: #36425a;
+          --b-line: rgb(150 174 210 / 20%);
+          --b-text: #f2f4f8;
+          --b-muted: #b8c1cf;
+        }
+      }
+      :root[data-theme='dark'] .cm-boot {
+        --b-bg: #222a37;
+        --b-frame: #1b2230;
+        --b-bone: #2e3849;
+        --b-shine: #36425a;
+        --b-line: rgb(150 174 210 / 20%);
+        --b-text: #f2f4f8;
+        --b-muted: #b8c1cf;
+      }
+      /* Cardápio, links do cliente e site: sem menu lateral nem abas. */
+      :root[data-boot='plain'] .cm-boot__side,
+      :root[data-boot='plain'] .cm-boot__tabs {
+        display: none;
+      }
+      :root[data-boot='plain'] .cm-boot {
+        grid-template-columns: 1fr;
+      }
+      .cm-boot i {
+        display: block;
+        border-radius: 8px;
+        background: var(--b-bone);
+        background-image: linear-gradient(
+          90deg,
+          transparent 0,
+          var(--b-shine) 50%,
+          transparent 100%
+        );
+        background-size: 200% 100%;
+        background-repeat: no-repeat;
+        animation: cm-boot-shine 1.4s ease-in-out infinite;
+      }
+      .cm-boot__top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 56px;
+        padding: env(safe-area-inset-top) 16px 0;
+        background: var(--b-frame);
+        border-bottom: 1px solid var(--b-line);
+      }
+      .cm-boot__side {
+        display: none;
+      }
+      .cm-boot__main {
+        display: grid;
+        align-content: start;
+        gap: 16px;
+        padding: 20px 16px;
+        overflow: hidden;
+      }
+      .cm-boot__cards {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+      .cm-boot__card {
+        height: 84px;
+        border-radius: 12px !important;
+      }
+      .cm-boot__list {
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+        border-radius: 12px;
+        background: var(--b-frame);
+        border: 1px solid var(--b-line);
+      }
+      .cm-boot__row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .cm-boot__tabs {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        height: 60px;
+        padding-bottom: env(safe-area-inset-bottom);
+        background: var(--b-frame);
+        border-top: 1px solid var(--b-line);
+      }
+      @media (min-width: 901px) {
+        .cm-boot {
+          grid-template-columns: 252px 1fr;
+          grid-template-rows: auto 1fr;
+        }
+        .cm-boot__top {
+          grid-column: 1 / -1;
+        }
+        .cm-boot__side {
+          display: grid;
+          align-content: start;
+          gap: 14px;
+          padding: 20px 16px;
+          background: var(--b-frame);
+        }
+        .cm-boot__main {
+          padding: 28px 32px;
+        }
+        .cm-boot__cards {
+          grid-template-columns: repeat(4, 1fr);
+        }
+        .cm-boot__tabs {
+          display: none;
+        }
+      }
+      .cm-boot__msg {
+        position: fixed;
+        left: 16px;
+        right: 16px;
+        bottom: calc(76px + env(safe-area-inset-bottom));
+        max-width: 420px;
+        margin: 0 auto;
+        padding: 16px;
+        border-radius: 14px;
+        background: var(--b-frame);
+        border: 1px solid var(--b-line);
+        box-shadow: 0 12px 32px rgb(0 0 0 / 14%);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      .cm-boot__msg[hidden] {
+        display: none;
+      }
+      .cm-boot__msg strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 15px;
+      }
+      .cm-boot__msg p {
+        margin: 0 0 12px;
+        color: var(--b-muted);
+      }
+      .cm-boot__msg button {
+        width: 100%;
+        height: 44px;
+        border: 0;
+        border-radius: 10px;
+        background: var(--b-text);
+        color: var(--b-frame);
+        font: inherit;
+        font-weight: 600;
+      }
+      @keyframes cm-boot-in {
+        from {
+          opacity: 0;
+        }
+      }
+      @keyframes cm-boot-shine {
+        from {
+          background-position: 150% 0;
+        }
+        to {
+          background-position: -50% 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .cm-boot i {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
     <noscript>Ative o JavaScript para usar o Comandou.</noscript>
-    <div id="root"></div>
+    <div id="root">
+      <div id="cm-boot" class="cm-boot" role="status" aria-busy="true" aria-label="Carregando">
+        <div class="cm-boot__top">
+          <i style="width: 32px; height: 32px; border-radius: 9px"></i>
+          <i style="width: 120px; height: 14px"></i>
+          <i style="width: 32px; height: 32px; border-radius: 50%; margin-left: auto"></i>
+        </div>
+        <div class="cm-boot__side">
+          <i style="height: 14px; width: 70%"></i>
+          <i style="height: 14px; width: 55%"></i>
+          <i style="height: 14px; width: 64%"></i>
+          <i style="height: 14px; width: 48%"></i>
+          <i style="height: 14px; width: 60%"></i>
+        </div>
+        <div class="cm-boot__main">
+          <i style="height: 22px; width: 180px"></i>
+          <div class="cm-boot__cards">
+            <i class="cm-boot__card"></i>
+            <i class="cm-boot__card"></i>
+            <i class="cm-boot__card"></i>
+            <i class="cm-boot__card"></i>
+          </div>
+          <div class="cm-boot__list">
+            <div class="cm-boot__row">
+              <i style="width: 36px; height: 36px; border-radius: 50%"></i>
+              <i style="height: 12px; flex: 1"></i>
+              <i style="height: 12px; width: 56px"></i>
+            </div>
+            <div class="cm-boot__row">
+              <i style="width: 36px; height: 36px; border-radius: 50%"></i>
+              <i style="height: 12px; flex: 0.8"></i>
+              <i style="height: 12px; width: 56px; margin-left: auto"></i>
+            </div>
+            <div class="cm-boot__row">
+              <i style="width: 36px; height: 36px; border-radius: 50%"></i>
+              <i style="height: 12px; flex: 0.6"></i>
+              <i style="height: 12px; width: 56px; margin-left: auto"></i>
+            </div>
+          </div>
+        </div>
+        <div class="cm-boot__tabs">
+          <i style="width: 28px; height: 28px; border-radius: 8px"></i>
+          <i style="width: 28px; height: 28px; border-radius: 8px"></i>
+          <i style="width: 28px; height: 28px; border-radius: 8px"></i>
+          <i style="width: 28px; height: 28px; border-radius: 8px"></i>
+        </div>
+        <div id="cm-boot-msg" class="cm-boot__msg" role="alert" hidden>
+          <strong id="cm-boot-title">Está demorando mais que o normal</strong>
+          <p id="cm-boot-text">
+            A internet pode estar lenta. Se não abrir, toque em Tentar de novo: o app baixa tudo
+            outra vez, sem apagar os seus dados.
+          </p>
+          <button id="cm-boot-retry" type="button">Tentar de novo</button>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

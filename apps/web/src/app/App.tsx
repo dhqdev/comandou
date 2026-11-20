@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { Route, Routes, unstable_HistoryRouter as HistoryRouter, useLocation } from 'react-router';
 import { appHistory, ScreenDrawn, ToastProvider } from '../design-system';
 import { TenantBrand } from './TenantBrand';
-import { PageLoading } from './PageLoading';
+import { AppLoading } from './PageLoading';
 import { FullscreenTab, isPublicPath } from '../features/FullscreenTab';
 import { UpdatePrompt } from './UpdatePrompt';
 import { isPlatformHost } from '../platform/host';
@@ -75,7 +75,7 @@ export function App() {
   // /codigo#123456: botão "Copiar código" dos e-mails de nova senha, igual em qualquer endereço.
   if (window.location.pathname === '/codigo') {
     return (
-      <Suspense fallback={<PageLoading />}>
+      <Suspense fallback={<AppLoading plain />}>
         <CopyCodePage />
       </Suspense>
     );
@@ -84,7 +84,7 @@ export function App() {
   if (isPlatformHost()) {
     return (
       <>
-        <Suspense fallback={<PageLoading />}>
+        <Suspense fallback={<AppLoading />}>
           <PlatformApp />
         </Suspense>
         <UpdatePrompt />
@@ -94,11 +94,11 @@ export function App() {
   }
   // comandou.com e www: o site público (página de vendas e cadastro do teste). /precos segue
   // sendo a página de planos.
-  if (host === 'pending') return <PageLoading />;
+  if (host === 'pending') return <AppLoading plain />;
   if (host === 'site' && !/^\/pre[cç]os\/?$/.test(decodeURI(window.location.pathname))) {
     return (
       <>
-        <Suspense fallback={<PageLoading />}>
+        <Suspense fallback={<AppLoading plain />}>
           <SiteApp />
         </Suspense>
         <UpdatePrompt />
@@ -114,7 +114,7 @@ export function App() {
       <UpdatePrompt />
       <ShellFullscreenTab />
       <ToastProvider>
-        <Suspense fallback={<PageLoading />}>
+        <Suspense fallback={<AppLoading />}>
           <Routes>
             {/* Rastreio público do cliente final: fora do login. */}
             <Route path="/rastreio/:token" element={<TrackingPage />} />

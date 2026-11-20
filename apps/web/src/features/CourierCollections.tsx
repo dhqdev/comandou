@@ -1,7 +1,7 @@
 import type { PaymentMethod } from '@comandou/shared';
 import { HandCoins } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Card, EmptyState, Spinner, useToast } from '../design-system';
+import { Alert, Button, Card, EmptyState, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl } from '../lib/money';
@@ -39,7 +39,7 @@ export function CourierCollections() {
   }, load);
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!groups) return <Spinner />;
+  if (!groups) return <Skeleton />;
   return (
     <Card title="Acerto dos entregadores">
       {sessions && sessions.length === 0 && (

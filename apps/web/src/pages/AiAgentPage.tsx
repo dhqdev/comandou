@@ -23,10 +23,10 @@ import {
   HelpScope,
   HelpTip,
   Segmented,
-  Spinner,
   TextField,
   useToast,
   type HelpDict,
+  Skeleton,
 } from '../design-system';
 import { CheckField } from '../features/forms';
 import { api } from '../lib/api';
@@ -201,7 +201,8 @@ export function AiAgentPage() {
     );
   }
 
-  if (!o || !form) return error ? <Alert tone="danger">{error}</Alert> : <Spinner />;
+  if (!o || !form)
+    return error ? <Alert tone="danger">{error}</Alert> : <Skeleton variant="form" />;
   const set =
     <K extends keyof AgentSettings>(k: K) =>
     (v: AgentSettings[K]) =>
@@ -548,7 +549,7 @@ function MenuFilesCard() {
         onChange={(e) => upload(e.target.files)}
       />
       {!files ? (
-        <Spinner />
+        <Skeleton />
       ) : files.length === 0 ? (
         <EmptyState
           icon={<FileText size={20} />}
@@ -738,7 +739,7 @@ function MenuCard() {
         online) e avisa quando um item está esgotado. Itens desativados no cardápio nunca aparecem.
       </p>
       {!rows ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<Bot size={20} />}

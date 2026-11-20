@@ -1,6 +1,6 @@
 import { Monitor, Send, Smartphone } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Spinner, TextField, useToast } from '../../design-system';
+import { Alert, Button, Card, TextField, useToast, Skeleton } from '../../design-system';
 import { CheckField } from '../../features/forms';
 import { api } from '../../lib/api';
 import { useLoad } from '../OverviewPages';
@@ -29,7 +29,7 @@ export function TemplatesTab() {
   if (!data)
     return (
       <Card>
-        <Spinner />
+        <Skeleton variant="grid" />
       </Card>
     );
   const current = data.items.find((t) => t.id === id) ?? data.items[0]!;

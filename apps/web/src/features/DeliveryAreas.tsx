@@ -12,7 +12,7 @@ import {
   Undo2,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Badge, Button, Card, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Badge, Button, Card, TextField, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { brl, parseBrlInput } from '../lib/money';
 import type { DeliveryZone } from '../lib/types';
@@ -517,7 +517,7 @@ export function DeliveryAreas({ canEdit }: { canEdit: boolean }) {
             <Card title="Áreas de entrega" bodyless>
               {zones === null ? (
                 <div style={{ padding: 16 }}>
-                  <Spinner />
+                  <Skeleton />
                 </div>
               ) : zones.length === 0 ? (
                 <p className="cm-hint areas__empty">

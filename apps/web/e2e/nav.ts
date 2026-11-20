@@ -160,7 +160,7 @@ export async function expectNoHorizontalScroll(page: Page, paths: string[]) {
           { message: `rede quieta em ${path}`, timeout: 15_000, intervals: [100] },
         )
         .toBe('quieta');
-      await expect(page.locator('.cm-loader:not(.cm-loader--inline)'), path).toHaveCount(0);
+      await expect(page.locator('.cm-loader:not(.cm-loader--inline), .cm-sk'), path).toHaveCount(0);
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth - window.innerWidth,
       );

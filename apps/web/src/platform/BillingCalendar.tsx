@@ -8,7 +8,7 @@ import {
 import { Check, ChevronLeft, ChevronRight, ExternalLink, RefreshCw, Undo2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { Alert, Button, Modal, Select, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, Modal, Select, TextField, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useLoad } from './OverviewPages';
@@ -319,7 +319,7 @@ export function CalendarSection() {
         )}
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
-      {!cal && !error && <Spinner />}
+      {!cal && !error && <Skeleton variant="table" />}
       {cal && !cal.live && (
         <p className="adm-cal__note">
           Sem baixa sozinha: cadastre o aviso (webhook) do Asaas em{' '}

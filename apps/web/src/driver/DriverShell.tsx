@@ -1,6 +1,6 @@
 import { LogOut, MessagesSquare } from 'lucide-react';
 import { type ReactNode, useEffect } from 'react';
-import { Alert, Mascot, Spinner, ThemeToggle } from '../design-system';
+import { Alert, Mascot, ThemeToggle, Skeleton } from '../design-system';
 import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
 import { SoundControl } from '../features/SoundControl';
 import { OfflineBanner } from '../app/OfflineBanner';
@@ -52,7 +52,7 @@ export function DriverShell({
         <OfflineBanner className="offline-banner courier-page__offline" />
         <DriverGate>
           {error && <Alert tone={loading ? 'danger' : 'warning'}>{error}</Alert>}
-          {loading ? !error && <Spinner /> : children}
+          {loading ? !error && <Skeleton /> : children}
         </DriverGate>
       </div>
     </main>

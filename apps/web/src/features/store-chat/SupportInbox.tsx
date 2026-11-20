@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useCan } from '../../app/auth';
-import { Spinner, useToast } from '../../design-system';
+import { useToast, Skeleton } from '../../design-system';
 import { api } from '../../lib/api';
 import { useRealtime } from '../../lib/realtime';
 import { playSound } from '../../lib/sounds';
@@ -201,7 +201,7 @@ function Conversation({
   if (!d)
     return (
       <div className="sinbox__empty">
-        <Spinner />
+        <Skeleton variant="chat" />
       </div>
     );
   const c = d.chat;
@@ -392,7 +392,7 @@ function Inbox({
         </div>
         {!list ? (
           <div className="sinbox__empty">
-            <Spinner />
+            <Skeleton />
           </div>
         ) : list.length === 0 ? (
           <div className="sinbox__empty">

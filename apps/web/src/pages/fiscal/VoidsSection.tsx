@@ -7,10 +7,10 @@ import {
   Button,
   Card,
   EmptyState,
-  Spinner,
   TextField,
   useToast,
   HelpScope,
+  Skeleton,
 } from '../../design-system';
 import { SelectField } from '../../features/forms';
 import { api } from '../../lib/api';
@@ -206,7 +206,7 @@ export function VoidsSection() {
         <Card bodyless title="Histórico">
           {rows === null ? (
             <div className="cm-card__body">
-              <Spinner />
+              <Skeleton variant="table" />
             </div>
           ) : rows.length === 0 ? (
             <EmptyState

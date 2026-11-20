@@ -2,7 +2,7 @@ import { CHANNEL_LABELS, fromCents, toCents, qtyLabel } from '@comandou/shared';
 import { ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Alert, Badge, EmptyState, ItemThumbStrip, Spinner } from '../design-system';
+import { Alert, Badge, EmptyState, ItemThumbStrip, Skeleton } from '../design-system';
 import { mediaUrl } from '../lib/media';
 import { SlideTabs } from '../features/SlideTabs';
 import { ORDER_STATUS_LABELS, STATUS_TONE, time } from '../features/format';
@@ -82,7 +82,7 @@ export function WaiterOrders() {
       />
       {error && <Alert tone="danger">{error}</Alert>}
       {orders === null ? (
-        !error && <Spinner />
+        !error && <Skeleton />
       ) : shown.length === 0 ? (
         <EmptyState
           mascot="joy"

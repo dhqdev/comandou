@@ -1,7 +1,7 @@
 import { Plus, Search, UserPlus, X } from 'lucide-react';
 import { FormEvent, KeyboardEvent, useEffect, useId, useRef, useState } from 'react';
 import { useCan } from '../app/auth';
-import { Alert, Button, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, TextField, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { isOfflineResult } from '../lib/offline';
 import type { CustomerList, CustomerRow } from '../lib/types';
@@ -289,7 +289,7 @@ export function CustomerPicker({
             </p>
             {rows === null ? (
               <div className="cpick__status">
-                <Spinner />
+                <Skeleton />
               </div>
             ) : rows.length === 0 ? (
               <p className="cpick__status">

@@ -28,9 +28,9 @@ import {
   Modal,
   Segmented,
   Select,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { OrderDetailModal } from '../features/OrderDetailModal';
@@ -214,7 +214,7 @@ export function CashPage() {
     return (
       <>
         <h1 className="page-title">Caixa</h1>
-        {error ? <Alert tone="danger">{error}</Alert> : <Spinner />}
+        {error ? <Alert tone="danger">{error}</Alert> : <Skeleton variant="page" />}
       </>
     );
   if (registers.length === 0)

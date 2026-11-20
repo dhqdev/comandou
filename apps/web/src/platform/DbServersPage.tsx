@@ -1,7 +1,7 @@
 import { ArrowRightLeft, Database, Pencil, Plus, RefreshCw, Server, Trash2 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Modal, Select, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Modal, Select, TextField, useToast, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
@@ -65,7 +65,7 @@ export function DbServersPage() {
   );
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!data) return <Spinner />;
+  if (!data) return <Skeleton variant="page" />;
 
   const cards: Card[] = [
     {

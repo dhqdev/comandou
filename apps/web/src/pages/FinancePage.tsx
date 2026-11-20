@@ -21,9 +21,9 @@ import {
   EmptyState,
   Modal,
   Segmented,
-  Spinner,
   TextField,
   useToast,
+  Skeleton,
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { PAYMENT_METHOD_LABELS } from '../features/format';
@@ -500,7 +500,7 @@ function EntriesTab({ period }: { period: FinanceMonth | null }) {
         />
         {rows === null ? (
           <div className="cm-card__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : rows.length === 0 ? (
           <EmptyState icon={<Receipt size={20} />} title="Nenhum lançamento" />
@@ -1165,7 +1165,7 @@ function DailyCheck({ day: initialDay }: { day: string }) {
         Diferenças exigem explicação e o registro não pode ser alterado depois.
       </p>
       {!data ? (
-        <Spinner />
+        <Skeleton variant="detail" />
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table className="cm-table">

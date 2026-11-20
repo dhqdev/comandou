@@ -22,11 +22,11 @@ import {
   Card,
   EmptyState,
   Modal,
-  Spinner,
   TextField,
   useToast,
   HelpScope,
   HelpTip,
+  Skeleton,
 } from '../../design-system';
 import { CheckField, SelectField, Tabs } from '../../features/forms';
 import { api } from '../../lib/api';
@@ -213,7 +213,7 @@ export function RulesSection() {
       </FiscalHead>
 
       {data === null ? (
-        <Spinner />
+        <Skeleton variant="table" />
       ) : (
         <>
           {rules.length > 0 && !hasDefault && (

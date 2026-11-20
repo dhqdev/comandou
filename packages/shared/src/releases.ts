@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.206.0',
+    date: '2026-11-20',
+    title: 'App abre no celular mesmo quando algo falha, e carregamento em esqueleto',
+    summary:
+      'O app instalado no celular não fica mais em branco: a tela já chega desenhada e, se uma parte guardada no aparelho estiver quebrada, ele se conserta sozinho. Em todo o sistema, o que está carregando aparece no formato do conteúdo (esqueleto), no lugar do ícone girando.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'App instalado (celular e computador) que abria em branco: quando um arquivo do app guardado no aparelho não chega, o Comandou limpa a cópia guardada e abre de novo sozinho. Se ainda assim não abrir, aparece o botão Tentar de novo (sem apagar dados).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A abertura do app mostra a tela desenhada desde o primeiro instante, no tema claro ou escuro escolhido, em vez de uma tela branca enquanto os arquivos baixam. Internet lenta mostra o aviso com Tentar de novo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Carregamento em esqueleto em todas as telas: listas, tabelas, números, produtos do PDV e do garçom, formulários, cozinha, conversas, QR Codes e o cardápio do cliente aparecem no formato do que vai chegar, sem pular quando os dados chegam.',
+      },
+    ],
+  },
+  {
     version: '0.205.0',
     date: '2026-11-20',
     title: 'Tela de pagamento nova: Pix, boleto e cartão automático',

@@ -38,10 +38,10 @@ import {
   Badge,
   Button,
   Modal,
-  Spinner,
   TextField,
   useToast,
   Select,
+  Skeleton,
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { FiscalSection } from './FiscalSection';
@@ -517,7 +517,7 @@ export function OrderDetailModal({
     >
       {error && <Alert tone="danger">{error}</Alert>}
       {!order ? (
-        !error && <Spinner />
+        !error && <Skeleton variant="detail" />
       ) : (
         <div className="order-detail">
           {/* Gaveta larga (computador): o pedido à esquerda e o dinheiro à direita (ops.css). */}
@@ -1203,7 +1203,7 @@ function DispatchForm({
     <div className="inline-form">
       <strong>Quem vai levar?</strong>
       {couriers === null ? (
-        <Spinner />
+        <Skeleton />
       ) : couriers.length === 0 ? (
         <Alert tone="warning">
           Nenhum entregador ativo. Cadastre em <Link to="/entregas">Entregas</Link>.

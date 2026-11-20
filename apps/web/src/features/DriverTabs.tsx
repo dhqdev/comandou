@@ -1,7 +1,7 @@
 import { COURIER_LEVEL_LABELS, COURIER_SCORE_MIN_RIDES, toCents } from '@comandou/shared';
 import { Banknote, Bike, Clock, MapPin, Navigation, Package, Route, Star } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
-import { Badge, Button, EmptyState, Spinner, useToast } from '../design-system';
+import { Badge, Button, EmptyState, useToast, Skeleton } from '../design-system';
 import { brl } from '../lib/money';
 import type { AvailableRun, CourierProfile, Delivery } from '../lib/types';
 import { CourierEarnings, type CourierEarningsData } from './CourierEarnings';
@@ -131,7 +131,7 @@ export function AvailableTab({
 }) {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
-  if (!list) return <Spinner />;
+  if (!list) return <Skeleton />;
   if (!list.length)
     return (
       <EmptyState
@@ -267,7 +267,7 @@ function Rides({ load }: { load(before?: string): Promise<HistoryPage> }) {
   useEffect(() => void more(), [more]);
 
   if (error && !items) return <p className="form-error">{error}</p>;
-  if (!items) return <Spinner />;
+  if (!items) return <Skeleton />;
   if (!items.length)
     return (
       <EmptyState
@@ -314,7 +314,7 @@ function Rides({ load }: { load(before?: string): Promise<HistoryPage> }) {
 
 // --------------------------------------------------------------------------- Perfil
 export function ProfileTab({ profile }: { profile: CourierProfile | null }) {
-  if (!profile) return <Spinner />;
+  if (!profile) return <Skeleton variant="form" />;
   const p = profile;
   const since = new Date(p.since).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   const left = Math.max(0, COURIER_SCORE_MIN_RIDES - (p.recent.delivered + p.recent.failed));

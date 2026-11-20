@@ -3,7 +3,7 @@ import { ArrowLeft, Check, Copy, CreditCard, FileText, Lock, QrCode } from 'luci
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth, useCan } from '../../app/auth';
-import { Alert, Button, Spinner, useToast } from '../../design-system';
+import { Alert, Button, Skeleton, useToast } from '../../design-system';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
 import type { BillingView, Invoice, PayMethod } from '../PlanPage';
@@ -134,7 +134,7 @@ function Checkout() {
         <Alert tone="danger">{error}</Alert>
       </div>
     );
-  if (!view) return <Spinner />;
+  if (!view) return <Skeleton variant="detail" />;
   const invoice = view.invoices.find((i) => i.id === invoiceId);
   if (!invoice || !view.subscription)
     return (
@@ -161,7 +161,7 @@ function Checkout() {
             <Methods value={method} onChange={setMethod} cardOn={cardOn} card={savedCard} />
             {!info ? (
               <div className="pay-panel pay-panel--wait">
-                <Spinner />
+                <Skeleton variant="form" rows={3} />
               </div>
             ) : (
               <div className="pay-panel" key={method}>

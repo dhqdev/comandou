@@ -1,5 +1,5 @@
 import { fromCents, qtyLabel, toCents } from '@comandou/shared';
-import { Spinner } from '../../design-system';
+import { Skeleton } from '../../design-system';
 import { ChevronRight, ReceiptText } from 'lucide-react';
 import { CSSProperties, useEffect, useState } from 'react';
 import { Link } from 'react-router';
@@ -168,7 +168,7 @@ function OnlineOrdersScreen() {
           error ? (
             <p className="form-error">{error}</p>
           ) : (
-            <Spinner />
+            <Skeleton />
           )
         ) : orders.length === 0 ? (
           <div className="empty-state">

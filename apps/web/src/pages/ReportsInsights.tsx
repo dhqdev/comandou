@@ -24,7 +24,7 @@ import {
   useState,
 } from 'react';
 import { Link } from 'react-router';
-import { Alert, Button, Card, DateInput, EmptyState, Modal, Spinner } from '../design-system';
+import { Alert, Button, Card, DateInput, EmptyState, Modal, Skeleton } from '../design-system';
 import { CheckField, SelectField } from '../features/forms';
 import { CHANNEL_LABELS, PAYMENT_METHOD_LABELS, qty } from '../features/format';
 import { api } from '../lib/api';
@@ -286,7 +286,7 @@ export function InsightsView() {
 
       {error && <Alert tone="danger">{error}</Alert>}
       {!data ? (
-        !error && <Spinner />
+        !error && <Skeleton variant="page" />
       ) : (
         <>
           <InsightKpis data={data} />

@@ -1,6 +1,6 @@
 import { useEffect, type ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
-import { Alert, Mascot, Spinner } from '../design-system';
+import { Alert, AppSkeleton, Mascot } from '../design-system';
 import { ComingSoonPage } from '../pages/ComingSoonPage';
 import { LoginPage } from '../pages/LoginPage';
 import { AppShell } from './AppShell';
@@ -199,10 +199,9 @@ function Gate() {
     return preloadPages(PANEL_PAGES);
   }, [role]);
   if (status === 'loading') {
+    // Mesma moldura do esqueleto do index.html: a abertura não pisca nem pula.
     return (
-      <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
-        <Spinner />
-      </div>
+      <AppSkeleton plain={pathname.startsWith('/garcom') || pathname.startsWith('/cozinha')} />
     );
   }
   if (status === 'unavailable') {

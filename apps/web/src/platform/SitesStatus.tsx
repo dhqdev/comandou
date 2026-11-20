@@ -1,7 +1,7 @@
 import { ExternalLink, LogIn, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Alert, Spinner } from '../design-system';
+import { Alert, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { useOpenTenant } from './TenantsPages';
 import type { SiteCheck, SiteState, SitesReport, SiteStatus } from './types';
@@ -257,7 +257,7 @@ export function SitesTable({
       <div className="adm-panel">
         {!report ? (
           <div className="adm-panel__body">
-            <Spinner />
+            <Skeleton variant="table" />
           </div>
         ) : shown.length === 0 ? (
           <div className="adm-empty">
