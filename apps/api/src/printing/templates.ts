@@ -162,7 +162,8 @@ export const DEFAULT_TEMPLATES: Record<TemplateKind, string> = {
 {% endif %}{% elsif pedido.pagar_na_entrega %}{{ "-" | traco }}
 Pagamento na entrega: {{ pedido.pagar_na_entrega }}
 {% if pedido.troco_para > 0 %}{{ "Troco para" | linha: pedido.troco_para_formatado }}
-{% endif %}{% endif %}{% if pedido.observacao %}{{ "-" | traco }}
+{% endif %}{% endif %}{% if pedido.cpf_cnpj %}CPF/CNPJ na nota: {{ pedido.cpf_cnpj }}
+{% endif %}{% if pedido.observacao %}{{ "-" | traco }}
 {{ "OBS DO PEDIDO: " | append: pedido.observacao | quebra }}
 {% endif %}{{ "=" | traco }}`,
   delivery_slip: `{{ loja.nome | centro }}
@@ -223,6 +224,7 @@ export function sampleData(kind: TemplateKind, storeName: string): Record<string
     entrega: false,
     observacao: 'Sem cebola em tudo',
     pagar_na_entrega: null,
+    cpf_cnpj: '123.456.789-09',
     troco_para: 0,
     troco_para_formatado: money(0),
   };

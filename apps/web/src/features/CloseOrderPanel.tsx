@@ -88,14 +88,22 @@ export function CloseOrderPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
+  /**
+   * Pedido como ficou depois de fechar a conta. O comprovante só é liberado aqui: antes disso ele
+   * sairia sem a taxa, o frete, o desconto e os pagamentos que ainda não foram gravados.
+   */
+  const [closed, setClosed] = useState<Order | null>(null);
+  const locked = busy || !!closed;
+  // Retirada não tem taxa de serviço nem frete (o servidor também zera os dois).
+  const pickup = order.channel === 'pickup';
   /** O caixa mexeu nos valores das linhas: o total mudar não reescreve o que ele digitou. */
   const typed = useRef(false);
 
   // Cada abertura começa do pedido como está agora.
   useEffect(() => {
     if (!open) return;
-    setFeePct(percentFrom(toCents(order.surcharge), base0));
-    setFreight(input(toCents(order.deliveryFee)));
+    setFeePct(pickup ? '0' : percentFrom(toCents(order.surcharge), base0));
+    setFreight(pickup ? '0,00' : input(toCents(order.deliveryFee)));
     setDiscMode('brl');
     setDisc(input(toCents(order.discount)));
     setWhen('now');
@@ -105,24 +113,28 @@ export function CloseOrderPanel({
     setTaxDoc('');
     setReason('');
     setError(null);
+    setClosed(null);
+    setPreview(false);
     typed.current = false;
     // Só ao abrir: o pedido em tempo real não apaga o que está sendo digitado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, order.id]);
 
-  const pct = percentOf(feePct);
-  const freightC = centsOf(freight);
+  const pct = pickup ? 0 : percentOf(feePct);
+  const freightC = pickup ? 0 : centsOf(freight);
   const discRaw = discMode === 'brl' ? centsOf(disc) : percentOf(disc);
   const discountC =
     discRaw === null ? null : discMode === 'brl' ? discRaw : percentCents(subtotal, discRaw);
   const surchargeC =
     pct === null || discountC === null
       ? null
-      : // Mantém o centavo já cobrado quando o percentual não mudou (ex.: 10% arredondado).
-        feePct === percentFrom(toCents(live.surcharge), base0) &&
-          discountC === toCents(live.discount)
-        ? toCents(live.surcharge)
-        : percentCents(subtotal - discountC, pct);
+      : pickup
+        ? 0
+        : // Mantém o centavo já cobrado quando o percentual não mudou (ex.: 10% arredondado).
+          feePct === percentFrom(toCents(live.surcharge), base0) &&
+            discountC === toCents(live.discount)
+          ? toCents(live.surcharge)
+          : percentCents(subtotal - discountC, pct);
   const valid =
     pct !== null &&
     freightC !== null &&
@@ -146,7 +158,7 @@ export function CloseOrderPanel({
   // (o que já foi recebido fica; linha com valor novo ganha chave nova). Durante o envio espera:
   // as linhas que estão indo ao servidor não podem mudar no meio.
   useEffect(() => {
-    if (!open || busy || typed.current || !valid) return;
+    if (!open || busy || closed || typed.current || !valid) return;
     setRows((cur) => resplitRows(cur, totals.balance, Math.max(split, 1), newIdempotencyKey));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totals.balance, open, busy]);
@@ -176,6 +188,15 @@ export function CloseOrderPanel({
       ? 'Fica disponível quando o pedido estiver pronto.'
       : null;
 
+  /**
+   * Taxa, frete ou desconto mudou: o total é outro, então os valores dos pagamentos voltam a
+   * seguir o saldo novo. Sem isso, o dinheiro digitado sobre o total antigo virava "troco"
+   * (ex.: R$ 2,00 de desconto aparecendo como R$ 2,00 de troco no comprovante).
+   */
+  function adjust(set: (v: string) => void, v: string) {
+    typed.current = false;
+    set(v);
+  }
   function setRow(i: number, patch: Partial<Row>) {
     if ('amount' in patch) typed.current = true;
     setRows((cur) => cur.map((r, k) => (k === i ? { ...r, ...patch } : r)));
@@ -204,6 +225,7 @@ export function CloseOrderPanel({
     totals.balance >= 0;
   const laterReady = when === 'later' && !laterBlocked && reason.trim().length >= 3;
   const ready =
+    !closed &&
     valid &&
     !taxError &&
     !busy &&
@@ -285,7 +307,8 @@ export function CloseOrderPanel({
             : 'Conta fechada',
         'success',
       );
-      onDone(current);
+      // Fica aberto para imprimir o comprovante já com tudo gravado; "Concluir" sai do painel.
+      setClosed(current);
     } catch (e) {
       setError(
         e instanceof ApiError && e.status === 0
@@ -298,8 +321,9 @@ export function CloseOrderPanel({
   }
 
   const activeItems = order.items.filter((i) => i.status !== 'cancelled');
-  const statusLine =
-    when === 'later'
+  const statusLine = closed
+    ? 'Conta fechada'
+    : when === 'later'
       ? `A receber: ${money(Math.max(totals.balance, 0))}`
       : plan.change > 0
         ? `Troco: ${money(plan.change)}`
@@ -313,7 +337,7 @@ export function CloseOrderPanel({
     <HelpScope dict={PAYMENT_FISCAL_HELP}>
       <SidePanel
         open={open}
-        onClose={busy ? () => undefined : onClose}
+        onClose={busy ? () => undefined : closed ? () => onDone(closed) : onClose}
         size="xl"
         className="close-panel"
         title={
@@ -336,7 +360,7 @@ export function CloseOrderPanel({
                 <button
                   type="button"
                   aria-label="Menos uma pessoa"
-                  disabled={split <= 1 || when === 'later'}
+                  disabled={split <= 1 || when === 'later' || locked}
                   onClick={() => changeSplit(split - 1)}
                 >
                   <Minus size={14} aria-hidden />
@@ -345,13 +369,13 @@ export function CloseOrderPanel({
                   aria-label="Pessoas"
                   inputMode="numeric"
                   value={split}
-                  disabled={when === 'later'}
+                  disabled={when === 'later' || locked}
                   onChange={(e) => changeSplit(Number(e.target.value.replace(/\D/g, '')) || 1)}
                 />
                 <button
                   type="button"
                   aria-label="Mais uma pessoa"
-                  disabled={split >= 20 || when === 'later'}
+                  disabled={split >= 20 || when === 'later' || locked}
                   onClick={() => changeSplit(split + 1)}
                 >
                   <Plus size={14} aria-hidden />
@@ -373,13 +397,19 @@ export function CloseOrderPanel({
               <Button
                 variant="secondary"
                 icon={<Printer size={15} />}
+                disabled={!closed}
+                title={closed ? undefined : 'O comprovante é liberado depois de fechar a conta'}
                 onClick={() => setPreview(true)}
               >
                 Imprimir
               </Button>
-              <Button loading={busy} disabled={!ready} onClick={finish}>
-                {when === 'later' ? 'Concluir a receber' : 'Fechar conta'}
-              </Button>
+              {closed ? (
+                <Button onClick={() => onDone(closed)}>Concluir</Button>
+              ) : (
+                <Button loading={busy} disabled={!ready} onClick={finish}>
+                  {when === 'later' ? 'Concluir a receber' : 'Fechar conta'}
+                </Button>
+              )}
             </div>
           </div>
         }
@@ -416,40 +446,44 @@ export function CloseOrderPanel({
                 <dt>Subtotal</dt>
                 <dd className="cop-num">{money(subtotal)}</dd>
               </div>
-              <div className="cop-line">
-                <dt>
-                  <label htmlFor="cop-fee">Taxa de serviço (%)</label>
-                </dt>
-                <dd>
-                  <input
-                    id="cop-fee"
-                    className="cm-input cop-in"
-                    inputMode="decimal"
-                    value={feePct}
-                    disabled={!canAdjust || busy}
-                    aria-invalid={pct === null || undefined}
-                    onChange={(e) => setFeePct(e.target.value)}
-                  />
-                  <span className="cop-num">{money(totals.surcharge)}</span>
-                </dd>
-              </div>
-              <div className="cop-line">
-                <dt>
-                  <label htmlFor="cop-freight">Frete (R$)</label>
-                </dt>
-                <dd>
-                  <input
-                    id="cop-freight"
-                    className="cm-input cop-in"
-                    inputMode="decimal"
-                    value={freight}
-                    disabled={!canAdjust || busy}
-                    aria-invalid={freightC === null || undefined}
-                    onChange={(e) => setFreight(e.target.value)}
-                  />
-                  <span className="cop-num">{money(totals.deliveryFee)}</span>
-                </dd>
-              </div>
+              {!pickup && (
+                <>
+                  <div className="cop-line">
+                    <dt>
+                      <label htmlFor="cop-fee">Taxa de serviço (%)</label>
+                    </dt>
+                    <dd>
+                      <input
+                        id="cop-fee"
+                        className="cm-input cop-in"
+                        inputMode="decimal"
+                        value={feePct}
+                        disabled={!canAdjust || locked}
+                        aria-invalid={pct === null || undefined}
+                        onChange={(e) => adjust(setFeePct, e.target.value)}
+                      />
+                      <span className="cop-num">{money(totals.surcharge)}</span>
+                    </dd>
+                  </div>
+                  <div className="cop-line">
+                    <dt>
+                      <label htmlFor="cop-freight">Frete (R$)</label>
+                    </dt>
+                    <dd>
+                      <input
+                        id="cop-freight"
+                        className="cm-input cop-in"
+                        inputMode="decimal"
+                        value={freight}
+                        disabled={!canAdjust || locked}
+                        aria-invalid={freightC === null || undefined}
+                        onChange={(e) => adjust(setFreight, e.target.value)}
+                      />
+                      <span className="cop-num">{money(totals.deliveryFee)}</span>
+                    </dd>
+                  </div>
+                </>
+              )}
               <div className="cop-line">
                 <dt>
                   <label htmlFor="cop-disc">Desconto</label>
@@ -459,8 +493,9 @@ export function CloseOrderPanel({
                     className="cm-input cop-unit"
                     aria-label="Tipo de desconto"
                     value={discMode}
-                    disabled={!canAdjust || busy}
+                    disabled={!canAdjust || locked}
                     onChange={(e) => {
+                      typed.current = false;
                       setDiscMode(e.target.value as 'brl' | 'pct');
                       setDisc(e.target.value === 'pct' ? '0' : '0,00');
                     }}
@@ -473,9 +508,9 @@ export function CloseOrderPanel({
                     className="cm-input cop-in"
                     inputMode="decimal"
                     value={disc}
-                    disabled={!canAdjust || busy}
+                    disabled={!canAdjust || locked}
                     aria-invalid={discountC === null || (discountC ?? 0) > subtotal || undefined}
-                    onChange={(e) => setDisc(e.target.value)}
+                    onChange={(e) => adjust(setDisc, e.target.value)}
                   />
                   <span className="cop-num">− {money(totals.discount)}</span>
                 </dd>
@@ -491,6 +526,14 @@ export function CloseOrderPanel({
                 <dd className="cop-num">{money(Math.max(totals.balance, 0))}</dd>
               </div>
             </dl>
+            {pickup && (
+              <p className="cop-hint">Retirada no balcão: sem taxa de serviço e sem frete.</p>
+            )}
+            {closed && (
+              <Alert tone="info">
+                Conta fechada. O comprovante já sai com taxa, frete, desconto, pagamentos e troco.
+              </Alert>
+            )}
             {!canAdjust && (
               <p className="cop-hint">
                 Taxa, frete e desconto só podem ser mudados pelo caixa ou gerente.
@@ -508,6 +551,7 @@ export function CloseOrderPanel({
                 type="button"
                 role="radio"
                 aria-checked={when === 'now'}
+                disabled={locked}
                 onClick={() => setWhen('now')}
               >
                 Imediato
@@ -516,6 +560,7 @@ export function CloseOrderPanel({
                 type="button"
                 role="radio"
                 aria-checked={when === 'later'}
+                disabled={locked}
                 onClick={() => setWhen('later')}
               >
                 Posterior (a receber)
@@ -536,6 +581,7 @@ export function CloseOrderPanel({
                       label="Motivo (quem vai pagar e quando)"
                       value={reason}
                       maxLength={300}
+                      disabled={locked}
                       onChange={(e) => setReason(e.target.value)}
                     />
                   </>
@@ -571,7 +617,7 @@ export function CloseOrderPanel({
                         className="cm-input"
                         aria-label={`Meio de pagamento ${i + 1}`}
                         value={r.method}
-                        disabled={r.done || busy}
+                        disabled={r.done || locked}
                         onChange={(e) => setRow(i, { method: e.target.value as Row['method'] })}
                       >
                         {PAYMENT_METHODS.map((m) => (
@@ -585,7 +631,7 @@ export function CloseOrderPanel({
                         inputMode="decimal"
                         aria-label={`Valor ${i + 1}`}
                         value={r.amount}
-                        disabled={r.done || busy}
+                        disabled={r.done || locked}
                         aria-invalid={centsOf(r.amount) === null || undefined}
                         onChange={(e) => setRow(i, { amount: e.target.value })}
                       />
@@ -596,7 +642,7 @@ export function CloseOrderPanel({
                           type="button"
                           className="cop-row__x"
                           aria-label={`Tirar pagamento ${i + 1}`}
-                          disabled={rows.length <= 1 || busy}
+                          disabled={rows.length <= 1 || locked}
                           onClick={() => removeRow(i)}
                         >
                           <X size={14} aria-hidden />
@@ -605,7 +651,7 @@ export function CloseOrderPanel({
                     </li>
                   ))}
                 </ul>
-                <button type="button" className="cop-add" disabled={busy} onClick={addRow}>
+                <button type="button" className="cop-add" disabled={locked} onClick={addRow}>
                   <Plus size={14} aria-hidden /> Adicionar meio de pagamento
                 </button>
                 {plan.excess > 0 && (
@@ -619,6 +665,7 @@ export function CloseOrderPanel({
                   placeholder="Só se o cliente pedir"
                   value={taxDoc}
                   maxLength={18}
+                  disabled={locked}
                   onChange={(e) => setTaxDoc(e.target.value)}
                   onBlur={() => taxDigits && !taxError && setTaxDoc(formatDocument(taxDigits))}
                   error={taxError}

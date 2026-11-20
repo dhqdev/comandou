@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.210.1',
+    date: '2026-11-20',
+    title: 'Comprovante de fechamento só depois de fechar a conta e retirada sem taxa e frete',
+    summary:
+      'No Fechar conta, o comprovante só é liberado depois que a conta fecha e sai com tudo o que foi lançado: taxa de serviço, frete, desconto, pagamentos, troco e CPF/CNPJ. Pedido de retirada não tem mais taxa de serviço nem frete, e o desconto não vira troco.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Fechar conta: o botão Imprimir só fica liberado depois de fechar a conta. Antes, o comprovante saía com o total antigo, sem o desconto, a taxa e o frete que ainda não estavam gravados, e com a forma de pagamento que o cliente escolheu no cardápio em vez da que foi recebida.',
+      },
+      {
+        tag: 'correção',
+        text: 'Fechar conta: mudar o desconto, a taxa de serviço ou o frete refaz o valor do pagamento pelo total novo. Antes, o valor digitado sobre o total antigo podia virar troco (R$ 2,00 de desconto aparecendo como R$ 2,00 de troco).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Comprovante de fechamento: mostra o CPF/CNPJ na nota quando o cliente pediu (variável pedido.cpf_cnpj nos modelos de impressão).',
+      },
+      {
+        tag: 'correção',
+        text: 'Retirada não tem taxa de serviço nem frete: os campos somem do Fechar conta e o sistema zera os dois ao lançar ou ajustar um pedido de retirada.',
+      },
+    ],
+  },
+  {
     version: '0.210.0',
     date: '2026-11-20',
     title: 'Endereço de entrega pelo bairro, editar endereço na sacola e CEP pelo bairro',

@@ -44,6 +44,7 @@ const VARS: Record<Kind, [string, string][]> = {
     ],
     ['totais.*', 'subtotal, desconto, acrescimo, entrega, total, falta (+ _formatado)'],
     ['pagamentos (lista)', 'p.forma, p.valor_formatado, p.troco_formatado'],
+    ['pedido.cpf_cnpj', 'CPF/CNPJ que o cliente pediu na nota'],
   ],
   delivery_slip: [
     ['loja.nome', 'nome do restaurante'],

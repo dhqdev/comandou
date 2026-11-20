@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   CHANNEL_LABELS,
+  formatDocument,
   fromCents,
   OrderChannel,
   PAYMENT_METHOD_LABELS,
@@ -155,6 +156,8 @@ export class PrintingService {
       delivery_fee: string;
       payment_hint: PaymentMethod | null;
       change_for: string | null;
+      /** CPF/CNPJ que o cliente pediu na nota (só dígitos). */
+      tax_document: string | null;
       store_name: string;
       /** Data e hora completas do pedido (via de entrega). A comanda inteira não tem. */
       full_time?: string;
@@ -163,7 +166,7 @@ export class PrintingService {
       `SELECT o.number, o.channel, t.name AS store_name, o.customer_name, tb.number AS tab_number, dt.label AS table_label, o.notes,
               o.total::text, o.delivery_address, o.customer_phone,
               o.subtotal::text, o.discount::text, o.surcharge::text, o.delivery_fee::text,
-              o.payment_hint, o.change_for::text,
+              o.payment_hint, o.change_for::text, o.tax_document,
               to_char(o.created_at AT TIME ZONE t.timezone, 'DD/MM HH24:MI') AS local_time,
               to_char(o.created_at AT TIME ZONE t.timezone, 'DD/MM/YYYY HH24:MI:SS') AS full_time
          FROM orders o JOIN tenants t ON t.id = o.tenant_id
@@ -234,6 +237,7 @@ export class PrintingService {
       pagar_na_entrega: o.payment_hint ? PAYMENT_METHOD_LABELS[o.payment_hint] : null,
       troco_para: trocoPara,
       troco_para_formatado: formatMoney(trocoPara),
+      cpf_cnpj: o.tax_document ? formatDocument(o.tax_document) : null,
       levar_de_troco: trocoPara ? trocoPara - num(o.total) : 0,
     };
   }
@@ -384,7 +388,7 @@ export class PrintingService {
               COALESCE(sum(o.total), 0)::text AS total, NULL AS delivery_address, NULL AS customer_phone,
               COALESCE(sum(o.subtotal), 0)::text AS subtotal, COALESCE(sum(o.discount), 0)::text AS discount,
               COALESCE(sum(o.surcharge), 0)::text AS surcharge, COALESCE(sum(o.delivery_fee), 0)::text AS delivery_fee,
-              NULL AS payment_hint, NULL AS change_for,
+              NULL AS payment_hint, NULL AS change_for, max(o.tax_document) AS tax_document,
               to_char(tb.opened_at AT TIME ZONE t.timezone, 'DD/MM HH24:MI') AS local_time,
               COALESCE(array_agg(o.id ORDER BY o.created_at) FILTER (WHERE o.id IS NOT NULL), '{}') AS order_ids
          FROM tabs tb JOIN tenants t ON t.id = tb.tenant_id
@@ -558,6 +562,7 @@ export class PrintingService {
         out.push(row('Levar de troco', String(Number(o.change_for) - Number(o.total))));
       }
     }
+    if (data.pedido.cpf_cnpj) out.push(`CPF/CNPJ na nota: ${data.pedido.cpf_cnpj}`);
     if (o.notes) out.push(line(), ...wrap(`OBS DO PEDIDO: ${o.notes}`));
     out.push(line('='));
     return out.join('\n');

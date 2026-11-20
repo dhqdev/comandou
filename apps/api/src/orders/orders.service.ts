@@ -610,8 +610,10 @@ export class OrdersService {
       );
     const staffDiscount = toCents(input.discount ?? '0');
     const discount = staffDiscount + (reward?.discountCents ?? 0);
-    const staffSurcharge = toCents(input.surcharge ?? '0');
-    const deliveryFee = toCents(input.deliveryFee ?? '0');
+    // Retirada não tem taxa de serviço nem frete: o cliente busca no balcão.
+    const pickup = input.channel === 'pickup';
+    const staffSurcharge = pickup ? 0 : toCents(input.surcharge ?? '0');
+    const deliveryFee = pickup ? 0 : toCents(input.deliveryFee ?? '0');
     // Garçom não dá desconto nem acréscimo: isso fica com o caixa/gerente (cliente online não passa aqui).
     if (
       ctx.userId &&
@@ -623,7 +625,7 @@ export class OrdersService {
     // Comanda com taxa de serviço: o acréscimo do pedido é a taxa sobre os itens (com desconto),
     // a não ser que o caixa informe outro valor.
     const surcharge =
-      input.surcharge === undefined && serviceFee
+      input.surcharge === undefined && serviceFee && !pickup
         ? serviceFeeCents(subtotal - discount, serviceFee)
         : staffSurcharge;
     const total = subtotal - discount + surcharge + deliveryFee;
@@ -1511,15 +1513,21 @@ export class OrdersService {
               )
             )?.p
           : null;
-      const surcharge =
-        b.surcharge !== undefined
+      // Retirada não tem taxa de serviço nem frete: o ajuste zera os dois.
+      const pickup = o.channel === 'pickup';
+      const surcharge = pickup
+        ? 0
+        : b.surcharge !== undefined
           ? toCents(b.surcharge)
           : fee
             ? serviceFeeCents(subtotal - discount, fee)
             : toCents(o.surcharge);
       this.checkDiscount(ctx, discount, subtotal);
-      const deliveryFee =
-        b.deliveryFee !== undefined ? toCents(b.deliveryFee) : toCents(o.delivery_fee);
+      const deliveryFee = pickup
+        ? 0
+        : b.deliveryFee !== undefined
+          ? toCents(b.deliveryFee)
+          : toCents(o.delivery_fee);
       const total = subtotal - discount + surcharge + deliveryFee;
       const paid = toCents(o.paid_amount);
       if (total < paid) throw new ConflictException('Novo total ficaria menor que o valor já pago');

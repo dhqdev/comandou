@@ -572,6 +572,70 @@ describe('Emissão de NFC-e', () => {
     ]);
   });
 
+  it('comprovante de fechamento traz ajustes, pagamentos, troco e CPF; retirada sem taxa e frete', async () => {
+    mode = 'authorize';
+    // Retirada: taxa de serviço e frete ficam zerados, na criação e no ajuste do fechamento.
+    const p = (
+      await post('adminA', '/orders', {
+        channel: 'pickup',
+        customerName: 'Cliente Retira',
+        surcharge: '5.00',
+        deliveryFee: '7.00',
+        items: [{ productId: fx.prodA, quantity: 1 }],
+      }).expect(201)
+    ).body as { id: string; surcharge: string; deliveryFee: string; subtotal: string };
+    expect(Number(p.surcharge)).toBe(0);
+    expect(Number(p.deliveryFee)).toBe(0);
+    const adj = (
+      await patch('adminA', `/orders/${p.id}/adjustments`, {
+        discount: '2.00',
+        surcharge: '3.00',
+        deliveryFee: '4.00',
+        reason: 'Ajuste no fechamento da conta',
+      }).expect(200)
+    ).body as { surcharge: string; deliveryFee: string; discount: string; total: string };
+    expect(Number(adj.surcharge)).toBe(0);
+    expect(Number(adj.deliveryFee)).toBe(0);
+    expect(Number(adj.discount)).toBe(2);
+    expect(toCents(adj.total)).toBe(toCents(p.subtotal) - 200);
+
+    // Balcão com taxa, frete e desconto ajustados no fechamento: tudo sai no comprovante.
+    const c = (
+      await post('adminA', '/orders', {
+        channel: 'counter',
+        items: [{ productId: fx.prodA, quantity: 1 }],
+      }).expect(201)
+    ).body as { id: string };
+    const ca = (
+      await patch('adminA', `/orders/${c.id}/adjustments`, {
+        discount: '1.00',
+        surcharge: '2.50',
+        deliveryFee: '3.00',
+        reason: 'Ajuste no fechamento da conta',
+      }).expect(200)
+    ).body as { total: string };
+    await post(
+      'adminA',
+      `/orders/${c.id}/payments`,
+      {
+        cashSessionId: sessionId,
+        method: 'cash',
+        amount: ca.total,
+        tendered: fromCents(toCents(ca.total) + 500),
+        taxDocument: '52998224725',
+      },
+      key(),
+    ).expect(201);
+    const rc = (await get('adminA', `/orders/${c.id}/receipt`).expect(200)).body;
+    expect(rc.text).toMatch(/Desconto\s+R\$ -1,00/);
+    expect(rc.text).toMatch(/Taxa de serviço\s+R\$ 2,50/);
+    expect(rc.text).toMatch(/Taxa de entrega\s+R\$ 3,00/);
+    expect(rc.text).toMatch(/Pago \(Dinheiro\)/);
+    expect(rc.text).toMatch(/Troco\s+R\$ 5,00/);
+    expect(rc.text).toContain('CPF/CNPJ na nota: 529.982.247-25');
+    expect(rc.text).not.toContain('FALTA PAGAR');
+  });
+
   it('comanda: uma NFC-e para a mesa toda, só depois que a conta fecha', async () => {
     mode = 'authorize';
     const table = (await post('adminA', '/tables', { label: 'NF-M1' }).expect(201)).body;
