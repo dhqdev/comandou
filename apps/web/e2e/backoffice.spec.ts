@@ -202,9 +202,9 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   // Desativa para não deixar a fila do tenant de teste ativa.
   await page
     .locator('li', { hasText: `PC ${tag}` })
-    .getByRole('button', { name: 'desativar' })
+    .getByRole('button', { name: 'Desativar' })
     .click();
-  await expect(page.locator('li', { hasText: `PC ${tag}` })).toContainText('desativado');
+  await expect(page.locator('li', { hasText: `PC ${tag}` })).toContainText(/desativado/i);
   await shot(page, info.project.name, 'impressao');
 
   // Novidades (no menu do perfil desde a 0.159.0)
