@@ -602,7 +602,7 @@
 }
 /* Rodapé fixo: resumo de valores e a barra dos botões que decidem o pedido (0.201.1, pedido do
    David): Cancelar sozinho à esquerda, os passos e o botão principal à direita, cada um do tamanho
-   do texto. As ações de apoio moram na fileira od-tools, logo acima desta barra (0.209.3). */
+   do texto. As ações de apoio (e o Cancelar) moram na barra od-tools, logo acima desta (0.210.2). */
 .od-foot {
   display: grid;
   gap: 14px;
@@ -692,99 +692,133 @@ button.od-fact__link {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-/* Ações de apoio do pedido no rodapé (0.209.3, pedido do David): uma fileira logo acima dos botões
-   que decidem o pedido, separada deles por um traço fino. Dois grupos (Impressão e Cobrança), com
-   folga maior entre eles; quando não cabem lado a lado, cada grupo fica na sua linha. Botões menores que os do od-bar, cada um num tom suave próprio
-   (data-hue), ícone na cor e texto normal. */
+/* Ações de apoio do pedido no rodapé (0.210.2, pedido do David, no jeito da referência dele): uma
+   barra arredondada com botões de ícone num círculo (tom próprio pelo data-hue) e o nome embaixo,
+   em grupos separados por um traço vertical: Impressão, Cobrança e Cancelar (vermelho). Se não
+   couber, a barra corre de lado; no celular, com a ponta esmaecida. */
 .od-tools {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 24px;
+  align-items: stretch;
+  gap: 6px;
   min-width: 0;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--cm-border);
+  padding: 8px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg, 14px);
+  background: var(--cm-surface-muted);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-.od-tools:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
+.od-tools::-webkit-scrollbar {
+  display: none;
 }
 .od-tools__group {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  min-width: 0;
+  flex: none;
+  gap: 2px;
 }
-.od-tools button {
-  display: inline-flex;
+.od-tools__group + .od-tools__group {
+  padding-left: 6px;
+  border-left: 1px solid var(--cm-border);
+}
+.od-tool {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  gap: 7px;
-  min-width: 0;
-  height: 34px;
-  padding: 0 14px;
-  border: 1px solid color-mix(in oklab, var(--hue, var(--cm-text-muted)) 26%, var(--cm-border));
+  justify-content: flex-start;
+  gap: 6px;
+  width: 78px;
+  padding: 6px 4px 4px;
+  border: 0;
   border-radius: var(--cm-radius-md);
-  background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 7%, var(--cm-surface));
-  color: var(--cm-text);
+  background: none;
+  color: var(--cm-text-muted);
   font: inherit;
-  font-size: var(--cm-text-sm);
-  font-weight: 500;
-  white-space: nowrap;
   cursor: pointer;
   transition:
     background-color var(--cm-dur-fast) var(--cm-ease),
-    border-color var(--cm-dur-fast) var(--cm-ease),
+    color var(--cm-dur-fast) var(--cm-ease),
     transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
-.od-tools button > svg {
-  flex: none;
+.od-tool__icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid color-mix(in oklab, var(--hue, var(--cm-text-muted)) 28%, var(--cm-border));
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 12%, var(--cm-surface));
   color: var(--hue, var(--cm-text-muted));
+  transition: background-color var(--cm-dur-fast) var(--cm-ease);
 }
-.od-tools button > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.od-tool__label {
+  font-size: var(--cm-text-2xs, 0.72rem);
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+  text-wrap: balance;
 }
-.od-tools button:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 13%, var(--cm-surface));
-  border-color: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 45%, var(--cm-border));
+.od-tool[data-hue='danger'] .od-tool__label {
+  color: var(--cm-danger);
+  font-weight: 600;
 }
-.od-tools button:focus-visible {
+.od-tool:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--cm-text) 5%, transparent);
+  color: var(--cm-text);
+}
+.od-tool:hover:not(:disabled) .od-tool__icon {
+  background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 22%, var(--cm-surface));
+}
+.od-tool:focus-visible {
   outline: 2px solid var(--cm-focus);
   outline-offset: 1px;
 }
-.od-tools button:active:not(:disabled) {
-  transform: scale(0.97);
+.od-tool:active:not(:disabled) {
+  transform: scale(0.96);
 }
-.od-tools button:disabled {
+.od-tool:disabled {
   opacity: 0.5;
   cursor: default;
 }
-/* Celular: uma fileira só que corre de lado, para o rodapé fixo não crescer e tampar o pedido. */
+/* Fechar conta: o botão grande e verde do rodapé, com a seta no fim. */
+.od-bar > .cm-btn.od-bar__close {
+  height: 46px;
+  min-height: 46px;
+  min-width: 190px;
+  padding: 0 18px;
+  gap: 10px;
+  --od-close: var(--cm-success);
+  border-color: color-mix(in oklab, var(--od-close) 80%, #000);
+  background: var(--od-close);
+  color: #fff;
+  font-size: var(--cm-text-md);
+  font-weight: 700;
+}
+.od-bar > .cm-btn.od-bar__close:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--od-close) 88%, #000);
+}
+/* No escuro o verde de sucesso é claro demais para texto branco: escurece um pouco. */
+:root[data-theme='dark'] .od-bar > .cm-btn.od-bar__close {
+  --od-close: color-mix(in oklab, var(--cm-success) 76%, #000);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .od-bar > .cm-btn.od-bar__close {
+    --od-close: color-mix(in oklab, var(--cm-success) 76%, #000);
+  }
+}
+.od-bar__chev {
+  margin-left: auto;
+  opacity: 0.85;
+}
 @media (max-width: 640px) {
-  .od-tools,
-  .od-tools__group {
-    flex-wrap: nowrap;
-  }
-  .od-tools__group {
-    flex: none;
-  }
   .od-tools {
-    gap: 20px;
-    overflow-x: auto;
-    margin-inline: calc(-1 * var(--cm-space-4));
-    padding: 2px var(--cm-space-4) 14px;
-    scrollbar-width: none;
-    scroll-padding-inline: var(--cm-space-4);
-    /* Esmaece a ponta direita: avisa que há mais botões correndo de lado. */
-    mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+    margin-inline: calc(-1 * var(--cm-space-2));
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   }
-  .od-tools::-webkit-scrollbar {
-    display: none;
+  .od-tool {
+    width: 72px;
   }
-  .od-tools button {
-    height: 38px;
+  .od-bar > .cm-btn.od-bar__close {
+    flex-basis: 100%;
   }
 }
 .od-block__edit {

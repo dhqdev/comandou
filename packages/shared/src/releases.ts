@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.210.2',
+    date: '2026-11-20',
+    title: 'Nova barra de ações do pedido',
+    summary:
+      'O rodapé do pedido ganhou uma barra arredondada com botões de ícone e o nome embaixo (Imprimir pedido, Imprimir cozinha, Desconto / Acréscimo, Vender fiado, A receber e Cancelar pedido) e um Fechar conta grande e verde.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Pedido: as ações de apoio viraram uma barra com ícones em círculo e o nome embaixo, em três grupos (Impressão, Cobrança e Cancelar em vermelho).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pedido: Fechar conta ficou maior, em verde e com a seta no fim, ao lado de Iniciar preparo e Marcar pronto; o resumo de valores segue à direita no notebook.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pedido: no celular, a barra de ícones corre de lado e o Fechar conta ocupa a largura toda.',
+      },
+    ],
+  },
+  {
     version: '0.210.1',
     date: '2026-11-20',
     title: 'Comprovante de fechamento só depois de fechar a conta e retirada sem taxa e frete',

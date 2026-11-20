@@ -12,6 +12,7 @@ import {
   Bike,
   CalendarClock,
   ChefHat,
+  ChevronRight,
   HandCoins,
   Pencil,
   Percent,
@@ -321,7 +322,7 @@ export function OrderDetailModal({
           ? [
               {
                 label: 'Desconto ou acréscimo',
-                icon: <Percent size={15} />,
+                icon: <Percent size={18} />,
                 hue: 'green' as const,
                 run: () => setMode('adjust'),
               },
@@ -331,7 +332,7 @@ export function OrderDetailModal({
           ? [
               {
                 label: order.fiadoAt ? 'Editar fiado' : 'Vender fiado',
-                icon: <CalendarClock size={15} />,
+                icon: <CalendarClock size={18} />,
                 hue: 'amber' as const,
                 run: () => setMode('fiado'),
               },
@@ -341,7 +342,7 @@ export function OrderDetailModal({
           ? [
               {
                 label: 'Concluir a receber',
-                icon: <HandCoins size={15} />,
+                icon: <HandCoins size={18} />,
                 hue: 'rose' as const,
                 run: () => setMode('receivable'),
               },
@@ -351,7 +352,7 @@ export function OrderDetailModal({
           ? [
               {
                 label: 'Reimprimir na cozinha',
-                icon: <ChefHat size={15} />,
+                icon: <ChefHat size={18} />,
                 hue: 'slate' as const,
                 run: () => void print('kitchen'),
               },
@@ -361,9 +362,7 @@ export function OrderDetailModal({
     : [];
   const canPrintSlip = !!order && !mode && canPrint && order.status !== 'cancelled';
   const hasBar =
-    !!order &&
-    !mode &&
-    (nextSteps.length > 0 || canReceive || canSend || canReject || canServe || !!cancelLabel);
+    !!order && !mode && (nextSteps.length > 0 || canReceive || canSend || canReject || canServe);
 
   const header = order ? (
     <span className="odh" data-hue={CHANNEL_HUE[order.channel]}>
@@ -387,16 +386,22 @@ export function OrderDetailModal({
     'Pedido'
   );
 
-  // Ações de apoio no rodapé (0.209.3, pedido do David): saíram do topo e ficam numa fileira
-  // própria logo acima dos botões que decidem o pedido, em dois grupos: papel (imprimir, via de
-  // entrega, cozinha) e dinheiro (desconto, fiado, a receber). Botões menores e em tom suave, para
-  // não competir com Fechar conta.
+  // Ações de apoio no rodapé (0.210.2, pedido do David, no jeito da referência dele): uma barra
+  // arredondada com botões de ícone num círculo e o nome embaixo, em grupos separados por um traço:
+  // Impressão (pedido, via de entrega, cozinha), Cobrança (desconto, fiado, a receber) e, por
+  // último, Cancelar em vermelho. Embaixo dela ficam só os passos e o Fechar conta grande.
+  const ICON = 18;
+  const SHORT: Record<string, string> = {
+    'Reimprimir na cozinha': 'Imprimir cozinha',
+    'Desconto ou acréscimo': 'Desconto / Acréscimo',
+    'Concluir a receber': 'A receber',
+  };
   const printTools: MenuAction[] =
     order && canPrintSlip
       ? [
           {
             label: 'Imprimir pedido',
-            icon: <Printer size={15} />,
+            icon: <Printer size={ICON} />,
             hue: 'blue' as const,
             run: () => setPreviewKind('receipt'),
           },
@@ -404,7 +409,7 @@ export function OrderDetailModal({
             ? [
                 {
                   label: 'Via de entrega',
-                  icon: <Bike size={15} />,
+                  icon: <Bike size={ICON} />,
                   hue: 'violet' as const,
                   run: () => setPreviewKind('delivery'),
                 },
@@ -415,9 +420,21 @@ export function OrderDetailModal({
   const kitchenTool = more.find((a) => a.label === 'Reimprimir na cozinha');
   const paperGroup = !mode ? [...printTools, ...(kitchenTool ? [kitchenTool] : [])] : [];
   const moneyGroup = !mode ? more.filter((a) => a !== kitchenTool) : [];
+  const cancelGroup: MenuAction[] =
+    order && !mode && cancelLabel
+      ? [
+          {
+            label: cancelLabel,
+            icon: <XCircle size={ICON} />,
+            hue: 'danger' as const,
+            run: () => setMode('cancel'),
+          },
+        ]
+      : [];
   const toolGroups = [
     { label: 'Impressão', items: paperGroup },
     { label: 'Cobrança', items: moneyGroup },
+    { label: 'Cancelamento', items: cancelGroup },
   ].filter((g) => g.items.length > 0);
   const tools =
     order && toolGroups.length > 0 ? (
@@ -428,11 +445,16 @@ export function OrderDetailModal({
               <button
                 key={a.label}
                 type="button"
+                className="od-tool"
                 data-hue={a.hue}
+                title={a.label}
                 disabled={printing}
                 onClick={a.run}
               >
-                {a.icon} <span>{a.label}</span>
+                <span className="od-tool__icon" aria-hidden>
+                  {a.icon}
+                </span>
+                <span className="od-tool__label">{SHORT[a.label] ?? a.label}</span>
               </button>
             ))}
           </div>
@@ -479,15 +501,6 @@ export function OrderDetailModal({
       {tools}
       {hasBar && (
         <div className="od-bar">
-          {cancelLabel && (
-            <Button
-              variant="secondary"
-              className="od-bar__cancel"
-              onClick={() => setMode('cancel')}
-            >
-              <XCircle size={15} aria-hidden /> {cancelLabel}
-            </Button>
-          )}
           {canReject && (
             <Button
               variant="secondary"
@@ -522,10 +535,12 @@ export function OrderDetailModal({
           {canReceive && (
             <Button
               variant={order.status === 'awaiting' ? 'secondary' : 'primary'}
-              icon={<Wallet size={15} />}
+              className={order.status === 'awaiting' ? undefined : 'od-bar__close'}
+              icon={<Wallet size={18} />}
               onClick={() => setPaying(true)}
             >
               Fechar conta
+              <ChevronRight size={18} aria-hidden className="od-bar__chev" />
             </Button>
           )}
         </div>

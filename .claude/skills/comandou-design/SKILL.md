@@ -146,13 +146,14 @@ e contorno de 24–30%; texto principal na cor normal. Topo: ícone e etiqueta d
 tom do canal (`CHANNEL_HUE`). Dados: cada ícone redondo num tom (status e pagamento seguem os
 selos). Item: situação pendente/em preparo/pronto com cor. Observação escrita em âmbar. Rodapé:
 desconto e pago em verde, falta pagar em vermelho; Cancelar/Recusar em vermelho suave.
-**Botões (0.209.3, pedido do David):** tudo no rodapé. As ações de apoio (`od-tools`) são uma
-fileira de botões pequenos (32px, do tamanho do texto, um tom cada) logo **acima** do `od-bar`,
-separada por um traço fino, em dois grupos (`od-tools__group`): Impressão (imprimir, via de
-entrega, cozinha) e Cobrança (desconto, fiado, a receber); se não cabem lado a lado, cada grupo
-na sua linha; no celular, uma fileira só que corre de lado com a ponta esmaecida. Nada de ações
-no topo do pedido. O `od-bar` só tem o que decide o pedido: Cancelar/Recusar à esquerda, passos e
-o primário à direita, sem esticar.
+**Botões (0.210.2, pedido do David, no jeito da referência dele):** tudo no rodapé. As ações
+de apoio e o Cancelar ficam numa barra arredondada (`od-tools`, fundo `--cm-surface-muted`) de
+botões `od-tool`: ícone num círculo no tom do `data-hue` e o nome curto embaixo, em grupos
+(`od-tools__group`) separados por traço vertical: Impressão (pedido, via de entrega, cozinha),
+Cobrança (desconto, fiado, a receber) e Cancelar (vermelho, `danger`). A barra corre de lado se
+não couber (no celular com a ponta esmaecida). O `od-bar` embaixo só tem Recusar, os passos e o
+**Fechar conta** grande e verde (`od-bar__close`, 46px, seta no fim; no escuro o verde escurece).
+Nada de ações no topo do pedido.
 Editar itens fica só no botão Editar ao lado de "Itens do pedido" (não repita na fileira). Fora dessa gaveta, o resto do sistema
 segue neutro; não copie os tons para outras telas sem pedido.
 
