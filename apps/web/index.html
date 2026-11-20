@@ -198,6 +198,361 @@
         font: inherit;
         font-weight: 600;
       }
+      /*
+       * Cardápio do cliente (/pedir): o esqueleto tem o formato da loja em cada tela (celular,
+       * tablet e notebook), o mesmo que o React desenha (MenuSkeleton) até o cardápio chegar.
+       * Assim a abertura passa direto do esqueleto para o cardápio, sem trocar de desenho.
+       */
+      .cm-msk {
+        display: none;
+      }
+      /* O mesmo esqueleto desenhado pelo React: já está na tela, entra sem o esmaecer. */
+      .cm-boot--react {
+        display: block;
+        overflow: hidden;
+        animation: none;
+      }
+      .cm-boot--react i {
+        animation-delay: var(--cm-sk-delay, 0s);
+      }
+      :root[data-boot='menu'] .cm-boot > :not(.cm-msk):not(.cm-boot__msg) {
+        display: none;
+      }
+      :root[data-boot='menu'] .cm-boot {
+        display: block;
+        overflow: hidden;
+      }
+      :root[data-boot='menu'] .cm-msk,
+      .cm-msk--react {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-content: start;
+        min-height: 100%;
+      }
+      .cm-msk__side,
+      .cm-msk__bar,
+      .cm-msk__rail,
+      .cm-msk__cart {
+        display: none !important;
+      }
+      .cm-msk__main {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+        padding-bottom: 80px;
+      }
+      .cm-msk__main > * {
+        flex: none;
+        margin: 0 16px;
+      }
+      .cm-msk__hero {
+        position: relative;
+        display: grid;
+        justify-items: center;
+        gap: 10px;
+        margin: 0 !important;
+        padding-bottom: 4px;
+      }
+      .cm-msk__cover {
+        width: 100%;
+        height: 200px;
+        border-radius: 0 !important;
+      }
+      .cm-msk__logo {
+        width: 92px;
+        height: 92px;
+        margin-top: -58px;
+        border-radius: 50% !important;
+        border: 4px solid var(--b-bg);
+        box-sizing: border-box;
+      }
+      .cm-msk__hero > span {
+        display: grid;
+        justify-items: center;
+        gap: 10px;
+        width: 100%;
+      }
+      .cm-msk__name {
+        width: 62%;
+        height: 22px;
+      }
+      .cm-msk__status {
+        width: 90px;
+        height: 12px;
+        margin-top: -3px;
+      }
+      .cm-msk__info {
+        display: none !important;
+      }
+      .cm-msk__ride {
+        height: 98px;
+        border-radius: 16px !important;
+      }
+      .cm-msk__search {
+        display: flex;
+        gap: 10px;
+      }
+      .cm-msk__search i:first-child {
+        flex: 1;
+        height: 46px;
+        border-radius: 999px;
+      }
+      .cm-msk__search i:last-child {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+      }
+      .cm-msk__chips {
+        display: flex;
+        gap: 20px;
+        overflow: hidden;
+      }
+      .cm-msk__chips span {
+        display: grid;
+        flex: none;
+        justify-items: center;
+        gap: 8px;
+      }
+      .cm-msk__chips span i:first-child {
+        width: 66px;
+        height: 66px;
+        border-radius: 50%;
+      }
+      .cm-msk__chips span i:last-child {
+        width: 48px;
+        height: 10px;
+      }
+      .cm-msk__banner {
+        height: 179px;
+        border-radius: 12px !important;
+      }
+      .cm-msk__title {
+        width: 120px;
+        height: 18px;
+        margin-top: 6px !important;
+      }
+      .cm-msk__grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .cm-msk__card {
+        display: grid;
+        gap: 10px;
+        padding: 7px 7px 14px;
+        border-radius: 16px;
+        background: var(--b-frame);
+      }
+      .cm-msk__card i:first-child {
+        height: 120px;
+        border-radius: 9px;
+      }
+      .cm-msk__card i:nth-child(2) {
+        width: 80%;
+        height: 12px;
+      }
+      .cm-msk__card i:nth-child(3) {
+        width: 45%;
+        height: 14px;
+      }
+      .cm-msk__card:nth-child(n + 5) {
+        display: none;
+      }
+      .cm-msk__tabs {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        height: 60px;
+        padding-bottom: env(safe-area-inset-bottom);
+        background: var(--b-frame);
+        border-top: 1px solid var(--b-line);
+      }
+      .cm-msk__tabs span {
+        display: grid;
+        justify-items: center;
+        gap: 6px;
+      }
+      .cm-msk__tabs span i:first-child {
+        width: 24px;
+        height: 22px;
+        border-radius: 7px;
+      }
+      .cm-msk__tabs span i:last-child {
+        width: 44px;
+        height: 9px;
+      }
+      /* Tablet (700–1099px): barra no topo, categorias numa coluna e a capa como cartão. */
+      @media (min-width: 700px) {
+        :root[data-boot='menu'] .cm-msk,
+        .cm-msk--react {
+          grid-template-columns: 108px minmax(0, 1fr);
+          grid-template-rows: 64px 1fr;
+        }
+        .cm-msk__bar {
+          display: flex !important;
+          grid-column: 1 / -1;
+          align-items: center;
+          gap: 10px;
+          padding: 0 16px;
+          background: var(--b-frame);
+          border-bottom: 1px solid var(--b-line);
+        }
+        .cm-msk__rail {
+          display: grid !important;
+          align-content: start;
+          justify-items: center;
+          gap: 43px;
+          padding-top: 22px;
+          background: var(--b-frame);
+        }
+        .cm-msk__main {
+          padding: 16px 20px 32px;
+        }
+        .cm-msk__main > * {
+          margin: 0;
+        }
+        .cm-msk__hero {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          height: 172px;
+          padding: 0 16px;
+          border-radius: 16px;
+          background: var(--b-bone);
+        }
+        .cm-msk__cover,
+        .cm-msk__chips,
+        .cm-msk__tabs {
+          display: none !important;
+        }
+        .cm-msk__hero > .cm-msk__logo {
+          align-self: flex-end;
+          width: 60px;
+          height: 60px;
+          margin: 0 0 18px;
+          border: 3px solid var(--b-shine);
+          background: var(--b-shine);
+        }
+        .cm-msk__hero > span {
+          display: grid;
+          justify-items: start;
+          align-self: flex-end;
+          flex: 1;
+          gap: 8px;
+          margin-bottom: 18px;
+        }
+        .cm-msk__hero .cm-msk__name {
+          width: 55%;
+          height: 24px;
+          background: var(--b-shine);
+        }
+        .cm-msk__hero .cm-msk__status {
+          width: 100px;
+          background: var(--b-shine);
+        }
+        .cm-msk__info {
+          display: block !important;
+          width: 40px;
+          height: 40px;
+          border-radius: 50% !important;
+          background: var(--b-shine) !important;
+        }
+        .cm-msk__search {
+          order: 1;
+        }
+        .cm-msk__ride {
+          order: 2;
+          height: 74px;
+        }
+        .cm-msk__banner,
+        .cm-msk__title,
+        .cm-msk__grid {
+          order: 3;
+        }
+        .cm-msk__banner {
+          height: 168px;
+          border-radius: 16px !important;
+        }
+        .cm-msk__grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 16px;
+        }
+        .cm-msk__card {
+          padding: 7px 7px 16px;
+        }
+        .cm-msk__card i:first-child {
+          height: 150px;
+        }
+        .cm-msk__card:nth-child(n + 4) {
+          display: none;
+        }
+      }
+      /* Notebook (1100px+): menu lateral com as categorias e, nas telas largas, a sacola ao lado. */
+      @media (min-width: 1100px) {
+        :root[data-boot='menu'] .cm-msk,
+        .cm-msk--react {
+          grid-template-columns: 256px minmax(0, 1fr);
+          grid-template-rows: none;
+          align-content: stretch;
+          height: 100%;
+        }
+        .cm-msk__bar,
+        .cm-msk__rail {
+          display: none !important;
+        }
+        .cm-msk__side {
+          display: grid !important;
+          align-content: start;
+          gap: 14px;
+          padding: 20px 20px;
+          background: var(--b-frame);
+          border-right: 1px solid var(--b-line);
+        }
+        .cm-msk__main {
+          padding: 20px 28px 32px;
+        }
+        .cm-msk__hero {
+          height: 196px;
+        }
+        .cm-msk__grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        .cm-msk__card i:first-child {
+          height: 128px;
+        }
+        .cm-msk__card:nth-child(4) {
+          display: grid;
+        }
+      }
+      @media (min-width: 1280px) {
+        :root[data-boot='menu'] .cm-msk,
+        .cm-msk--react {
+          grid-template-columns: 256px minmax(0, 1fr) 340px;
+        }
+        .cm-msk__cart {
+          display: grid !important;
+          grid-template-rows: auto auto 1fr auto;
+          gap: 14px;
+          padding: 20px 18px;
+          background: var(--b-frame);
+          border-left: 1px solid var(--b-line);
+        }
+      }
+      .cm-msk__row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .cm-msk__lines {
+        display: grid;
+        flex: 1;
+        gap: 7px;
+      }
       @keyframes cm-boot-in {
         from {
           opacity: 0;
@@ -265,6 +620,95 @@
           <i style="width: 28px; height: 28px; border-radius: 8px"></i>
           <i style="width: 28px; height: 28px; border-radius: 8px"></i>
           <i style="width: 28px; height: 28px; border-radius: 8px"></i>
+        </div>
+        <!-- Cardápio do cliente: o formato da loja (igual ao MenuSkeleton do React). -->
+        <div class="cm-msk" aria-hidden="true">
+          <div class="cm-msk__side">
+            <div class="cm-msk__row">
+              <i style="width: 44px; height: 44px; border-radius: 50%"></i>
+              <span class="cm-msk__lines"
+                ><i style="height: 13px; width: 80%"></i><i style="height: 10px; width: 50%"></i
+              ></span>
+            </div>
+            <i style="height: 36px; margin-top: 4px"></i>
+            <i style="height: 12px; width: 50%; margin-left: 12px"></i>
+            <i style="height: 12px; width: 44%; margin-left: 12px"></i>
+            <i style="height: 12px; width: 56%; margin-left: 12px"></i>
+            <i style="height: 10px; width: 30%; margin-top: 18px"></i>
+            <div class="cm-msk__row">
+              <i style="width: 36px; height: 36px; border-radius: 11px"></i
+              ><i style="height: 12px; width: 55%"></i>
+            </div>
+            <div class="cm-msk__row">
+              <i style="width: 36px; height: 36px; border-radius: 11px"></i
+              ><i style="height: 12px; width: 42%"></i>
+            </div>
+            <div class="cm-msk__row">
+              <i style="width: 36px; height: 36px; border-radius: 11px"></i
+              ><i style="height: 12px; width: 50%"></i>
+            </div>
+            <div class="cm-msk__row">
+              <i style="width: 36px; height: 36px; border-radius: 11px"></i
+              ><i style="height: 12px; width: 38%"></i>
+            </div>
+            <div class="cm-msk__row">
+              <i style="width: 36px; height: 36px; border-radius: 11px"></i
+              ><i style="height: 12px; width: 46%"></i>
+            </div>
+          </div>
+          <div class="cm-msk__bar">
+            <i style="width: 40px; height: 40px; border-radius: 50%"></i>
+            <span class="cm-msk__lines" style="flex: 0 0 150px"
+              ><i style="height: 13px"></i><i style="height: 10px; width: 60%"></i
+            ></span>
+            <i style="width: 104px; height: 40px; border-radius: 999px; margin-left: auto"></i>
+            <i style="width: 28px; height: 28px; border-radius: 50%"></i>
+            <i style="width: 28px; height: 28px; border-radius: 50%"></i>
+            <i style="width: 28px; height: 28px; border-radius: 50%"></i>
+            <i style="width: 112px; height: 46px; border-radius: 999px; margin-left: 8px"></i>
+          </div>
+          <div class="cm-msk__rail">
+            <i style="width: 60px; height: 60px; border-radius: 18px"></i>
+            <i style="width: 60px; height: 60px; border-radius: 18px"></i>
+            <i style="width: 60px; height: 60px; border-radius: 18px"></i>
+            <i style="width: 60px; height: 60px; border-radius: 18px"></i>
+            <i style="width: 60px; height: 60px; border-radius: 18px"></i>
+          </div>
+          <div class="cm-msk__main">
+            <div class="cm-msk__hero">
+              <i class="cm-msk__cover"></i>
+              <i class="cm-msk__logo"></i>
+              <span><i class="cm-msk__name"></i><i class="cm-msk__status"></i></span>
+              <i class="cm-msk__info"></i>
+            </div>
+            <i class="cm-msk__ride"></i>
+            <div class="cm-msk__search"><i></i><i></i></div>
+            <div class="cm-msk__chips">
+              <span><i></i><i></i></span><span><i></i><i></i></span><span><i></i><i></i></span
+              ><span><i></i><i></i></span><span><i></i><i></i></span>
+            </div>
+            <i class="cm-msk__banner"></i>
+            <i class="cm-msk__title"></i>
+            <div class="cm-msk__grid">
+              <div class="cm-msk__card"><i></i><i></i><i></i></div>
+              <div class="cm-msk__card"><i></i><i></i><i></i></div>
+              <div class="cm-msk__card"><i></i><i></i><i></i></div>
+              <div class="cm-msk__card"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+          <div class="cm-msk__cart">
+            <div class="cm-msk__row">
+              <i style="width: 36px; height: 36px; border-radius: 50%"></i
+              ><i style="height: 16px; width: 40%"></i>
+            </div>
+            <i style="height: 38px; border-radius: 8px"></i>
+            <span></span>
+            <i style="height: 50px; border-radius: 999px"></i>
+          </div>
+          <div class="cm-msk__tabs">
+            <span><i></i><i></i></span><span><i></i><i></i></span><span><i></i><i></i></span
+            ><span><i></i><i></i></span><span><i></i><i></i></span>
+          </div>
         </div>
         <div id="cm-boot-msg" class="cm-boot__msg" role="alert" hidden>
           <strong id="cm-boot-title">Está demorando mais que o normal</strong>

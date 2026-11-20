@@ -349,6 +349,10 @@ export interface OnlineOrderInput {
 }
 
 /** Loja online: configurações, cardápio público e pedidos feitos pelo cliente final. */
+/** Por quanto tempo o "Mais pedidos" do cardápio vale sem refazer a conta. */
+const POPULAR_TTL_MS = 5 * 60_000;
+const POPULAR_CACHE_MAX = 5_000;
+
 @Injectable()
 export class StoreService {
   constructor(
@@ -358,7 +362,16 @@ export class StoreService {
     private readonly realtime: RealtimeService,
     private readonly zones: ZonesService,
     private readonly onlinePay: OnlinePayService,
-  ) {}
+  ) {
+    realtime.onCacheClear((tenantId) => this.popularCache.delete(tenantId));
+  }
+
+  /**
+   * "Mais pedidos" de cada restaurante, guardado por alguns minutos: a conta varre 30 dias de
+   * pedidos e o cardápio é aberto a cada visita (e a cada recarregar). Muda devagar, então uns
+   * minutos de atraso não aparecem para o cliente.
+   */
+  private readonly popularCache = new Map<string, { at: number; ids: string[] }>();
 
   private readonly openHooks: ((
     tenantId: string,
@@ -746,15 +759,7 @@ export class StoreService {
         `SELECT ${BANNER_COLS} FROM store_banners WHERE active ORDER BY position, created_at`,
       );
       // "Mais pedidos": os produtos que mais saíram nos últimos 30 dias (pedidos não cancelados).
-      const popular = s.showPopular
-        ? await q<{ id: string }>(
-            tx,
-            `SELECT i.product_id AS id FROM order_items i JOIN orders o ON o.id = i.order_id
-              WHERE o.created_at > now() - interval '30 days' AND o.status <> 'cancelled'
-                AND i.product_id IS NOT NULL
-              GROUP BY i.product_id ORDER BY sum(CASE WHEN i.unit = 'kg' THEN 1 ELSE i.quantity END) DESC LIMIT 10`,
-          )
-        : [];
+      const popular = s.showPopular ? await this.popularIn(tx, tenantId) : [];
       const zoneCount = await one<{ n: number }>(
         tx,
         `SELECT count(*)::int AS n FROM delivery_zones WHERE active`,
@@ -820,7 +825,7 @@ export class StoreService {
             imageUrl: mediaUrl(imageId),
           };
         }),
-        popular: popular.map((p) => p.id).filter((id) => productIds.has(id)),
+        popular: popular.filter((id) => productIds.has(id)),
         categories: visible.map(({ imageId, products, ...c }) => ({
           ...c,
           imageUrl: mediaUrl(imageId),
@@ -837,6 +842,24 @@ export class StoreService {
         })),
       };
     });
+  }
+
+  /** Produtos que mais saíram nos últimos 30 dias (pedidos não cancelados), do cache se recente. */
+  private async popularIn(tx: Tx, tenantId: string): Promise<string[]> {
+    const hit = this.popularCache.get(tenantId);
+    if (hit && Date.now() - hit.at < POPULAR_TTL_MS) return hit.ids;
+    const rows = await q<{ id: string }>(
+      tx,
+      `SELECT i.product_id AS id FROM order_items i JOIN orders o ON o.id = i.order_id
+        WHERE o.created_at > now() - interval '30 days' AND o.status <> 'cancelled'
+          AND i.product_id IS NOT NULL
+        GROUP BY i.product_id ORDER BY sum(CASE WHEN i.unit = 'kg' THEN 1 ELSE i.quantity END) DESC LIMIT 10`,
+    );
+    const ids = rows.map((r) => r.id);
+    // Muitos restaurantes numa réplica: o mapa não cresce sem limite.
+    if (this.popularCache.size >= POPULAR_CACHE_MAX) this.popularCache.clear();
+    this.popularCache.set(tenantId, { at: Date.now(), ids });
+    return ids;
   }
 
   /**

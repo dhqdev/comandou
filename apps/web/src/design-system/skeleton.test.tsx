@@ -44,6 +44,17 @@ describe('Abertura do app (index.html + boot.js)', () => {
     expect(html).not.toMatch(/<script>(?!\s*<\/script>)/);
   });
 
+  it('cardápio do cliente: esqueleto da loja e o cardápio pedido já na abertura', () => {
+    expect(html).toContain('class="cm-msk"');
+    expect(boot).toContain("dataset.boot = 'menu'");
+    expect(boot).toContain("'/store?mesa=' + mesa");
+    // a mesma mesa lembrada que o cardápio usa (pages/public/store.ts)
+    const store = readFileSync(join(__dirname, '../pages/public/store.ts'), 'utf8');
+    const key = /const TABLE_KEY = '([^']+)'/.exec(store)?.[1];
+    expect(key).toBeTruthy();
+    expect(boot).toContain(`sessionStorage.getItem('${key}')`);
+  });
+
   it('arquivo do app que não veio limpa o cache e recarrega uma vez só', () => {
     expect(boot).toContain('/\\/assets\\//');
     expect(boot).toContain('sessionStorage');

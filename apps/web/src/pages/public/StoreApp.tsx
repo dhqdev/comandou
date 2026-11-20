@@ -16,6 +16,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactElement,
 } from 'react';
@@ -30,11 +31,13 @@ import {
   useNavigate,
   useNavigationType,
 } from 'react-router';
-import { applyTheme, Bone, Mascot, setPullRefreshHandler, Skeleton } from '../../design-system';
+import { applyTheme, Mascot, setPullRefreshHandler, Skeleton } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { lazyPage, preloadPages } from '../../lib/lazy-page';
 import { brl } from '../../lib/money';
 import { checkCacheEpoch } from '../../lib/tenant-cache';
+import { MenuSkeleton } from '../../app/MenuSkeleton';
+import { cachedMenu, forgetMenus, rememberStoreTheme, saveMenu } from '../../lib/menu-boot';
 import { CustomerAvatar } from './avatars';
 import { StoreChatProvider, useStoreChat } from './chat';
 import { StoreProvider, useStore } from './context';
@@ -384,40 +387,6 @@ function Chrome() {
   );
 }
 
-/** Cardápio abrindo: o formato da loja (capa, nome, categorias e pratos com foto). */
-function MenuSkeleton() {
-  return (
-    <main className="sf sf--loading" role="status" aria-busy="true">
-      <Bone className="sf-sk__cover" w="100%" h={148} r={0} />
-      <div className="sf-wrap sf-sk">
-        <div className="sf-sk__brand">
-          <Bone w={64} h={64} r={16} />
-          <div className="sf-sk__lines">
-            <Bone w="62%" h={18} />
-            <Bone w="44%" h={12} />
-          </div>
-        </div>
-        <div className="sf-sk__chips">
-          {[72, 96, 64, 88].map((w, i) => (
-            <Bone key={i} w={w} h={32} r="full" />
-          ))}
-        </div>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <div className="sf-sk__dish" key={i}>
-            <div className="sf-sk__lines">
-              <Bone w={['58%', '72%', '50%', '66%', '44%'][i]} h={14} />
-              <Bone w="90%" h={10} />
-              <Bone w="30%" h={12} />
-            </div>
-            <Bone w={88} h={88} r={12} />
-          </div>
-        ))}
-      </div>
-      <span className="cm-sr-only">Abrindo o cardápio</span>
-    </main>
-  );
-}
-
 /**
  * Mesa do QR Code: chega como /pedir?mesa=<id> (o QR /mesa/<id> manda o cliente para cá), fica
  * lembrada nesta aba e sai do endereço (quem compartilhar o link não manda a mesa junto).
@@ -450,9 +419,14 @@ function useTableId() {
 
 /** Cardápio online do restaurante (/pedir/*): um app de pedidos para o cliente final. */
 export function StoreApp() {
-  const [menu, setMenu] = useState<PublicMenu | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [tableId, leaveTable] = useTableId();
+  const menuPath = tableId ? `/store?mesa=${encodeURIComponent(tableId)}` : '/store';
+  // Recarregou a página: o último cardápio guardado aparece na hora, sem esqueleto; o do servidor
+  // chega em seguida e toma o lugar (preços e loja aberta/fechada sempre do servidor).
+  const [menu, setMenu] = useState<PublicMenu | null>(() => cachedMenu<PublicMenu>(menuPath));
+  const [error, setError] = useState<string | null>(null);
+  const shown = useRef(!!menu);
+  shown.current = !!menu;
   // Página do cardápio: o navegador do celular devolve o elástico e o "puxar para atualizar"
   // (storefront.css), que o sistema da equipe desliga.
   useLayoutEffect(() => {
@@ -463,27 +437,35 @@ export function StoreApp() {
 
   const loadMenu = useCallback(
     () =>
-      api<PublicMenu>(tableId ? `/store?mesa=${encodeURIComponent(tableId)}` : '/store').then(
-        (m) => {
-          // Mesa que não existe mais (QR antigo): segue no cardápio de entrega e retirada.
-          if (tableId && !m.table) rememberTable(null);
-          setMenu(m);
-          document.title = `${m.restaurant.name} · Cardápio`;
-        },
-      ),
-    [tableId],
+      api<PublicMenu>(menuPath).then((m) => {
+        // Mesa que não existe mais (QR antigo): segue no cardápio de entrega e retirada.
+        if (tableId && !m.table) rememberTable(null);
+        setMenu(m);
+        saveMenu(menuPath, m);
+        rememberStoreTheme(m.appearance.theme);
+      }),
+    [menuPath, tableId],
   );
   useEffect(() => {
-    loadMenu().catch((e: ApiError) =>
+    loadMenu().catch((e: ApiError) => {
+      const closed = e.status === 404 || e.status === 403;
+      if (closed) forgetMenus();
+      // Sem internet com o cardápio guardado na tela: segue com ele.
+      else if (shown.current) return;
+      setMenu(null);
       setError(
-        e.status === 404 || e.status === 403
+        closed
           ? tableId
             ? 'Este restaurante não recebe pedidos pelo celular. Chame o garçom para pedir.'
             : 'Este restaurante não está recebendo pedidos online.'
           : 'Não foi possível carregar o cardápio. Tente de novo em instantes.',
-      ),
-    );
+      );
+    });
   }, [loadMenu]);
+  const storeName = menu?.restaurant.name;
+  useEffect(() => {
+    if (storeName) document.title = `${storeName} · Cardápio`;
+  }, [storeName]);
   // Recarregar com o cardápio já na tela: se falhar, segue com o que já tem.
   const refreshMenu = useCallback(() => loadMenu().catch(() => undefined), [loadMenu]);
 

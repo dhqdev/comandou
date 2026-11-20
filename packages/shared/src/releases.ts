@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.211.2',
+    date: '2026-11-20',
+    title: 'Cardápio do cliente abre mais rápido e sem peças trocando de lugar',
+    summary:
+      'Ao abrir ou recarregar o cardápio, a tela não mostra mais desenhos diferentes um depois do outro: um esqueleto só, no formato da loja, até o cardápio aparecer. O cardápio também chega antes, e quem já abriu uma vez vê a loja na hora ao recarregar.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Cardápio online: ao recarregar, apareciam três telas de carregamento diferentes (uma delas parecida com o painel da equipe) antes do cardápio, e as peças pulavam de lugar. Agora o esqueleto tem o formato da loja no celular, no tablet e no notebook (capa, logo, entrega, busca, categorias e pratos) e não muda até o cardápio aparecer no mesmo lugar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O cardápio é pedido ao servidor logo que a página abre, junto com os arquivos do app (antes só depois de todos eles chegarem).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O último cardápio aberto fica guardado no aparelho: ao recarregar, a loja aparece na hora e o cardápio do servidor toma o lugar assim que chega (preços e loja aberta ou fechada sempre do servidor). Limpar o cache do restaurante pelo painel apaga essa cópia.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio com tema escuro escolhido pela loja já abre escuro, sem piscar claro antes.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A lista "Mais pedidos" do cardápio fica guardada por 5 minutos no servidor, em vez de somar 30 dias de pedidos a cada visita.',
+      },
+    ],
+  },
+  {
     version: '0.211.1',
     date: '2026-11-20',
     title: 'Todo botão do pedido com ícone, em duas linhas',

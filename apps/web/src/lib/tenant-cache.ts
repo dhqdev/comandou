@@ -1,4 +1,5 @@
 import { clearAppCaches } from './fresh-reload';
+import { forgetMenus } from './menu-boot';
 import { offlineStore } from './offline-store';
 
 /** Última limpeza do painel que este aparelho já fez (por endereço do restaurante). */
@@ -37,6 +38,7 @@ export async function wipeTenantCache(at: string | null): Promise<void> {
   if (wiping) return;
   wiping = true;
   writeEpoch(at);
+  forgetMenus();
   try {
     for (const k of SESSION_CACHE_KEYS) sessionStorage.removeItem(k);
   } catch {

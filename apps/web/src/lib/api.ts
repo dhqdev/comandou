@@ -15,6 +15,7 @@ import {
   resolveTempIds,
   saveRead,
 } from './offline';
+import { takeBootFetch } from './menu-boot';
 
 /**
  * Cliente HTTP da API. A API é servida no MESMO domínio do restaurante sob /api
@@ -116,21 +117,24 @@ export async function api<T>(
     }
   }
 
-  const request = fetch(`/api/v1${path}`, {
-    credentials: 'same-origin',
-    ...rest,
-    method,
-    headers: {
-      Accept: 'application/json',
-      ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      // Exigido pela API em métodos que alteram estado (proteção CSRF).
-      ...(!reading ? { 'X-Comandou-Request': '1' } : {}),
-      // Se a resposta se perder e a gravação for para a fila, o reenvio não duplica.
-      ...(opKey ? { [OP_HEADER]: opKey } : {}),
-      ...headers,
-    },
-    body: json !== undefined ? JSON.stringify(json) : rest.body,
-  });
+  // Cardápio do cliente: o boot.js já pediu esta mesma leitura enquanto o app baixava.
+  const request =
+    (reading && !init.signal && takeBootFetch(path)) ||
+    fetch(`/api/v1${path}`, {
+      credentials: 'same-origin',
+      ...rest,
+      method,
+      headers: {
+        Accept: 'application/json',
+        ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        // Exigido pela API em métodos que alteram estado (proteção CSRF).
+        ...(!reading ? { 'X-Comandou-Request': '1' } : {}),
+        // Se a resposta se perder e a gravação for para a fila, o reenvio não duplica.
+        ...(opKey ? { [OP_HEADER]: opKey } : {}),
+        ...headers,
+      },
+      body: json !== undefined ? JSON.stringify(json) : rest.body,
+    });
 
   // Leitura que demora demais (Wi-Fi sem internet): mostra o que está guardado e deixa a
   // resposta chegar por trás (ela atualiza o guardado). Gravação sempre espera o servidor.

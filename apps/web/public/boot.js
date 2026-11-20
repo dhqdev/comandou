@@ -42,6 +42,48 @@
   )
     document.documentElement.dataset.boot = 'plain';
 
+  // Cardápio do cliente: esqueleto no formato da loja e o cardápio já começa a vir do servidor
+  // junto com os arquivos do app (antes ele só era pedido depois de todo o código chegar). O
+  // cardápio (lib/menu-boot.ts) usa esta resposta em vez de pedir de novo.
+  if (/^\/pedir(\/|$)/.test(location.pathname)) {
+    document.documentElement.dataset.boot = 'menu';
+    try {
+      // Tema escolhido pela loja (claro/escuro), guardado na última visita: sem piscar de cor.
+      var st = localStorage.getItem('cm.storeTheme');
+      if (st === 'light' || st === 'dark') {
+        document.documentElement.dataset.theme = st;
+        document.documentElement.style.colorScheme = st;
+      }
+    } catch (e) {
+      /* navegação privada */
+    }
+    var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    var mesa = null;
+    var q = /[?&]mesa=([^&#]*)/.exec(location.search);
+    if (q && UUID.test(q[1])) mesa = q[1];
+    else
+      try {
+        // Mesa lembrada nesta aba (a mesma regra de storedTableId em pages/public/store.ts).
+        var t = JSON.parse(sessionStorage.getItem('cm-store-table') || 'null');
+        if (t && UUID.test(t.id) && Date.now() - t.at < 6 * 3600000) mesa = t.id;
+      } catch (e) {
+        /* sem sessionStorage */
+      }
+    if (!/[?&]previa=1(&|$)/.test(location.search) && window.fetch) {
+      var path = mesa ? '/store?mesa=' + mesa : '/store';
+      window.__cmBootFetch = {
+        path: path,
+        at: Date.now(),
+        res: fetch('/api/v1' + path, {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        }),
+      };
+      // Sem uso (falhou a rede): o cardápio pede de novo do jeito normal.
+      window.__cmBootFetch.res.catch(function () {});
+    }
+  }
+
   function boot() {
     return document.getElementById('cm-boot');
   }

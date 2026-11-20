@@ -11,6 +11,7 @@ import {
 } from './design-system';
 import { isPlatformHost } from './platform/host';
 import { reloadIfStale } from './lib/fresh-reload';
+import { isMenuPath, storeTheme } from './lib/menu-boot';
 import { ErrorBoundary, ErrorFallback } from './lib/error-boundary';
 import { applyPosMode } from './lib/pos-device';
 import { applyAdminPwa, listenInstallPrompt } from './platform/pwa';
@@ -26,6 +27,9 @@ else {
 listenInstallPrompt();
 // Tema claro/escuro salvo neste navegador (ou o do sistema) antes do primeiro desenho.
 applyTheme();
+// Cardápio do cliente com tema próprio da loja (guardado da última visita): já abre nessa cor.
+const menuTheme = isMenuPath(window.location.pathname) ? storeTheme() : null;
+if (menuTheme) applyTheme(menuTheme);
 // Abriu uma cópia velha guardada no cache (saiu versão nova)? Limpa os caches e recarrega uma vez.
 void reloadIfStale();
 // Teclado do celular: as folhas que sobem de baixo acompanham a área visível.
