@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -125,6 +126,19 @@ export class DeliveryController {
     @Req() req: Request,
   ) {
     return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      // Entregador com login: ativo ou não é o acesso dele na Equipe (senão o app dizia
+      // "desativado" para quem a Equipe mostrava ativo).
+      if (b.active !== undefined) {
+        const cur = await one<{ user_id: string | null; active: boolean }>(
+          tx,
+          `SELECT user_id, active FROM couriers WHERE id = $1`,
+          [id],
+        );
+        if (cur?.user_id && b.userId === undefined && b.active !== cur.active)
+          throw new ConflictException(
+            'Este entregador entra com login: ative ou desative o acesso dele na tela Equipe.',
+          );
+      }
       const c = await one(
         tx,
         `UPDATE couriers SET name = COALESCE($2, name),

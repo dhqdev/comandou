@@ -180,8 +180,10 @@ export class UsersController {
         status,
       ]);
       if (status === 'revoked' && m.status !== 'revoked') await this.revokeSessions(tx, id);
-      // Virou entregador: já aparece na lista de quem leva o pedido (Entregas).
-      if (role === 'driver' && m.role !== 'driver') await ensureCourier(tx, t.id, id);
+      // Entregador com login: o cadastro em Entregas segue o acesso da Equipe (ativo aqui = recebe
+      // pedidos lá). Virou entregador, já aparece na lista de quem leva o pedido.
+      if (role === 'driver' && status === 'active') await ensureCourier(tx, t.id, id);
+      else await q(tx, `UPDATE couriers SET active = false WHERE user_id = $1 AND active`, [id]);
       // Saiu de garçom/entregador: o PIN deixa de existir (os outros papéis entram com senha).
       if (!isPinRole(role))
         await q(
@@ -382,13 +384,17 @@ export class UsersController {
   }
 }
 
-/** Entregador com login sempre tem o cadastro em Entregas (é por ele que o pedido chega no app). */
+/**
+ * Entregador com login sempre tem o cadastro em Entregas (é por ele que o pedido chega no app), e
+ * ativo: quem liga e desliga o acesso dele é a Equipe.
+ */
 async function ensureCourier(tx: Tx, tenantId: string, userId: string, name?: string) {
   await q(
     tx,
     `INSERT INTO couriers (tenant_id, name, user_id)
      SELECT $1, left(coalesce($3, u.name), 80), $2 FROM users u WHERE u.id = $2
-     ON CONFLICT (tenant_id, user_id) WHERE user_id IS NOT NULL DO NOTHING`,
+     ON CONFLICT (tenant_id, user_id) WHERE user_id IS NOT NULL
+     DO UPDATE SET active = true WHERE NOT couriers.active`,
     [tenantId, userId, name ?? null],
   );
 }

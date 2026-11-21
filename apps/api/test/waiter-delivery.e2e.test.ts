@@ -579,4 +579,36 @@ describe('Link do entregador (sem login)', () => {
     await get('adminA', '/deliveries/available').expect(403);
     await get('waiterA', '/deliveries/profile').expect(403);
   });
+
+  it('entregador com login: ativo na Equipe é ativo em Entregas, sem passo extra', async () => {
+    const m = (
+      await post('adminA', '/users', {
+        email: 'moto-equipe@wd-a.test',
+        name: 'Moto Equipe',
+        password: PASSWORD,
+        role: 'driver',
+      }).expect(201)
+    ).body;
+    const userId = m.id as string;
+    cookies.moto = await login(HOST_A, 'moto-equipe@wd-a.test');
+    const courier = async () =>
+      (await get('adminA', '/couriers').expect(200)).body.find(
+        (c: { userId: string | null }) => c.userId === userId,
+      ) as { id: string; active: boolean };
+    const c = await courier();
+    expect(c.active).toBe(true);
+    await get('moto', '/deliveries/available').expect(200);
+    // Em Entregas não dá para desligar só o cadastro: o acesso é da Equipe.
+    await patch('adminA', `/couriers/${c.id}`, { active: false }).expect(409);
+    await patch('adminA', `/couriers/${c.id}`, { phone: '11999990000' }).expect(200);
+    // Cadastro desligado por versão antiga: voltar o acesso na Equipe religa.
+    await ownerQuery(`UPDATE couriers SET active = false WHERE id = $1`, [c.id]);
+    await patch('adminA', `/users/${userId}`, { status: 'revoked' }).expect(200);
+    expect((await courier()).active).toBe(false);
+    await patch('adminA', `/users/${userId}`, { status: 'active' }).expect(200);
+    expect((await courier()).active).toBe(true);
+    // Deixou de ser entregador: sai da lista de quem leva o pedido.
+    await patch('adminA', `/users/${userId}`, { role: 'waiter' }).expect(200);
+    expect((await courier()).active).toBe(false);
+  });
 });

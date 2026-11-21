@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.220.3',
+    date: '2026-11-21',
+    title: 'Entregador ativo na Equipe recebe pedidos',
+    summary:
+      'O entregador que está ativo na Equipe não aparece mais como desativado no app: ele vê os pedidos prontos e pode ser escolhido pelo PDV, sem nenhum passo a mais.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'App do entregador: quem estava ativo na Equipe podia ver "Entregador desativado" e não receber pedido nenhum, porque o cadastro em Entregas tinha sido desligado à parte. Os cadastros foram acertados com a Equipe.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Entregador com login: ativar e desativar agora é só na Equipe, e a tela Entregas segue o que está lá. Entregador pelo link (sem login) continua com o botão em Entregas.',
+      },
+    ],
+  },
+  {
     version: '0.220.2',
     date: '2026-11-21',
     title: 'Senha e PIN separados na Equipe',

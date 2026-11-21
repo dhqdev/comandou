@@ -970,19 +970,24 @@ function CouriersCard({
                       desligar link
                     </button>
                   )}
-                  <button
-                    className="link-btn"
-                    onClick={() =>
-                      call(
-                        `/couriers/${c.id}`,
-                        'PATCH',
-                        { active: !c.active },
-                        'Entregador atualizado',
-                      )
-                    }
-                  >
-                    {c.active ? 'desativar' : 'ativar'}
-                  </button>
+                  {c.userId ? (
+                    // Entra com login: ativo ou não é o acesso dele na Equipe.
+                    <span className="cm-hint">ativar e desativar em Equipe</span>
+                  ) : (
+                    <button
+                      className="link-btn"
+                      onClick={() =>
+                        call(
+                          `/couriers/${c.id}`,
+                          'PATCH',
+                          { active: !c.active },
+                          'Entregador atualizado',
+                        )
+                      }
+                    >
+                      {c.active ? 'desativar' : 'ativar'}
+                    </button>
+                  )}
                 </span>
               </li>
             );
