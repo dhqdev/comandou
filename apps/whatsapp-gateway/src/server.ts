@@ -5,6 +5,7 @@ import {
   MAX_TYPING_MS,
   NotConnectedError,
   NotOnWhatsAppError,
+  SendUncertainError,
   SessionManager,
   TooManyMessagesError,
   type OutgoingFile,
@@ -156,6 +157,9 @@ export function createGatewayServer(
       if (e instanceof NotConnectedError) return send(res, 409, { error: e.message });
       if (e instanceof TooManyMessagesError) return send(res, 429, { error: e.message });
       if (e instanceof NotOnWhatsAppError) return send(res, 422, { error: e.message });
+      // 504 + uncertain: pode ter saído; a API marca como falha sem tentar de novo sozinha.
+      if (e instanceof SendUncertainError)
+        return send(res, 504, { error: e.message, uncertain: true });
       return send(res, 502, { error: (e as Error).message.slice(0, 200) });
     }
   }

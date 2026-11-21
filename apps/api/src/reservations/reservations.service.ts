@@ -176,6 +176,16 @@ function bookingError(e: unknown): string {
  * Reservas de mesa: o cliente pede pelo cardápio online (horários livres conforme as regras do
  * restaurante) e a equipe confirma, marca a mesa, recebe o grupo e acompanha a agenda do dia.
  */
+/** "2026-11-21" do instante no fuso da loja. */
+export function dayInZone(iso: string, tz: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(iso));
+}
+
 @Injectable()
 export class ReservationsService {
   constructor(
@@ -537,15 +547,23 @@ export class ReservationsService {
   async checkWhatsApp(
     tenantId: string,
     input: WhatsAppReservationInput,
-  ): Promise<{ ok: true; startsAt: string } | { ok: false; error: string }> {
+  ): Promise<{ ok: true; startsAt: string; day: string } | { ok: false; error: string }> {
     const phone = normalizePhone(input.phone);
+    // Conversa com número escondido (@lid): sem telefone não há como gravar a reserva depois do SIM.
+    if (!phoneOk(phone))
+      return {
+        ok: false,
+        error:
+          'Não consigo ver o seu número nesta conversa, então não dá para reservar por aqui. Peça para falar com a equipe',
+      };
     try {
       return await this.db.withTenant({ tenantId }, async (tx) => {
         const s = await this.settingsIn(tx);
         if (!s.enabled)
           return { ok: false as const, error: 'O restaurante não está aceitando reservas' };
-        const slot = await this.checkBooking(tx, s, await this.tz(tx), { ...input, phone });
-        return { ok: true as const, startsAt: slot.startsAt };
+        const tz = await this.tz(tx);
+        const slot = await this.checkBooking(tx, s, tz, { ...input, phone });
+        return { ok: true as const, startsAt: slot.startsAt, day: dayInZone(slot.startsAt, tz) };
       });
     } catch (e) {
       return { ok: false, error: bookingError(e) };
@@ -561,7 +579,15 @@ export class ReservationsService {
     tenantId: string,
     input: WhatsAppReservationInput,
   ): Promise<
-    | { ok: true; code: string; status: ReservationStatus; startsAt: string; note: string | null }
+    | {
+        ok: true;
+        code: string;
+        status: ReservationStatus;
+        startsAt: string;
+        /** Dia de verdade no fuso da loja (00:30 do expediente de sexta já é sábado). */
+        day: string;
+        note: string | null;
+      }
     | { ok: false; error: string }
   > {
     const phone = normalizePhone(input.phone);
@@ -571,6 +597,7 @@ export class ReservationsService {
       code: string;
       status: ReservationStatus;
       startsAt: string;
+      day: string;
       note: string | null;
     };
     try {
@@ -578,7 +605,8 @@ export class ReservationsService {
         const s = await this.settingsIn(tx);
         if (!s.enabled) throw new NotFoundException('O restaurante não está aceitando reservas');
         await this.lockFloor(tx, tenantId);
-        const slot = await this.checkBooking(tx, s, await this.tz(tx), { ...input, phone });
+        const tz = await this.tz(tx);
+        const slot = await this.checkBooking(tx, s, tz, { ...input, phone });
         const code = await this.freeCode(tx);
         const status: ReservationStatus = s.autoConfirm ? 'confirmed' : 'pending';
         const row = await one<{ id: string }>(
@@ -606,13 +634,27 @@ export class ReservationsService {
           entityId: row!.id,
           data: { code, partySize: input.partySize, startsAt: slot.startsAt, via: 'whatsapp' },
         });
-        return { id: row!.id, code, status, startsAt: slot.startsAt, note: s.note };
+        return {
+          id: row!.id,
+          code,
+          status,
+          startsAt: slot.startsAt,
+          day: dayInZone(slot.startsAt, tz),
+          note: s.note,
+        };
       });
     } catch (e) {
       return { ok: false, error: bookingError(e) };
     }
     this.realtime.publish(tenantId, { type: 'reservation.changed', reservationId: res.id });
-    return { ok: true, code: res.code, status: res.status, startsAt: res.startsAt, note: res.note };
+    return {
+      ok: true,
+      code: res.code,
+      status: res.status,
+      startsAt: res.startsAt,
+      day: res.day,
+      note: res.note,
+    };
   }
 
   /** Cancela pelo WhatsApp: só reserva deste telefone, ainda por vir e não recebida. */

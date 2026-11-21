@@ -69,8 +69,10 @@ export class OpenRouterClient {
     model: string,
     messages: ChatTurn[],
     onDelta: (text: string) => void,
-    opts: { maxTokens?: number; signal?: AbortSignal } = {},
+    opts: { maxTokens?: number; signal?: AbortSignal; timeoutMs?: number } = {},
   ): Promise<{ text: string; usage: Usage }> {
+    // O prazo vale sempre, mesmo com o sinal de quem chamou (ex.: a pessoa fechou a tela).
+    const timeout = AbortSignal.timeout(opts.timeoutMs ?? 90_000);
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: this.headers(),
@@ -82,7 +84,7 @@ export class OpenRouterClient {
         temperature: 0.4,
         usage: { include: true },
       }),
-      signal: opts.signal ?? AbortSignal.timeout(90_000),
+      signal: opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout,
     });
     if (!res.ok || !res.body) {
       const body = await res.text().catch(() => '');

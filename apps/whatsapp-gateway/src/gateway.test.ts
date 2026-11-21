@@ -32,6 +32,8 @@ class FakeSocket implements SocketLike {
   ws = { isOpen: true, on: () => undefined };
   /** Falha o próximo envio como se o socket tivesse morrido por baixo. */
   failNext = false;
+  /** O próximo envio sai, mas o WhatsApp nunca confirma (promessa que não termina). */
+  hangNext = false;
   query?: SocketLike['query'];
   generateMessageTag?: () => string;
   ended = false;
@@ -62,6 +64,11 @@ class FakeSocket implements SocketLike {
     if (this.failNext) {
       this.failNext = false;
       throw Object.assign(new Error('Connection Closed'), { output: { statusCode: 428 } });
+    }
+    if (this.hangNext) {
+      this.hangNext = false;
+      if ('text' in c) this.sent.push({ jid, text: c.text });
+      return new Promise<never>(() => undefined);
     }
     if ('document' in c) {
       this.docs.push({ jid, fileName: c.fileName, caption: c.caption, size: c.document.length });
@@ -418,6 +425,7 @@ describe('religação e recursos do Baileys', () => {
         onlineMs: 100,
         reconnectSpreadMs: 0,
         sendGapMs: 0,
+        sendTimeoutMs: 300,
       },
       onInbound: (m) => inbound.push(m),
     },
@@ -518,6 +526,19 @@ describe('religação e recursos do Baileys', () => {
     expect(await sending).toMatchObject({ id: 'MSG1' });
     expect(sock.sent).toHaveLength(0);
     expect(s2.sent).toHaveLength(1);
+    await mgr.logout(t);
+  });
+
+  it('WhatsApp não confirma o envio: 504 "incerto" (pode ter saído), sem mandar de novo', async () => {
+    const { t, sock } = await connected();
+    sock.hangNext = true;
+    const r = await call(`/v1/sessions/${t}/messages`, { to: '5511987654321', text: 'Saiu' });
+    expect(r.status).toBe(504);
+    const body = (await r.json()) as { uncertain?: boolean; error?: string };
+    expect(body.uncertain).toBe(true);
+    expect(body.error).toMatch(/incerto/);
+    expect(sock.sent.filter((m) => m.text === 'Saiu')).toHaveLength(1);
+    expect(socks.at(-1)).toBe(sock); // não derruba nem religa a conexão
     await mgr.logout(t);
   });
 

@@ -159,10 +159,140 @@ export function decodeEntities(s: string): string {
   });
 }
 
+const ATTRS = new Map<string, RegExp>();
 const attr = (tag: string, name: string) => {
-  const m = tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'));
+  let re = ATTRS.get(name);
+  if (!re) {
+    re = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i');
+    ATTRS.set(name, re);
+  }
+  const m = tag.match(re);
   return m ? decodeEntities(m[1] ?? m[2] ?? m[3] ?? '').trim() : null;
 };
+
+/*
+ * A página vem de qualquer site: nada de regex que volta atrás no HTML inteiro (milhares de "<a"
+ * ou "<!--" sem fechar faziam uma busca de 4 MB levar minutos e travar a API de todo mundo). Cada
+ * busca abaixo anda uma vez só pelo texto e dá o mesmo resultado das regex antigas.
+ */
+
+/** Maior pedaço da página que é lido (o resto não cabe no que vai para a IA). */
+export const MAX_PAGE_HTML = 2_000_000;
+
+const globalRe = (re: RegExp) =>
+  new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
+
+/** Índice de `close` (sem diferença de maiúsculas) a partir de `from`, ou -1. */
+const CLOSERS = new Map<string, RegExp>();
+function findCi(s: string, close: string, from: number): number {
+  let re = CLOSERS.get(close);
+  if (!re) {
+    re = new RegExp(close.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&'), 'gi');
+    CLOSERS.set(close, re);
+  }
+  re.lastIndex = from;
+  return re.exec(s)?.index ?? -1;
+}
+
+/**
+ * Troca cada tag que começa em `open` (até o primeiro ">") pelo que `fn` devolver. Igual a
+ * `s.replace(/<open[^>]*>/gi, fn)`, mas linear.
+ */
+function replaceTags(s: string, open: RegExp, fn: (tag: string) => string): string {
+  const re = globalRe(open);
+  let out = '';
+  let last = 0;
+  for (let m = re.exec(s); m; m = re.exec(s)) {
+    const end = s.indexOf('>', m.index + 1);
+    // Sem ">" daqui para a frente, nenhuma outra tag fecha.
+    if (end < 0) break;
+    out += s.slice(last, m.index) + fn(s.slice(m.index, end + 1));
+    last = re.lastIndex = end + 1;
+  }
+  return last ? out + s.slice(last) : s;
+}
+
+/** As tags que começam em `open`, como `[...s.matchAll(/<open[^>]*>/gi)]`. */
+function tagsOf(s: string, open: RegExp): string[] {
+  const tags: string[] = [];
+  replaceTags(s, open, (t) => {
+    tags.push(t);
+    return t;
+  });
+  return tags;
+}
+
+/**
+ * Blocos `<nome ...>conteúdo</nome>` (nome em `names`), como
+ * `/<(a|b)\b[\s\S]*?<\/\1>/gi`. `fn` recebe o bloco inteiro e devolve o que fica no lugar.
+ */
+function replaceBlocks(s: string, names: string[], fn: (block: string) => string): string {
+  const re = new RegExp(`<(${names.join('|')})\\b`, 'gi');
+  const dead = new Set<string>();
+  let out = '';
+  let last = 0;
+  for (let m = re.exec(s); m; m = re.exec(s)) {
+    const name = m[1]!.toLowerCase();
+    if (dead.has(name)) continue;
+    const close = findCi(s, `</${name}>`, m.index + m[0].length);
+    if (close < 0) {
+      // Sem o fechamento, nenhum outro bloco com esse nome fecha.
+      dead.add(name);
+      if (dead.size === names.length) break;
+      continue;
+    }
+    const end = close + name.length + 3;
+    out += s.slice(last, m.index) + fn(s.slice(m.index, end));
+    last = re.lastIndex = end;
+  }
+  return last ? out + s.slice(last) : s;
+}
+
+/** Tira os comentários `<!-- ... -->` (como `/<!--[\s\S]*?-->/g`). */
+function stripComments(s: string): string {
+  let out = '';
+  let last = 0;
+  for (let i = s.indexOf('<!--'); i >= 0; i = s.indexOf('<!--', last)) {
+    const end = s.indexOf('-->', i + 4);
+    if (end < 0) break;
+    out += `${s.slice(last, i)} `;
+    last = end + 3;
+  }
+  return last ? out + s.slice(last) : s;
+}
+
+/**
+ * Conteúdo das tags `<script ...>` cujo começo passa em `test`, até o `</script>`, como
+ * `/<script[^>]*TESTE[^>]*>([\s\S]*?)<\/script>/gi`.
+ */
+function scriptsWhere(s: string, test: RegExp): string[] {
+  const re = /<script/gi;
+  const found: string[] = [];
+  for (let m = re.exec(s); m; m = re.exec(s)) {
+    const end = s.indexOf('>', m.index + 1);
+    if (end < 0) break;
+    re.lastIndex = end + 1;
+    if (!test.test(s.slice(m.index, end + 1))) continue;
+    const close = findCi(s, '</script>', end + 1);
+    if (close < 0) break;
+    found.push(s.slice(end + 1, close));
+    re.lastIndex = close + 9;
+  }
+  return found;
+}
+
+/** O `content` da primeira `<meta>` com esse `property` ou `name` (já sem as entidades). */
+export function metaContent(html: string, key: string): string | null {
+  const k = key.toLowerCase();
+  for (const t of tagsOf(html, /<meta\b/i)) {
+    const n = (attr(t, 'property') ?? attr(t, 'name') ?? '').toLowerCase();
+    if (n === k) {
+      const c = attr(t, 'content');
+      if (c) return c;
+    }
+  }
+  return null;
+}
 
 const abs = (src: string | null, base: string) => {
   if (!src || src.startsWith('data:') || src.startsWith('blob:')) return null;
@@ -214,8 +344,9 @@ function cssColors(html: string): string[] {
     add(`#${[r, g, b].map((x) => x!.toString(16).padStart(2, '0')).join('')}`);
   }
   // Variáveis com nome de marca valem mais (--primary, --brand, --main-color...).
+  // Nome com tamanho limitado e a partir do primeiro "-" (um "-----..." enorme travava a busca).
   for (const m of html.matchAll(
-    /--[\w-]*(?:primary|brand|main|theme|accent)[\w-]*\s*:\s*(#[0-9a-f]{3,6})\b/gi,
+    /(?<![\w-])--[\w-]{0,60}?(?:primary|brand|main|theme|accent)[\w-]{0,60}\s*:\s*(#[0-9a-f]{3,6})\b/gi,
   ))
     add(hexColor(m[1]), 8);
   return [...count.entries()]
@@ -225,13 +356,16 @@ function cssColors(html: string): string[] {
 }
 
 /** Lê o HTML do link: metadados, ícones, imagens marcadas no texto, JSON-LD e cores. */
-export function extractPage(html: string, url: string): PageInfo {
+export function extractPage(page: string, url: string): PageInfo {
+  const html = page.slice(0, MAX_PAGE_HTML);
   const head = html.slice(0, 200_000);
-  const metas = [...head.matchAll(/<meta\b[^>]*>/gi)].map((m) => m[0]);
+  const metas = tagsOf(head, /<meta\b/i).map((t) => ({
+    n: (attr(t, 'property') ?? attr(t, 'name') ?? '').toLowerCase(),
+    t,
+  }));
   const meta = (...keys: string[]) => {
     for (const k of keys)
-      for (const t of metas) {
-        const n = (attr(t, 'property') ?? attr(t, 'name') ?? '').toLowerCase();
+      for (const { n, t } of metas) {
         if (n === k) {
           const c = attr(t, 'content');
           if (c) return c;
@@ -239,14 +373,16 @@ export function extractPage(html: string, url: string): PageInfo {
       }
     return null;
   };
-  const title = head.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+  const titleTag = tagsOf(head, /<title/i)[0];
+  const titleAt = titleTag ? head.indexOf(titleTag) + titleTag.length : -1;
+  const titleEnd = titleAt < 0 ? -1 : findCi(head, '</title>', titleAt);
+  const title = titleEnd < 0 ? undefined : head.slice(titleAt, titleEnd);
 
-  const icons = [...head.matchAll(/<link\b[^>]*>/gi)]
-    .map((m) => m[0])
+  const icons = tagsOf(head, /<link\b/i)
     .filter((t) => /icon/i.test(attr(t, 'rel') ?? ''))
     .map((t) => {
       const sizes = attr(t, 'sizes') ?? '';
-      const px = Number(sizes.match(/(\d+)x\d+/)?.[1] ?? 0);
+      const px = Number(sizes.match(/(\d{1,5})x\d/)?.[1] ?? 0);
       const apple = /apple/i.test(attr(t, 'rel') ?? '') ? 180 : 0;
       return { href: abs(attr(t, 'href'), url), size: px || apple || 16 };
     })
@@ -254,21 +390,23 @@ export function extractPage(html: string, url: string): PageInfo {
     .sort((a, b) => b.size - a.size)
     .map((i) => i.href);
 
-  const jsonLd = [
-    ...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi),
-  ]
-    .map((m) => m[1]!.trim())
+  const jsonLd = scriptsWhere(html, /type=["']application\/ld\+json["']/i)
+    .map((m) => m.trim())
     .join('\n')
     .slice(0, 20_000);
+  const states: string[] = [];
+  const stateRe = /window\.__(?:INITIAL_STATE|NUXT|APOLLO_STATE|PRELOADED_STATE)__\s*=/gi;
+  for (let m = stateRe.exec(html); m; m = stateRe.exec(html)) {
+    const close = findCi(html, '</script>', stateRe.lastIndex);
+    if (close < 0) break;
+    states.push(html.slice(stateRe.lastIndex, close));
+    stateRe.lastIndex = close + 9;
+  }
   const dataJson = [
-    ...html.matchAll(
-      /<script[^>]*(?:id=["']__NEXT_DATA__["']|type=["']application\/json["'])[^>]*>([\s\S]*?)<\/script>/gi,
-    ),
-    ...html.matchAll(
-      /window\.__(?:INITIAL_STATE|NUXT|APOLLO_STATE|PRELOADED_STATE)__\s*=\s*([\s\S]*?)<\/script>/gi,
-    ),
+    ...scriptsWhere(html, /(?:id=["']__NEXT_DATA__["']|type=["']application\/json["'])/i),
+    ...states,
   ]
-    .map((m) => m[1]!.trim())
+    .map((m) => m.trim())
     .join('\n')
     .slice(0, 120_000);
 
@@ -287,11 +425,15 @@ export function extractPage(html: string, url: string): PageInfo {
   };
   const og = abs(meta('og:image', 'twitter:image'), url);
 
-  let body = html
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<(script|style|svg|template|iframe)\b[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<head\b[\s\S]*?<\/head>/i, ' ');
-  body = body.replace(/<img\b[^>]*>/gi, (t) => {
+  let body = replaceBlocks(
+    stripComments(html),
+    ['script', 'style', 'svg', 'template', 'iframe'],
+    () => ' ',
+  );
+  const headAt = body.search(/<head\b/i);
+  const headEnd = headAt < 0 ? -1 : findCi(body, '</head>', headAt + 5);
+  if (headEnd >= 0) body = `${body.slice(0, headAt)} ${body.slice(headEnd + 7)}`;
+  body = replaceTags(body, /<img\b/i, (t) => {
     const srcset = attr(t, 'srcset') ?? attr(t, 'data-srcset');
     const best = srcset
       ?.split(',')
@@ -303,16 +445,23 @@ export function extractPage(html: string, url: string): PageInfo {
     return `${imgRef(src)}${alt ? `(${alt}) ` : ''}`;
   });
   // Foto de fundo em estilo inline (cards de produto costumam usar): a marca vem logo depois da tag.
-  body = body.replace(
-    /<[a-z][^>]*?background(?:-image)?\s*:\s*url\(\s*(?:&quot;|['"])?([^'")&]+)[^>]*>/gi,
-    (tag, src: string) => `${tag}${imgRef(abs(decodeEntities(src), url))}`,
+  body = replaceTags(body, /<[a-z]/i, (t) =>
+    /background/i.test(t)
+      ? t.replace(
+          /^<[a-z][^>]*?background(?:-image)?\s*:\s*url\(\s*(?:&quot;|['"])?([^'")&]+)[^>]*>/i,
+          (tag, src: string) => `${tag}${imgRef(abs(decodeEntities(src), url))}`,
+        )
+      : t,
   );
-  const text = decodeEntities(
-    body
-      .replace(/<(br|\/p|\/div|\/li|\/h\d|\/tr|\/section|\/article)\b[^>]*>/gi, '\n')
-      .replace(/<[^>]+>/g, ' '),
-  )
-    .replace(/[ \t\f\v ]+/g, ' ')
+  const lines = replaceTags(
+    body,
+    /<(?:br|\/p|\/div|\/li|\/h\d|\/tr|\/section|\/article)\b/i,
+    () => '\n',
+  );
+  const text = decodeEntities(replaceTags(lines, /<[^>]/, () => ' '))
+    // Espaço que não é quebra de linha vira um só antes de juntar as linhas (um monte de "\r"
+    // seguidos deixava a regex de baixo lenta).
+    .replace(/[^\S\n]+/g, ' ')
     .replace(/\s*\n\s*/g, '\n')
     .replace(/\n{2,}/g, '\n')
     .trim()

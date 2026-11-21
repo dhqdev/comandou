@@ -30,6 +30,8 @@ const sent: { url: string; auth?: string; body: Record<string, unknown> }[] = []
 
 const GW_TOKEN = 'token-interno-gateway-de-teste-123';
 let gwConnected = true;
+/** O próximo envio "sai" mas o WhatsApp não confirma: o gateway responde 504 + uncertain. */
+let gwUncertain = false;
 const gwSent: { tenant: string; to: string; text: string }[] = [];
 const gwStarted = new Set<string>();
 const gwExtras: { tenant: string; action: string; body: Record<string, unknown> }[] = [];
@@ -149,6 +151,10 @@ beforeAll(async () => {
       if (!gwStarted.has(tenant) || !gwConnected)
         return send(409, { error: 'WhatsApp do restaurante não está conectado' });
       gwSent.push({ tenant, ...body });
+      if (gwUncertain) {
+        gwUncertain = false;
+        return send(504, { error: 'WhatsApp não confirmou', uncertain: true });
+      }
       send(200, { id: `BAE${gwSent.length}` });
     });
   });
@@ -413,6 +419,29 @@ describe('WhatsApp por QR Code (Baileys, padrão)', () => {
     await post('adminA', `/messaging/messages/${m.id}/retry`).expect(202);
     await waitMessages('adminA', 1, (l) => l[0].status === 'sent');
   }, 40_000);
+
+  it('envio incerto (WhatsApp não confirmou): falha na hora, sem mandar de novo; reenviar manda', async () => {
+    const before = gwSent.length;
+    gwUncertain = true;
+    const o = (
+      await post('adminA', '/orders', {
+        channel: 'pickup',
+        customerPhone: '11 94444-3333',
+        items: [{ productId: fx.prodA, quantity: 1 }],
+      }).expect(201)
+    ).body;
+    await post('adminA', `/orders/${o.id}/status`, { to: 'ready' }).expect(201);
+    const list = await waitMessages('adminA', 1, (l) => l[0].status === 'failed');
+    const m = list[0] as unknown as { id: string; lastError: string; attempts: number };
+    expect(m.lastError).toMatch(/incerto.*Confira na conversa antes de reenviar/);
+    expect(m.attempts).toBe(1);
+    // A fila não tentou de novo sozinha (o cliente receberia o aviso duas vezes).
+    await new Promise((r) => setTimeout(r, 3500));
+    expect(gwSent.length).toBe(before + 1);
+    await post('adminA', `/messaging/messages/${m.id}/retry`).expect(202);
+    await waitMessages('adminA', 1, (l) => l[0].status === 'sent');
+    expect(gwSent.length).toBe(before + 2);
+  }, 30_000);
 
   it('desconectar encerra a sessão do restaurante', async () => {
     expect((await post('adminA', '/messaging/session/logout').expect(200)).body.status).toBe(

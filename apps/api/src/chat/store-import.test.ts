@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { isMapsLink } from '../common/maps-link';
 import { isPrivateIp, normalizeUrl } from '../common/safe-fetch';
 import { readImport } from './menu-import.service';
-import { extractPage, hexColor, pageForModel, readBox, readStore } from './store-import';
+import {
+  extractPage,
+  hexColor,
+  metaContent,
+  pageForModel,
+  readBox,
+  readStore,
+} from './store-import';
 
 describe('primeiros passos: link seguro', () => {
   it('bloqueia rede interna e aceita IP público', () => {
@@ -75,6 +83,65 @@ describe('primeiros passos: leitura da página', () => {
     expect(p.text).toContain('[img 2]');
     expect(p.text).not.toContain('não é texto');
     expect(pageForModel(p)).toContain('Cor do tema (theme-color): #b71c1c');
+  });
+});
+
+describe('primeiros passos: página hostil não trava a API', () => {
+  // Antes, cada uma levava de segundos a minutos (regex que voltava atrás no HTML inteiro).
+  const hostile: [string, string][] = [
+    ['"<a" sem fechar', '<a'.repeat(200_000)],
+    ['comentário sem fim', '<!--'.repeat(200_000)],
+    ['script sem fim', '<script>'.repeat(200_000)],
+    ['meta sem ">"', '<meta property="og:title" '.repeat(20_000)],
+    ['title e head sem fim', '<title><head>'.repeat(100_000)],
+    ['img e br sem ">"', '<img <br'.repeat(100_000)],
+    ['fundo dentro de tag enorme', `${'<a'.repeat(200_000)} style="background:url() >`],
+    ['JSON de estado sem fim', 'window.__NUXT__='.repeat(100_000)],
+    ['ld+json sem fim', '<script type="application/ld+json">'.repeat(50_000)],
+    ['variável de CSS enorme', '-'.repeat(1_000_000)],
+    ['muitos \r', `a${'\r'.repeat(1_000_000)}b`],
+    ['tamanho do ícone enorme', `<link rel="icon" sizes="${'1'.repeat(150_000)}" href="/i.png">`],
+    ['página de 4 MB', `<p>${'x'.repeat(4_000_000)}`],
+  ];
+  for (const [name, html] of hostile)
+    it(name, () => {
+      const t = performance.now();
+      extractPage(html, 'https://x.com/');
+      expect(performance.now() - t).toBeLessThan(1000);
+    });
+
+  it('meta do Google Maps lida sem regex lenta, em qualquer ordem dos atributos', () => {
+    const t = performance.now();
+    expect(metaContent('<meta property="og:title" '.repeat(20_000), 'og:title')).toBeNull();
+    expect(performance.now() - t).toBeLessThan(1000);
+    expect(
+      metaContent(
+        `<meta content="Fuma&ccedil;a Burger · R. A, 1" property="og:title"><meta property="og:image" content="https://a.googleusercontent.com/x">`,
+        'og:title',
+      ),
+    ).toBe('Fumaça Burger · R. A, 1');
+  });
+
+  it('link do Maps só nos endereços do Google', () => {
+    for (const ok of [
+      'https://www.google.com/maps/place/X',
+      'https://www.google.com.br/maps/place/X',
+      'https://maps.google.com/?cid=1',
+      'https://maps.google.com.br/maps?q=x',
+      'https://maps.app.goo.gl/AbC',
+      'https://goo.gl/maps/AbC',
+      'https://g.page/fumaca',
+    ])
+      expect(isMapsLink(ok), ok).toBe(true);
+    for (const no of [
+      'https://maps.google.abc.io/',
+      'https://google.abc.io/maps',
+      'https://maps.google.evil.com/',
+      'https://google.com.evil.example/maps',
+      'https://goo.gl/xyz',
+      'https://www.google.com/search?q=pizza',
+    ])
+      expect(isMapsLink(no), no).toBe(false);
   });
 });
 

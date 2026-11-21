@@ -11,7 +11,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { MONTH_START } from '../../chat/ai-quota';
 import { OpenRouterClient, OpenRouterError } from '../../chat/openrouter';
-import { decodeEntities, extractPage, pageForModel } from '../../chat/store-import';
+import { extractPage, metaContent, pageForModel } from '../../chat/store-import';
 import { mapsPlaceName } from '../../common/maps-link';
 import { safeFetch, SafeFetchError } from '../../common/safe-fetch';
 import { ENV, Env } from '../../config/env';
@@ -152,11 +152,9 @@ export class SiteAiService {
         /* sem a página: segue só com o nome do link */
       }
       const og = page
-        ? /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i.exec(
-            page.body.toString('utf8').slice(0, 200_000),
-          )?.[1]
+        ? metaContent(page.body.toString('utf8').slice(0, 200_000), 'og:title')
         : null;
-      const [title, ...rest] = decodeEntities(og ?? '').split(' · ');
+      const [title, ...rest] = (og ?? '').split(' · ');
       const name =
         mapsPlaceName(page?.url ?? src.value) ??
         place ??

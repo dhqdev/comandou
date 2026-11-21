@@ -27,6 +27,7 @@ import { normalizePhone } from '../store/customers.service';
 import {
   AgentActions,
   cleanInbound,
+  isCancelYes,
   isNo,
   isYes,
   leaksPrompt,
@@ -765,7 +766,10 @@ export class AiAgentService implements OnModuleInit {
         time: out.reserve.time,
         notes: out.reserve.notes,
       });
-      text = joinText(text, ok.ok ? confirmText(out.reserve) : refusedText(ok.error));
+      text = joinText(
+        text,
+        ok.ok ? confirmText({ ...out.reserve, date: ok.day }) : refusedText(ok.error),
+      );
       if (ok.ok) actions.push('reservation_confirm');
     }
     if (out.cancel && p.reservations) actions.push('reservation_cancel');
@@ -869,7 +873,8 @@ export class AiAgentService implements OnModuleInit {
     // 1) O cliente respondeu ao pedido de confirmação: o servidor resolve, sem a IA.
     const pending = state.chat.pending;
     if (pending) {
-      if (isYes(text))
+      // Pedido de cancelamento: "cancela" / "pode cancelar" é SIM (não é "desistiu").
+      if (isYes(text) || (pending.kind === 'cancel' && isCancelYes(text)))
         return this.say(ctx, phone, await this.confirmPending(ctx, phone, pending), 0);
       await this.db.withTenant(ctx, (tx) =>
         q(
@@ -928,7 +933,7 @@ export class AiAgentService implements OnModuleInit {
       const ok = await this.reservations.checkWhatsApp(ctx.tenantId, input);
       if (ok.ok) {
         await this.setPending(ctx, phone, { kind: 'reserve', ...out.reserve });
-        reply = joinText(reply, confirmText(out.reserve));
+        reply = joinText(reply, confirmText({ ...out.reserve, date: ok.day }));
       } else reply = joinText(reply, refusedText(ok.error));
     } else if (out.cancel && p.reservations) {
       const mine = p.reservations.upcoming.find((u) => u.code === out.cancel);
@@ -1053,7 +1058,7 @@ export class AiAgentService implements OnModuleInit {
         : '📝 *Pedido de reserva recebido!* O restaurante confirma por aqui em breve.';
     return [
       head,
-      `${dayLabel(p.date)} às ${p.time}, ${p.people} pessoa${p.people === 1 ? '' : 's'}, em nome de ${p.name}.`,
+      `${dayLabel(r.day)} às ${p.time}, ${p.people} pessoa${p.people === 1 ? '' : 's'}, em nome de ${p.name}.`,
       `Código: *${r.code}* (para mudar ou cancelar, é só mandar mensagem aqui).`,
       r.note?.trim() ? r.note.trim() : null,
     ]

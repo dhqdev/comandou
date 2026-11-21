@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.217.1',
+    date: '2026-11-21',
+    title: 'Sistema protegido contra páginas maliciosas e WhatsApp sem aviso repetido',
+    summary:
+      'Um link de cardápio feito de propósito não consegue mais deixar o sistema lento para os outros restaurantes. O aviso de pedido no WhatsApp não sai mais em dobro quando o envio demora, e a IA entende melhor as respostas sobre reservas.',
+    notes: [
+      {
+        tag: 'segurança',
+        text: 'Importar cardápio por link: páginas montadas para travar a leitura agora são lidas em instantes, sem afetar os outros restaurantes. Só links verdadeiros do Google Maps são aceitos como Maps.',
+      },
+      {
+        tag: 'correção',
+        text: 'WhatsApp: quando o envio demora e não dá para saber se saiu, o aviso fica como "Envio incerto" e não é repetido sozinho, para o cliente não receber duas vezes.',
+      },
+      {
+        tag: 'correção',
+        text: 'Reservas pelo WhatsApp: responder "cancela" ao pedido de confirmação agora cancela a reserva. Horário depois da meia-noite mostra o dia certo, e conversa sem número visível recebe a explicação antes de confirmar.',
+      },
+      {
+        tag: 'correção',
+        text: 'Assistente de IA da equipe: resposta que demora demais agora para com um aviso, e o consumo de uma resposta interrompida entra na conta do mês.',
+      },
+    ],
+  },
+  {
     version: '0.217.0',
     date: '2026-11-21',
     title: 'Saúde do computador no aplicativo de impressão',

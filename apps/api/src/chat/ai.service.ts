@@ -326,11 +326,45 @@ export class AiService {
     const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, p.apiKey);
     let text = '';
     let usage = { promptTokens: 0, completionTokens: 0, costUsd: 0 };
+    let partial = '';
     try {
-      const r = await client.stream(p.model, p.turns, onDelta, { signal });
+      const r = await client.stream(
+        p.model,
+        p.turns,
+        (d) => {
+          partial += d;
+          onDelta(d);
+        },
+        { signal },
+      );
       text = r.text;
       usage = r.usage;
     } catch (e) {
+      const name = (e as Error)?.name;
+      if (name === 'AbortError' || name === 'TimeoutError') {
+        // Parou no meio (a pessoa fechou a tela ou a IA demorou demais): o provedor já cobrou o
+        // que leu e o que escreveu, então o uso estimado (4 letras por token) entra no limite.
+        const promptChars = p.turns.reduce((n, t) => n + t.content.length, 0);
+        await this.db
+          .withCentral(p.ctx, (tx) =>
+            recordAiUsage(tx, {
+              userId: p.ctx.userId,
+              model: p.model,
+              usage: {
+                promptTokens: Math.ceil(promptChars / 4),
+                completionTokens: Math.ceil(partial.length / 4),
+                costUsd: 0,
+              },
+              source: 'chat',
+            }),
+          )
+          .catch((err: Error) => this.logger.warn(`Uso interrompido não gravado: ${err.message}`));
+        if (name === 'TimeoutError')
+          throw new ServiceUnavailableException(
+            'O assistente demorou demais para responder. Tente de novo em instantes.',
+          );
+        throw e;
+      }
       if (e instanceof OpenRouterError) {
         this.logger.warn(`OpenRouter: ${e.message}`);
         throw new ServiceUnavailableException(

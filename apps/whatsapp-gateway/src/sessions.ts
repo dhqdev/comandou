@@ -101,6 +101,8 @@ export interface Timings {
   sendGapMs: number;
   /** fila de envio do número maior que isso: responde "muitas mensagens" em vez de esperar */
   sendQueueMaxMs: number;
+  /** espera pela confirmação do WhatsApp; passou disso, o envio fica "incerto" (pode ter saído) */
+  sendTimeoutMs: number;
 }
 
 export const DEFAULT_TIMINGS: Timings = {
@@ -116,6 +118,7 @@ export const DEFAULT_TIMINGS: Timings = {
   restoreGapMs: 250,
   sendGapMs: 700,
   sendQueueMaxMs: 15_000,
+  sendTimeoutMs: 15_000,
 };
 
 export interface ManagerOptions {
@@ -202,12 +205,12 @@ export function brazilVariants(to: string): string[] {
   return nine ? [to, `55${ddd}${rest}`] : [to, `55${ddd}9${rest}`];
 }
 
-function withTimeout<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
+function withTimeout<T>(p: Promise<T>, ms: number, msg: string | (() => Error)): Promise<T> {
   let t: NodeJS.Timeout;
   return Promise.race([
     p,
     new Promise<never>((_, rej) => {
-      t = setTimeout(() => rej(new Error(msg)), ms);
+      t = setTimeout(() => rej(typeof msg === 'string' ? new Error(msg) : msg()), ms);
     }),
   ]).finally(() => clearTimeout(t));
 }
@@ -773,8 +776,8 @@ export class SessionManager {
       await this.pace(s);
       const r = await withTimeout(
         sock.sendMessage(jid, { text }),
-        SEND_TIMEOUT_MS,
-        'WhatsApp não confirmou o envio a tempo',
+        this.t.sendTimeoutMs,
+        () => new SendUncertainError(),
       );
       if (typingMs > 0 && s.sock === sock) {
         clearTimeout(s.pauseTimers.get(jid));
@@ -805,8 +808,8 @@ export class SessionManager {
             ? { document: doc.data, mimetype: doc.mimetype, fileName: doc.fileName, ...caption }
             : { image: doc.data, mimetype: doc.mimetype, ...caption },
         ),
-        SEND_TIMEOUT_MS,
-        'WhatsApp não confirmou o envio a tempo',
+        this.t.sendTimeoutMs,
+        () => new SendUncertainError(),
       );
       return { id: r?.key?.id ?? null, jid };
     });
@@ -896,6 +899,18 @@ export class NotConnectedError extends Error {
 export class TooManyMessagesError extends Error {
   constructor() {
     super('Muitas mensagens deste número agora; tente de novo em instantes');
+  }
+}
+
+/**
+ * O WhatsApp não confirmou a tempo, mas a mensagem já foi entregue ao socket e pode ter saído.
+ * Quem chamou não deve tentar de novo sozinho (o cliente receberia duas vezes).
+ */
+export class SendUncertainError extends Error {
+  constructor() {
+    super(
+      'Envio incerto: o WhatsApp não confirmou a tempo. Confira na conversa antes de reenviar.',
+    );
   }
 }
 

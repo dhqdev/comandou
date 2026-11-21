@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   cleanInbound,
+  isCancelYes,
   isNo,
   isYes,
   leaksPrompt,
@@ -105,6 +106,22 @@ describe('proteções', () => {
       expect(isYes(t), t).toBe(false);
     expect(isNo('Não, obrigado')).toBe(true);
     expect(isNo('sim')).toBe(false);
+  });
+
+  it('confirmação de cancelamento: "cancela" e "pode cancelar" são SIM; "não cancela" não', () => {
+    for (const t of ['Cancela', 'cancelar', 'Pode cancelar', 'cancela sim', 'Sim, pode cancelar!'])
+      expect(isCancelYes(t), t).toBe(true);
+    for (const t of [
+      'não cancela',
+      'nao, pode deixar',
+      'cancela não',
+      'sim',
+      'cancela e marca outra',
+    ])
+      expect(isCancelYes(t), t).toBe(false);
+    // No pedido de reserva, "cancela" continua sendo NÃO.
+    expect(isYes('Cancela')).toBe(false);
+    expect(isNo('Cancela')).toBe(true);
   });
 });
 

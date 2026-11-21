@@ -30,9 +30,9 @@ import {
 import { defaultSiteCopy, readSiteCopy, SITE_PAGE_PROMPT, type SiteFacts } from './site-page';
 import {
   EMPTY_STORE,
-  decodeEntities,
   extractPage,
   LINK_PROMPT,
+  metaContent,
   pageForModel,
   PHOTO_STORE_PROMPT,
   TEXT_PROMPT,
@@ -429,16 +429,12 @@ export class MenuImportService {
       page = null;
     }
     const html = page ? page.body.toString('utf8').slice(0, 200_000) : '';
-    const meta = (prop: string) =>
-      new RegExp(`<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i').exec(
-        html,
-      )?.[1] ?? null;
-    const [title, ...rest] = decodeEntities(meta('og:title') ?? '').split(' · ');
+    const [title, ...rest] = (metaContent(html, 'og:title') ?? '').split(' · ');
     const name =
       mapsPlaceName(page?.url ?? url) ?? (title && !/google/i.test(title) ? title : null);
     const address = rest.join(' · ').trim() || null;
     // Foto do lugar (googleusercontent); o mapa estático não serve de capa.
-    const img = decodeEntities(meta('og:image') ?? '');
+    const img = metaContent(html, 'og:image') ?? '';
     const cover = /^https:\/\/[a-z0-9-]+\.googleusercontent\.com\//i.test(img) ? img : null;
     const cep = address ? (/\b\d{5}-\d{3}\b/.exec(address)?.[0] ?? null) : null;
     const uf = address ? ([...address.matchAll(/ - ([A-Z]{2})\b/g)].pop()?.[1] ?? null) : null;

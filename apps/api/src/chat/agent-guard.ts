@@ -175,6 +175,18 @@ export function isYes(text: string): boolean {
   );
 }
 
+/**
+ * Resposta ao "posso cancelar sua reserva?": "cancela", "pode cancelar", "cancela sim" querem
+ * dizer SIM (o isNo lê "cancela" como NÃO, que vale para o pedido de reserva).
+ */
+export function isCancelYes(text: string): boolean {
+  const t = strip(text);
+  if (!t || t.length > 40) return false;
+  return /^(sim )?(pode )?(cancela|cancelar|cancele|cancelado)( (sim|pode|por favor|mesmo|ela|a reserva|obrigad[oa]))*$/.test(
+    t,
+  );
+}
+
 /** "não", "nao", "cancela", "deixa", "errado" (mensagem curta). */
 export function isNo(text: string): boolean {
   const t = strip(text);

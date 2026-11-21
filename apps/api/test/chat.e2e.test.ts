@@ -33,6 +33,8 @@ let orSrv: Server;
 const orCalls: { path: string; auth?: string; body?: Record<string, unknown> }[] = [];
 /** Próxima resposta da IA do WhatsApp (quando o teste quer uma marca de ação). */
 let agentReply: string | null = null;
+/** O próximo pedido do assistente começa a responder e nunca termina. */
+let hangStream = false;
 const cookies: Record<string, string> = {};
 const ids: Record<string, string> = {};
 let adminCookie = '';
@@ -201,6 +203,15 @@ function fakeOpenRouter() {
       if (req.url === '/chat/completions') {
         res.writeHead(200, { 'Content-Type': 'text/event-stream' });
         const msgs = (body?.messages ?? []) as { content: string }[];
+        if (hangStream) {
+          hangStream = false;
+          res.write(
+            `data: ${JSON.stringify({ choices: [{ delta: { content: 'Vou explicar com calma: ' } }] })}
+
+`,
+          );
+          return;
+        }
         if (agentReply) {
           res.write(
             `data: ${JSON.stringify({ choices: [{ delta: { content: agentReply } }], usage: { prompt_tokens: 100, completion_tokens: 10, cost: 0 } })}\n\n`,
@@ -767,6 +778,31 @@ describe('Assistente de IA', () => {
     expect((await get('waiterA', '/chat/ai').expect(200)).body.messages).toEqual([]);
   });
 
+  it('fechou a tela no meio da resposta: o uso estimado entra no limite do mês', async () => {
+    const before = (await get('adminB', '/chat/ai').expect(200)).body.usage.used as number;
+    hangStream = true;
+    // O navegador desiste (fecha a conexão) antes de a IA terminar.
+    await send('adminB', 'post', '/chat/ai/messages', { content: 'Como faço o fechamento?' })
+      .timeout(1500)
+      .catch(() => undefined);
+    let row: { p: number; c: number } | undefined;
+    for (let i = 0; i < 50 && !row; i++) {
+      [row] = await ownerQuery<{ p: number; c: number }>(
+        `SELECT prompt_tokens::int AS p, completion_tokens::int AS c FROM ai_usage
+          WHERE tenant_id = $1 AND source = 'chat'`,
+        [fx.tenantB],
+      );
+      if (!row) await new Promise((r) => setTimeout(r, 100));
+    }
+    // Pergunta + instruções (4 letras por token) e o pedaço que chegou a sair.
+    expect(row!.p).toBeGreaterThan(100);
+    expect(row!.c).toBe(Math.ceil('Vou explicar com calma: '.length / 4));
+    const after = (await get('adminB', '/chat/ai').expect(200)).body.usage.used as number;
+    expect(after).toBe(before + row!.p + row!.c);
+    // Limpa para os testes de baixo (o limite do restaurante B é pequeno).
+    await ownerQuery(`DELETE FROM ai_usage WHERE tenant_id = $1 AND source = 'chat'`, [fx.tenantB]);
+  });
+
   it('importa o cardápio de uma foto ou PDF: itens organizados e uso descontado do restaurante', async () => {
     const upload = (w: Who, type: string, body: Buffer) =>
       http
@@ -1079,7 +1115,9 @@ describe('IA que atende o cliente (configurada pelo gerente)', () => {
     agentReply = `Posso cancelar. [[CANCELAR ${rows[0]!.code}]]`;
     const other = await agent.handle({ ...msg, from: '5511966660000', text: 'cancela' });
     expect(other!.text).toContain('Não achei essa reserva');
-    await agent.handle({ ...msg, text: 'sim' });
+    // "Pode cancelar" responde SIM ao pedido de cancelamento (antes, mantinha a reserva).
+    const done = await agent.handle({ ...msg, text: 'Pode cancelar' });
+    expect(done!.text).not.toContain('continua de pé');
     const st = await ownerQuery<{ status: string }>(
       `SELECT status FROM reservations WHERE code = $1`,
       [rows[0]!.code],
@@ -1089,6 +1127,41 @@ describe('IA que atende o cliente (configurada pelo gerente)', () => {
     agentReply = `[[RESERVAR data=${day} hora=03:00 pessoas=2 nome="Ana"]]`;
     const bad = await agent.handle({ ...msg, text: 'às 3 da manhã' });
     expect(bad!.text).toContain('Não consegui esse horário');
+  });
+
+  it('WhatsApp: reserva depois da meia-noite mostra o dia certo e conversa sem telefone não chega ao SIM', async () => {
+    const agent = app.get(AiAgentService);
+    await send('adminA', 'patch', '/reservations/settings', {
+      enabled: true,
+      autoConfirm: true,
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      opensAt: '18:00',
+      closesAt: '01:00',
+      minAdvanceMinutes: 0,
+      capacity: 20,
+    }).expect(200);
+    const msg = { tenantId: fx.tenantA, from: '5511944443333', text: 'Quero reservar' };
+    const base = Date.now() + 4 * 86_400_000;
+    const day = new Date(base).toISOString().slice(0, 10);
+    const next = new Date(base + 86_400_000).toISOString().slice(0, 10);
+    const label = `${next.slice(8, 10)}/${next.slice(5, 7)}`;
+    // 00:30 do expediente que começou no dia anterior já é o dia seguinte.
+    agentReply = `[[RESERVAR data=${day} hora=00:30 pessoas=2 nome="Bia"]]`;
+    const r = await agent.handle(msg);
+    expect(r!.text).toContain(`${label} às 00:30`);
+    const ok = await agent.handle({ ...msg, text: 'sim' });
+    expect(ok!.text).toContain(`${label} às 00:30`);
+    // Número escondido (@lid): explica na hora em vez de pedir um SIM que vai falhar.
+    const lid = { tenantId: fx.tenantA, from: '123456789012345', text: 'Quero reservar' };
+    agentReply = `[[RESERVAR data=${day} hora=20:00 pessoas=2 nome="Bia"]]`;
+    const hidden = await agent.handle(lid);
+    expect(hidden!.text).toContain('Não consigo ver o seu número');
+    expect(hidden!.text).not.toContain('Confirma a reserva');
+    const pend = await ownerQuery<{ pending: unknown }>(
+      `SELECT pending FROM ai_customer_chats WHERE tenant_id = $1 AND phone LIKE '%456789012345'`,
+      [fx.tenantA],
+    );
+    expect(pend[0]?.pending ?? null).toBeNull();
   });
 
   it('WhatsApp: manda o cardápio que o restaurante subiu e o calendário em PDF', async () => {
