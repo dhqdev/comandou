@@ -6,7 +6,7 @@ import {
 } from '@comandou/shared';
 import { Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Alert, Badge, Segmented, Skeleton } from '../design-system';
+import { Alert, Segmented, Skeleton } from '../design-system';
 import { brl } from '../lib/money';
 import { dateTime } from './format';
 import { kmLabel } from './live-geo';
@@ -48,6 +48,8 @@ export interface CourierEarningsData {
     method: string;
     paidAt: string;
   }[];
+  /** Últimos 7 dias (hoje no fim): dia AAAA-MM-DD, entregas e ganho com a diária. */
+  last7?: { day: string; delivered: number; total: string }[];
 }
 
 type Period = 'today' | 'week' | 'month';
@@ -147,21 +149,20 @@ export function CourierEarnings({ load }: { load(): Promise<CourierEarningsData>
       {data.recent.length > 0 && (
         <>
           <h2 className="driver__title">Últimas corridas</h2>
-          <ul className="earn__list">
+          <ul className="dlist">
             {data.recent.map((r) => (
-              <li key={r.id}>
-                <span>
-                  <strong>#{r.orderNumber}</strong>{' '}
-                  <span className="cm-hint">
+              <li key={r.id} className="dride" data-ok={r.status === 'delivered' || undefined}>
+                <i className="dride__dot" aria-hidden />
+                <div className="dride__main">
+                  <strong>#{r.orderNumber}</strong>
+                  <small>
                     {dateTime(r.finishedAt)}
                     {r.distanceM != null && ` · ${kmLabel(r.distanceM)}`}
-                  </span>
-                </span>
-                <span className="earn__amount">
-                  {r.status === 'failed' && <Badge tone="danger">não entregue</Badge>}
-                  {!r.paid && <Badge tone="warning">a receber</Badge>}
-                  <strong>{r.pay ? brl(r.pay) : '—'}</strong>
-                </span>
+                    {r.status === 'failed' && ' · não entregue'}
+                  </small>
+                </div>
+                {!r.paid && <span className="earn__due">a receber</span>}
+                <strong className="dride__pay">{r.pay ? brl(r.pay) : '—'}</strong>
               </li>
             ))}
           </ul>
@@ -171,22 +172,22 @@ export function CourierEarnings({ load }: { load(): Promise<CourierEarningsData>
       {data.payouts.length > 0 && (
         <>
           <h2 className="driver__title">Pagamentos recebidos</h2>
-          <ul className="earn__list">
+          <ul className="dlist">
             {data.payouts.map((x) => (
-              <li key={x.id}>
-                <span>
-                  <strong>{brl(x.net)}</strong>{' '}
-                  <span className="cm-hint">
+              <li key={x.id} className="dride" data-ok>
+                <i className="dride__dot" aria-hidden />
+                <div className="dride__main">
+                  <strong>
                     {x.periodFrom
                       ? `${day(x.periodFrom)} a ${day(x.periodTo)}`
-                      : `até ${day(x.periodTo)}`}{' '}
-                    · {x.deliveries} entregas · {METHOD_LABEL[x.method] ?? x.method}
-                  </span>
-                </span>
-                <span className="cm-hint">
-                  {dateTime(x.paidAt)}
-                  {x.withheld !== '0.00' && ` · retido ${brl(x.withheld)}`}
-                </span>
+                      : `até ${day(x.periodTo)}`}
+                  </strong>
+                  <small>
+                    {x.deliveries} entregas · {METHOD_LABEL[x.method] ?? x.method}
+                    {x.withheld !== '0.00' && ` · retido ${brl(x.withheld)}`}
+                  </small>
+                </div>
+                <strong className="dride__pay">{brl(x.net)}</strong>
               </li>
             ))}
           </ul>

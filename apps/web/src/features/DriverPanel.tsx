@@ -3,6 +3,8 @@ import {
   Banknote,
   Bike,
   CheckCircle2,
+  ChevronRight,
+  Clock,
   History,
   House,
   KeyRound,
@@ -12,10 +14,11 @@ import {
   Package,
   Phone,
   UserRound,
+  Wallet,
   XCircle,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Badge, Button, EmptyState, TextField, useToast } from '../design-system';
+import { Button, EmptyState, TextField, useToast } from '../design-system';
 import { brl } from '../lib/money';
 import { useRealtimeEvents } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
@@ -29,11 +32,13 @@ import {
   DriverHomeTab,
   HistoryTab,
   ProfileTab,
+  RideRow,
   type DriverData,
   type DriverTab,
 } from './DriverTabs';
 import { LiveMap, type MapRider } from './LiveMap';
 import { NAV_APPS, navUrl, preferredNavApp, rememberNavApp, type NavApp } from './nav-apps';
+import { useDriverPanelMounted } from '../driver/DriverShell';
 import './driver-panel.css';
 
 /** Posição do GPS enviada ao restaurante (velocidade em m/s, rumo em graus, precisão em m). */
@@ -110,6 +115,7 @@ export function DriverPanel({
    */
   live?: boolean;
 }) {
+  useDriverPanelMounted();
   const [tab, setTab] = useState<DriverTab>('home');
   const [available, setAvailable] = useState<AvailableRun[] | null>(null);
   const [profile, setProfile] = useState<CourierProfile | null>(null);
@@ -160,6 +166,20 @@ export function DriverPanel({
     };
   }, [data, closed]);
 
+  // Ganhos do Início (só no app com login): ao abrir e a cada corrida encerrada.
+  const [earn, setEarn] = useState<CourierEarningsData | null>(null);
+  useEffect(() => {
+    if (!earnings) return;
+    let alive = true;
+    earnings().then(
+      (e) => alive && setEarn(e),
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+  }, [earnings, closed]);
+
   const go = (t: DriverTab) => {
     setTab(t);
     window.scrollTo({ top: 0 });
@@ -177,6 +197,7 @@ export function DriverPanel({
             deliveries={deliveries}
             available={available}
             profile={profile}
+            earnings={earn}
             onGo={go}
           />
         )}
@@ -199,22 +220,24 @@ export function DriverPanel({
         {tab === 'profile' && <ProfileTab profile={profile} />}
       </div>
       <nav className="dnav" aria-label="Painel do entregador">
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            className="dnav__item"
-            aria-current={tab === id ? 'page' : undefined}
-            onClick={() => go(id)}
-          >
-            <span className="dnav__icon">
-              <Icon size={20} aria-hidden />
-              {!!count[id] && <b aria-hidden>{count[id]! > 9 ? '9+' : count[id]}</b>}
-            </span>
-            {label}
-            {!!count[id] && <span className="cm-sr-only"> ({count[id]})</span>}
-          </button>
-        ))}
+        <div className="dnav__bar">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className="dnav__item"
+              aria-current={tab === id ? 'page' : undefined}
+              onClick={() => go(id)}
+            >
+              <span className="dnav__icon">
+                <Icon size={21} strokeWidth={tab === id ? 2.25 : 1.9} aria-hidden />
+                {!!count[id] && <b aria-hidden>{count[id]! > 9 ? '9+' : count[id]}</b>}
+              </span>
+              <span className="dnav__label">{label}</span>
+              {!!count[id] && <span className="cm-sr-only"> ({count[id]})</span>}
+            </button>
+          ))}
+        </div>
       </nav>
     </div>
   );
@@ -268,9 +291,10 @@ function Runs({
       )}
       {sharing.error && <p className="form-error">{sharing.error}</p>}
 
-      <h2 className="driver__title">
-        <Bike size={18} /> Na rua ({out.length})
-      </h2>
+      <header className="driver__head">
+        <h2 className="driver__title">Na rua</h2>
+        {out.length > 0 && <span className="dhome__count">{out.length}</span>}
+      </header>
       {out.length === 0 ? (
         <EmptyState
           mascot
@@ -294,28 +318,19 @@ function Runs({
       )}
 
       {done.length > 0 && (
-        <>
-          <h2 className="driver__title">Encerradas hoje ({done.length})</h2>
-          <ul className="driver__done">
+        <section className="dday">
+          <header className="dday__head">
+            <strong>Encerradas hoje</strong>
+            <span>
+              {done.length} {done.length === 1 ? 'corrida' : 'corridas'}
+            </span>
+          </header>
+          <ul className="dlist">
             {done.map((d) => (
-              <li key={d.id}>
-                <span>
-                  <strong>#{d.orderNumber}</strong> {d.customerName}
-                </span>
-                <span className="earn__amount">
-                  {d.status === 'delivered' ? (
-                    <Badge tone="success">Entregue {d.finishedAt && time(d.finishedAt)}</Badge>
-                  ) : (
-                    <Badge tone="danger">Não entregue</Badge>
-                  )}
-                  {d.courierPay && toCents(d.courierPay) > 0 && (
-                    <strong>{brl(d.courierPay)}</strong>
-                  )}
-                </span>
-              </li>
+              <RideRow key={d.id} d={d} />
             ))}
           </ul>
-        </>
+        </section>
       )}
     </>
   );
@@ -359,23 +374,70 @@ function RunCard({
     }
   }
 
+  const payLabel =
+    d.paymentHint &&
+    (PAYMENT_METHOD_LABELS[d.paymentHint as keyof typeof PAYMENT_METHOD_LABELS] ?? d.paymentHint);
+  const mins = minutesSince(d.dispatchedAt);
+  const near = dist !== null && dist < 80;
+  const name = d.customerName ?? 'Cliente';
+
   return (
-    <article className="run" data-search-id={`entrega-${d.id}`}>
-      <header className="run__top">
-        <strong className="run__num">#{d.orderNumber}</strong>
-        <span className="cm-hint">
-          saiu {time(d.dispatchedAt)} · {minutesSince(d.dispatchedAt)} min
+    <article className="run run--live" data-search-id={`entrega-${d.id}`}>
+      <header className="run__head">
+        <div className="run__id">
+          <span>Pedido</span>
+          <strong className="run__num">#{d.orderNumber}</strong>
+        </div>
+        <span className="run__clock" data-late={mins >= 40 || undefined}>
+          <Clock size={14} aria-hidden /> {mins} min
         </span>
       </header>
-      {dist !== null && (
-        <div className="run__dist">
-          <Navigation size={15} /> {dist < 80 ? 'Você chegou' : `Faltam ${kmLabel(dist)}`}
+
+      <ol className="run__steps" aria-label="Andamento">
+        <li data-done>
+          <i aria-hidden />
+          <span>Saiu {time(d.dispatchedAt)}</span>
+        </li>
+        <li data-done={near || undefined} data-now={!near || undefined}>
+          <i aria-hidden />
+          <span>{dist === null ? 'A caminho' : near ? 'Chegou' : `Faltam ${kmLabel(dist)}`}</span>
+        </li>
+        <li data-now={near || undefined}>
+          <i aria-hidden />
+          <span>Entregar</span>
+        </li>
+      </ol>
+
+      <section className="run__cust">
+        <span className="run__avatar" aria-hidden>
+          {name.trim().charAt(0).toUpperCase()}
+        </span>
+        <div>
+          <strong>{name}</strong>
+          {d.customerPhone && <span className="cm-hint">{d.customerPhone}</span>}
         </div>
-      )}
-      <div className="run__who">
-        <strong>{d.customerName ?? 'Cliente'}</strong>
-        {d.customerPhone && <span className="cm-hint">{d.customerPhone}</span>}
-      </div>
+        {d.customerPhone && (
+          <div className="run__contact">
+            <a
+              className="run__round"
+              href={`tel:${digits(d.customerPhone)}`}
+              aria-label="Ligar para o cliente"
+            >
+              <Phone size={18} />
+            </a>
+            <a
+              className="run__round"
+              href={`https://wa.me/${waPhone(d.customerPhone)}`}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="WhatsApp do cliente"
+            >
+              <MessageCircle size={18} />
+            </a>
+          </div>
+        )}
+      </section>
+
       <a
         className="run__addr"
         href={navUrl(nav, d)}
@@ -384,61 +446,59 @@ function RunCard({
         onClick={() => onNav(nav)}
       >
         <MapPin size={18} />
-        <span>{d.deliveryAddress ?? 'Endereço não informado'}</span>
+        <span>
+          {d.deliveryAddress ?? 'Endereço não informado'}
+          {d.notes && <small>Obs.: {d.notes}</small>}
+        </span>
+        <ChevronRight size={18} className="run__chev" />
       </a>
-      {d.notes && <p className="run__notes">Obs.: {d.notes}</p>}
-      <div className={`run__pay ${toCollect ? 'is-due' : ''}`}>
-        <Banknote size={18} />
-        {toCollect ? (
-          <span>
-            Cobrar <strong>{brl(d.balance)}</strong>
-            {d.paymentHint &&
-              ` · ${PAYMENT_METHOD_LABELS[d.paymentHint as keyof typeof PAYMENT_METHOD_LABELS] ?? d.paymentHint}`}
-            {d.changeFor && ` · troco para ${brl(d.changeFor)}`}
-          </span>
-        ) : (
-          <span>Já está pago · {brl(d.total)}</span>
-        )}
-      </div>
-      {d.payEstimate && toCents(d.payEstimate) > 0 && (
-        <div className="run__earn">
-          <span>Você ganha nesta entrega</span>
-          <strong>{brl(d.payEstimate)}</strong>
+
+      <dl className="run__money">
+        <div data-tone={toCollect ? 'due' : 'paid'}>
+          <dt>
+            <Banknote size={16} aria-hidden />
+            {toCollect ? 'Cobrar na entrega' : 'Já está pago'}
+          </dt>
+          <dd>
+            <strong>{brl(toCollect ? d.balance : d.total)}</strong>
+            {toCollect && (payLabel || d.changeFor) && (
+              <small>
+                {payLabel}
+                {d.changeFor && `${payLabel ? ' · ' : ''}troco para ${brl(d.changeFor)}`}
+              </small>
+            )}
+          </dd>
         </div>
-      )}
-      <div className="run__nav" role="group" aria-label="Abrir a rota">
-        {[nav, ...NAV_APPS.map((a) => a.id).filter((a) => a !== nav)].map((app, i) => (
-          <a
-            key={app}
-            className={`cm-btn ${i === 0 ? 'cm-btn--primary' : 'cm-btn--secondary'}`}
-            href={navUrl(app, d)}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => onNav(app)}
-          >
-            {i === 0 && <Navigation size={16} />}
-            {i === 0 ? `Ir com ${NAV_APPS.find((a) => a.id === app)!.label}` : NAV_LABEL_SHORT[app]}
-          </a>
-        ))}
-      </div>
-      {d.customerPhone && (
-        <div className="run__links">
-          <a
-            className="cm-btn cm-btn--secondary"
-            href={`tel:${digits(d.customerPhone)}`}
-            aria-label="Ligar para o cliente"
-          >
-            <Phone size={16} /> Ligar
-          </a>
-          <a
-            className="cm-btn cm-btn--secondary"
-            href={`https://wa.me/${waPhone(d.customerPhone)}`}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="WhatsApp do cliente"
-          >
-            <MessageCircle size={16} /> WhatsApp
-          </a>
+        {d.payEstimate && toCents(d.payEstimate) > 0 && (
+          <div data-tone="earn">
+            <dt>
+              <Wallet size={16} aria-hidden />
+              Você ganha
+            </dt>
+            <dd>
+              <strong>{brl(d.payEstimate)}</strong>
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      {step === 'idle' && (
+        <div className="run__nav" role="group" aria-label="Abrir a rota">
+          {[nav, ...NAV_APPS.map((a) => a.id).filter((a) => a !== nav)].map((app, i) => (
+            <a
+              key={app}
+              className={`cm-btn cm-btn--lg ${i === 0 ? 'cm-btn--primary' : 'cm-btn--secondary'}`}
+              href={navUrl(app, d)}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => onNav(app)}
+            >
+              {i === 0 && <Navigation size={16} />}
+              {i === 0
+                ? `Ir com ${NAV_APPS.find((a) => a.id === app)!.label}`
+                : NAV_LABEL_SHORT[app]}
+            </a>
+          ))}
         </div>
       )}
       {step === 'fail' ? (
@@ -520,9 +580,9 @@ function RunCard({
           </div>
         </form>
       ) : (
-        <div className="run__actions">
+        <div className="run__actions run__actions--main">
           <Button
-            variant="secondary"
+            variant="ghost"
             size="lg"
             icon={<XCircle size={18} />}
             onClick={() => setStep('fail')}

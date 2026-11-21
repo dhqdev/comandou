@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.222.0',
+    date: '2026-11-21',
+    title: 'App do entregador de cara nova',
+    summary:
+      'O app do entregador no celular ganhou um Início em forma de painel, a corrida aceita ficou mais clara, o histórico ficou separado por dia e o perfil mostra o score num anel. O topo traz o ícone da loja.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Início com os ganhos de hoje, o gráfico dos últimos 7 dias, semana, mês e a receber, os pedidos prontos para pegar e os números do dia.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Corrida aceita: andamento em três passos, tempo na rua, ligar e WhatsApp ao lado do cliente, endereço que abre a rota e um quadro com quanto cobrar e quanto você ganha.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Histórico agrupado por dia (Hoje, Ontem…) com o total do dia, uma linha por corrida.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Perfil com o score num anel, os números num quadro só e, em Este aparelho, o tema escuro e o Sair.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Topo com o ícone da loja (favicon, senão o logo) e só o som e o chat; abas de baixo numa barra solta com a aba ativa destacada.',
+      },
+    ],
+  },
+  {
     version: '0.221.0',
     date: '2026-11-21',
     title: 'Foto do item maior e em tela cheia',

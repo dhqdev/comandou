@@ -22,6 +22,23 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
 - **Carregamento é esqueleto** (pedido do David, 0.206): conteúdo que está chegando usa `Skeleton` (`design-system/skeleton.tsx`) no formato do que vem: `list` (padrão), `table`, `cards`, `grid` (produtos), `form`, `detail` (janela/gaveta), `board` (cozinha, chamados), `chat`, `page` e `qr`; formato próprio se monta com `Bone` (ex.: `MenuSkeleton` do cardápio). App inteiro abrindo: `AppSkeleton` (igual ao `#cm-boot` do `index.html`; mudou um, mude o outro). `Spinner` fica só para ação em andamento (entrar, salvar, enviar, buscar, abrir um link) e dentro de botão. Nunca "Carregando…" solto nem ícone girando no lugar de uma lista.
 - **Celular e PWA:** um campo por linha, alvo de toque 44px, folha que sobe de baixo (padrão Planejai: alça, rodapé fixo, botão principal ocupa o espaço que sobra).
 
+## App do entregador (celular)
+
+`driver/DriverShell.tsx` + `features/DriverPanel.tsx` + `features/DriverTabs.tsx`, estilos em
+`features/driver-panel.css` (refeito na 0.222, pedido do David). Topo: ícone da loja (favicon,
+senão o logo, senão a inicial na cor da marca; nunca o panda), "Olá, nome" + loja e só som e
+chat numa pílula (`courier-page__tools`); tema e **Sair da conta** ficam na aba Perfil (Este
+aparelho); o Sair só aparece no topo antes do painel abrir (`useDriverPanelMounted`). Abas
+embaixo numa barra solta (`dnav__bar`, raio 22, sombra de camada) com a ativa numa pílula
+`color-mix` 14% da marca atrás do ícone. Início é painel: ganho de hoje grande, colunas dos 7
+dias (`last7` do `my-earnings`, hoje em laranja, resto cinza), Semana/Mês/A receber com linha
+fina, entrega em andamento ou "Prontos para pegar", números `dkpis` (um quadro 2 × 2). Corrida
+aceita (`run--live`): passos em três barrinhas, relógio, cliente com Ligar/WhatsApp redondos,
+endereço que abre a rota, quadro `run__money` (cobrar em âmbar suave, ganho em verde), rota
+principal na largura toda e Não consegui (ghost) + Entreguei. Corrida encerrada é sempre a linha
+`RideRow` (bolinha, pedido, cliente, hora, valor) dentro de `dlist`; Histórico agrupa por dia
+(`dday`). Perfil: avatar `--cm-brand-100`, score no anel `dring`.
+
 ## Modais e formulários
 
 - Janela abre **perto de quem abriu** (`liquid.ts`): no computador e no tablet sai de dentro do botão e fica ao lado dele (botão à direita, janela à direita; embaixo se couber) e volta para ele ao fechar; no celular a folha cresce do botão. Use sempre `Modal`/`Sheet`/`useLiquidDialog`: não posicione janela na mão nem com `margin: auto` fixo.

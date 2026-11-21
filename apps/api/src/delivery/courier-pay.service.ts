@@ -689,6 +689,19 @@ export class CourierPayService {
         ORDER BY d.finished_at DESC LIMIT 15`,
       [courierId],
     );
+    // Últimos 7 dias (hoje incluso), para o gráfico do Início do app do entregador.
+    const days = await q<{ day: string; delivered: number; rides: string }>(
+      tx,
+      `WITH b AS (SELECT (now() AT TIME ZONE ${TZ})::date AS today)
+       SELECT g.day::date::text AS day,
+              count(d.id) FILTER (WHERE d.status = 'delivered')::int AS delivered,
+              COALESCE(sum(d.courier_pay), 0)::numeric(14,2)::text AS rides
+         FROM b CROSS JOIN generate_series(b.today::timestamp - interval '6 days', b.today::timestamp, interval '1 day') AS g(day)
+         LEFT JOIN deliveries d ON d.courier_id = $1 AND d.status <> 'out'
+              AND (d.finished_at AT TIME ZONE ${TZ})::date = g.day::date
+        GROUP BY g.day ORDER BY g.day`,
+      [courierId],
+    );
     const payouts = await q(
       tx,
       `SELECT id, period_from::text AS "periodFrom", period_to::text AS "periodTo", deliveries,
@@ -712,6 +725,11 @@ export class CourierPayService {
       },
       recent,
       payouts,
+      last7: days.map((d) => ({
+        day: d.day,
+        delivered: d.delivered,
+        total: fromCents(toCents(d.rides) + (d.delivered > 0 ? toCents(rule.dailyRate) : 0)),
+      })),
     };
   }
 

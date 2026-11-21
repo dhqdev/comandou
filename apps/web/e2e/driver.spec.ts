@@ -145,7 +145,9 @@ test('entregador: só as corridas, localização obrigatória, conclui com o có
   await run.getByLabel('Código de entrega').fill(code);
   await run.getByRole('button', { name: 'Confirmar entrega' }).click();
   await expect(moto.getByText('Entrega concluída')).toBeVisible();
-  await expect(moto.getByText(/Encerradas hoje \(1\)/)).toBeVisible();
+  await expect(moto.locator('.dday__head', { hasText: 'Encerradas hoje' })).toContainText(
+    '1 corrida',
+  );
   await app.close();
 });
 

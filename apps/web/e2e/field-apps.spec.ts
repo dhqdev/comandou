@@ -160,7 +160,9 @@ test('entregador no celular: PIN, corridas, não entregue, entregue e ganhos', a
     await m.screenshot({ path: shot('iphone-se-entregador-codigo') });
     await runB.getByRole('button', { name: 'Confirmar entrega' }).click();
     await expect(m.getByText('Entrega concluída')).toBeVisible();
-    await expect(m.getByText(/Encerradas hoje \(2\)/)).toBeVisible();
+    await expect(m.locator('.dday__head', { hasText: 'Encerradas hoje' })).toContainText(
+      '2 corridas',
+    );
     await expect(m.getByText('Nenhuma entrega com você agora')).toBeVisible();
 
     // Os ganhos ficam no Histórico.
@@ -172,8 +174,12 @@ test('entregador no celular: PIN, corridas, não entregue, entregue e ganhos', a
     await m.waitForLoadState('networkidle');
     await m.screenshot({ path: shot('iphone-se-entregador-ganhos'), fullPage: true });
     await expectNoHorizontalScroll(m, ['/entregas']);
-    // Sair volta para o PIN.
-    await m.getByRole('button', { name: 'Sair' }).click();
+    // Sair (na aba Perfil) volta para o PIN.
+    await m
+      .getByRole('navigation', { name: 'Painel do entregador' })
+      .getByRole('button', { name: /^Perfil/ })
+      .click();
+    await m.getByRole('button', { name: 'Sair da conta' }).click();
     await expect(m.getByRole('heading', { name: 'Acesso do entregador' })).toBeVisible();
     await ctx.close();
   }
