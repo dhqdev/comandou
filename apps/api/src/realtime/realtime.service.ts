@@ -25,6 +25,8 @@ export type RealtimeEvent =
   | { type: 'store.changed' }
   | { type: 'stock.changed' }
   | { type: 'delivery.changed'; deliveryId: string }
+  // Para os entregadores: a fila de pedidos prontos para pegar pode ter mudado (sem dado nenhum).
+  | { type: 'runs.changed' }
   | {
       type: 'delivery.location';
       deliveryId: string;
@@ -62,6 +64,15 @@ export const userRoom = (tenantId: string, userId: string) => `u:${tenantId}:${u
  * o aviso `cache.clear`, que não leva dado nenhum da operação.
  */
 export const tenantAllRoom = (tenantId: string) => `a:${tenantId}`;
+/**
+ * Sala dos entregadores com login do restaurante. Eles não entram na sala da loja (pedidos e
+ * posição dos outros motoboys): aqui só chega `runs.changed`, o sinal para recarregar a aba
+ * Disponíveis (a lista vem da API, que filtra pronto + delivery + sem entregador).
+ */
+export const driversRoom = (tenantId: string) => `d:${tenantId}`;
+
+/** Várias mudanças de pedido seguidas viram um aviso só para os entregadores. */
+const RUNS_COALESCE_MS = 400;
 
 /** Aviso entre as réplicas da API (pelo adapter Redis): limpar o cache deste restaurante. */
 const CACHE_CLEAR_SIGNAL = 'tenant.cache.clear';
@@ -77,6 +88,7 @@ export class RealtimeService {
   private server?: Server;
   private readonly logger = new Logger('Realtime');
   private readonly listeners: ((tenantId: string, event: RealtimeEvent) => void)[] = [];
+  private readonly runsTimers = new Map<string, NodeJS.Timeout>();
 
   /** Outros módulos reagem aos sinais do restaurante (ex.: cardápio mudou → enviar ao iFood). */
   onPublish(fn: (tenantId: string, event: RealtimeEvent) => void) {
@@ -152,6 +164,24 @@ export class RealtimeService {
     } catch (err) {
       this.logger.warn(`falha ao publicar evento: ${(err as Error).message}`);
     }
+    // Pedido mudou (ficou pronto, saiu, foi cancelado…): a aba Disponíveis do entregador recarrega
+    // na hora. Só o sinal, sem o id: quem decide o que ele vê é a API.
+    if (event.type === 'order.changed' || event.type === 'delivery.changed')
+      this.signalRuns(tenantId);
+  }
+
+  private signalRuns(tenantId: string) {
+    if (this.runsTimers.has(tenantId)) return;
+    const timer = setTimeout(() => {
+      this.runsTimers.delete(tenantId);
+      try {
+        this.server?.to(driversRoom(tenantId)).emit('event', { type: 'runs.changed' });
+      } catch (err) {
+        this.logger.warn(`falha ao avisar os entregadores: ${(err as Error).message}`);
+      }
+    }, RUNS_COALESCE_MS);
+    timer.unref();
+    this.runsTimers.set(tenantId, timer);
   }
 
   /** Para uma sala específica (ex.: o aparelho do cliente na conversa com a loja). */

@@ -25,6 +25,8 @@ export type RealtimeEvent =
   | { type: 'store.changed' }
   | { type: 'stock.changed' }
   | { type: 'delivery.changed'; deliveryId: string }
+  // Só para o entregador: a fila de pedidos prontos para pegar pode ter mudado.
+  | { type: 'runs.changed' }
   | {
       type: 'delivery.location';
       deliveryId: string;

@@ -93,6 +93,7 @@ export function DriverApp() {
                 }}
                 earnings={earnings}
                 data={more}
+                live
               />
             )}
           </DriverShell>
