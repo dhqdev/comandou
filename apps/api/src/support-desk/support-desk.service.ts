@@ -7,6 +7,7 @@ import {
 import { clientStatus, type TicketState } from '@comandou/shared';
 import type { PoolClient } from 'pg';
 import { PlatformDb } from '../platform/platform-db.service';
+import { tenantIcon, tenantIcons } from '../platform/tenant-icons';
 import { RealtimeService } from '../realtime/realtime.service';
 
 /**
@@ -380,7 +381,7 @@ export class SupportDeskService {
   async list(opts: { status: 'open' | 'closed' | 'all'; q?: string }) {
     this.need();
     const term = opts.q?.trim();
-    return this.pdb.query(
+    const rows = await this.pdb.query<{ tenantId: string }>(
       `SELECT c.tenant_id AS "tenantId", t.name, t.slug, t.status AS "tenantStatus",
               p.name AS "planName", s.status AS "subscriptionStatus",
               c.status, c.last_message_at AS "lastMessageAt", c.last_preview AS "lastPreview",
@@ -405,6 +406,8 @@ export class SupportDeskService {
         LIMIT 200`,
       [opts.status, term ? term.replace(/[%_\\]/g, (x) => `\\${x}`) : null],
     );
+    const icons = rows.length ? await tenantIcons(this.pdb, 15_000) : new Map<string, string>();
+    return rows.map((r) => ({ ...r, iconUrl: icons.get(r.tenantId) ?? null }));
   }
 
   /** Conversas com mensagem nova do restaurante (bolinha do menu do painel). */
@@ -452,7 +455,8 @@ export class SupportDeskService {
       [tenantId],
     );
     if (!tenant) throw new NotFoundException('Restaurante não encontrado');
-    return { tenant, ...(await this.state('admin', tenantId)) };
+    const iconUrl = await tenantIcon(this.pdb, tenantId);
+    return { tenant: { ...tenant, iconUrl }, ...(await this.state('admin', tenantId)) };
   }
 
   async setStatus(tenantId: string, status: 'open' | 'closed') {

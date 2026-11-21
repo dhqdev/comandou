@@ -1,6 +1,6 @@
 import { validateTenantSlug } from '@comandou/shared';
 import { ArrowLeft, Check, Eye, EyeOff, RefreshCw } from 'lucide-react';
-import { FormEvent, ReactNode, useEffect, useId, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Alert, Button, Select, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
@@ -837,6 +837,15 @@ export function ProfilePanel({
   const errors = profileErrors(f);
   const dirty = JSON.stringify(f) !== JSON.stringify(profileForm(t.profile));
   const set = (k: keyof ProfileForm, v: string) => setF((x) => ({ ...x, [k]: v }));
+  // O restaurante mudou o cadastro do lado dele (tela recarregada sozinha): sem nada digitado
+  // aqui, o formulário acompanha; com algo digitado, fica o que está sendo editado.
+  const shown = useRef(JSON.stringify(profileForm(t.profile)));
+  useEffect(() => {
+    const next = JSON.stringify(profileForm(t.profile));
+    if (next === shown.current) return;
+    setF((cur) => (JSON.stringify(cur) === shown.current ? profileForm(t.profile) : cur));
+    shown.current = next;
+  }, [t.profile]);
 
   async function save(e: FormEvent) {
     e.preventDefault();

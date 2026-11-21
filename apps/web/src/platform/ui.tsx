@@ -210,8 +210,34 @@ export function ago(iso: string | null | undefined) {
   return `há ${Math.floor(s / 86400)} d`;
 }
 
-/** Iniciais do nome num quadrado neutro (lista e cabeçalho do restaurante). */
-export function Monogram({ name, size = 36 }: { name: string; size?: number }) {
+/**
+ * Ícone do restaurante (o da Loja online) ou, sem ele ou se a imagem não carregar, as iniciais do
+ * nome num quadrado neutro (lista e cabeçalho do restaurante).
+ */
+export function Monogram({
+  name,
+  size = 36,
+  src,
+}: {
+  name: string;
+  size?: number;
+  src?: string | null;
+}) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (src && failed !== src)
+    return (
+      <img
+        className="adm-mono adm-mono--img"
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        loading="lazy"
+        decoding="async"
+        style={{ width: size, height: size }}
+        onError={() => setFailed(src)}
+      />
+    );
   const letters =
     name
       .replace(/[^\p{L}\p{N} ]/gu, ' ')

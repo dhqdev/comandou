@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.219.0',
+    date: '2026-11-21',
+    title: 'Ícone de cada restaurante no Super Admin',
+    summary:
+      'O Super Admin mostra o ícone que cada restaurante pôs na Loja online, na lista, no detalhe e em Conversas, e acompanha sozinho o que o restaurante muda do lado dele.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin: no lugar das iniciais, aparece o ícone da aba (favicon) que o restaurante colocou na Loja online; sem ele, o logo. Vale na lista de Restaurantes, no detalhe e em Conversas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Super Admin: a lista e o detalhe do restaurante se atualizam sozinhos a cada 20 segundos e ao voltar para a aba. Ícone, nome e cadastro que o restaurante muda aparecem sem recarregar a página.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O painel só lê a imagem que é o ícone ou o logo atual do restaurante, nenhuma outra foto, e só com a sessão do Super Admin.',
+      },
+    ],
+  },
+  {
     version: '0.217.3',
     date: '2026-11-21',
     title: 'Pedidos, caixa e iFood mais certos',

@@ -535,6 +535,20 @@ export class PlatformController {
     return this.svc.insights(id);
   }
 
+  /** Ícone do restaurante (o da Loja online) para a lista e o detalhe do painel. */
+  @Get('tenants/:id/icon/:iconId')
+  async tenantIcon(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('iconId', new ParseUUIDPipe()) iconId: string,
+    @Res() res: Response,
+  ) {
+    const m = await this.svc.tenantIcon(id, iconId);
+    res.setHeader('Content-Type', m.content_type);
+    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+    res.setHeader('Content-Length', String(m.bytes.length));
+    res.end(m.bytes);
+  }
+
   @Get('tenants/:id/team')
   team(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.svc.team(id);

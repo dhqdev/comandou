@@ -19,7 +19,7 @@ import { Alert, Button, Modal, TextField, useToast, Select, Skeleton } from '../
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
-import { useLoad } from './OverviewPages';
+import { useAutoReload, useLoad } from './OverviewPages';
 import { TenantHistory } from './audit';
 import { ConsumptionPanel, OperationPanel } from './TenantInsights';
 import { TenantBillingPanel } from './TenantBilling';
@@ -111,7 +111,8 @@ export function TenantsPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const q = new URLSearchParams({ ...(search ? { search } : {}), ...(status ? { status } : {}) });
-  const { data, error } = useLoad<TenantRow[]>(`/platform/tenants?${q}`);
+  const { data, error, reload } = useLoad<TenantRow[]>(`/platform/tenants?${q}`);
+  useAutoReload(reload);
   const { open, busy, sheet } = useOpenTenant();
   const navigate = useNavigate();
   return (
@@ -187,7 +188,7 @@ export function TenantsPage() {
                     className="adm-tlist__row is-link"
                     onClick={() => navigate(`/restaurantes/${t.id}`)}
                   >
-                    <Monogram name={t.name} />
+                    <Monogram name={t.name} src={t.iconUrl} />
                     <span className="adm-tlist__cell">
                       <Link
                         to={`/restaurantes/${t.id}`}
@@ -268,6 +269,7 @@ export function TenantDetailPage() {
   const navigate = useNavigate();
   const { data: t, error, setData, reload } = useLoad<TenantDetail>(`/platform/tenants/${id}`);
   const team = useLoad<TeamMember[]>(`/platform/tenants/${id}/team`);
+  useAutoReload(reload);
   // Enquanto o banco é criado, mudado ou excluído, a tela se atualiza sozinha.
   const busyDb = !!t && dbBusy(t);
   const wasBusy = useRef(false);
@@ -387,7 +389,7 @@ export function TenantDetailPage() {
       </Link>
       <div className="adm-section">
         <PageHead
-          lead={<Monogram name={t.name} size={48} />}
+          lead={<Monogram name={t.name} size={48} src={t.iconUrl} />}
           title={
             <>
               {t.name} <StatusTag status={t.status} />

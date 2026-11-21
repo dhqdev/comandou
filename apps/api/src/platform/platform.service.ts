@@ -16,6 +16,7 @@ import { provisionTenant } from '../provisioning/provision';
 import { QueueService } from '../queue/queue.service';
 import type { PlatformAdmin } from './platform-auth';
 import { PlatformDb, platformAudit } from './platform-db.service';
+import { tenantIcon, tenantIconImage, tenantIcons } from './tenant-icons';
 import type {
   NewTenantInput,
   PlanInput,
@@ -360,7 +361,19 @@ export class PlatformService {
         if (u && r.dbStatus === 'ready') Object.assign(r, u, { id: r.id });
       }
     }
-    return rows;
+    // Ícone que o restaurante pôs na Loja online (favicon, senão logo).
+    const icons = await tenantIcons(this.db);
+    return rows.map((r) => ({ ...r, iconUrl: icons.get(r.id) ?? null }));
+  }
+
+  /**
+   * Ícone do restaurante (favicon ou logo ATUAL da Loja online; outra foto dá 404). Trocar a
+   * imagem gera outro id, então a resposta pode ficar no cache do navegador.
+   */
+  async tenantIcon(tenantId: string, iconId: string) {
+    const m = await tenantIconImage(this.db, tenantId, iconId);
+    if (!m) throw new NotFoundException('Ícone não encontrado');
+    return m;
   }
 
   /**
@@ -425,6 +438,7 @@ export class PlatformService {
     );
     return {
       ...t,
+      iconUrl: h ? await tenantIcon(this.db, id) : null,
       subscription: subscription ?? null,
       profile: profile ?? EMPTY_PROFILE,
       usage: usage ?? EMPTY_USAGE,

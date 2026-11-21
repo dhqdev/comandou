@@ -919,6 +919,67 @@ describe('Controle do restaurante e acesso de suporte', () => {
     expect(team[0]).toHaveProperty('lastSeenAt');
   });
 
+  it('ícone do restaurante: o favicon (senão o logo) da Loja online, só o atual e com sessão', async () => {
+    const png = (n: number) =>
+      Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(n, n)]);
+    const media = async (bytes: Buffer) =>
+      (
+        await ownerQuery<{ id: string }>(
+          `INSERT INTO media (tenant_id, content_type, bytes, size) VALUES ($1, 'image/png', $2, $3)
+           RETURNING id`,
+          [fx.tenantA, bytes, bytes.length],
+        )
+      )[0]!.id;
+    const logo = await media(png(10));
+    const favicon = await media(png(20));
+    const other = await media(png(30));
+    const set = (cols: { logo: string | null; favicon: string | null }) =>
+      ownerQuery(
+        `INSERT INTO tenant_store_settings (tenant_id, logo_image_id, favicon_image_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (tenant_id) DO UPDATE
+           SET logo_image_id = EXCLUDED.logo_image_id, favicon_image_id = EXCLUDED.favicon_image_id`,
+        [fx.tenantA, cols.logo, cols.favicon],
+      );
+    const listed = async () =>
+      ((await pget('/tenants?search=pf-').expect(200)).body as { id: string; iconUrl: string }[])
+        .filter((t) => t.id === fx.tenantA || t.id === fx.tenantB)
+        .map((t) => [t.id, t.iconUrl]);
+
+    await set({ logo, favicon: null });
+    const url = (id: string) => `/api/v1/platform/tenants/${fx.tenantA}/icon/${id}`;
+    expect((await pget(`/tenants/${fx.tenantA}`).expect(200)).body.iconUrl).toBe(url(logo));
+    expect((await pget(`/tenants/${fx.tenantB}`).expect(200)).body.iconUrl).toBeNull();
+
+    // Trocou o ícone: o endereço muda (o detalhe lê na hora).
+    await set({ logo, favicon });
+    expect((await pget(`/tenants/${fx.tenantA}`).expect(200)).body.iconUrl).toBe(url(favicon));
+    expect(await listed()).toEqual(
+      expect.arrayContaining([
+        [fx.tenantA, expect.stringMatching(/\/icon\//)],
+        [fx.tenantB, null],
+      ]),
+    );
+
+    const img = await http.get(url(favicon)).set('Host', ADMIN_HOST).set('Cookie', adminCookie);
+    expect(img.status).toBe(200);
+    expect(img.headers['content-type']).toBe('image/png');
+    expect(img.headers['cache-control']).toContain('immutable');
+    expect(Buffer.compare(img.body as Buffer, png(20))).toBe(0);
+    // O logo também vale; outra foto do restaurante, nem a do outro restaurante, não.
+    await http.get(url(logo)).set('Host', ADMIN_HOST).set('Cookie', adminCookie).expect(200);
+    await http.get(url(other)).set('Host', ADMIN_HOST).set('Cookie', adminCookie).expect(404);
+    await http
+      .get(`/api/v1/platform/tenants/${fx.tenantB}/icon/${favicon}`)
+      .set('Host', ADMIN_HOST)
+      .set('Cookie', adminCookie)
+      .expect(404);
+    // Sem sessão do painel, nem fora de admin.<base>.
+    await http.get(url(favicon)).set('Host', ADMIN_HOST).expect(401);
+    expect((await http.get(url(favicon)).set('Host', HOST_A)).status).not.toBe(200);
+    await set({ logo: null, favicon: null });
+  });
+
   it('consumo e operação: números agregados de cada restaurante, sem misturar com o outro', async () => {
     const a = (await pget(`/tenants/${fx.tenantA}/insights`).expect(200)).body;
     const b = (await pget(`/tenants/${fx.tenantB}/insights`).expect(200)).body;

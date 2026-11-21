@@ -1200,6 +1200,12 @@ details.adm-fieldset[open] > summary::before {
   font-weight: 600;
   letter-spacing: 0.02em;
 }
+.adm-mono--img {
+  object-fit: cover;
+  background: var(--a-panel);
+  outline: 1px solid var(--a-line);
+  outline-offset: -1px;
+}
 .adm-action--icon {
   width: 36px;
   padding: 0;

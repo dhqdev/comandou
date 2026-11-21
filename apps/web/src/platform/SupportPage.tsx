@@ -38,6 +38,7 @@ interface ChatRow {
   lastPreview: string | null;
   lastSender: 'tenant' | 'admin' | 'system' | null;
   unread: number;
+  iconUrl?: string | null;
 }
 
 interface Detail extends HelpState {
@@ -50,6 +51,7 @@ interface Detail extends HelpState {
     planName?: string | null;
     subscriptionStatus?: string | null;
     trialEndsAt?: string | null;
+    iconUrl?: string | null;
   };
 }
 
@@ -187,7 +189,7 @@ function Conversation({
         <button type="button" className="sinbox__back" aria-label="Voltar" onClick={onBack}>
           <ArrowLeft size={18} />
         </button>
-        <Monogram name={t.name} size={38} />
+        <Monogram name={t.name} size={38} src={t.iconUrl} />
         <div className="sinbox__who">
           <strong>{t.name}</strong>
           <small>
@@ -287,7 +289,7 @@ function Conversation({
         />
         <aside className="sdesk" aria-label="Sobre o restaurante">
           <div className="sdesk__card sdesk__who">
-            <Monogram name={t.name} size={52} />
+            <Monogram name={t.name} size={52} src={t.iconUrl} />
             <strong>{t.name}</strong>
             <a href={tenantUrl(t.slug)} target="_blank" rel="noreferrer noopener">
               <Globe size={13} aria-hidden /> {host(t.slug)}
@@ -448,7 +450,7 @@ export function SupportPage() {
                       data-unread={c.unread > 0 || undefined}
                       onClick={() => setCurrent(c.tenantId)}
                     >
-                      <Monogram name={c.name} size={38} />
+                      <Monogram name={c.name} size={38} src={c.iconUrl} />
                       <span className="sinbox__item-text">
                         <span className="sinbox__item-top">
                           <strong>{c.name}</strong>

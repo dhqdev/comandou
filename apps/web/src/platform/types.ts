@@ -33,6 +33,8 @@ export interface TenantRow {
   slug: string;
   name: string;
   status: string;
+  /** Ícone que o restaurante pôs na Loja online (favicon, senão logo). */
+  iconUrl: string | null;
   createdAt: string;
   subscriptionStatus: string | null;
   planName: string | null;
@@ -162,6 +164,7 @@ export interface TenantDetail {
   slug: string;
   name: string;
   status: string;
+  iconUrl: string | null;
   timezone: string;
   createdAt: string;
   subscription: {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
@@ -25,6 +25,24 @@ export function useLoad<T>(path: string | null, deps: unknown[] = []) {
     };
   }, [path, tick, ...deps]);
   return { data, error, reload: () => setTick((t) => t + 1), setData };
+}
+
+/**
+ * Recarrega sozinho enquanto a tela está à vista (a cada `ms` e ao voltar para a aba): o que o
+ * restaurante muda do lado dele (ícone, nome, cadastro) aparece no painel sem apertar nada.
+ */
+export function useAutoReload(reload: () => void, ms = 20_000) {
+  const fn = useRef(reload);
+  fn.current = reload;
+  useEffect(() => {
+    const tick = () => !document.hidden && fn.current();
+    const t = setInterval(tick, ms);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [ms]);
 }
 
 const HEALTH: Record<HealthState, [string, Level]> = {
