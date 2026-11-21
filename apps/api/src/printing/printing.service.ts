@@ -474,36 +474,84 @@ export class PrintingService {
     return { o, items, paid, data };
   }
 
+  /**
+   * Comanda de cozinha. Com mais de uma cozinha (`sectors`), sai numa ficha só, com o nome de
+   * cada cozinha antes dos itens dela: é o pedido de entrega/retirada que vai inteiro para a
+   * mesma impressora (0.220, pedido do David: "imprime uma vez para cada item").
+   */
   private async kitchenTicket(
     tx: Tx,
     orderId: string,
-    sectorId: string | null,
-    sectorName: string,
+    sectors: { id: string | null; name: string }[],
   ) {
     const o = await this.orderHeader(tx, orderId);
-    const items = await this.items(tx, orderId, sectorId);
-    const custom = await this.custom(tx, 'kitchen_ticket', this.kitchenData(o, sectorName, items));
-    if (custom !== null) return { text: custom, count: items.length };
+    const groups: { name: string; items: Awaited<ReturnType<PrintingService['items']>> }[] = [];
+    for (const s of sectors) {
+      const items = await this.items(tx, orderId, s.id);
+      if (items.length) groups.push({ name: s.name, items });
+    }
+    const all = groups.flatMap((g) => g.items);
+    const title = groups.map((g) => g.name).join(' + ') || sectors[0]?.name || 'Cozinha';
+    const custom = await this.custom(tx, 'kitchen_ticket', this.kitchenData(o, title, all));
+    if (custom !== null) return { text: custom, count: all.length };
     const where = o.table_label
       ? `Mesa ${o.table_label}`
       : o.tab_number
         ? `Comanda ${o.tab_number}`
         : CHANNEL_LABELS[o.channel];
     const out = [
-      center(sectorName.toUpperCase()),
+      ...wrap(title.toUpperCase()).map(center),
       line('='),
       `PEDIDO #${o.number}`.padEnd(WIDTH - 11) + o.local_time.padStart(11),
       where + (o.customer_name ? ` - ${o.customer_name}` : ''),
       line(),
     ];
-    for (const i of items) {
-      out.push(...wrap(`${qtyTicket(i.quantity, i.unit)} ${i.name}`));
-      for (const op of i.options) out.push(...wrap(`+ ${op}`, '   '));
-      if (i.notes) out.push(...wrap(`OBS: ${i.notes}`, '   '));
+    for (const g of groups) {
+      if (groups.length > 1) out.push(center(`-- ${g.name.toUpperCase()} --`.slice(0, WIDTH)));
+      for (const i of g.items) {
+        out.push(...wrap(`${qtyTicket(i.quantity, i.unit)} ${i.name}`));
+        for (const op of i.options) out.push(...wrap(`+ ${op}`, '   '));
+        if (i.notes) out.push(...wrap(`OBS: ${i.notes}`, '   '));
+      }
     }
     if (o.notes) out.push(line(), ...wrap(`OBS DO PEDIDO: ${o.notes}`));
     out.push(line('='));
-    return { text: out.join('\n'), count: items.length };
+    return { text: out.join('\n'), count: all.length };
+  }
+
+  /**
+   * Qual impressora cada destino usa, pelo que os aplicativos de impressão ativos contam no
+   * heartbeat (destino sem rota própria cai na principal). Devolve null quando nenhum contou
+   * (agente de linha de comando): aí não dá para saber e nada é juntado.
+   */
+  private async printerOf(tx: Tx): Promise<((target: string) => string) | null> {
+    const agents = await q<{ printers: { target: string | null; label: string }[] | null }>(
+      tx,
+      `SELECT printers FROM print_agents WHERE active AND printers IS NOT NULL`,
+    );
+    const known = agents.filter((a) => Array.isArray(a.printers) && a.printers.length > 0);
+    if (!known.length) return null;
+    return (target) =>
+      known
+        .map((a) => {
+          const p = a.printers!;
+          return (p.find((r) => r.target === target) ?? p.find((r) => r.target === null))?.label;
+        })
+        .join('|');
+  }
+
+  /**
+   * Junta as cozinhas que saem na mesma impressora (pedido de entrega e retirada: tudo numa
+   * ficha). Sem saber as impressoras, junta tudo: o pedido vai embalado de uma vez.
+   */
+  private async groupByPrinter<T extends { name: string }>(tx: Tx, sectors: T[]): Promise<T[][]> {
+    const printer = await this.printerOf(tx);
+    const groups = new Map<string, T[]>();
+    for (const s of sectors) {
+      const key = printer ? printer(s.name.slice(0, 60)) : '';
+      groups.set(key, [...(groups.get(key) ?? []), s]);
+    }
+    return [...groups.values()];
   }
 
   private async receipt(tx: Tx, scope: ReceiptScope) {
@@ -1005,28 +1053,27 @@ export class PrintingService {
     return r ? 1 : 0;
   }
 
-  /** Enfileira as comandas de cozinha de um pedido novo, uma por setor. Sem agente ativo, não faz nada. */
+  /**
+   * Enfileira as comandas de cozinha de um pedido novo: uma por cozinha. Pedido de entrega e de
+   * retirada sai numa ficha só por impressora (as cozinhas que dividem a impressora vão juntas),
+   * para não sair um papel por item. Sem agente ativo, não faz nada.
+   */
   async enqueueKitchenTickets(tx: Tx, ctx: Ctx, orderId: string): Promise<number> {
     if (!(await this.hasActiveAgent(tx))) return 0;
-    const sectors = await q<{ sector_id: string | null; name: string | null }>(
-      tx,
-      `SELECT DISTINCT i.sector_id, s.name FROM order_items i LEFT JOIN production_sectors s ON s.id = i.sector_id
-        WHERE i.order_id = $1 AND i.status <> 'cancelled'`,
-      [orderId],
-    );
+    const groups = await this.kitchenGroups(tx, orderId);
     let n = 0;
-    for (const s of sectors) {
-      const name = s.name ?? 'Cozinha';
-      const t = await this.kitchenTicket(tx, orderId, s.sector_id, name);
+    for (const g of groups) {
+      const t = await this.kitchenTicket(tx, orderId, g);
       if (!t.count) continue;
+      const ids = g.map((s) => s.id ?? 'none');
       const r = await one(
         tx,
         `INSERT INTO print_jobs (tenant_id, dedupe_key, kind, target, order_id, payload, created_by)
          VALUES ($1,$2,'kitchen_ticket',$3,$4,$5,$6) ON CONFLICT (tenant_id, dedupe_key) DO NOTHING RETURNING id`,
         [
           ctx.tenantId,
-          `order:${orderId}:sector:${s.sector_id ?? 'none'}`,
-          name.slice(0, 60),
+          `order:${orderId}:sector:${ids.length > 1 ? ids.sort().join('+') : ids[0]}`,
+          g[0]!.name.slice(0, 60),
           orderId,
           t.text,
           ctx.userId,
@@ -1035,6 +1082,29 @@ export class PrintingService {
       if (r) n++;
     }
     return n;
+  }
+
+  /** Cozinhas com itens no pedido, já juntadas por impressora quando é entrega ou retirada. */
+  private async kitchenGroups(tx: Tx, orderId: string, onlySector?: string) {
+    const rows = await q<{ sector_id: string | null; name: string | null; channel: OrderChannel }>(
+      tx,
+      `SELECT DISTINCT i.sector_id, s.name, o.channel
+         FROM order_items i JOIN orders o ON o.id = i.order_id
+         LEFT JOIN production_sectors s ON s.id = i.sector_id
+        WHERE i.order_id = $1 AND i.status <> 'cancelled'
+        ORDER BY s.name NULLS LAST`,
+      [orderId],
+    );
+    const sectors = rows
+      .filter(
+        (r) =>
+          onlySector === undefined || r.sector_id === (onlySector === 'none' ? null : onlySector),
+      )
+      .map((r) => ({ id: r.sector_id, name: r.name ?? 'Cozinha' }));
+    const bagged = rows[0] && (rows[0].channel === 'delivery' || rows[0].channel === 'pickup');
+    return bagged && sectors.length > 1
+      ? this.groupByPrinter(tx, sectors)
+      : sectors.map((s) => [s]);
   }
 
   /**
@@ -1067,23 +1137,13 @@ export class PrintingService {
           kind: 'delivery_slip',
         });
       } else {
-        const sectors = await q<{ sector_id: string | null; name: string | null }>(
-          tx,
-          `SELECT DISTINCT i.sector_id, s.name FROM order_items i LEFT JOIN production_sectors s ON s.id = i.sector_id
-            WHERE i.order_id = $1 AND i.status <> 'cancelled'`,
-          [orderId],
-        );
-        const wanted =
-          onlySector === undefined
-            ? sectors
-            : sectors.filter((s) => s.sector_id === (onlySector === 'none' ? null : onlySector));
-        if (!wanted.length) throw new ConflictException('Nada desta cozinha para imprimir');
-        for (const s of wanted) {
-          const name = s.name ?? 'Cozinha';
-          const t = await this.kitchenTicket(tx, orderId, s.sector_id, name);
+        const groups = await this.kitchenGroups(tx, orderId, onlySector);
+        if (!groups.length) throw new ConflictException('Nada desta cozinha para imprimir');
+        for (const g of groups) {
+          const t = await this.kitchenTicket(tx, orderId, g);
           if (t.count)
             jobs.push({
-              target: name,
+              target: g[0]!.name,
               payload: `*** REIMPRESSÃO ***\n${t.text}`,
               kind: 'kitchen_ticket',
             });
@@ -1111,6 +1171,34 @@ export class PrintingService {
     });
     this.realtime.publish(ctx.tenantId, { type: 'print.changed' });
     return res;
+  }
+
+  /**
+   * Histórico de impressões de um pedido (o que saiu, quando, para onde, por quem e o texto do
+   * papel). Inclui a conferência da comanda inteira em que o pedido entrou.
+   */
+  async orderPrints(ctx: Ctx, orderId: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const o = await one<{ tab_id: string | null }>(
+        tx,
+        `SELECT tab_id FROM orders WHERE id = $1`,
+        [orderId],
+      );
+      if (!o) throw new NotFoundException('Pedido não encontrado');
+      return q(
+        tx,
+        `SELECT j.id, j.kind, j.target, j.status, j.created_at AS "createdAt", j.done_at AS "doneAt",
+                j.last_error AS "lastError", j.printer_label AS "printerLabel", a.name AS "agentName",
+                u.name AS "byName", j.payload AS text
+           FROM print_jobs j
+           LEFT JOIN print_agents a ON a.id = j.claimed_by
+           LEFT JOIN users u ON u.id = j.created_by
+          WHERE j.order_id = $1
+             OR ($2::uuid IS NOT NULL AND j.order_id IS NULL AND j.dedupe_key LIKE 'tab:' || $2 || ':receipt:%')
+          ORDER BY j.created_at DESC, j.id DESC LIMIT 50`,
+        [orderId, o.tab_id],
+      );
+    });
   }
 
   async testPage(ctx: Ctx, target: string) {

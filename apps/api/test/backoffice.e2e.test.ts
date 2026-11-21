@@ -1451,6 +1451,108 @@ describe('Impressão (agente local e fila)', () => {
     expect(after[0].payload).toContain('CONFERÊNCIA DE CONTA');
   });
 
+  it('pedido de entrega sai numa ficha só por impressora e o pedido mostra o que foi impresso', async () => {
+    const sector = async (name: string) =>
+      (
+        await ownerQuery<{ id: string }>(
+          `INSERT INTO production_sectors (tenant_id, name) VALUES ($1, $2) RETURNING id`,
+          [fx.tenantA, name],
+        )
+      )[0].id;
+    const product = async (name: string, sectorId: string) =>
+      (
+        await ownerQuery<{ id: string }>(
+          `INSERT INTO products (tenant_id, category_id, name, price, sector_id)
+           VALUES ($1,$2,$3,'10.00',$4) RETURNING id`,
+          [fx.tenantA, fx.catA, name, sectorId],
+        )
+      )[0].id;
+    const chapa = await sector('Chapa Ficha');
+    const bar = await sector('Bar Ficha');
+    const burger = await product('Burger Ficha', chapa);
+    const soda = await product('Refri Ficha', bar);
+    const items = [
+      { productId: burger, quantity: 1 },
+      { productId: soda, quantity: 2 },
+    ];
+    const delivery = () =>
+      order('waiterA', {
+        channel: 'delivery',
+        deliveryAddress: 'Rua das Flores, 100 - Centro',
+        customerName: 'Carla Cliente',
+        customerPhone: '11999990000',
+        items,
+      }).expect(201);
+    const kitchenJobs = (orderId: string) =>
+      ownerQuery<{ target: string; payload: string }>(
+        `SELECT target, payload FROM print_jobs WHERE order_id = $1 AND kind = 'kitchen_ticket'`,
+        [orderId],
+      );
+    // Uma impressora só (todas as cozinhas caem na principal): uma ficha com tudo.
+    await agentPost(agentToken, '/heartbeat', {
+      printers: [{ target: null, label: 'EPSON TM-T20', kind: 'usb' }],
+    }).expect(200);
+    const one = (await delivery()).body as { id: string; number: number };
+    const single = await kitchenJobs(one.id);
+    expect(single).toHaveLength(1);
+    expect(single[0].payload).toContain('1x Burger Ficha');
+    expect(single[0].payload).toContain('2x Refri Ficha');
+    expect(single[0].payload).toContain('-- BAR FICHA --');
+    expect(single[0].payload).toContain('-- CHAPA FICHA --');
+    // A reimpressão também sai numa ficha.
+    await post('adminA', `/orders/${one.id}/print`, { kind: 'kitchen' }).expect(201);
+    expect(await kitchenJobs(one.id)).toHaveLength(2);
+
+    // O bar tem impressora própria: cada impressora recebe a sua parte.
+    await agentPost(agentToken, '/heartbeat', {
+      printers: [
+        { target: null, label: 'EPSON TM-T20', kind: 'usb' },
+        { target: 'Bar Ficha', label: 'Rede do bar', kind: 'network' },
+      ],
+    }).expect(200);
+    const two = (await delivery()).body as { id: string };
+    const split = await kitchenJobs(two.id);
+    expect(split.map((j) => j.target).sort()).toEqual(['Bar Ficha', 'Chapa Ficha']);
+
+    // Salão segue uma comanda por cozinha.
+    const counter = (await order('waiterA', { channel: 'counter', items }).expect(201)).body as {
+      id: string;
+    };
+    expect(await kitchenJobs(counter.id)).toHaveLength(2);
+
+    // Histórico de impressões dentro do pedido: hora, o quê, onde, quem e a prévia.
+    await post('adminA', `/orders/${one.id}/print`, { kind: 'delivery' }).expect(201);
+    const prints = (await get('adminA', `/orders/${one.id}/prints`).expect(200)).body as {
+      kind: string;
+      target: string;
+      status: string;
+      createdAt: string;
+      byName: string | null;
+      text: string;
+    }[];
+    expect(prints.map((p) => p.kind)).toEqual([
+      'delivery_slip',
+      'kitchen_ticket',
+      'kitchen_ticket',
+    ]);
+    expect(prints[0].text).toContain('VIA DE ENTREGA');
+    expect(prints[1].text).toContain('*** REIMPRESSÃO ***');
+    expect(prints.every((p) => p.status === 'queued' && p.createdAt)).toBe(true);
+    // Outro restaurante não lê.
+    await http
+      .get(`/api/v1/orders/${one.id}/prints`)
+      .set('Host', HOST_B)
+      .set('Cookie', cookies.adminB!)
+      .expect((r) => expect([403, 404]).toContain(r.status));
+
+    await ownerQuery(`UPDATE print_jobs SET status = 'done' WHERE order_id = ANY($1::uuid[])`, [
+      [one.id, two.id, counter.id],
+    ]);
+    await agentPost(agentToken, '/heartbeat', {
+      printers: [{ target: null, label: 'EPSON TM-T20', kind: 'usb', state: 'ok' }],
+    }).expect(200);
+  });
+
   it('falha depois de mandar para a impressora não volta sozinha (sem cópias repetidas)', async () => {
     const t = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body as {
       id: string;

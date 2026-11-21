@@ -59,6 +59,7 @@ import { useCan } from '../app/auth';
 import { FiscalSection } from './FiscalSection';
 import { OrderEditor } from './OrderEditor';
 import { OrderLiveMap } from './OrderLiveMap';
+import { OrderPrints } from './OrderPrints';
 import { api } from '../lib/api';
 import { maskPhone } from '../lib/br-format';
 import { ReceiptPreview } from './ReceiptPreview';
@@ -1127,6 +1128,8 @@ export function OrderDetailModal({
                 </ol>
               </details>
             )}
+
+            <OrderPrints orderId={order.id} open={wideDrawer()} />
           </div>
           <CloseOrderPanel
             order={order}

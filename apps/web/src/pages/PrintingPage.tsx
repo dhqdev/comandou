@@ -50,6 +50,7 @@ import { TourButton } from '../features/tour/PageTour';
 const KIND: Record<PrintJob['kind'], string> = {
   kitchen_ticket: 'Comanda',
   receipt: 'Conferência',
+  delivery_slip: 'Via de entrega',
   test: 'Teste',
   fiscal_receipt: 'Cupom fiscal',
   kitchen_cancel: 'Item cancelado',

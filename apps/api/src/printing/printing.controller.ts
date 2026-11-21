@@ -645,6 +645,18 @@ export class PrintingController {
     return this.printing.testPage(ctxOf(t, u), b.target);
   }
 
+  /** O que já foi impresso do pedido (hora, o quê, onde e a prévia do papel). */
+  @Get('orders/:id/prints')
+  @RequirePermission('orders:read')
+  async orderPrints(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    await this.orders.assertInScope(ctxOf(t, u), id);
+    return this.printing.orderPrints(ctxOf(t, u), id);
+  }
+
   /** Comprovante de fechamento (conferência) do pedido, para ver antes de imprimir. */
   @Get('orders/:id/receipt')
   @RequirePermission('orders:read')

@@ -887,7 +887,8 @@ export interface PrintAgentPrinter {
 }
 export interface PrintJob {
   id: string;
-  kind: 'kitchen_ticket' | 'receipt' | 'test' | 'fiscal_receipt' | 'kitchen_cancel';
+  kind:
+    'kitchen_ticket' | 'receipt' | 'delivery_slip' | 'test' | 'fiscal_receipt' | 'kitchen_cancel';
   target: string;
   /** cancelled = tirado da fila na tela Impressão */
   status: 'queued' | 'printing' | 'done' | 'failed' | 'cancelled';
@@ -903,6 +904,21 @@ export interface PrintJob {
   printerLabel: string | null;
   /** Falha que volta sozinha para a fila só a partir desta hora. */
   retryAt: string | null;
+}
+
+/** Uma impressão do pedido (histórico dentro do pedido), com o texto que foi para o papel. */
+export interface OrderPrint {
+  id: string;
+  kind: PrintJob['kind'];
+  target: string;
+  status: PrintJob['status'];
+  createdAt: string;
+  doneAt: string | null;
+  lastError: string | null;
+  printerLabel: string | null;
+  agentName: string | null;
+  byName: string | null;
+  text: string;
 }
 
 export interface FinanceEntry {

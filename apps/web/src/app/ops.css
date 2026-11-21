@@ -1054,6 +1054,77 @@ button.od-fact__link {
   background: var(--cm-surface);
   border: 1px solid var(--cm-text-subtle);
 }
+/* Impressões do pedido: cada papel numa linha; tocar mostra a prévia da bobina. */
+.od-prints .od-pill {
+  margin-right: auto;
+}
+.od-prints__list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cm-space-1);
+  margin: var(--cm-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.od-prints__row {
+  min-width: 0;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+}
+.od-prints__head {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  width: 100%;
+  padding: var(--cm-space-2) var(--cm-space-3);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.od-prints__head:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: -2px;
+  border-radius: var(--cm-radius-md);
+}
+.od-prints__icon {
+  flex: none;
+  color: var(--cm-text-muted);
+}
+.od-prints__main {
+  display: grid;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--cm-text-sm);
+}
+.od-prints__error {
+  color: var(--cm-danger);
+}
+.od-prints__chev {
+  flex: none;
+  color: var(--cm-text-subtle);
+  transition: transform 160ms ease-out;
+}
+.od-prints__head[aria-expanded='true'] .od-prints__chev {
+  transform: rotate(180deg);
+}
+.receipt-paper.od-prints__paper {
+  box-sizing: border-box;
+  width: auto;
+  margin: 0 var(--cm-space-3) var(--cm-space-3);
+  max-height: 320px;
+  overflow: auto;
+  font-size: 11px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .od-prints__chev {
+    transition: none;
+  }
+}
 /* Cabeçalho da gaveta: ícone do tipo, número e etiquetas (mesa, comanda, origem). */
 .odh {
   display: flex;

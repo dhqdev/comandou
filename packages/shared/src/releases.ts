@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.220.0',
+    date: '2026-11-21',
+    title: 'Delivery numa ficha só e histórico de impressões',
+    summary:
+      'O pedido de entrega e de retirada sai numa ficha só na impressora, em vez de um papel para cada cozinha, e cada pedido mostra tudo o que já foi impresso dele, com a hora e a prévia do papel.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Pedido de entrega e de retirada: as cozinhas que usam a mesma impressora saem juntas numa ficha só, com o nome de cada cozinha antes dos itens dela. Cozinha com impressora própria continua recebendo só a parte dela. O salão segue com uma comanda por cozinha.',
+      },
+      {
+        tag: 'novo',
+        text: 'Impressões no pedido: a lista mostra cada papel que saiu (comanda da cozinha, conferência, via de entrega, cupom fiscal, item cancelado), com a hora, a impressora, quem mandou e se já imprimiu. Tocando na linha, aparece a prévia do papel.',
+      },
+    ],
+  },
+  {
     version: '0.219.0',
     date: '2026-11-21',
     title: 'Ícone de cada restaurante no Super Admin',
