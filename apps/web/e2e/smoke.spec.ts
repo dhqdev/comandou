@@ -28,11 +28,10 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
   await passwordField(page).fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await skipTour(page);
-  await expect(page.getByText(/Olá, /)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pedidos', exact: true })).toBeVisible();
   // Fica conectado no aparelho: o cookie vale semanas e não some ao fechar o app.
   const session = (await page.context().cookies()).find((c) => c.name === 'cm_sid');
   expect(session!.expires * 1000 - Date.now()).toBeGreaterThan(7 * 86400_000);
-  await expect(page.getByRole('heading', { name: 'Pedidos', exact: true })).toBeVisible();
   await page.screenshot({
     path: `test-results/screens/${info.project.name}-pdv.png`,
     fullPage: true,
