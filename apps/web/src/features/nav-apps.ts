@@ -30,6 +30,33 @@ export function navUrl(app: NavApp, d: Dest) {
   }
 }
 
+/**
+ * Texto do pedido ("Rua, 10 — Bloco B — Bairro — Campinas/SP — CEP … — Ref.: …") só com o que o
+ * mapa entende: complemento e ponto de referência atrapalham a busca.
+ */
+export function mapsQuery(address: string) {
+  const parts = address
+    .split(' — ')
+    .map((p) => p.trim())
+    .filter((p) => p && !/^ref\.?:/i.test(p));
+  const city = parts.findIndex((p, i) => i > 0 && /\/[A-Za-z]{2}$/.test(p));
+  if (city < 2) return parts.join(', ');
+  return [parts[0], ...parts.slice(city - 1)].join(', ');
+}
+
+/** O lugar do cliente no Google Maps: o pino do pedido, ou o endereço quando não há pino. */
+export function mapsPlaceUrl(d: {
+  deliveryAddress?: string | null;
+  deliveryLat?: string | null;
+  deliveryLng?: string | null;
+}) {
+  const q =
+    d.deliveryLat && d.deliveryLng
+      ? `${d.deliveryLat},${d.deliveryLng}`
+      : mapsQuery(d.deliveryAddress ?? '');
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+}
+
 const KEY = 'cm-nav-app';
 
 /** O app que o entregador usou por último (sem escolha: Apple Mapas no iPhone, Google nos outros). */

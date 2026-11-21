@@ -390,6 +390,41 @@
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
+/* Endereço com a setinha que abre o lugar do cliente no Google Maps. */
+.od-address {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.od-address > span {
+  min-width: 0;
+}
+.od-address__map {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--cm-brand-600) 35%, var(--cm-border));
+  background: color-mix(in oklab, var(--cm-brand-600) 10%, var(--cm-surface));
+  color: var(--cm-brand-700, var(--cm-brand-600));
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+@media (hover: hover) {
+  .od-address__map:hover {
+    background: color-mix(in oklab, var(--cm-brand-600) 20%, var(--cm-surface));
+  }
+}
+.od-address__map:active {
+  transform: scale(0.95);
+}
+.od-address__map:focus-visible {
+  outline: 2px solid var(--cm-brand-600);
+  outline-offset: 2px;
+}
 .od-fact .cm-badge {
   height: 18px;
   padding: 0 6px;

@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.216.0',
+    date: '2026-11-21',
+    title: 'Setinha no endereço do pedido abre o Google Maps',
+    summary:
+      'Nos detalhes do pedido, a setinha ao lado do endereço abre no Google Maps o lugar onde o cliente mora: o pino confirmado por ele ou, sem pino, o endereço escrito.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Detalhes do pedido: botão de seta no Endereço abre o local do cliente no Google Maps em outra aba. Usa o pino do mapa quando existe; sem pino, busca pela rua, bairro, cidade e CEP, sem o complemento e a referência.',
+      },
+    ],
+  },
+  {
     version: '0.215.2',
     date: '2026-11-21',
     title: 'Assinatura usa a tela inteira no computador',

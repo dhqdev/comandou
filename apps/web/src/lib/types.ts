@@ -279,6 +279,9 @@ export interface Order {
   customerName: string | null;
   customerPhone: string | null;
   deliveryAddress: string | null;
+  /** Pino que o cliente confirmou no mapa. */
+  deliveryLat?: string | null;
+  deliveryLng?: string | null;
   /** CPF/CNPJ na nota, informado no pagamento. */
   taxDocument?: string | null;
   notes: string | null;

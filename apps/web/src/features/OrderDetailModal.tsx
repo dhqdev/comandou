@@ -17,6 +17,7 @@ import {
   ChefHat,
   Check,
   ChevronLeft,
+  ArrowUpRight,
   ChevronRight,
   CircleCheckBig,
   Flame,
@@ -40,6 +41,7 @@ import {
   XCircle,
   Smartphone,
 } from 'lucide-react';
+import { mapsPlaceUrl } from './nav-apps';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import {
@@ -821,7 +823,19 @@ export function OrderDetailModal({
                 )}
                 {order.deliveryAddress && (
                   <Fact icon={<MapPin size={15} />} label="Endereço" hue="rose" wide>
-                    {order.deliveryAddress}
+                    <span className="od-address">
+                      <span>{order.deliveryAddress}</span>
+                      <a
+                        className="od-address__map"
+                        href={mapsPlaceUrl(order)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Abrir endereço do cliente no Google Maps"
+                        title="Abrir no Google Maps"
+                      >
+                        <ArrowUpRight size={16} aria-hidden />
+                      </a>
+                    </span>
                   </Fact>
                 )}
               </dl>
