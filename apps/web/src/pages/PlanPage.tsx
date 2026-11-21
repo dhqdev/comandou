@@ -485,7 +485,7 @@ function SinglePrice({ view }: { view: BillingView }) {
           sistema incluso, sem plano maior e sem cobrança por usuário.
         </p>
       </section>
-      <section className="sub-panel" aria-label="O que está incluso">
+      <section className="sub-panel sub-included" aria-label="O que está incluso">
         <h2 className="sub-h2">O que está incluso</h2>
         <ul className="sub-single__list">
           {singlePlanList(plan).map((b) => (

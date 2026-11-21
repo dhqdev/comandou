@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.215.2',
+    date: '2026-11-21',
+    title: 'Assinatura usa a tela inteira no computador',
+    summary:
+      'Na tela Assinatura, o conteúdo agora ocupa toda a largura no notebook e no computador, sem a faixa vazia à direita.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Assinatura: em telas largas, o preço e o que está incluso ficam lado a lado, e a forma de pagamento e as faturas usam a largura toda. No celular continua igual.',
+      },
+    ],
+  },
+  {
     version: '0.215.1',
     date: '2026-11-21',
     title: 'Abas da Cozinha mais organizadas',
