@@ -16,7 +16,13 @@ import { chatForCookies, chatRoom, GUEST_COOKIE } from '../store-chat/store-chat
 import { CUSTOMER_COOKIE } from '../store/customers.service';
 import { TenantResolverService } from '../tenancy/tenant-resolver.service';
 import { PlatformDb } from '../platform/platform-db.service';
-import { RealtimeService, tenantAllRoom, tenantRoom, userRoom } from './realtime.service';
+import {
+  driversRoom,
+  RealtimeService,
+  tenantAllRoom,
+  tenantRoom,
+  userRoom,
+} from './realtime.service';
 
 const REVALIDATE_MS = 60_000;
 
@@ -164,7 +170,9 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     if (socket.data.chatId) return this.customerConnection(socket, tenantId);
     const own = userRoom(tenantId, socket.data.userId as string);
     const all = tenantAllRoom(tenantId);
-    await socket.join(socket.data.personal ? [own, all] : [tenantRoom(tenantId), own, all]);
+    await socket.join(
+      socket.data.personal ? [own, all, driversRoom(tenantId)] : [tenantRoom(tenantId), own, all],
+    );
     socket.emit('ready', { tenantId, cacheEpoch: await this.cacheEpoch(tenantId) });
     // A cada minuto: sessão ainda válida e restaurante ainda ativo (suspenso desconecta).
     const timer = setInterval(() => {

@@ -17,6 +17,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge, Button, EmptyState, TextField, useToast } from '../design-system';
 import { brl } from '../lib/money';
+import { useRealtimeEvents } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
 import type { AvailableRun, CourierProfile, Delivery } from '../lib/types';
 import { minutesSince, PAYMENT_METHOD_LABELS, time } from './format';
@@ -93,6 +94,7 @@ export function DriverPanel({
   store,
   earnings,
   data,
+  live = false,
 }: {
   deliveries: Delivery[];
   actions: DriverActions;
@@ -102,30 +104,43 @@ export function DriverPanel({
   earnings?: () => Promise<CourierEarningsData>;
   /** Pedidos para pegar, histórico e perfil. */
   data: DriverData;
+  /**
+   * Entregador com login: a aba Disponíveis recarrega na hora pelo tempo real (`runs.changed`).
+   * Sem login (link), não há conexão: a lista é consultada a cada poucos segundos.
+   */
+  live?: boolean;
 }) {
   const [tab, setTab] = useState<DriverTab>('home');
   const [available, setAvailable] = useState<AvailableRun[] | null>(null);
   const [profile, setProfile] = useState<CourierProfile | null>(null);
   const out = deliveries.filter((d) => d.status === 'out');
 
-  // Pedidos para pegar: a cada 15 s e quando a tela volta (o app do motoboy não usa tempo real).
+  // Pedidos para pegar: na hora pelo tempo real (com login) e, de reserva, a cada poucos segundos
+  // e quando a tela volta. Falha aparece na aba (ex.: login sem cadastro de entregador), em vez de
+  // fingir que não há pedido.
+  const [availableError, setAvailableError] = useState<string | null>(null);
   const loadAvailable = useCallback(async () => {
     try {
       setAvailable(await data.available());
-    } catch {
+      setAvailableError(null);
+    } catch (e) {
       setAvailable((cur) => cur ?? []);
+      setAvailableError((e as Error).message);
     }
   }, [data]);
   useEffect(() => {
     void loadAvailable();
-    const id = setInterval(loadAvailable, 15_000);
+    const id = setInterval(loadAvailable, live ? 20_000 : 8_000);
     const onVisible = () => document.visibilityState === 'visible' && void loadAvailable();
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [loadAvailable]);
+  }, [loadAvailable, live]);
+  useRealtimeEvents((e) => {
+    if (e.type === 'runs.changed' || e.type === 'delivery.changed') void loadAvailable();
+  }, live);
   // Pedido novo para pegar toca o som de chamada.
   useArrivalSound(
     'courier',
@@ -168,6 +183,7 @@ export function DriverPanel({
         {tab === 'available' && (
           <AvailableTab
             list={available}
+            error={availableError}
             claim={data.claim}
             onClaimed={(ok) => {
               void loadAvailable();
