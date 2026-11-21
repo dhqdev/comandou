@@ -91,6 +91,8 @@ export function TabModal({
   const pending = useRef<TabIntent | null>(null);
   /** Recebimento aberto pelo "Fechar conta": pago tudo, a conta fecha junto. */
   const closeAfterPay = useRef(false);
+  /** Pergunta antes de fechar: fechar a conta libera a mesa e não tem volta. */
+  const [confirming, setConfirming] = useState(false);
 
   const load = useCallback(async () => {
     if (!tabId) return null;
@@ -108,6 +110,7 @@ export function TabModal({
     setTransfer(false);
     pending.current = intent;
     closeAfterPay.current = false;
+    setConfirming(false);
     void load();
     // A ação do menu vale só para a comanda que abriu com ela.
   }, [load]);
@@ -124,6 +127,7 @@ export function TabModal({
     setBusy(true);
     try {
       await api(`/tabs/${target.id}/close`, { method: 'POST' });
+      setConfirming(false);
       toast(`Conta da comanda ${target.number} fechada`, 'success');
       onChanged();
       setReceipt({ afterClose: true });
@@ -186,7 +190,7 @@ export function TabModal({
       if (toCents(tab.balance) > 0) {
         closeAfterPay.current = true;
         setPaying(true);
-      } else void close(tab);
+      } else setConfirming(true);
     }
   }, [tab, tabId, canOperate, canPay]);
 
@@ -235,7 +239,7 @@ export function TabModal({
               size="lg"
               loading={busy}
               icon={<CircleCheck size={18} />}
-              onClick={() => void close()}
+              onClick={() => setConfirming(true)}
             >
               Fechar conta
             </Button>
@@ -408,7 +412,9 @@ export function TabModal({
               const andClose = closeAfterPay.current;
               closeAfterPay.current = false;
               void load().then((t) => {
-                if (andClose && t?.status === 'open' && toCents(t.balance) <= 0) void close(t);
+                // Pago tudo pelo "Fechar conta": ainda pergunta antes de fechar.
+                if (andClose && t?.status === 'open' && toCents(t.balance) <= 0)
+                  setConfirming(true);
               });
               onChanged();
             }}
@@ -427,6 +433,43 @@ export function TabModal({
               void load();
             }}
           />
+          <Modal
+            open={confirming && tab.status === 'open'}
+            onClose={() => setConfirming(false)}
+            title={`Fechar a conta da comanda ${tab.number}?`}
+            footer={
+              <>
+                <Button variant="secondary" onClick={() => setConfirming(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="success"
+                  loading={busy}
+                  icon={<CircleCheck size={18} />}
+                  onClick={() => void close()}
+                >
+                  Fechar conta
+                </Button>
+              </>
+            }
+          >
+            <div className="tab-summary">
+              <div>
+                <span>Total</span>
+                <strong>{brl(tab.total)}</strong>
+              </div>
+              <div>
+                <span>Pago</span>
+                <strong>{brl(tab.paid)}</strong>
+              </div>
+            </div>
+            <p className="cm-hint">
+              {tab.tableLabel
+                ? `A mesa ${tab.tableLabel} fica livre e a comanda sai do salão. `
+                : 'A comanda sai do salão. '}
+              Nenhum pagamento novo é lançado: só fecha o que já foi pago.
+            </p>
+          </Modal>
           <ReceiptPreview
             target={receipt ? { kind: 'tab', id: tab.id } : null}
             onClose={() => {

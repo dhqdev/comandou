@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.213.1',
+    date: '2026-11-21',
+    title: 'Fechar a conta pergunta antes',
+    summary:
+      'Fechar a conta de uma mesa ou comanda agora sempre pergunta antes, mostrando o total e o que já foi pago. Antes, no cartão do PDV, uma comanda já paga fechava direto no clique.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'PDV e Salão: o botão Fechar conta (no cartão, nos três pontinhos e na janela da comanda) abre a pergunta "Fechar a conta da comanda?" com total e pago; só fecha ao confirmar. Com saldo, o recebimento abre antes e a pergunta vem depois de receber. Nenhum pagamento é lançado sem você escolher.',
+      },
+    ],
+  },
+  {
     version: '0.213.0',
     date: '2026-11-21',
     title:
