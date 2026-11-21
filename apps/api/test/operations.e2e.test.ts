@@ -790,6 +790,14 @@ describe('Salão: mesas, comandas, transferência e divisão de conta', () => {
     await post('adminA', `/tabs/${other.id}/close`).expect(201); // comanda vazia fecha
   });
 
+  it('renomeia a comanda (garçom) e tira o nome com vazio', async () => {
+    const r = await post('waiterA', `/tabs/${tabId}/name`, { customerName: '  Ana  ' }).expect(201);
+    expect(r.body.customerName).toBe('Ana');
+    const cleared = await post('waiterA', `/tabs/${tabId}/name`, { customerName: '' }).expect(201);
+    expect(cleared.body.customerName).toBeNull();
+    await post('waiterA', `/tabs/${tabId}/name`, { customerName: 'x'.repeat(81) }).expect(400);
+  });
+
   it('divide a conta em 3 partes, fecha só depois de pago e pronto', async () => {
     const tab = (await get('cashierA', `/tabs/${tabId}`).expect(200)).body;
     expect(tab.balance).toBe('93.70');

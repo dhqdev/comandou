@@ -20,6 +20,36 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.212.0',
+    date: '2026-11-21',
+    title:
+      'PDV: ações da comanda no cartão, busca com favoritos e salão do tamanho que você quiser',
+    summary:
+      'No salão do PDV, cada mesa ocupada e cada comanda tem imprimir, fechar conta e os três pontinhos com Ver pedidos, Renomear, Transferir e Fechar conta. Setas entre o Salão e os Pedidos deixam um ou outro maior, a busca ficou larga e guarda as recentes e os favoritos, e o Nova venda ganhou destaque.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'PDV › Salão: o cartão da mesa ocupada e da comanda mostra total, comanda e mesa, com os botões de imprimir a conta e fechar a conta e o menu de três pontinhos (Ver pedidos, Renomear, Transferir, Fechar conta). Fechar conta com saldo abre o recebimento e fecha sozinha quando o saldo zera.',
+      },
+      {
+        tag: 'novo',
+        text: 'Comanda: dá para renomear (nome do cliente ou apelido) pelo menu do cartão; a mudança fica no histórico.',
+      },
+      {
+        tag: 'novo',
+        text: 'PDV: setas entre o Salão e os Pedidos aumentam ou diminuem as linhas de mesas (para cima até recolher o salão); o tamanho fica guardado no aparelho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: a busca ficou mais larga e, ao tocar nela, mostra as últimas buscas (Recentes) e as marcadas com a estrela (Favoritos), guardadas por pessoa neste aparelho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: Nova venda maior e em destaque; saíram o botão Mensagens (as conversas com clientes seguem no ícone do topo) e o filtro "Todos os tipos" dos Pedidos.',
+      },
+    ],
+  },
+  {
     version: '0.211.4',
     date: '2026-11-21',
     title: 'Vender fiado ocupa o pedido todo',

@@ -463,9 +463,7 @@ export function AppShell() {
             <ConnectionSignal />
             {allowed(['printing:manage']) && <PrintStatus />}
             <GlobalSearchTrigger icon onOpen={() => setSearchOpen(true)} />
-            {location.pathname !== '/' && location.pathname !== '/pdv' && (
-              <SupportButton className="topbar__support" />
-            )}
+            <SupportButton className="topbar__support" />
             <ChatTopButtons />
             <NewsBell />
             <SoundControl />

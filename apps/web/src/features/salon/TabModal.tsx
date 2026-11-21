@@ -8,7 +8,7 @@ import {
   ReceiptText,
   Wallet,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -40,9 +40,15 @@ import '../../pages/salon.css';
 
 const pct = (v: string) => `${Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`;
 
+/** O que a janela já faz ao abrir, vindo do menu do cartão no PDV. */
+export type TabIntent = 'transfer' | 'close';
+
 /**
  * Comanda aberta: pedidos, taxa de serviço, troca de mesa, conta e pagamento. Usada no Salão e no
  * PDV (toque numa mesa ocupada ou numa comanda abre aqui mesmo, sem trocar de tela).
+ *
+ * `intent` vem do menu de três pontinhos do PDV: `transfer` abre já na escolha da mesa e `close`
+ * fecha a conta (com saldo, abre o recebimento e fecha sozinha quando o saldo zera).
  */
 export function TabModal({
   tabId,
@@ -50,8 +56,10 @@ export function TabModal({
   onClose,
   onChanged,
   onBillRequested,
+  intent = null,
 }: {
   tabId: string | null;
+  intent?: TabIntent | null;
   tables: DiningTable[];
   onClose(): void;
   onChanged(): void;
@@ -79,18 +87,29 @@ export function TabModal({
   /** Comprovante de fechamento na tela (antes ou logo depois de fechar a conta). */
   const [receipt, setReceipt] = useState<{ afterClose: boolean } | null>(null);
 
+  /** Ação do menu ainda por fazer (uma vez, assim que a comanda chega). */
+  const pending = useRef<TabIntent | null>(null);
+  /** Recebimento aberto pelo "Fechar conta": pago tudo, a conta fecha junto. */
+  const closeAfterPay = useRef(false);
+
   const load = useCallback(async () => {
-    if (!tabId) return;
+    if (!tabId) return null;
     try {
-      setTab(await api<Tab>(`/tabs/${tabId}`));
+      const t = await api<Tab>(`/tabs/${tabId}`);
+      setTab(t);
+      return t;
     } catch (e) {
       toast((e as Error).message, 'danger');
+      return null;
     }
   }, [tabId, toast]);
   useEffect(() => {
     setTab(null);
     setTransfer(false);
+    pending.current = intent;
+    closeAfterPay.current = false;
     void load();
+    // A ação do menu vale só para a comanda que abriu com ela.
   }, [load]);
   useRealtime((e) => {
     if (
@@ -100,12 +119,12 @@ export function TabModal({
       void load();
   }, load);
 
-  async function close() {
-    if (!tab) return;
+  async function close(target: Tab | null = tab) {
+    if (!target) return;
     setBusy(true);
     try {
-      await api(`/tabs/${tab.id}/close`, { method: 'POST' });
-      toast(`Conta da comanda ${tab.number} fechada`, 'success');
+      await api(`/tabs/${target.id}/close`, { method: 'POST' });
+      toast(`Conta da comanda ${target.number} fechada`, 'success');
       onChanged();
       setReceipt({ afterClose: true });
     } catch (e) {
@@ -155,6 +174,22 @@ export function TabModal({
     }
   }
 
+  // Ação pedida pelo menu do cartão, assim que a comanda carrega.
+  useEffect(() => {
+    const want = pending.current;
+    if (!tab || !want || tab.id !== tabId) return;
+    pending.current = null;
+    if (tab.status !== 'open') return;
+    if (want === 'transfer') {
+      if (canOperate) setTransfer(true);
+    } else if (canPay) {
+      if (toCents(tab.balance) > 0) {
+        closeAfterPay.current = true;
+        setPaying(true);
+      } else void close(tab);
+    }
+  }, [tab, tabId, canOperate, canPay]);
+
   const title = tab
     ? tab.tableLabel
       ? `Mesa ${tab.tableLabel} · comanda ${tab.number}`
@@ -200,7 +235,7 @@ export function TabModal({
               size="lg"
               loading={busy}
               icon={<CircleCheck size={18} />}
-              onClick={close}
+              onClick={() => void close()}
             >
               Fechar conta
             </Button>
@@ -364,10 +399,17 @@ export function TabModal({
           />
           <PaymentModal
             open={paying}
-            onClose={() => setPaying(false)}
+            onClose={() => {
+              setPaying(false);
+              closeAfterPay.current = false;
+            }}
             onPaid={() => {
               setPaying(false);
-              void load();
+              const andClose = closeAfterPay.current;
+              closeAfterPay.current = false;
+              void load().then((t) => {
+                if (andClose && t?.status === 'open' && toCents(t.balance) <= 0) void close(t);
+              });
               onChanged();
             }}
             target={{

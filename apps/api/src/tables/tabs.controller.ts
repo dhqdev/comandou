@@ -110,6 +110,20 @@ export class TabsController {
     return this.tabs.transfer(ctxOf(t, u, req), id, b.tableId);
   }
 
+  /** Muda o nome da comanda (cliente); `null` ou vazio tira o nome. */
+  @Post(':id/name')
+  @RequirePermission('tables:operate')
+  rename(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(z.object({ customerName: z.string().trim().max(80).nullable() })))
+    b: { customerName: string | null },
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.tabs.rename(ctxOf(t, u, req), id, b.customerName);
+  }
+
   /** Paga a comanda (inteira, parte do valor ou pedidos escolhidos). Exige `Idempotency-Key`. */
   @Post(':id/payments')
   @RequirePermission('payments:create')

@@ -227,6 +227,28 @@ export class TabsService {
     return this.salonSettings(ctx);
   }
 
+  /** Renomeia a comanda (nome do cliente que aparece no salão e no PDV); vazio tira o nome. */
+  async rename(ctx: Ctx, id: string, customerName: string | null) {
+    const name = customerName?.trim() || null;
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      const tab = await this.lockTab(tx, id);
+      if (tab.status !== 'open') throw new ConflictException('Comanda não está aberta');
+      await q(tx, `UPDATE tabs SET customer_name = $2 WHERE id = $1`, [id, name]);
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'tab.renamed',
+        entity: 'tab',
+        entityId: id,
+        data: { customerName: name },
+        ip: ctx.ip,
+      });
+      return this.detail(tx, id);
+    });
+    this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId: id });
+    return res;
+  }
+
   /** Transferência de mesa: a comanda inteira vai para outra mesa livre. */
   async transfer(ctx: Ctx, id: string, tableId: string) {
     const res = await this.db.withTenant(ctx, async (tx) => {

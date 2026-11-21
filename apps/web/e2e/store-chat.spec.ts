@@ -51,7 +51,7 @@ test('cliente conversa com a loja pelo cardápio e o PDV responde', async ({
 
   // Equipe: selo no PDV, abre e responde.
   await enterPanel(page, EMAIL, PASSWORD);
-  const button = page.locator('.pdv__chat');
+  const button = page.locator('.topbar__support');
   await expect(button.locator('.sbtn__count')).toBeVisible();
   await button.click();
   const panel = page.getByRole('dialog', { name: /Mensagens dos clientes/ });

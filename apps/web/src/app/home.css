@@ -15,11 +15,15 @@
   flex: 1;
 }
 /* Só a busca encolhe: os botões da barra nunca cortam o texto (tablet em pé). */
-.pdv__bar > :not(.pdv__search, .pdv__spacer) {
+.pdv__bar > :not(.pdv__find, .pdv__spacer) {
   flex: none;
 }
-.pdv__bar > .pdv__search {
+/* Busca larga (pedido do David): cresce até 640px e só ela encolhe quando falta lugar. */
+.pdv__bar > .pdv__find {
+  position: relative;
+  flex: 1 1 360px;
   min-width: 120px;
+  max-width: 640px;
 }
 /* Tablet e celular não têm F2: o atalho só ocupa lugar. */
 @media (pointer: coarse) {
@@ -28,12 +32,10 @@
   }
 }
 .pdv__search {
-  flex: 1 1 220px;
-  max-width: 380px;
   display: flex;
   align-items: center;
   gap: var(--cm-space-2);
-  height: 40px;
+  height: 44px;
   padding: 0 var(--cm-space-3);
   border: 1px solid var(--cm-input-line);
   border-radius: var(--cm-radius-md);
@@ -47,12 +49,136 @@
 .pdv__search input {
   flex: 1;
   min-width: 0;
+  height: 100%;
   border: 0;
   outline: 0;
   background: none;
   color: var(--cm-text);
   font: inherit;
+  font-size: var(--cm-text-md, 0.9375rem);
+}
+/* Lista da busca: Recentes e Favoritos, logo embaixo do campo. */
+.pdv-find {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  padding: 6px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-lg);
+  transform-origin: top center;
+  animation: pdv-tabmenu-in var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.pdv-find__tabs {
+  display: flex;
+  gap: 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--cm-border);
+}
+.pdv-find__tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: calc(var(--cm-radius-lg) - 7px);
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
   font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.pdv-find__tabs button[aria-selected='true'] {
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+}
+.pdv-find__tabs b {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--cm-surface-muted);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.pdv-find__empty {
+  margin: 0;
+  padding: 14px 10px 10px;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-sm);
+}
+.pdv-find__list {
+  display: grid;
+  max-height: 320px;
+  margin: 0;
+  padding: 6px 0 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.pdv-find__list li {
+  display: flex;
+  align-items: center;
+  border-radius: calc(var(--cm-radius-lg) - 7px);
+}
+.pdv-find__list li:hover,
+.pdv-find__list li:focus-within {
+  background: var(--cm-surface-muted);
+}
+.pdv-find__term {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.pdv-find__term:focus-visible {
+  outline: none;
+}
+.pdv-find__term svg {
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+.pdv-find__term span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdv-find__star,
+.pdv-find__clear {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--cm-text-subtle);
+  cursor: pointer;
+}
+.pdv-find__star:hover,
+.pdv-find__clear:hover {
+  color: var(--cm-text);
+}
+.pdv-find__star[data-on] {
+  color: var(--cm-warning);
+}
+.pdv-find__star[data-on] svg {
+  fill: currentColor;
 }
 .pdv__store {
   flex: none;
@@ -86,9 +212,14 @@
   color: var(--cm-text);
   border-color: var(--cm-gray-300);
 }
+/* Nova venda: o botão mais forte da tela (pedido do David), maior que os outros da barra. */
 .pdv__new {
   flex: none;
-  min-height: 40px;
+  min-height: 48px;
+  padding: 0 22px;
+  gap: 8px;
+  font-size: var(--cm-text-md, 0.9375rem);
+  font-weight: 700;
 }
 /* Atalhos da loja (página, cardápio, copiar link) colados num grupo só, com linha fina entre eles. */
 .pdv__links {
@@ -225,23 +356,6 @@
 .pdv-chip.switch {
   gap: 8px;
 }
-.pdv-select {
-  position: relative;
-  padding-right: 8px;
-}
-.pdv-select select {
-  appearance: none;
-  border: 0;
-  outline: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  padding-right: 2px;
-  cursor: pointer;
-}
-.pdv-select:focus-within {
-  box-shadow: var(--cm-focus);
-}
 /* Totais do dia ao lado do título dos pedidos. */
 .pdv-today {
   display: flex;
@@ -338,9 +452,11 @@
 .pdv-salon__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  grid-auto-rows: 64px;
+  /* Altura de uma linha de mesas: o celular encolhe e as setas do salão contam por ela. */
+  --pdv-row: 76px;
+  grid-auto-rows: var(--pdv-row);
   gap: var(--cm-space-2);
-  max-height: calc(64px * 2 + var(--cm-space-2) + 4px);
+  max-height: calc(var(--pdv-row) * 2 + var(--cm-space-2) + 4px);
   overflow-y: auto;
   padding: 2px;
   scroll-snap-type: y mandatory;
@@ -349,12 +465,53 @@
 .pdv-salon__grid > * {
   scroll-snap-align: start;
 }
+/* Tamanho escolhido pelas setas (vale mais que o padrão de cada altura de janela). */
+.pdv-salon__grid[data-rows] {
+  max-height: calc(
+    var(--pdv-row) * var(--pdv-rows) + var(--cm-space-2) * (var(--pdv-rows) - 1) + 4px
+  );
+}
+/* Setas entre o Salão e os Pedidos: ficam no vão entre os dois blocos. */
+.pdv-split {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  height: 22px;
+  margin: calc(var(--cm-space-2) * -1) 0;
+}
+.pdv-split__btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 999px;
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.pdv-split__btn:hover:not(:disabled) {
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+}
+.pdv-split__btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.pdv-split__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 .pdv-table {
   display: grid;
   gap: 4px;
   align-content: start;
   min-width: 0;
-  min-height: 64px;
+  min-height: 76px;
   /* O conteúdo nunca passa da altura da linha: sem cartão cortado nem barra de rolagem sobrando. */
   overflow: hidden;
   padding: 10px 12px;
@@ -374,7 +531,8 @@
   transform: scale(0.97);
   transition-duration: var(--cm-dur-fast), 0.08s;
 }
-.pdv-table > strong::before {
+.pdv-table > strong::before,
+.pdv-tabcard__open > strong::before {
   content: '';
   display: inline-block;
   width: 8px;
@@ -424,6 +582,219 @@
   color: var(--cm-text-subtle);
   font-weight: 500;
 }
+/* Cartão de comanda (mesa ocupada ou comanda): o cartão todo abre a comanda e, à direita,
+   imprimir, fechar a conta e os três pontinhos. Estreito (celular), só os três pontinhos. */
+@media (min-width: 640px) {
+  .pdv-salon__grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+.pdv-tabcard {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--cm-space-2);
+  container-type: inline-size;
+  cursor: default;
+}
+.pdv-tabcard:active {
+  transform: none;
+}
+.pdv-tabcard:has(.pdv-tabcard__open:active) {
+  transform: scale(0.97);
+}
+.pdv-tabcard[data-menu] {
+  background: var(--cm-surface-muted);
+}
+.pdv-tabcard__open {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* O toque em qualquer canto do cartão (fora dos botões) abre a comanda. */
+.pdv-tabcard__open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.pdv-tabcard__open:focus-visible {
+  outline: none;
+}
+.pdv-tabcard:has(.pdv-tabcard__open:focus-visible) {
+  outline: 2px solid var(--cm-focus, var(--cm-brand-500));
+  outline-offset: 2px;
+}
+.pdv-table__sub {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--cm-text-xs);
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--cm-text-muted);
+}
+.pdv-tabcard__actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+}
+.pdv-tabcard__btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.pdv-tabcard__btn:hover {
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+}
+.pdv-tabcard__btn:active {
+  transform: scale(0.94);
+}
+.pdv-tabcard__btn--pay {
+  color: var(--cm-danger);
+  border-color: color-mix(in oklab, var(--cm-danger) 35%, transparent);
+}
+.pdv-tabcard__btn--pay:hover {
+  color: var(--cm-danger);
+  background: color-mix(in oklab, var(--cm-danger) 8%, var(--cm-surface));
+}
+.pdv-tabcard__btn[aria-expanded='true'] {
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+}
+/* Cartão estreito (celular): só os três pontinhos, pequenos no canto, para o nome caber. */
+@container (max-width: 205px) {
+  .pdv-tabcard__btn--wide {
+    display: none;
+  }
+  .pdv-tabcard__actions {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+  }
+  .pdv-tabcard__btn {
+    width: 28px;
+    height: 28px;
+    border-color: transparent;
+    background: none;
+  }
+  .pdv-tabcard__open > strong {
+    padding-right: 20px;
+  }
+}
+
+/* Menu dos três pontinhos (mora no <body>, preso ao botão). */
+.pdv-tabmenu {
+  position: fixed;
+  z-index: 1001;
+  top: -9999px;
+  left: -9999px;
+  width: 248px;
+  padding: 6px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-lg);
+  transform-origin: top right;
+  animation: pdv-tabmenu-in var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.pdv-tabmenu:not([data-placed]) {
+  visibility: hidden;
+}
+@keyframes pdv-tabmenu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pdv-tabmenu {
+    animation: none;
+  }
+}
+.pdv-tabmenu__head {
+  display: grid;
+  gap: 1px;
+  padding: 8px 10px 10px;
+}
+.pdv-tabmenu__head span,
+.pdv-tabmenu__head small {
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.pdv-tabmenu__head strong {
+  font-size: var(--cm-text-lg, 1.125rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+.pdv-tabmenu__group {
+  display: grid;
+  padding-top: 6px;
+  border-top: 1px solid var(--cm-border);
+}
+.pdv-tabmenu__group + .pdv-tabmenu__group {
+  margin-top: 6px;
+}
+.pdv-tabmenu__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: calc(var(--cm-radius-lg) - 7px);
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.pdv-tabmenu__item svg {
+  flex: none;
+  color: var(--cm-text-muted);
+}
+.pdv-tabmenu__item:hover,
+.pdv-tabmenu__item:focus-visible {
+  outline: none;
+  background: var(--cm-surface-muted);
+}
+.pdv-tabmenu__item[data-danger] {
+  color: var(--cm-danger);
+}
+.pdv-tabmenu__item[data-danger] svg {
+  color: currentColor;
+}
+.pdv-tabmenu__item[data-danger]:hover,
+.pdv-tabmenu__item[data-danger]:focus-visible {
+  background: color-mix(in oklab, var(--cm-danger) 8%, var(--cm-surface));
+}
+
 .pdv-empty {
   grid-column: 1 / -1;
   margin: var(--cm-space-3) 0;
@@ -836,7 +1207,7 @@
 /* Janela baixa: uma linha de mesas (as outras rolam dentro da grade). */
 @media (max-height: 760px) {
   .pdv-salon__grid {
-    max-height: calc(64px + 4px);
+    max-height: calc(var(--pdv-row) + 4px);
   }
 }
 /* Janela estreita: o "Ver todos" sai para o cabeçalho caber numa linha (o menu Pedidos leva ao
@@ -890,7 +1261,7 @@
     display: none;
   }
   .pdv-salon__grid {
-    max-height: calc(64px + 4px);
+    max-height: calc(var(--pdv-row) + 4px);
   }
   .pdv-box__head .cm-seg {
     width: auto;
@@ -916,10 +1287,9 @@
   .pdv__bar {
     flex-wrap: wrap;
   }
-  .pdv__search {
+  .pdv__bar > .pdv__find {
     flex: 1 1 100%;
     max-width: none;
-    height: 44px;
   }
   .pdv__spacer {
     display: none;
@@ -957,12 +1327,15 @@
   }
   .pdv-salon__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-auto-rows: 58px;
-    max-height: 62px;
+    --pdv-row: 58px;
   }
   .pdv-table {
     min-height: 58px;
     padding: 8px;
+  }
+  /* Cartão de comanda no celular: nome e total; o resto fica nos três pontinhos. */
+  .pdv-tabcard .pdv-table__sub {
+    display: none;
   }
   .pdv-table__info em {
     display: none;

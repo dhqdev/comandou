@@ -5,11 +5,11 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   ExternalLink,
   Globe,
   HandPlatter,
   Link2,
-  ListFilter,
   Plus,
   Search,
   ShoppingBag,
@@ -19,7 +19,15 @@ import {
   VolumeX,
   X,
 } from 'lucide-react';
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Link } from 'react-router';
 import { Alert, Segmented, useToast } from '../design-system';
 import { useAuth, useCan } from '../app/auth';
@@ -27,7 +35,9 @@ import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { PixReceiptChip, PixReceiptModal } from '../features/PixReceipt';
 import { minutesSince, PAYMENT_STATUS_LABEL, time } from '../features/format';
-import { TabModal } from '../features/salon/TabModal';
+import { ReceiptPreview } from '../features/ReceiptPreview';
+import { SalonTabCard, type SalonCardAction } from '../features/salon/SalonTabCard';
+import { TabModal, type TabIntent } from '../features/salon/TabModal';
 import { sortTables, tableState, type TableState } from '../features/table-state';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
@@ -39,7 +49,8 @@ import {
   useRepeatingSoundForNew,
   useSoundSettings,
 } from '../lib/sounds';
-import { SupportButton, useSupportUnread } from '../features/store-chat/SupportInbox';
+import { useSupportUnread } from '../features/store-chat/SupportInbox';
+import { PdvSearch } from '../features/PdvSearch';
 import type { DiningTable, Order, StoreSettings, Tab } from '../lib/types';
 import '../app/home.css';
 import { AppDriverTag, appDriverTakes } from '../features/channels/AppDriver';
@@ -47,7 +58,6 @@ import { AcceptDeadline } from '../features/channels/AcceptDeadline';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
 import { AppStoreChips } from '../features/channels/StoreState';
 
-type Filter = 'all' | OrderChannel;
 type Density = 'compact' | 'full';
 type SalonView = 'tables' | 'tabs';
 
@@ -70,6 +80,19 @@ const CHANNEL_ICON: Record<OrderChannel, ReactNode> = {
   counter: <Store size={16} />,
   table: <Utensils size={16} />,
 };
+
+/** Vão entre as linhas de mesas (igual ao `home.css`; a altura da linha vem de `--pdv-row`). */
+const SALON_GAP = 8;
+const SALON_MAX_ROWS = 6;
+const SALON_ROWS_KEY = 'cm.pdv.salonRows';
+function readSalonRows(): number | null {
+  try {
+    const n = Number(localStorage.getItem(SALON_ROWS_KEY));
+    return n >= 1 && n <= SALON_MAX_ROWS ? n : null;
+  } catch {
+    return null;
+  }
+}
 
 const STATE_TEXT: Record<TableState, string> = {
   free: 'livre',
@@ -244,6 +267,11 @@ export function PdvPage() {
   const canSell = useCan('orders:write');
   const canManage = useCan('orders:manage');
   const canTables = useCan('tables:operate');
+  const canPay = useCan('payments:create');
+  /** Ação do menu do cartão que a comanda já faz ao abrir (transferir, fechar conta). */
+  const [tabIntent, setTabIntent] = useState<TabIntent | null>(null);
+  /** Comanda com a conta na tela para imprimir (botão da impressora no cartão). */
+  const [printTab, setPrintTab] = useState<string | null>(null);
   const sound = useSoundSettings();
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [store, setStore] = useState<StoreSettings | null>(null);
@@ -259,11 +287,13 @@ export function PdvPage() {
   /** Prévia do comprovante do Pix (pelo selo do cartão). */
   const [pixId, setPixId] = useState<string | null>(null);
   const seenPix = useRef<Set<string> | null>(null);
-  const [filter, setFilter] = useState<Filter>('all');
   const [density, setDensity] = useState<Density>('compact');
   const [salonView, setSalonView] = useState<SalonView>('tables');
   const [salonOpen, setSalonOpen] = useState(true);
   const [salonSearch, setSalonSearch] = useState('');
+  /** Linhas de mesas à vista, escolhidas pelas setas entre o Salão e os Pedidos (null = padrão). */
+  const [salonRows, setSalonRows] = useState<number | null>(readSalonRows);
+  const salonGrid = useRef<HTMLDivElement>(null);
   /** Celular: uma coluna por vez (abas), sem arrastar a tela para o lado. */
   const [mobileCol, setMobileCol] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -449,14 +479,13 @@ export function PdvPage() {
       (o) =>
         // Pedido de mesa que já chegou na mesa sai do quadro (a conta fica na comanda).
         !(o.channel === 'table' && o.status === 'ready' && o.servedAt) &&
-        (filter === 'all' || o.channel === filter) &&
         (!s ||
           String(o.number).includes(s) ||
           (o.customerName ?? '').toLowerCase().includes(s) ||
           (o.customerPhone ?? '').includes(s) ||
           (o.tableLabel ?? '').toLowerCase() === s),
     );
-  }, [orders, filter, search]);
+  }, [orders, search]);
   const colList = (key: string) => {
     const statuses = COLUMNS.find((c) => c.key === key)!.statuses;
     return visible
@@ -540,22 +569,48 @@ export function PdvPage() {
         .catch((e: Error) => toast(e.message, 'danger'));
   }
 
+  /**
+   * Setas entre o Salão e os Pedidos: para cima o salão encolhe (de uma linha, recolhe) e os
+   * pedidos ganham a altura; para baixo o salão cresce uma linha por vez. Fica gravado no aparelho.
+   */
+  function resizeSalon(dir: 1 | -1) {
+    let rows = salonRows;
+    if (!salonOpen) rows = 0;
+    else if (rows === null) {
+      // Ainda no padrão (que muda com a altura da janela): parte das linhas que estão à vista.
+      const g = salonGrid.current;
+      const row = (g && parseFloat(getComputedStyle(g).getPropertyValue('--pdv-row'))) || 76;
+      const h = g?.clientHeight ?? row;
+      rows = Math.max(1, Math.round((h + SALON_GAP) / (row + SALON_GAP)));
+    }
+    const next = Math.min(SALON_MAX_ROWS, Math.max(0, rows + dir));
+    if (next === 0) {
+      setSalonOpen(false);
+      return;
+    }
+    setSalonOpen(true);
+    setSalonRows(next);
+    try {
+      localStorage.setItem(SALON_ROWS_KEY, String(next));
+    } catch {
+      /* sem armazenamento: vale só nesta visita */
+    }
+  }
+
+  /** Ações do cartão de comanda: abrir, imprimir, transferir e fechar conta. */
+  function tabAction(id: string, a: SalonCardAction) {
+    if (a === 'print') return setPrintTab(id);
+    setTabIntent(a === 'open' ? null : a);
+    setTabId(id);
+  }
+
   const storeLink = `${window.location.origin}/pedir`;
 
   return (
     <div className="pdv">
       <div className="pdv__bar">
-        <label className="pdv__search">
-          <Search size={16} aria-hidden />
-          <input
-            placeholder="Buscar pedido, cliente ou mesa…"
-            aria-label="Buscar pedido"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </label>
+        <PdvSearch value={search} onChange={setSearch} userId={me?.user.id} />
         <div className="pdv__spacer" />
-        <SupportButton className="pdv__chat" label="Mensagens" />
         {/* Silenciar: desliga todos os avisos sonoros deste aparelho (o mesmo do botão de som do
             topo, onde ficam o volume e cada som). */}
         <button
@@ -632,7 +687,7 @@ export function PdvPage() {
             onClick={() => setSelling(true)}
             title="Atalho: F2"
           >
-            <Plus size={17} /> Nova venda <kbd className="kbd">F2</kbd>
+            <Plus size={20} strokeWidth={2.4} /> Nova venda <kbd className="kbd">F2</kbd>
           </button>
         )}
       </div>
@@ -715,11 +770,46 @@ export function PdvPage() {
             </button>
           </header>
           {salonOpen && (
-            <div className="pdv-salon__grid">
+            <div
+              ref={salonGrid}
+              className="pdv-salon__grid"
+              data-rows={salonRows ?? undefined}
+              style={salonRows ? ({ '--pdv-rows': salonRows } as CSSProperties) : undefined}
+            >
               {salonView === 'tables' ? (
                 shownTables.length ? (
                   shownTables.map((t) => {
                     const st = tableState(t);
+                    if (t.tabId)
+                      return (
+                        <SalonTabCard
+                          key={t.id}
+                          tab={{
+                            id: t.tabId,
+                            number: t.tabNumber,
+                            tableLabel: t.label,
+                            customerName: t.tabCustomer,
+                          }}
+                          state={st}
+                          label={`Mesa ${t.label} ${STATE_TEXT[st]}`}
+                          title={`Mesa ${t.label}`}
+                          canOperate={canTables}
+                          canPay={canPay}
+                          onAction={(a) => tabAction(t.tabId!, a)}
+                          onRename={loadSalon}
+                        >
+                          <span className="pdv-table__info">{brl(t.tabTotal)}</span>
+                          <span className="pdv-table__sub">
+                            {[
+                              t.tabNumber && `#${t.tabNumber}`,
+                              t.tabCustomer,
+                              t.openedAt && ago(minutesSince(t.openedAt, now)),
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </SalonTabCard>
+                      );
                     return (
                       <button
                         key={t.id}
@@ -729,14 +819,7 @@ export function PdvPage() {
                         onClick={() => openTable(t)}
                       >
                         <strong>Mesa {t.label}</strong>
-                        {t.tabId ? (
-                          <span className="pdv-table__info">
-                            {brl(t.tabTotal)}
-                            {t.openedAt && <em>{ago(minutesSince(t.openedAt, now))}</em>}
-                          </span>
-                        ) : (
-                          <span className="pdv-table__info pdv-table__info--muted">Livre</span>
-                        )}
+                        <span className="pdv-table__info pdv-table__info--muted">Livre</span>
                       </button>
                     );
                   })
@@ -745,24 +828,28 @@ export function PdvPage() {
                 )
               ) : shownTabs.length ? (
                 shownTabs.map((t) => (
-                  <button
+                  <SalonTabCard
                     key={t.id}
-                    className="pdv-table"
-                    data-state={t.billRequestedAt ? 'paying' : 'busy'}
-                    aria-label={`Comanda ${t.number}`}
-                    onClick={() => setTabId(t.id)}
+                    tab={t}
+                    state={t.billRequestedAt ? 'paying' : 'busy'}
+                    label={`Comanda ${t.number}`}
+                    title={`#${t.number}`}
+                    canOperate={canTables}
+                    canPay={canPay}
+                    onAction={(a) => tabAction(t.id, a)}
+                    onRename={loadSalon}
                   >
-                    {/* Na aba Comandas tudo é comanda: só o número, para a mesa caber na mesma
-                        linha do cartão (o nome inteiro fica no aria-label). */}
-                    <strong>
-                      #{t.number}
-                      {t.tableLabel && <small> · Mesa {t.tableLabel}</small>}
-                    </strong>
-                    <span className="pdv-table__info">
-                      {brl(t.total)}
-                      <em>{t.customerName ?? ago(minutesSince(t.openedAt, now))}</em>
+                    <span className="pdv-table__info">{brl(t.total)}</span>
+                    <span className="pdv-table__sub">
+                      {[
+                        t.tableLabel ? `Mesa ${t.tableLabel}` : 'Sem mesa',
+                        t.customerName,
+                        ago(minutesSince(t.openedAt, now)),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </span>
-                  </button>
+                  </SalonTabCard>
                 ))
               ) : (
                 <p className="pdv-empty">Nenhuma comanda aberta.</p>
@@ -770,6 +857,31 @@ export function PdvPage() {
             </div>
           )}
         </section>
+      )}
+
+      {canTables && tables && tables.length + tabs.length > 0 && (
+        <div className="pdv-split" role="group" aria-label="Tamanho do salão e dos pedidos">
+          <button
+            type="button"
+            className="pdv-split__btn"
+            aria-label="Pedidos maior (salão menor)"
+            title="Pedidos maior"
+            disabled={!salonOpen}
+            onClick={() => resizeSalon(-1)}
+          >
+            <ChevronUp size={16} />
+          </button>
+          <button
+            type="button"
+            className="pdv-split__btn"
+            aria-label="Salão maior (pedidos menor)"
+            title="Salão maior"
+            disabled={salonOpen && (salonRows ?? 0) >= SALON_MAX_ROWS}
+            onClick={() => resizeSalon(1)}
+          >
+            <ChevronDown size={16} />
+          </button>
+        </div>
       )}
 
       <section className="pdv-box pdv-orders" aria-label="Pedidos">
@@ -821,22 +933,6 @@ export function PdvPage() {
               { value: 'full', label: 'Completo' },
             ]}
           />
-          <label className="pdv-chip pdv-select">
-            <ListFilter size={14} aria-hidden />
-            <select
-              aria-label="Tipo de pedido"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as Filter)}
-            >
-              <option value="all">Todos os tipos</option>
-              {(Object.keys(CHANNEL_ICON) as OrderChannel[]).map((c) => (
-                <option key={c} value={c}>
-                  {CHANNEL_LABELS[c]}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} aria-hidden />
-          </label>
           <Link className="pdv-chip pdv-orders__all" to="/pedidos">
             Ver todos <ChevronRight size={14} />
           </Link>
@@ -939,9 +1035,17 @@ export function PdvPage() {
       <TabModal
         tabId={tabId}
         tables={tables ?? []}
-        onClose={() => setTabId(null)}
+        intent={tabIntent}
+        onClose={() => {
+          setTabId(null);
+          setTabIntent(null);
+        }}
         onChanged={loadSalon}
         onBillRequested={() => undefined}
+      />
+      <ReceiptPreview
+        target={printTab ? { kind: 'tab', id: printTab } : null}
+        onClose={() => setPrintTab(null)}
       />
       <PixReceiptModal
         order={orders?.find((o) => o.id === pixId) ?? null}
