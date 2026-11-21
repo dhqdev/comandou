@@ -31,7 +31,7 @@ import {
 } from 'react';
 import { Link } from 'react-router';
 import { Alert, Segmented, useToast } from '../design-system';
-import { useAuth, useCan } from '../app/auth';
+import { useCan } from '../app/auth';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { PixReceiptChip, PixReceiptModal } from '../features/PixReceipt';
@@ -262,7 +262,6 @@ function OrderCard({
  * totais do dia no cabeçalho dos pedidos. "Nova venda" (F2) abre o lançamento em tela cheia.
  */
 export function PdvPage() {
-  const { me } = useAuth();
   const toast = useToast();
   const canSell = useCan('orders:write');
   const canManage = useCan('orders:manage');
@@ -1077,10 +1076,6 @@ export function PdvPage() {
           })}
         </div>
       </section>
-
-      <p className="home__hint cm-hint">
-        Olá, {me?.user.name.split(' ')[0]}. Pedidos do {me?.tenant.name} em tempo real.
-      </p>
 
       <NewSaleModal
         open={selling}

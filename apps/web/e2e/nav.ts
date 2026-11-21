@@ -112,14 +112,14 @@ export async function skipTour(page: Page) {
     .click();
 }
 
-/** Entra no painel do restaurante, pula a apresentação e espera a saudação do PDV. */
+/** Entra no painel do restaurante, pula a apresentação e espera o quadro de Pedidos do PDV. */
 export async function enterPanel(page: Page, email: string, password: string) {
   await page.goto('/');
   await emailField(page).fill(email);
   await passwordField(page).fill(password);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await skipTour(page);
-  await expect(page.getByText(/Olá, /)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pedidos', exact: true })).toBeVisible();
 }
 
 /**

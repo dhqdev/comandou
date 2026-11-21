@@ -171,10 +171,6 @@
   background: color-mix(in oklab, var(--cm-danger) 8%, var(--cm-surface));
   color: var(--cm-danger);
 }
-.home__hint {
-  margin: 0;
-}
-
 /* Bloco (Salão / Pedidos) */
 .pdv-box {
   display: grid;

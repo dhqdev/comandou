@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.220.4',
+    version: '0.220.5',
     date: '2026-11-21',
     title: 'Letra branca nos botões verdes',
     summary:
@@ -33,6 +33,19 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'PDV: "Loja aberta" agora tem a letra normal do tema (branca no escuro); o verde fica no interruptor.',
+      },
+    ],
+  },
+  {
+    version: '0.220.4',
+    date: '2026-11-21',
+    title: 'Colunas de Pedidos até o fim da tela no PDV',
+    summary:
+      'Saiu a frase de boas-vindas embaixo do quadro de Pedidos do PDV: as colunas Em análise, Em produção, Prontos e Saiu para entrega agora vão até o fim da tela.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'PDV: sem o texto "Olá, … Pedidos do … em tempo real." no pé da tela; o quadro de Pedidos usa a altura toda, no computador e no celular, e a alça entre Salão e Pedidos segue ajustando o tamanho.',
       },
     ],
   },
