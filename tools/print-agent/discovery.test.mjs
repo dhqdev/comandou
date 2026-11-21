@@ -42,7 +42,16 @@ import {
   summarize as snmpSummary,
   supplyOids,
 } from './snmp.mjs';
-import { DOT, documentHtml, isNewer, pngToIco, updateFile } from './desktop/pure.mjs';
+import {
+  DOT,
+  confirmHealth,
+  documentHtml,
+  isNewer,
+  macFromLinkLocal,
+  pngToIco,
+  printerEndpoints,
+  updateFile,
+} from './desktop/pure.mjs';
 import { QR_MARK } from './escpos.mjs';
 import {
   isVirtualPrinter,
@@ -648,4 +657,20 @@ test('atualização: compara versões e escolhe o instalador de cada sistema', (
   assert.equal(updateFile('linux', 'x64'), 'Comandou-Impressao.AppImage');
   assert.equal(updateFile('darwin', 'arm64'), 'Comandou-Impressao.dmg');
   assert.equal(updateFile('aix', 'x64'), null);
+});
+
+test('impressora desligada: acha o endereço da WSD e só avisa na segunda falha', () => {
+  const loc = 'http://[fe80::e2bb:9eff:fe17:c57b%22]:80/WSD/DEVICE';
+  assert.equal(macFromLinkLocal(loc), 'E0-BB-9E-17-C5-7B');
+  assert.equal(macFromLinkLocal('Cozinha'), null);
+  assert.deepEqual(printerEndpoints('', loc), [{ host: 'fe80::e2bb:9eff:fe17:c57b%22', port: 80 }]);
+  assert.equal(printerEndpoints('192.168.0.10', '').length, 3);
+  assert.deepEqual(printerEndpoints('WSD-1', 'Balcão'), []);
+  const off = { ok: false, off: true, text: 'Desligada' };
+  const first = confirmHealth({ ok: true, text: 'Ligada' }, off);
+  assert.equal(first.off, undefined);
+  const second = confirmHealth(first, off);
+  assert.equal(second.off, true);
+  assert.equal(confirmHealth(second, { ok: true, text: 'Ligada' }).off, undefined);
+  assert.equal(confirmHealth(undefined, off).ok, true);
 });

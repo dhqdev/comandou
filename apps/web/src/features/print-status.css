@@ -13,6 +13,7 @@
 .print-status[data-state='no-printer'] .print-status__dot {
   background: var(--cm-warning);
 }
+.print-status[data-state='printer-off'] .print-status__dot,
 .print-status[data-state='offline'] .print-status__dot {
   background: var(--cm-danger);
 }

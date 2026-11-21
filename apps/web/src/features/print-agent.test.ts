@@ -24,6 +24,15 @@ describe('printHealth', () => {
   it('versão antiga (sem lista de impressoras) conta como pronta', () => {
     expect(printHealth([agent({ printers: null })]).state).toBe('ok');
   });
+  it('avisa a impressora desligada só com o computador online', () => {
+    const printers = [
+      { target: null, label: 'EPSON', kind: 'document' as const, state: 'off' as const },
+    ];
+    const h = printHealth([agent({ printers })]);
+    expect(h.state).toBe('printer-off');
+    expect(h.off).toEqual(['EPSON']);
+    expect(printHealth([agent({ printers, online: false })]).state).toBe('offline');
+  });
   it('online sem impressora principal escolhida', () => {
     expect(printHealth([agent({ printers: [] })]).state).toBe('no-printer');
     expect(

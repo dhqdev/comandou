@@ -71,6 +71,8 @@ const Heartbeat = z.object({
         target: z.string().trim().max(60).nullable(),
         label: z.string().trim().max(80),
         kind: z.enum(['usb', 'network', 'bluetooth', 'serial', 'document', 'none']),
+        /** O aplicativo conferiu sem imprimir: off = desligada ou desconectada. */
+        state: z.enum(['ok', 'off']).optional(),
       }),
     )
     .max(40)

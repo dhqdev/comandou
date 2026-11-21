@@ -280,6 +280,7 @@
 .print-state[data-state='no-printer'] {
   --state: var(--cm-warning);
 }
+.print-state[data-state='printer-off'],
 .print-state[data-state='offline'] {
   --state: var(--cm-danger);
 }
@@ -401,6 +402,10 @@ button.print-chip:focus-visible {
   outline: none;
   box-shadow: var(--cm-focus);
 }
+.print-chip--off {
+  border-color: color-mix(in oklab, var(--cm-danger) 45%, transparent);
+  color: var(--cm-danger);
+}
 .print-chip--warn {
   border-color: color-mix(in oklab, var(--cm-warning) 40%, transparent);
   background: var(--cm-warning-bg);
@@ -446,6 +451,7 @@ button.print-chip:focus-visible {
 .print-queue__why--no-printer::before {
   background: var(--cm-warning);
 }
+.print-queue__why--printer-off::before,
 .print-queue__why--offline::before,
 .print-queue__why--none::before {
   background: var(--cm-danger);

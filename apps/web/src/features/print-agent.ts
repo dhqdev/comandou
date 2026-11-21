@@ -50,11 +50,12 @@ export function connectionCode(origin: string, token: string, name?: string) {
 export const appLink = (code: string) =>
   `comandou-impressao://conectar?codigo=${encodeURIComponent(code)}`;
 
-export type PrintHealthState = 'ok' | 'no-printer' | 'offline' | 'none';
+export type PrintHealthState = 'ok' | 'printer-off' | 'no-printer' | 'offline' | 'none';
 
 /**
  * Situação da impressão do restaurante, a partir dos computadores conectados:
  * - ok: algum computador online com impressora principal (versão antiga, sem lista: conta como ok)
+ * - printer-off: o computador está online, mas uma impressora escolhida está desligada
  * - no-printer: online, mas ninguém escolheu a impressora no aplicativo (os trabalhos esperam)
  * - offline: tem computador, mas nenhum online agora
  * - none: nenhum computador ativo
@@ -63,18 +64,29 @@ export function printHealth(agents: PrintAgent[] | null | undefined): {
   state: PrintHealthState;
   online: PrintAgent[];
   ready: PrintAgent[];
+  /** Nomes das impressoras desligadas nos computadores online. */
+  off: string[];
 } {
   const active = (agents ?? []).filter((a) => a.active);
   const online = active.filter((a) => a.online);
   const ready = online.filter((a) => a.printers === null || mainPrinter(a) !== null);
+  const off = [
+    ...new Set(
+      online.flatMap((a) =>
+        (a.printers ?? []).filter((p) => p.state === 'off').map((p) => p.label),
+      ),
+    ),
+  ];
   const state: PrintHealthState = !active.length
     ? 'none'
     : ready.length
-      ? 'ok'
+      ? off.length
+        ? 'printer-off'
+        : 'ok'
       : online.length
         ? 'no-printer'
         : 'offline';
-  return { state, online, ready };
+  return { state, online, ready, off };
 }
 
 /** Impressora principal escolhida no aplicativo (null = não escolheu ou não informa). */

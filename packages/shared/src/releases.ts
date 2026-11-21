@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.212.0',
+    version: '0.213.0',
     date: '2026-11-21',
     title:
       'PDV: ações da comanda no cartão, busca com favoritos e salão do tamanho que você quiser',
@@ -46,6 +46,27 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'PDV: Nova venda maior e em destaque; saíram o botão Mensagens (as conversas com clientes seguem no ícone do topo) e o filtro "Todos os tipos" dos Pedidos.',
+      },
+    ],
+  },
+  {
+    version: '0.212.0',
+    date: '2026-11-21',
+    title: 'Aviso de impressora desligada, no sistema e no aplicativo',
+    summary:
+      'O aplicativo Comandou Impressão 1.8.0 confere a cada 30 segundos, sem imprimir nada, se as impressoras escolhidas estão ligadas. Se uma desligar, o aviso aparece no aplicativo e no sistema, e some sozinho quando ela voltar. O aplicativo também ganhou a opção de receber ou não as notificações.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Impressão: impressora desligada ou desconectada aparece em vermelho no ícone do topo, na tela Impressão e num aviso na hora em que ela para de responder.',
+      },
+      {
+        tag: 'novo',
+        text: 'Aplicativo de impressão 1.8.0: faixa vermelha e notificação quando a impressora desliga, e outra notificação quando ela volta.',
+      },
+      {
+        tag: 'novo',
+        text: 'Aplicativo de impressão 1.8.0: botão Receber notificações, no rodapé.',
       },
     ],
   },

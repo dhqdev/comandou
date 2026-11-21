@@ -175,6 +175,7 @@ export function PrintingPage() {
       {agents !== null && health.state !== 'none' && (
         <StatusPanel
           state={health.state}
+          off={health.off}
           agents={agents}
           queued={queuedCount}
           onTest={() => void testPrint()}
@@ -296,6 +297,7 @@ export function PrintingPage() {
 /** Por que os trabalhos estão parados "Na fila", em uma frase. */
 const WAIT_REASON: Record<PrintHealthState, string> = {
   ok: 'Saindo agora',
+  'printer-off': 'Impressora desligada: ligue para voltar a sair',
   'no-printer': 'Esperando escolher a impressora no aplicativo',
   offline: 'Esperando o computador da impressora ligar',
   none: 'Esperando um computador com o aplicativo',
@@ -306,9 +308,11 @@ function StatusPanel({
   state,
   agents,
   queued,
+  off,
   onTest,
 }: {
   state: Exclude<PrintHealthState, 'none'>;
+  off: string[];
   agents: PrintAgent[];
   queued: number;
   onTest: () => void;
@@ -328,6 +332,10 @@ function StatusPanel({
     ok: {
       title: 'Impressão funcionando',
       text: `${names(online)} ${online.length === 1 ? 'está conectado' : 'estão conectados'}. Cada pedido imprime sozinho, na hora.`,
+    },
+    'printer-off': {
+      title: off.length === 1 ? 'Impressora desligada' : 'Impressoras desligadas',
+      text: `${off.join(', ')} não ${off.length === 1 ? 'responde' : 'respondem'}. Ligue e confira o cabo ou a rede. O que não sair fica em Falharam, com o botão Imprimir de novo.`,
     },
     'no-printer': {
       title: 'Falta escolher a impressora',
@@ -395,13 +403,14 @@ function AgentRow({
             {main ? (
               <button
                 type="button"
-                className="print-chip print-chip--main"
+                className={`print-chip print-chip--main${main.state === 'off' ? ' print-chip--off' : ''}`}
                 title="Recebe tudo o que não tem impressora própria. Toque para ver os trabalhos dela."
                 onClick={() => onOpenPrinter(main)}
               >
                 {PRINTER_ICON[main.kind]}
                 <span>
                   Principal: <strong>{main.label}</strong>
+                  {main.state === 'off' && ' · desligada'}
                 </span>
               </button>
             ) : (
@@ -414,13 +423,14 @@ function AgentRow({
               <button
                 type="button"
                 key={p.target}
-                className="print-chip"
+                className={`print-chip${p.state === 'off' ? ' print-chip--off' : ''}`}
                 title="Toque para ver os trabalhos desta impressora"
                 onClick={() => onOpenPrinter(p)}
               >
                 {PRINTER_ICON[p.kind]}
                 <span>
                   {p.target}: <strong>{p.label}</strong>
+                  {p.state === 'off' && ' · desligada'}
                 </span>
               </button>
             ))}

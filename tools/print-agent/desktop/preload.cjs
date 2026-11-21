@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('agent', {
   updateInstall: () => ipcRenderer.invoke('update-install'),
   testPrint: (spec) => ipcRenderer.invoke('test-print', spec),
   setAutostart: (on) => ipcRenderer.invoke('set-autostart', on),
+  setNotifications: (on) => ipcRenderer.invoke('set-notifications', on),
   openPanel: () => ipcRenderer.invoke('open-panel'),
   reconnect: () => ipcRenderer.invoke('reconnect'),
   checkHost: (host) => ipcRenderer.invoke('check-host', host),

@@ -74,3 +74,52 @@ export function updateFile(platform, arch) {
     return arch === 'arm64' ? 'Comandou-Impressao-arm64.AppImage' : 'Comandou-Impressao.AppImage';
   return null;
 }
+
+// ------------------------------------------------------------------ impressora desligada
+/**
+ * MAC de um endereço IPv6 local no formato EUI-64, como o que o Windows guarda no "Local" da
+ * impressora WSD (http://[fe80::e2bb:9eff:fe17:c57b%22]:80/WSD/DEVICE). Null se não der.
+ */
+export function macFromLinkLocal(location) {
+  const m =
+    /\[fe80::([0-9a-f]{1,4}):([0-9a-f]{1,4}):([0-9a-f]{1,4}):([0-9a-f]{1,4})(?:%[^\]]*)?\]/i.exec(
+      String(location ?? ''),
+    );
+  if (!m) return null;
+  const hex = m
+    .slice(1)
+    .map((g) => g.padStart(4, '0'))
+    .join('');
+  if (hex.slice(6, 10).toLowerCase() !== 'fffe') return null;
+  const first = (Number.parseInt(hex.slice(0, 2), 16) ^ 2).toString(16).padStart(2, '0');
+  const bytes = [
+    first,
+    hex.slice(2, 4),
+    hex.slice(4, 6),
+    hex.slice(10, 12),
+    hex.slice(12, 14),
+    hex.slice(14, 16),
+  ];
+  return bytes.join('-').toUpperCase();
+}
+
+/** Onde perguntar se a impressora do sistema está ligada: IP da porta e endereço do "Local". */
+export function printerEndpoints(host, location) {
+  const out = [];
+  if (host && /^\d{1,3}(\.\d{1,3}){3}$/.test(host))
+    for (const port of [9100, 631, 80]) out.push({ host, port });
+  const m = /^https?:\/\/(\[[^\]]+\]|[^/:\s]+)(?::(\d{1,5}))?/i.exec(String(location ?? ''));
+  if (m) out.push({ host: m[1].replace(/^\[|\]$/g, ''), port: Number(m[2] ?? 80) });
+  return out;
+}
+
+/**
+ * Só dá a impressora como desligada depois de `needed` conferências seguidas sem resposta: uma
+ * falha solta de Wi-Fi não vira alarme. Quando ela responde, volta na hora.
+ */
+export function confirmHealth(prev, result, needed = 2) {
+  if (!result.off) return { ...result, misses: 0 };
+  const misses = (prev?.misses ?? 0) + 1;
+  if (misses >= needed) return { ...result, misses };
+  return prev ? { ...prev, misses } : { ok: true, text: 'Conferindo a impressora…', misses };
+}
