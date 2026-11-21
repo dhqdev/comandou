@@ -84,28 +84,47 @@
       <div id="banner" class="banner" hidden></div>
 
       <main class="grid">
-        <section class="card card--found" aria-labelledby="found-title">
-          <div class="card__head">
-            <div>
-              <h2 id="found-title">Impressoras deste computador</h2>
-              <p class="muted">
-                Procuramos sozinhos no cabo USB, na rede, no Wi-Fi e no Bluetooth. Escolha uma e
-                clique em <strong>Usar</strong>.
-              </p>
+        <div class="col">
+          <section class="card card--found" aria-labelledby="found-title">
+            <div class="card__head">
+              <div>
+                <h2 id="found-title">Impressoras deste computador</h2>
+                <p class="muted">
+                  Procuramos sozinhos no cabo USB, na rede, no Wi-Fi e no Bluetooth. Escolha uma e
+                  clique em <strong>Usar</strong>.
+                </p>
+              </div>
+              <button type="button" class="btn btn--ghost btn--sm" id="rescan">
+                Procurar de novo
+              </button>
             </div>
-            <button type="button" class="btn btn--ghost btn--sm" id="rescan">
-              Procurar de novo
-            </button>
-          </div>
-          <div id="scan-steps" class="steps-row" aria-live="polite"></div>
-          <div id="found" class="found"></div>
-          <p class="found__more muted">
-            Não achou a sua?
-            <button type="button" class="link" id="manual-add">Adicionar do jeito manual</button>
-            <span aria-hidden="true">·</span>
-            <button type="button" class="link" data-guide="inicio">Como ligar a impressora</button>
-          </p>
-        </section>
+            <div id="scan-steps" class="steps-row" aria-live="polite"></div>
+            <div id="found" class="found"></div>
+            <p class="found__more muted">
+              Não achou a sua?
+              <button type="button" class="link" id="manual-add">Adicionar do jeito manual</button>
+              <span aria-hidden="true">·</span>
+              <button type="button" class="link" data-guide="inicio">
+                Como ligar a impressora
+              </button>
+            </p>
+          </section>
+
+          <section class="card care-card" id="care-card" aria-labelledby="care-title" hidden>
+            <div class="card__head">
+              <div>
+                <h2 id="care-title">Saúde do computador</h2>
+                <p class="muted">
+                  Faz uma checagem completa, limpa o que pesa e conserta arquivos do Windows. Seus
+                  documentos não são tocados.
+                </p>
+              </div>
+              <button type="button" class="btn btn--primary btn--sm" id="care-open">
+                Verificar e limpar
+              </button>
+            </div>
+          </section>
+        </div>
 
         <section class="card card--routes" aria-labelledby="routes-title">
           <div class="card__head">
@@ -164,6 +183,21 @@
         </ol>
         <div id="pick-body" class="pick__body"></div>
         <footer id="pick-foot" class="pick__foot"></footer>
+      </div>
+    </dialog>
+
+    <!-- Saúde do computador: checagem, escolha, execução e relatório -->
+    <dialog id="care" class="dialog dialog--wide" aria-labelledby="care-dialog-title">
+      <div class="pick">
+        <header class="pick__head">
+          <div>
+            <h3 id="care-dialog-title">Saúde do computador</h3>
+            <p id="care-sub" class="muted"></p>
+          </div>
+          <button type="button" class="icon-btn" id="care-close" aria-label="Fechar">✕</button>
+        </header>
+        <div id="care-body" class="pick__body"></div>
+        <footer id="care-foot" class="pick__foot"></footer>
       </div>
     </dialog>
 

@@ -32,6 +32,7 @@ sem alguém clicar em "Imprimir". O aplicativo faz essa ponte: ele só **busca**
   impressoras deste computador, do outro onde cada coisa imprime, com **Desconectar** em cada
   impressora escolhida (a principal para de imprimir; o setor volta a usar a principal).
 - **Impressora desligada (1.8.0):** a cada 30 s, sem imprimir, o aplicativo abre e fecha uma conexão com a impressora (IP da porta ou endereço WSD do campo Local, com o IP atual achado pelo MAC na tabela ARP). Duas conferências seguidas sem resposta viram aviso no aplicativo, na bandeja e no sistema (`state: 'off'` no heartbeat). USB instalada só é detectada quando o Windows a marca como offline. O rodapé tem **Receber notificações**.
+- **Saúde do computador (1.10.0, só Windows):** `desktop/care.mjs` faz uma checagem que não muda nada (disco, memória, antivírus, reinício pendente) e, depois de a pessoa escolher, limpa temporários e caches com mais de 24 h e roda DISM, SFC e `chkdsk /scan` com permissão do Windows. Nunca toca em Documentos, Downloads, Área de Trabalho, Lixeira, senhas, histórico ou favoritos, e não segue junctions.
 - A tela Impressão também tira uma impressora do aplicativo (`remove` no heartbeat, confirmado
   em `removed`) e exclui o computador.
 - Jato de tinta ou laser escolhida como térmica pela rede (texto cru na porta 9100, que não sai

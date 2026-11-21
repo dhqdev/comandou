@@ -56,6 +56,7 @@ import {
 } from '../usb.mjs';
 import { BleBridge } from './ble.mjs';
 import { Brand } from './brand.mjs';
+import { careCheck, careRun } from './care.mjs';
 import { printDocument } from './document.mjs';
 import { discoverAll } from './discover.mjs';
 import { confirmHealth, macFromLinkLocal, printerEndpoints } from './pure.mjs';
@@ -879,6 +880,26 @@ function registerIpc() {
       label: p.displayName || p.name,
       isDefault: !!p.isDefault,
     }));
+  });
+  // Cuidar do computador: um processo por vez; a impressão segue no laço dela.
+  let careBusy = false;
+  ipcMain.handle('care-check', () => {
+    if (process.platform !== 'win32') throw new Error('Disponível só no Windows.');
+    return careCheck();
+  });
+  ipcMain.handle('care-run', async (_e, ids) => {
+    if (process.platform !== 'win32') throw new Error('Disponível só no Windows.');
+    if (careBusy) throw new Error('A limpeza já está rodando.');
+    careBusy = true;
+    try {
+      const r = await careRun(ids, {
+        onStep: (text) => win?.webContents.send('care-progress', text),
+      });
+      notify('Cuidado do computador concluído', 'Abra o Comandou Impressão para ver o relatório.');
+      return r;
+    } finally {
+      careBusy = false;
+    }
   });
   ipcMain.handle('set-notifications', async (_e, on) => {
     config.notifications = !!on;

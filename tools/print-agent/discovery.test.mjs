@@ -42,6 +42,7 @@ import {
   summarize as snmpSummary,
   supplyOids,
 } from './snmp.mjs';
+import { elevatedReport, elevatedScript, healthFindings, planCare } from './desktop/care.mjs';
 import {
   DOT,
   confirmHealth,
@@ -673,4 +674,35 @@ test('impressora desligada: acha o endereço da WSD e só avisa na segunda falha
   assert.equal(second.off, true);
   assert.equal(confirmHealth(second, { ok: true, text: 'Ligada' }).off, undefined);
   assert.equal(confirmHealth(undefined, off).ok, true);
+});
+
+test('saúde do computador: só ações da lista e avisos claros', () => {
+  assert.deepEqual(planCare(['temp', 'repair', 'apagar-tudo']), {
+    user: ['temp'],
+    admin: ['repair'],
+  });
+  const s = elevatedScript(['systemTemp', '; Remove-Item C:\\']);
+  assert.ok(s.includes("'Temp'"));
+  assert.ok(!s.includes('Remove-Item') && !s.includes('sfc.exe'));
+  for (const risky of ['Downloads', 'Documents', 'Desktop', 'Recycle', 'ResetBase'])
+    assert.ok(!elevatedScript(['systemTemp', 'components', 'repair']).includes(risky));
+  assert.equal(
+    elevatedReport(['repair'], 4)
+      .find((x) => x.level === 'danger')
+      .title.includes('disco'),
+    true,
+  );
+  const GB = 1024 ** 3;
+  const f = healthFindings({
+    diskFree: 2 * GB,
+    diskTotal: 200 * GB,
+    disks: [{ name: 'SSD', health: 'Warning' }],
+    ramFree: GB,
+    ramTotal: 8 * GB,
+    uptimeDays: 20,
+    defender: false,
+  });
+  assert.equal(f[0].level, 'danger');
+  assert.ok(f.some((x) => x.title === 'Disco quase cheio'));
+  assert.ok(f.some((x) => x.title.includes('20 dias')));
 });

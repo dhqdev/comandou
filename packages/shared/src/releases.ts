@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.217.0',
+    date: '2026-11-21',
+    title: 'Saúde do computador no aplicativo de impressão',
+    summary:
+      'O aplicativo Comandou Impressão 1.10.0, no Windows, ganhou Verificar e limpar: faz uma checagem completa do computador, limpa temporários e caches e conserta arquivos corrompidos do Windows, sempre mostrando antes o que vai fazer.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Aplicativo de impressão 1.10.0: checagem de disco, memória, antivírus e reinício pendente, sem mudar nada no computador.',
+      },
+      {
+        tag: 'novo',
+        text: 'Aplicativo de impressão 1.10.0: limpeza de temporários, caches e atualizações antigas, e reparo de arquivos do Windows, com relatório no final. Documentos, downloads, Lixeira, senhas e favoritos nunca são tocados.',
+      },
+    ],
+  },
+  {
     version: '0.216.0',
     date: '2026-11-21',
     title: 'Setinha no endereço do pedido abre o Google Maps',

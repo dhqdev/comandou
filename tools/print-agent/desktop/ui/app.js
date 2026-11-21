@@ -435,6 +435,7 @@ function render() {
   );
 
   renderUpdate();
+  $('care-card').hidden = state.platform !== 'win32';
 }
 
 /** Botão Atualizar no topo: aparece quando há versão nova; mostra o download. */
@@ -1652,6 +1653,172 @@ $('notifications').addEventListener('change', async (e) =>
   apply(await api.setNotifications(e.target.checked)),
 );
 $('open-panel').addEventListener('click', () => api.openPanel());
+// ---------------------------------------------------------------- saúde do computador
+const care = { stage: 'idle', check: null, picked: new Set(), step: '', report: null, error: '' };
+
+function careSize(n) {
+  if (n == null) return '';
+  if (n < 1024 ** 2) return n ? 'menos de 1 MB' : 'nada';
+  if (n < 1024 ** 3) return `${Math.round(n / 1024 ** 2)} MB`;
+  return `${(n / 1024 ** 3).toFixed(1).replace('.', ',')} GB`;
+}
+
+function careFinding(f) {
+  const tone = f.level === 'ok' ? 'ok' : f.level === 'warn' ? 'warn' : 'fail';
+  return el(
+    'li',
+    { class: `care-item care-item--${tone}` },
+    el('span', { class: `dot dot--${tone === 'warn' ? 'warn' : tone}` }),
+    el(
+      'div',
+      {},
+      el('strong', { text: f.title }),
+      f.text ? el('span', { class: 'muted', text: f.text }) : null,
+    ),
+    f.bytes != null ? el('b', { class: 'care-size', text: careSize(f.bytes) }) : null,
+  );
+}
+
+function renderCare() {
+  const body = $('care-body');
+  const foot = $('care-foot');
+  const btn = (label, onclick, cls = 'btn') =>
+    el('button', { type: 'button', class: cls, onclick }, label);
+  if (care.stage === 'checking') {
+    $('care-sub').textContent = 'Conferindo, sem mudar nada.';
+    body.replaceChildren(
+      el(
+        'div',
+        { class: 'care-wait' },
+        el('span', { class: 'care-spin' }),
+        'Fazendo a checagem do computador…',
+      ),
+    );
+    foot.replaceChildren();
+  } else if (care.stage === 'choose') {
+    $('care-sub').textContent = care.check.windows;
+    const list = care.check.actions.map((a) => {
+      const input = el('input', {
+        type: 'checkbox',
+        onchange: (e) => {
+          if (e.target.checked) care.picked.add(a.id);
+          else care.picked.delete(a.id);
+          renderCare();
+        },
+      });
+      input.checked = care.picked.has(a.id);
+      return el(
+        'label',
+        { class: 'care-option' },
+        input,
+        el(
+          'div',
+          {},
+          el('strong', {}, a.title, a.admin ? el('em', { text: 'pede permissão' }) : null),
+          el('span', { class: 'muted', text: a.text }),
+        ),
+        a.bytes != null ? el('b', { class: 'care-size', text: careSize(a.bytes) }) : null,
+      );
+    });
+    body.replaceChildren(
+      el('h4', { class: 'care-title', text: 'Como está o computador' }),
+      el('ul', { class: 'care-list' }, care.check.findings.map(careFinding)),
+      el('h4', { class: 'care-title', text: 'O que fazer agora' }),
+      el('div', { class: 'care-options' }, list),
+      el('p', {
+        class: 'muted care-note',
+        text: 'Nunca mexe em Documentos, Downloads, Área de Trabalho, Lixeira, senhas, histórico ou favoritos.',
+      }),
+    );
+    const go = btn('Começar', () => void runCare(), 'btn btn--primary');
+    go.disabled = !care.picked.size;
+    foot.replaceChildren(btn('Agora não', closeCare, 'btn btn--ghost'), go);
+  } else if (care.stage === 'running') {
+    $('care-sub').textContent = 'Pode fechar esta janela: continua em segundo plano.';
+    body.replaceChildren(
+      el(
+        'div',
+        { class: 'care-wait' },
+        el('span', { class: 'care-spin' }),
+        care.step || 'Começando…',
+      ),
+    );
+    foot.replaceChildren(btn('Fechar', closeCare));
+  } else if (care.stage === 'done') {
+    const r = care.report;
+    $('care-sub').textContent = 'Relatório';
+    body.replaceChildren(
+      el(
+        'div',
+        { class: 'care-result' },
+        el('strong', { text: r.freed > 0 ? careSize(r.freed) : 'Tudo em ordem' }),
+        el('span', {
+          class: 'muted',
+          text: r.freed > 0 ? 'liberados no disco' : 'nada para liberar',
+        }),
+      ),
+      el('ul', { class: 'care-list' }, r.items.map(careFinding)),
+    );
+    foot.replaceChildren(btn('Concluir', closeCare, 'btn btn--primary'));
+  } else if (care.stage === 'error') {
+    $('care-sub').textContent = '';
+    body.replaceChildren(el('p', { class: 'tile__error', text: care.error }));
+    foot.replaceChildren(btn('Tentar de novo', () => void openCare(), 'btn btn--primary'));
+  }
+}
+
+function closeCare() {
+  $('care').close();
+  if (care.stage !== 'running' && care.stage !== 'checking') care.stage = 'idle';
+}
+
+async function openCare() {
+  if (!$('care').open) $('care').showModal();
+  if (care.stage === 'running' || care.stage === 'checking') return renderCare();
+  care.stage = 'checking';
+  renderCare();
+  try {
+    care.check = await api.careCheck();
+    care.picked = new Set(care.check.actions.filter((a) => a.on).map((a) => a.id));
+    care.stage = 'choose';
+  } catch (err) {
+    care.error = errMsg(err);
+    care.stage = 'error';
+  }
+  renderCare();
+}
+
+async function runCare() {
+  const ids = [...care.picked];
+  const admin = care.check.actions.some((a) => a.admin && care.picked.has(a.id));
+  if (
+    admin &&
+    !confirm(
+      'O Windows vai pedir permissão de administrador. Clique em Sim para continuar. Depois de começar, essa parte não pode ser interrompida.',
+    )
+  )
+    return;
+  care.stage = 'running';
+  care.step = '';
+  renderCare();
+  try {
+    care.report = await api.careRun(ids);
+    care.stage = 'done';
+    if (!$('care').open) $('care').showModal();
+  } catch (err) {
+    care.error = errMsg(err);
+    care.stage = 'error';
+  }
+  renderCare();
+}
+
+$('care-open').addEventListener('click', () => void openCare());
+$('care-close').addEventListener('click', closeCare);
+api.onCareProgress((text) => {
+  care.step = text;
+  if (care.stage === 'running') renderCare();
+});
+
 // Um botão só: busca a versão nova e, quando acha, vira "Atualizar para a X".
 async function installUpdate() {
   const mac = state.platform === 'darwin' || state.update?.auto === false;
