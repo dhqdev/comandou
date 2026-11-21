@@ -45,6 +45,16 @@ describe('identidade visual: tons gerados a partir da cor do restaurante', () =>
     expect(onColor('#2b9348')).toBe('#ffffff');
   });
 
+  it('modo escuro: letra branca no botão verde, em qualquer tom de verde', () => {
+    for (const g of ['#22c55e', '#4caf50', '#52bf74', '#16a34a', '#2b9348', '#00ff00', '#3ddc84']) {
+      const { dark } = brandTokens(g);
+      expect(dark['--cm-on-brand']).toBe('#ffffff');
+      expect(contrast(dark['--cm-brand-600']!, '#ffffff')).toBeGreaterThanOrEqual(3.9);
+    }
+    // Amarelo continua com letra escura.
+    expect(brandTokens('#ffd23f').dark['--cm-on-brand']).toBe('#1a1613');
+  });
+
   it('sem nada escolhido não gera estilo (vale o tema do Comandou)', () => {
     const base = {
       brandColor: null,

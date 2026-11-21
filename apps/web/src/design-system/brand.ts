@@ -137,6 +137,15 @@ function legibleOn(base: Lch, bg: string, min = 4.5, dir: 1 | -1 = -1) {
   return hex;
 }
 
+/** Modo escuro: botão colorido leva letra branca. Fora do amarelo (onde o branco some), desce a
+ *  claridade só o necessário até o branco ler bem; ex.: verde claro, que antes saía com letra preta. */
+function darkForWhite(L: number, C: number, H: number, step = 0) {
+  const yellow = C > 0.04 && H >= 70 && H < 115;
+  let l = L;
+  while (!yellow && l > 0.35 && contrast(lch(l - step, C, H), WHITE) < WHITE_MIN) l -= 0.01;
+  return l;
+}
+
 /** Tons do acento (selos, estrelas, destaques) a partir da cor de destaque. */
 function accentTokens(accent: string) {
   const a = rgbToOklch(hexToRgb(accent));
@@ -148,7 +157,7 @@ function accentTokens(accent: string) {
     '--cm-on-accent': onColor(a500),
   };
   // Escuro: destaque menos vivo, como o resto da paleta.
-  const d500 = lch(Math.min(a[0], 0.8), a[1] * 0.78, a[2]);
+  const d500 = lch(darkForWhite(Math.min(a[0], 0.8), a[1] * 0.78, a[2]), a[1] * 0.78, a[2]);
   const dark: Record<string, string> = {
     '--cm-accent-400': lch(Math.min(a[0] + 0.03, 0.83), a[1] * 0.78, a[2]),
     '--cm-accent-500': d500,
@@ -184,7 +193,7 @@ export function brandTokens(brand: string) {
   // Escuro: a mesma cor um pouco menos saturada e brilhante (não cansa a vista), fundos com um
   // toque dela e texto colorido clareado até ler bem sobre o cartão escuro.
   const dC = C * 0.78;
-  const dL = Math.min(Math.max(L, 0.6), 0.74);
+  const dL = darkForWhite(Math.min(Math.max(L, 0.6), 0.74), dC, H, 0.025);
   const d500 = lch(dL, dC, H);
   const d600 = lch(dL - 0.025, dC, H);
   const d700 = legibleOn([Math.max(dL, 0.72), dC, H], DARK_SURFACE, 5, 1);

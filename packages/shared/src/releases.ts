@@ -24,11 +24,15 @@ export const RELEASES: readonly Release[] = [
     date: '2026-11-21',
     title: 'Letra branca nos botões verdes',
     summary:
-      'Botões na cor do restaurante, como o "Nova venda", agora usam letra branca no verde e nas outras cores médias, e o "Loja aberta" do topo deixou de ser escrito em verde.',
+      'No modo escuro, botões verdes como o "Nova venda" agora têm letra branca, e o "Loja aberta" do topo deixou de ser escrito em verde.',
     notes: [
       {
         tag: 'melhoria',
-        text: 'Cor do restaurante: o texto por cima do botão fica branco sempre que lê bem; a letra escura fica só nas cores bem claras, como amarelo e verde-limão.',
+        text: 'Modo escuro: qualquer botão verde (e das outras cores, menos o amarelo) passa a ter letra branca; nos tons claros o botão fica um pouco mais escuro para o branco ler bem.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Modo claro: o texto por cima do botão fica branco sempre que lê bem; a letra escura fica só nas cores bem claras, como amarelo e verde-limão.',
       },
       {
         tag: 'melhoria',
