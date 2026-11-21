@@ -29,6 +29,7 @@ import {
 import { one, q } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
+import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { JOB_SELECT, PrintingService } from './printing.service';
@@ -120,6 +121,7 @@ export class PrintingController {
     private readonly printing: PrintingService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly orders: OrdersService,
   ) {}
 
   @Get('printing/agents')
@@ -646,22 +648,25 @@ export class PrintingController {
   /** Comprovante de fechamento (conferência) do pedido, para ver antes de imprimir. */
   @Get('orders/:id/receipt')
   @RequirePermission('orders:read')
-  orderReceipt(
+  async orderReceipt(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
   ) {
+    // Garçom: só os pedidos que ele enxerga na consulta (do salão ou lançados por ele).
+    await this.orders.assertInScope(ctxOf(t, u), id);
     return this.printing.receiptPreview(ctxOf(t, u), { kind: 'order', id });
   }
 
   /** Via de entrega do pedido (vai com o motoboy), para ver antes de imprimir. */
   @Get('orders/:id/delivery-slip')
   @RequirePermission('orders:read')
-  orderDeliverySlip(
+  async orderDeliverySlip(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
   ) {
+    await this.orders.assertInScope(ctxOf(t, u), id);
     return this.printing.deliverySlipPreview(ctxOf(t, u), id);
   }
 
@@ -690,13 +695,14 @@ export class PrintingController {
   /** Reimprimir comanda de cozinha ou imprimir conferência de conta. */
   @Post('orders/:id/print')
   @RequirePermission('orders:write', 'printing:manage')
-  printOrder(
+  async printOrder(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodPipe(PrintOrder)) b: z.infer<typeof PrintOrder>,
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
+    await this.orders.assertInScope(ctxOf(t, u, req), id);
     return this.printing.printOrder(ctxOf(t, u, req), id, b.kind);
   }
 }

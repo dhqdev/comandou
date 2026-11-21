@@ -230,9 +230,10 @@ describe('iFood: pedido pago no aplicativo', () => {
     const o = await orderOf(ID(1));
     expect(o).toMatchObject({
       status: 'awaiting',
-      total: '64.79',
+      // Taxa do iFood (0,99) fica fora: é receita do iFood, não da loja.
+      total: '63.80',
       discount: '3.00',
-      paid_amount: '64.79',
+      paid_amount: '63.80',
       payment_status: 'paid',
       external_code: '4810',
     });
@@ -399,7 +400,7 @@ describe('iFood: dinheiro na entrega e cancelamentos', () => {
          FROM payments p WHERE p.order_id = $1`,
       [o.id],
     );
-    expect(p).toEqual({ amount: '64.79', refunded_amount: '64.79', refunds: 0 });
+    expect(p).toEqual({ amount: '63.80', refunded_amount: '63.80', refunds: 0 });
   });
 
   it('evento que o Comandou não conhece: ack e fica ignorado', async () => {
@@ -416,6 +417,85 @@ describe('iFood: dinheiro na entrega e cancelamentos', () => {
       `SELECT status FROM channel_inbox WHERE event_id = 'ev-novo'`,
     );
     expect(r!.status).toBe('ignored');
+  });
+
+  it('cliente alterou o pedido ou pediu outro endereço: aviso na observação, itens e valores iguais', async () => {
+    sample(0, { extraInfo: 'Tocar a campainha' });
+    placed(0);
+    await cycle();
+    const o = await orderOf(ID(0));
+    const notesOf = async () =>
+      ((await get('adminA', `/orders/${o.id}`).expect(200)).body as { notes: string | null }).notes;
+    expect(await notesOf()).toBe('Tocar a campainha');
+    ifood.push({
+      id: 'ev-opa-0',
+      code: 'OPA',
+      fullCode: 'ORDER_PATCHED',
+      orderId: ID(0),
+      merchantId: MERCHANT,
+      metadata: {
+        changes: [{ changeType: 'ADD_ITEMS', items: [{ name: 'Batata secreta' }] }],
+        total: { subtotal: { from: 61.8, to: 70 } },
+      },
+    });
+    await cycle();
+    expect(ifood.acked('ev-opa-0')).toBe(true);
+    const opa =
+      'Atenção: O cliente alterou o pedido no iFood (incluiu itens): confira itens e valores no portal.';
+    expect(await notesOf()).toBe(`${opa} · Tocar a campainha`);
+    // Não reescreve nada sozinho nem consulta o pedido de novo.
+    expect(await orderOf(ID(0))).toMatchObject({ status: 'awaiting', total: '63.80' });
+    expect(ifood.lookups.get(ID(0))).toBe(1);
+    const [row] = await ownerQuery<{ status: string; kind: string; payload: unknown }>(
+      `SELECT status, kind, payload FROM channel_inbox WHERE event_id = 'ev-opa-0'`,
+    );
+    expect(row).toMatchObject({ status: 'done', kind: 'order.patched' });
+    expect(JSON.stringify(row!.payload)).not.toContain('Batata');
+    // A equipe é avisada no sino, uma vez só por aviso.
+    const bell = () =>
+      ownerQuery<{ n: number }>(
+        `SELECT count(*)::int AS n FROM chat_notices
+          WHERE tenant_id = $1 AND title LIKE '%alteração no aplicativo'`,
+        [fx.tenantA],
+      );
+    const rung = (await bell())[0]!.n;
+    expect(rung).toBeGreaterThan(0);
+    // Outro aviso igual não repete o texto; o pedido de outro endereço entra na frente.
+    event(0, 'OPA', 'ORDER_PATCHED', 'ev-opa-0b');
+    ifood.events.at(-1)!.metadata = { changes: [{ changeType: 'ADD_ITEMS' }] };
+    ifood.push({
+      id: 'ev-dar-0',
+      code: 'DAR',
+      fullCode: 'DELIVERY_ADDRESS_CHANGE_REQUESTED',
+      orderId: ID(0),
+      merchantId: MERCHANT,
+      metadata: { address: { streetName: 'Rua Nova', streetNumber: '99', city: 'Cidade' } },
+    });
+    await cycle();
+    expect(await notesOf()).toBe(
+      'Atenção: O cliente pediu outro endereço de entrega no iFood: confira o endereço novo no ' +
+        `portal antes de sair. · ${opa} · Tocar a campainha`,
+    );
+    // O OPA repetido não toca de novo; só o pedido de outro endereço soma um aviso por pessoa.
+    expect((await bell())[0]!.n).toBe(rung * 2);
+    const [dar] = await ownerQuery<{ status: string; kind: string; payload: unknown }>(
+      `SELECT status, kind, payload FROM channel_inbox WHERE event_id = 'ev-dar-0'`,
+    );
+    expect(dar).toMatchObject({ status: 'done', kind: 'order.address_changed' });
+    // O endereço novo (dado do cliente) não fica guardado no evento.
+    expect(JSON.stringify(dar!.payload)).not.toContain('Rua Nova');
+    // Pedido já cancelado aqui: só registra no evento.
+    const c = await orderOf(ID(3));
+    event(3, 'OPA', 'ORDER_PATCHED', 'ev-opa-3');
+    await cycle();
+    const [late] = await ownerQuery<{ status: string; last_error: string; notes: string | null }>(
+      `SELECT x.status, x.last_error, o.notes FROM channel_inbox x, orders o
+        WHERE x.event_id = 'ev-opa-3' AND o.id = $1`,
+      [c.id],
+    );
+    expect(late!.status).toBe('done');
+    expect(late!.last_error).toMatch(/já cancelado/);
+    expect(late!.notes ?? '').not.toContain('Atenção');
   });
 
   it('nunca passa de 10 consultas do mesmo pedido', async () => {

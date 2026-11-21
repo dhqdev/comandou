@@ -299,7 +299,9 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     não tem (`capabilities`). Token pela `IfoodService.bearer` (o mesmo do cardápio); 401 renova
     uma vez e repete. Caminhos e limites em `IFOOD_PATHS`/`IFOOD_LIMITS` (`ifood-order.ts`).
   - **Tradução** `ifoodToExternal` (pura, testada em `ifood-order.test.ts`): reais → centavos sem
-    float; `benefits[].sponsorshipValues` MERCHANT/CHAIN = desconto da loja, o resto = do iFood;
+    float; `benefits[].sponsorshipValues` MERCHANT e CHAIN = custo da loja, IFOOD e EXTERNAL = valor
+    que o iFood repassa (tabela de patrocínio da Order API, ver a correção abaixo); complemento a `unitPrice + addition` cada (`price = quantity x (unitPrice
+    + addition)`); taxas do iFood (`additionalFees`) fora do total (correção abaixo);
     `payments.methods` → pago no app ou na entrega, com bandeira e troco; prazo de aceite = 8 min
     da criação (agendado: do `preparationStartDateTime`); retirada e no local são entregues pela
     loja.
@@ -703,3 +705,26 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     para conferir nos sandboxes os campos que a documentação deixa em dúvida (Rappi, aiqfome,
     99Food) antes da primeira loja real, a logística do Open Delivery e cardápio/financeiro dos
     aplicativos além do iFood.
+- **Correção dos pedidos do iFood** (depois da Fase 14, migração 0105), conferida na página
+  [Order details](https://developer.ifood.com.br/en-US/docs/food/guides/modules/order/details) e na de
+  [Events](https://developer.ifood.com.br/en-US/docs/food/guides/modules/order/events):
+  - **Taxas do iFood** (`total.additionalFees`, `additionalFees[]`, ex.: SMALL_ORDER_FEE): a Order
+    API diz que são receita do iFood e não entram na nota da loja. Saem do total do Comandou
+    (acréscimo, pago no app, venda no DRE e "outras despesas" da NFC-e). Exceção: o que o cliente
+    paga na entrega (`payments.pending`) inclui a taxa; se o total sem ela ficar abaixo desse
+    valor, só a diferença entra como acréscimo, para o "cobrar na entrega" e o troco baterem (o
+    iFood desconta a taxa no repasse). Nesse caso a NFC-e ainda leva a diferença: separar "valor
+    recebido para o iFood" do pedido exige mexer no caixa e na nota (fica para depois).
+    `channel_orders.customer_total` continua com o `orderAmount` (com a taxa).
+  - **Patrocínio**: EXTERNAL é desconto do aplicativo (volta no repasse), como IFOOD. CHAIN segue
+    como custo da loja: a página o lista como pagamento, mas diz que o iFood cobra esse benefício do
+    parceiro na conciliação, então tratá-lo como repasse mostraria um dinheiro que não entra. Rever
+    com um repasse real de uma rede. No Open Delivery (`od-order.ts`) CHAIN também é da loja.
+  - **Pedido alterado pelo cliente** (ORDER_PATCHED, `order.patched`) e **pedido de outro
+    endereço** (DELIVERY_ADDRESS_CHANGE_REQUESTED, `order.address_changed`): a página de eventos não
+    traz endpoint para aceitar ou recusar nem prazo, então não é negociação (`channel_disputes`).
+    O Comandou não reescreve itens, valores nem endereço: grava "Atenção: …" no começo da
+    observação do pedido (`channelChangeNotice`, uma vez por texto; pedido já cancelado só
+    registra no evento), avisa dono, gerente e atendente no sino e a pessoa confere no portal. Do evento só fica o tipo da mudança
+    (`changes`), sem itens, valores nem o endereço novo. Migração 0105: os dois tipos no CHECK de
+    `channel_inbox.kind`.

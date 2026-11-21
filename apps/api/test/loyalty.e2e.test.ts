@@ -293,4 +293,60 @@ describe('Programa de fidelidade', () => {
     expect(acc.balance).toBe(0);
     expect(acc.history[0]).toMatchObject({ kind: 'expire', points: -61 });
   });
+
+  it('produto grátis vendido por peso: desconta o que o cliente leva, no preço do cardápio', async () => {
+    await admin.send('patch', '/loyalty', { expiryDays: null }).expect(200);
+    const [w] = await ownerQuery<{ id: string }>(
+      `INSERT INTO products (tenant_id, category_id, name, price, sold_by_weight)
+       VALUES ($1, $2, 'Açaí no peso', '50.00', true) RETURNING id`,
+      [fx.tenantA, fx.catA],
+    );
+    const reward = (
+      await admin
+        .send('post', '/loyalty/rewards', {
+          name: 'Açaí grátis',
+          cost: 10,
+          kind: 'product',
+          productId: w!.id,
+        })
+        .expect(201)
+    ).body.id;
+    await admin
+      .send('post', `/loyalty/customers/${anaId}/adjust`, { points: 100, note: 'Teste' })
+      .expect(201);
+    // Cardápio de entrega com o açaí mais barato: é esse preço que o cliente vê e que sai.
+    const [m] = await ownerQuery<{ id: string }>(
+      `INSERT INTO menus (tenant_id, name, kind) VALUES ($1, 'Entrega', 'delivery') RETURNING id`,
+      [fx.tenantA],
+    );
+    await ownerQuery(
+      `INSERT INTO menu_items (tenant_id, menu_id, product_id, price)
+       VALUES ($1, $2, $3, NULL), ($1, $2, $4, '40.00')`,
+      [fx.tenantA, m!.id, fx.prodA, w!.id],
+    );
+    try {
+      const pub = (await client.get('/store/loyalty', ana).expect(200)).body;
+      expect(pub.rewards.find((r: { id: string }) => r.id === reward)).toMatchObject({
+        amount: '40.00',
+      });
+      const o = await client
+        .order(ana, {
+          rewardId: reward,
+          items: [
+            { productId: fx.prodA, quantity: 1 },
+            { productId: w!.id, quantity: 0.3 },
+          ],
+        })
+        .expect(201);
+      // 25,90 + 300 g a 40,00 o quilo (12,00); a recompensa tira só os 12,00 do açaí.
+      const [saved] = await ownerQuery<{ subtotal: string; discount: string; total: string }>(
+        `SELECT subtotal::text, discount::text, total::text FROM orders
+          WHERE tenant_id = $1 AND number = $2`,
+        [fx.tenantA, o.body.number],
+      );
+      expect(saved).toEqual({ subtotal: '37.90', discount: '12.00', total: '25.90' });
+    } finally {
+      await ownerQuery(`UPDATE menus SET active = false WHERE id = $1`, [m!.id]);
+    }
+  });
 });

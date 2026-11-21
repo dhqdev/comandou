@@ -35,6 +35,7 @@ import {
   ifoodCancelReasons,
   ifoodDispute,
   ifoodEventKind,
+  ifoodPatchChanges,
   ifoodSettlement,
   ifoodToExternal,
   ifoodVerb,
@@ -181,6 +182,8 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
             ? { delivery: ifoodDriverUpdate(e.code, e.fullCode, e.metadata) }
             : {}),
           ...(kind === 'order.dispute_settled' ? { settlement: ifoodSettlement(e.metadata) } : {}),
+          // Pedido alterado pelo cliente: só o tipo da mudança (o endereço novo não é guardado).
+          ...(kind === 'order.patched' ? { changes: ifoodPatchChanges(e.metadata) } : {}),
         },
       });
     }

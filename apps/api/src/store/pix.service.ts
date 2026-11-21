@@ -215,6 +215,11 @@ export class PixService {
               `Pedido #${o.number} está cancelado: se o Pix caiu, devolva ao cliente e marque como devolvido`,
             );
           const due = toCents(o.total) - toCents(o.paid_amount);
+          // Já pago por outro caminho: aprovar faria o Pix sumir sem ninguém devolver.
+          if (due <= 0)
+            throw new ConflictException(
+              `O pedido #${o.number} já está pago. Recuse este comprovante e, se o Pix caiu, devolva o valor ao cliente.`,
+            );
           let paymentId: string | null = null;
           if (due > 0) {
             if (!b.cashSessionId)

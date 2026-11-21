@@ -1,5 +1,7 @@
 import {
+  comandouTotals,
   fromCents,
+  toCents,
   type ChannelAction,
   type ChannelCancelReason,
   type DisputeAlternative,
@@ -93,6 +95,12 @@ const KIND: Record<string, ChannelEventKind> = {
   HANDSHAKE_DISPUTE: 'order.dispute',
   HSS: 'order.dispute_settled',
   HANDSHAKE_SETTLEMENT: 'order.dispute_settled',
+  // O cliente mexeu no pedido depois de confirmado (itens, quantidades) ou pediu outro endereço.
+  // O Comandou não reescreve o pedido sozinho: fica o aviso para a equipe conferir no portal.
+  OPA: 'order.patched',
+  ORDER_PATCHED: 'order.patched',
+  DAR: 'order.address_changed',
+  DELIVERY_ADDRESS_CHANGE_REQUESTED: 'order.address_changed',
 };
 
 /** Eventos do grupo de entrega (entregador do iFood a caminho, chegou...): `ifood-delivery.ts`. */
@@ -274,6 +282,19 @@ export function ifoodSettlement(meta: unknown): ChannelSettlement | null {
   return { externalId: id, outcome: UP(m.status) ?? UP(m.action) ?? 'SETTLED' };
 }
 
+/**
+ * metadata do ORDER_PATCHED → o que o cliente mudou (`changes[].changeType`: ADD_ITEMS,
+ * DELETE_ITEMS, EDIT_ITEMS). Só os tipos: sem itens, valores nem dados do cliente.
+ */
+export function ifoodPatchChanges(meta: unknown): string[] {
+  const m = (meta ?? {}) as Record<string, unknown>;
+  const list = Array.isArray(m.changes) ? m.changes : [];
+  const out = list
+    .map((c) => UP((c as { changeType?: unknown } | null)?.changeType))
+    .filter((c): c is string => !!c);
+  return [...new Set(out)].slice(0, 10);
+}
+
 /** Motivo padrão da recusa: "Dificuldades internas do restaurante" (a lista por pedido vem na Fase 3). */
 export const IFOOD_DEFAULT_CANCEL_CODE = '509';
 
@@ -397,9 +418,11 @@ function options(list: IfoodOption[] | undefined, depth = 0): ExternalOption[] {
   if (!list?.length || depth > 2) return [];
   return list.flatMap((op) => {
     const q = qtyOf(op.quantity);
+    // Order API: price = quantity x (unitPrice + addition). O `addition` é o valor a mais do
+    // complemento e entra no preço de cada um.
     const unit =
       op.unitPrice !== undefined && op.unitPrice !== null
-        ? ifoodCents(op.unitPrice)
+        ? ifoodCents(op.unitPrice) + ifoodCents(op.addition)
         : Math.round(ifoodCents(op.price ?? op.addition) / q);
     const self: ExternalOption = {
       ...(cut(op.id, 100) ? { externalId: cut(op.id, 100) } : {}),
@@ -447,6 +470,8 @@ function discounts(o: IfoodOrder): ExternalDiscount[] {
       const who = s.name?.toUpperCase();
       out.push({
         amount: money(s.value),
+        // CHAIN fica como custo da loja: a Order API diz que o iFood cobra esse benefício do
+        // parceiro na conciliação, então ele não é dinheiro que volta no repasse.
         sponsor: who === 'MERCHANT' || who === 'CHAIN' ? 'merchant' : 'channel',
         target,
         ...(who ? { description: `Benefício ${who}` } : {}),
@@ -516,7 +541,7 @@ export function ifoodToExternal(o: IfoodOrder): ExternalOrder {
     .map((x) => x?.trim())
     .filter(Boolean)
     .join(' · ');
-  return {
+  const ext: ExternalOrder = {
     channel: 'ifood',
     externalId: o.id,
     displayCode: cut(o.displayId, 40) ?? o.id.slice(0, 8),
@@ -555,7 +580,7 @@ export function ifoodToExternal(o: IfoodOrder): ExternalOrder {
     totals: {
       subtotal: money(o.total?.subTotal),
       deliveryFee: money(o.total?.deliveryFee),
-      serviceFee: fromCents(Math.max(0, fees)),
+      serviceFee: '0.00',
       total: money(o.total?.orderAmount),
     },
     discounts: discounts(o),
@@ -569,4 +594,15 @@ export function ifoodToExternal(o: IfoodOrder): ExternalOrder {
       ),
     },
   };
+  // Taxas do iFood (additionalFees, ex.: SMALL_ORDER_FEE): a Order API diz que são receita do
+  // iFood e não entram na nota da loja. Fora do total do Comandou (nem acréscimo, nem pago no app,
+  // nem venda no DRE, nem "outras despesas" da NFC-e). Exceção: o que o cliente paga NA ENTREGA
+  // inclui a taxa (payments.pending), e o entregador da loja recebe esse valor. Se o total sem a
+  // taxa ficar abaixo do que se cobra na entrega, só a diferença entra como acréscimo, para o
+  // "cobrar na entrega" e o troco baterem com o que o cliente vai pagar (o iFood desconta essa
+  // taxa no repasse). Com cupom do iFood maior que a taxa, nada entra: o pago no app já sai menor.
+  const due = ext.payments.filter((p) => !p.prepaid).reduce((n, p) => n + toCents(p.amount), 0);
+  const short = due - toCents(comandouTotals(ext).total);
+  if (fees > 0 && short > 0) ext.totals.serviceFee = fromCents(Math.min(fees, short));
+  return ext;
 }

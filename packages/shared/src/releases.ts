@@ -20,6 +20,47 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.217.3',
+    date: '2026-11-21',
+    title: 'Pedidos, caixa e iFood mais certos',
+    summary:
+      'Pedido do iFood não se perde mais por falta de insumo, a equipe é avisada quando o cliente muda o pedido ou o endereço no aplicativo, o Pix em análise não é cobrado de novo e a comanda com fiado consegue fechar.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Aplicativos de delivery: faltar insumo da ficha técnica não derruba mais o pedido. Ele entra normalmente, sem a baixa, e o gerente recebe um aviso para conferir o estoque.',
+      },
+      {
+        tag: 'novo',
+        text: 'iFood: quando o cliente altera itens ou pede outro endereço depois de confirmar, o aviso aparece no pedido e no sino da equipe para conferir no portal.',
+      },
+      {
+        tag: 'correção',
+        text: 'iFood: a taxa de pedido mínimo é do iFood e saiu da venda e da nota da loja, e o preço dos complementos agora inclui o valor adicional.',
+      },
+      {
+        tag: 'correção',
+        text: 'Caixa e entregas: pedido com comprovante de Pix em análise não pode ser cobrado de novo. Comprovante de pedido que já está pago não é aprovado sem aviso.',
+      },
+      {
+        tag: 'correção',
+        text: 'Comandas: pedido fiado ou "a receber" não impede mais de fechar a conta. A dívida continua registrada no pedido.',
+      },
+      {
+        tag: 'correção',
+        text: 'Salão: pedido entregue que volta para a cozinha aparece de novo em Prontos para levar, mover pedido segue a taxa de serviço da comanda de destino e dois primeiros pedidos juntos na mesma mesa entram na mesma comanda.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Garçom só vê e imprime a conferência e a via de entrega dos pedidos que ele enxerga. Dois estornos em dinheiro ao mesmo tempo não tiram da gaveta mais do que ela tem.',
+      },
+      {
+        tag: 'correção',
+        text: 'Produto de categoria desativada não entra no pedido, o troco da conferência não muda depois de um estorno, prêmio de fidelidade em produto por quilo desconta só o que o cliente leva e pedido de aplicativo não ganha pontos.',
+      },
+    ],
+  },
+  {
     version: '0.217.2',
     date: '2026-11-21',
     title: 'Itens do cardápio abrem com um clique na linha',

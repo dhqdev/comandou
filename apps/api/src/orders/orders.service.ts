@@ -275,6 +275,13 @@ export function ownScope(ctx: Ctx, p: unknown[]): string | undefined {
 }
 
 /**
+ * Pedido fiado ou concluído "a receber": o saldo virou conta do cliente, cobrada à parte. Não
+ * segura a comanda (ao fechar, o fiado pronto conclui como "a receber") nem entra no "Receber" da
+ * mesa. Sobre o alias "o".
+ */
+export const ON_ACCOUNT_SQL = `(o.fiado_at IS NOT NULL OR (o.status = 'completed' AND o.receivable_at IS NOT NULL))`;
+
+/**
  * Regras de pedido. Toda alteração de estado:
  *  - roda em transação com RLS do tenant;
  *  - trava a linha do pedido (SELECT … FOR UPDATE) e confere a transição permitida;
@@ -329,15 +336,24 @@ export class OrdersService {
 
   // ---------------------------------------------------------------- consultas
   async get(ctx: Ctx, id: string) {
-    const o = await this.db.withTenant(ctx, async (tx) => {
-      const p: unknown[] = [id];
-      const scope = ownScope(ctx, p);
-      if (scope && !(await one(tx, `SELECT 1 FROM orders o WHERE o.id = $1 AND ${scope}`, p)))
-        return undefined;
-      return this.detail(tx, id);
-    });
+    const o = await this.db.withTenant(ctx, async (tx) =>
+      (await this.inScope(tx, ctx, id)) ? this.detail(tx, id) : undefined,
+    );
     if (!o) throw new NotFoundException('Pedido não encontrado');
     return o;
+  }
+
+  /** O garçom enxerga este pedido? (do salão ou lançado por ele; quem gere vê todos). */
+  async inScope(tx: Tx, ctx: Ctx, id: string) {
+    const p: unknown[] = [id];
+    const scope = ownScope(ctx, p);
+    return !scope || !!(await one(tx, `SELECT 1 FROM orders o WHERE o.id = $1 AND ${scope}`, p));
+  }
+
+  /** Mesma regra da consulta do pedido, para as rotas que leem o pedido por outro caminho. */
+  async assertInScope(ctx: Ctx, id: string) {
+    if (!(await this.db.withTenant(ctx, (tx) => this.inScope(tx, ctx, id))))
+      throw new NotFoundException('Pedido não encontrado');
   }
 
   async detail(tx: Tx, id: string) {
@@ -546,9 +562,11 @@ export class OrdersService {
     // Comanda: obrigatória para mesa; pode ser aberta automaticamente pela mesa.
     let tabId = input.tabId ?? null;
     if (input.tableId && !tabId) {
+      // Trava a mesa: dois primeiros pedidos juntos na mesa livre caem na mesma comanda (o
+      // segundo espera o primeiro abrir a comanda e entra nela).
       const table = await one<{ id: string }>(
         tx,
-        `SELECT id FROM dining_tables WHERE id = $1 AND active`,
+        `SELECT id FROM dining_tables WHERE id = $1 AND active FOR UPDATE`,
         [input.tableId],
       );
       if (!table) throw new NotFoundException('Mesa não encontrada');
@@ -599,7 +617,11 @@ export class OrdersService {
         tx,
         input.online.customerId,
         input.online.rewardId,
-        lines.map((l) => ({ productId: l.p.id, unitBaseCents: toCents(l.p.price) })),
+        lines.map((l) => ({
+          productId: l.p.id,
+          unitBaseCents: toCents(l.p.price),
+          lineBaseCents: multiplyCents(toCents(l.p.price), l.it.quantity),
+        })),
         subtotal,
       );
     }
@@ -822,7 +844,7 @@ export class OrdersService {
       ]);
     }
     const fx = { stock: 0, print: 0 };
-    fx.stock = await this.stock.consumeForOrder(tx, ctx, orderId);
+    fx.stock = await this.consumeAppStockIn(tx, ctx, { id: orderId, number });
     if (input.status === 'new')
       fx.print = await this.printing.enqueueKitchenTickets(tx, ctx, orderId);
     await this.audit.record(tx, {
@@ -842,6 +864,65 @@ export class OrdersService {
       ip: ctx.ip,
     });
     return { id: orderId, number, itemIds, fx };
+  }
+
+  /**
+   * Baixa de estoque do pedido de aplicativo. O pedido nunca é recusado por estoque (o cliente já
+   * pediu e pagou no aplicativo): faltando insumo, a baixa volta inteira (SAVEPOINT, nada pela
+   * metade), o pedido segue sem ela e os gerentes recebem o aviso para conferir o estoque.
+   */
+  private async consumeAppStockIn(tx: Tx, ctx: Ctx, o: { id: string; number: number }) {
+    await q(tx, `SAVEPOINT app_stock`);
+    try {
+      const n = await this.stock.consumeForOrder(tx, ctx, o.id);
+      await q(tx, `RELEASE SAVEPOINT app_stock`);
+      return n;
+    } catch (e) {
+      const res = e instanceof ConflictException ? (e.getResponse() as { code?: string }) : null;
+      if (res?.code !== 'stock_out') throw e;
+      await q(tx, `ROLLBACK TO SAVEPOINT app_stock`);
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'order.stock_short',
+        entity: 'order',
+        entityId: o.id,
+        data: { number: o.number, message: (e as Error).message },
+        ip: ctx.ip,
+      });
+      const users = await this.noticeTeamIn(
+        tx,
+        ctx.tenantId,
+        ['owner', 'manager'],
+        `Pedido #${o.number} do aplicativo entrou sem baixa no estoque`,
+        `${(e as Error).message} O pedido seguiu normalmente; confira o estoque.`,
+      );
+      if (users.length) this.realtime.publishToUsers(ctx.tenantId, users, { type: 'chat.notice' });
+      return 0;
+    }
+  }
+
+  /** Aviso no sino para os perfis indicados. Devolve quem recebeu, para avisar em tempo real. */
+  async noticeTeamIn(
+    tx: Tx,
+    tenantId: string,
+    roles: string[],
+    title: string,
+    body: string,
+  ): Promise<string[]> {
+    const users = await q<{ id: string }>(
+      tx,
+      `SELECT user_id AS id FROM memberships WHERE status = 'active' AND role::text = ANY($1)`,
+      [roles],
+    );
+    for (const u of users)
+      await q(
+        tx,
+        `INSERT INTO chat_notices (tenant_id, user_id, kind, title, body, actor_id)
+         VALUES ($1, $2, 'system', $3, $4, NULL)`,
+        [tenantId, u.id, title.slice(0, 200), body.slice(0, 300)],
+      );
+    return users.map((u) => u.id);
   }
 
   /**
@@ -923,9 +1004,12 @@ export class OrdersService {
       menu_name: string | null;
     }>(
       tx,
-      `SELECT p.id, p.name, COALESCE(mi.price, p.price)::text AS price, p.sector_id, p.active, p.sold_out,
+      `SELECT p.id, p.name, COALESCE(mi.price, p.price)::text AS price, p.sector_id,
+              (p.active AND c.active) AS active, p.sold_out,
               ${PRODUCT_STOCK_MISSING} AS stock_missing, p.sold_by_weight, (m.id IS NULL OR mi.product_id IS NOT NULL) AS in_menu, m.name AS menu_name
          FROM products p
+         -- Categoria desligada some do cardápio com os itens dela: também não entra no pedido.
+         JOIN categories c ON c.id = p.category_id
          LEFT JOIN menus m ON m.active AND m.kind = $2
          LEFT JOIN menu_items mi ON mi.menu_id = m.id AND mi.product_id = p.id
         WHERE p.id = ANY($1::uuid[])`,
@@ -1225,7 +1309,8 @@ export class OrdersService {
       // Aceite do pedido online: imprime na cozinha. O estoque já foi reservado ao criar (pedido
       // antigo, de antes da reserva, baixa agora: consumeForOrder não baixa duas vezes).
       await q(tx, `UPDATE orders SET accepted_at = now() WHERE id = $1`, [o.id]);
-      await this.stock.consumeForOrder(tx, ctx, o.id);
+      if (o.source === 'app') await this.consumeAppStockIn(tx, ctx, o);
+      else await this.stock.consumeForOrder(tx, ctx, o.id);
       await this.printing.enqueueKitchenTickets(tx, ctx, o.id);
     }
     if (o.status === 'dispatched') {
@@ -1260,9 +1345,14 @@ export class OrdersService {
         [o.id],
       );
     }
+    // Voltou para a cozinha (item novo ou reaberto): o pedido de mesa precisa ser levado de novo.
     await q(
       tx,
-      `UPDATE orders SET status = $2, version = version + 1, cancel_reason = CASE WHEN $2 IN ('cancelled','cancel_requested') THEN COALESCE($3, cancel_reason) ELSE cancel_reason END WHERE id = $1`,
+      `UPDATE orders SET status = $2, version = version + 1,
+              cancel_reason = CASE WHEN $2 IN ('cancelled','cancel_requested') THEN COALESCE($3, cancel_reason) ELSE cancel_reason END,
+              served_at = CASE WHEN $2 IN ('new','in_production') THEN NULL ELSE served_at END,
+              served_by = CASE WHEN $2 IN ('new','in_production') THEN NULL ELSE served_by END
+        WHERE id = $1`,
       [o.id, to, reason || null],
     );
     await this.history(tx, ctx, o.id, o.status, to, reason);
@@ -1407,7 +1497,8 @@ export class OrdersService {
     const left = await one<{ open: number; due: string; number: number }>(
       tx,
       `SELECT count(o.id) FILTER (WHERE o.status NOT IN ('completed','cancelled'))::int AS open,
-              COALESCE(sum(o.total - o.paid_amount) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS due,
+              COALESCE(sum(o.total - o.paid_amount)
+                FILTER (WHERE o.status <> 'cancelled' AND NOT ${ON_ACCOUNT_SQL}), 0)::text AS due,
               tb.number
          FROM tabs tb LEFT JOIN orders o ON o.tab_id = tb.id
         WHERE tb.id = $1 AND tb.status = 'open'
@@ -1955,9 +2046,10 @@ export class OrdersService {
       if (!cur) throw new NotFoundException('Pedido não encontrado');
       if (cur.tab_id === tabId) throw new ConflictException('O pedido já está nesta comanda');
       const tabIds = [tabId, cur.tab_id].filter((x): x is string => !!x).sort();
-      const tabs = await q<{ id: string; status: string }>(
+      const tabs = await q<{ id: string; status: string; fee: string | null }>(
         tx,
-        `SELECT id, status FROM tabs WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
+        `SELECT id, status, service_fee_percent::text AS fee FROM tabs
+          WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
         [tabIds],
       );
       const target = tabs.find((t) => t.id === tabId);
@@ -1975,17 +2067,36 @@ export class OrdersService {
         throw new ConflictException('Aceite o pedido antes de mover para a comanda');
       await this.assertNoLiveFiscalDocument(tx, o.id, 'mover o pedido');
       fromTab = o.tab_id;
-      await q(tx, `UPDATE orders SET tab_id = $2, version = version + 1 WHERE id = $1`, [
-        id,
-        tabId,
-      ]);
+      // A taxa de serviço segue a comanda de destino (como a troca de taxa da comanda).
+      const fromFee = tabs.find((t) => t.id === o.tab_id)?.fee ?? null;
+      const base = toCents(o.subtotal) - toCents(o.discount);
+      // Retirada não tem taxa de serviço, em nenhuma comanda.
+      const surcharge =
+        target.fee !== fromFee && o.channel !== 'pickup'
+          ? serviceFeeCents(base, target.fee)
+          : toCents(o.surcharge);
+      const total = base + surcharge + toCents(o.delivery_fee);
+      const paid = toCents(o.paid_amount);
+      if (surcharge !== toCents(o.surcharge)) {
+        assertNotAppOrder(o, 'mudar valores');
+        if (total < paid)
+          throw new ConflictException(
+            `Pedido #${o.number} já foi pago com a taxa: estorne a diferença antes de mover`,
+          );
+      }
+      await q(
+        tx,
+        `UPDATE orders SET tab_id = $2, surcharge = $3, total = $4, payment_status = $5,
+                version = version + 1 WHERE id = $1`,
+        [id, tabId, fromCents(surcharge), fromCents(total), paymentStatusFor(total, paid)],
+      );
       await this.audit.record(tx, {
         tenantId: ctx.tenantId,
         actorUserId: ctx.userId,
         action: 'order.moved',
         entity: 'order',
         entityId: id,
-        data: { fromTab: o.tab_id, toTab: tabId },
+        data: { fromTab: o.tab_id, toTab: tabId, surcharge: fromCents(surcharge) },
         ip: ctx.ip,
       });
       return this.detail(tx, id);

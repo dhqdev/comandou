@@ -22,7 +22,7 @@ import { AuditService } from '../audit/audit.service';
 import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
-import { CashService } from '../cash/cash.service';
+import { assertNoPixPending, CashService } from '../cash/cash.service';
 import { withIdempotency } from '../common/idempotency';
 import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -553,6 +553,7 @@ export class DeliveryService {
         const balance = toCents(o.total) - toCents(o.paid_amount);
         const method = b.method ?? d!.collect_method ?? 'cash';
         if (balance > 0) {
+          await assertNoPixPending(tx, o);
           const p = await this.cash.applyPayment(tx, ctx, o, {
             cashSessionId: b.cashSessionId,
             method,

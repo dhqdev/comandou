@@ -7,6 +7,7 @@ import {
   ifoodCents,
   ifoodDispute,
   ifoodEventKind,
+  ifoodPatchChanges,
   ifoodSettlement,
   ifoodToExternal,
   ifoodVerb,
@@ -22,6 +23,27 @@ describe('iFood: eventos', () => {
     expect(ifoodEventKind('HSD')).toBe('order.dispute');
     expect(ifoodEventKind('ADR', 'ASSIGN_DRIVER')).toBe('delivery.update');
     expect(ifoodEventKind('XYZ', 'NOVO_EVENTO')).toBe('other');
+  });
+
+  it('pedido alterado pelo cliente e pedido de outro endereço viram aviso (não "other")', () => {
+    expect(ifoodEventKind('OPA', 'ORDER_PATCHED')).toBe('order.patched');
+    expect(ifoodEventKind(undefined, 'ORDER_PATCHED')).toBe('order.patched');
+    expect(ifoodEventKind('DAR', 'DELIVERY_ADDRESS_CHANGE_REQUESTED')).toBe(
+      'order.address_changed',
+    );
+    // Só o tipo da mudança, sem itens, valores nem dados do cliente.
+    expect(
+      ifoodPatchChanges({
+        changes: [
+          { changeType: 'ADD_ITEMS', items: [{ name: 'X' }] },
+          { changeType: 'add_items' },
+          { changeType: 'EDIT_ITEMS' },
+          { changeType: '<x>' },
+        ],
+        total: { subtotal: { from: 10, to: 20 } },
+      }),
+    ).toEqual(['ADD_ITEMS', 'EDIT_ITEMS']);
+    expect(ifoodPatchChanges(undefined)).toEqual([]);
   });
 
   it('ações: entregue não existe no iFood (ele conclui sozinho)', () => {
@@ -51,7 +73,8 @@ describe('iFood: pedido', () => {
       deliveredBy: 'channel',
       pickupCode: '7788',
       customer: { name: 'Maria Cliente', phoneLocator: '12345678', taxDocument: '12345678909' },
-      totals: { subtotal: '61.80', deliveryFee: '5.00', serviceFee: '0.99', total: '62.79' },
+      // Taxa do iFood (additionalFees 0,99) é receita do iFood: fora do pedido pago online.
+      totals: { subtotal: '61.80', deliveryFee: '5.00', serviceFee: '0.00', total: '62.79' },
       payments: [{ prepaid: true, method: 'credit', amount: '62.79', brand: 'VISA' }],
       deadlines: { confirmBy: '2026-11-18T19:08:00.000Z' },
     });
@@ -70,7 +93,8 @@ describe('iFood: pedido', () => {
     // No Comandou: só o desconto do restaurante reduz; o do iFood volta no repasse.
     expect(comandouTotals(o)).toMatchObject({
       discount: '3.00',
-      total: '64.79',
+      surcharge: '0.00',
+      total: '63.80',
       channelDiscount: '2.00',
     });
     expect(o.address).toMatchObject({ text: 'Rua das Flores, 10', lat: -23.5, lng: -46.6 });
@@ -111,6 +135,102 @@ describe('iFood: pedido', () => {
     ]);
     expect(o.address?.text).toBe('Rua A, 5');
     expect(o.totals.serviceFee).toBe('0.00');
+  });
+
+  it('taxa do iFood no dinheiro na entrega: entra só o que falta para o valor a cobrar', () => {
+    const cash = (benefits: number, orderAmount: number, ifoodCoupon: number) =>
+      parseExternalOrder(
+        ifoodToExternal(
+          ifoodSample({
+            benefits: ifoodCoupon
+              ? [{ value: ifoodCoupon, sponsorshipValues: [{ name: 'IFOOD', value: ifoodCoupon }] }]
+              : [],
+            total: { subTotal: 61.8, deliveryFee: 5, benefits, additionalFees: 0.99, orderAmount },
+            additionalFees: [{ type: 'SMALL_ORDER_FEE', value: 0.99 }],
+            payments: {
+              prepaid: 0,
+              pending: orderAmount,
+              methods: [
+                {
+                  value: orderAmount,
+                  method: 'CASH',
+                  type: 'OFFLINE',
+                  prepaid: false,
+                  cash: { changeFor: 100 },
+                },
+              ],
+            },
+            delivery: { deliveredBy: 'MERCHANT', deliveryAddress: { streetName: 'Rua A' } },
+          }),
+        ),
+      );
+    // Sem cupom: o cliente paga 67,79 ao entregador da loja (com a taxa). O pedido fica com 67,79
+    // para o "cobrar na entrega" e o troco baterem; o iFood desconta a taxa no repasse.
+    const a = cash(0, 67.79, 0);
+    expect(a.totals.serviceFee).toBe('0.99');
+    expect(comandouTotals(a).total).toBe('67.79');
+    // Cupom do iFood de 2,00 cobre a taxa: nada entra; o iFood paga 1,01 (2,00 − 0,99) no app.
+    const b = cash(2, 65.79, 2);
+    expect(b.totals.serviceFee).toBe('0.00');
+    expect(comandouTotals(b)).toMatchObject({ total: '66.80', channelDiscount: '2.00' });
+  });
+
+  it('cupom de parceiro (EXTERNAL) volta no repasse; o da rede (CHAIN) segue como custo da loja', () => {
+    const o = ifoodToExternal(
+      ifoodSample({
+        benefits: [
+          {
+            value: 6,
+            target: 'CART',
+            sponsorshipValues: [
+              { name: 'CHAIN', value: 3 },
+              { name: 'EXTERNAL', value: 1 },
+              { name: 'MERCHANT', value: 2 },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(o.discounts.map((d) => [d.description, d.sponsor])).toEqual([
+      ['Benefício CHAIN', 'merchant'],
+      ['Benefício EXTERNAL', 'channel'],
+      ['Benefício MERCHANT', 'merchant'],
+    ]);
+    expect(comandouTotals(o)).toMatchObject({ discount: '5.00', channelDiscount: '1.00' });
+  });
+
+  it('complemento com addition: preço de cada = unitPrice + addition', () => {
+    const o = ifoodToExternal(
+      ifoodSample({
+        items: [
+          {
+            id: 'item-1',
+            name: 'Pizza',
+            quantity: 1,
+            unitPrice: 40,
+            optionsPrice: 6,
+            totalPrice: 46,
+            options: [
+              {
+                id: 'op-1',
+                name: 'Borda',
+                quantity: 2,
+                unitPrice: 2,
+                addition: 1,
+                price: 6,
+                customizations: [
+                  { id: 'c-1', name: 'Catupiry', quantity: 1, unitPrice: 0, addition: 1.5 },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(o.items[0]!.options).toMatchObject([
+      { name: 'Borda', quantity: 2, unitPrice: '3.00' },
+      { name: 'Catupiry', quantity: 1, unitPrice: '1.50' },
+    ]);
   });
 
   it('retirada agendada: prazo conta do início do preparo; quem entrega é o restaurante', () => {

@@ -420,11 +420,14 @@ export class PrintingService {
       method: RecordedPaymentMethod;
       amount: string;
       tendered: string | null;
+      change: string | null;
       app_channel: string | null;
       app_method: PaymentMethod | null;
     }>(
       tx,
-      `SELECT method, (amount - refunded_amount)::text AS amount, tendered::text, app_channel, app_method
+      // Troco sobre o valor pago na hora: um estorno depois não muda o troco que o cliente levou.
+      `SELECT method, (amount - refunded_amount)::text AS amount, tendered::text,
+              GREATEST(tendered - amount, 0)::text AS change, app_channel, app_method
          FROM payments WHERE order_id = ANY($1::uuid[]) AND amount > refunded_amount ORDER BY created_at`,
       [orderIds],
     );
@@ -458,7 +461,7 @@ export class PrintingService {
         ),
       },
       pagamentos: paid.map((p) => {
-        const troco = p.tendered ? Math.max(0, num(p.tendered) - num(p.amount)) : 0;
+        const troco = p.change ? num(p.change) : 0;
         return {
           forma: paidLabel(p),
           valor: num(p.amount),
@@ -550,8 +553,7 @@ export class PrintingService {
       for (const p of paid) {
         received += Number(p.amount);
         out.push(row(`Pago (${paidLabel(p)})`, p.amount));
-        if (p.tendered && Number(p.tendered) > Number(p.amount))
-          out.push(row('  Troco', String(Number(p.tendered) - Number(p.amount))));
+        if (p.change && Number(p.change) > 0) out.push(row('  Troco', p.change));
       }
       const due = Number(o.total) - received;
       if (due > 0.004) out.push(row('FALTA PAGAR', String(due)));

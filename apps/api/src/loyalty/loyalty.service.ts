@@ -413,14 +413,29 @@ export class LoyaltyService {
     return this.db.withTenant({ tenantId }, async (tx) => {
       const s = await this.settingsIn(tx);
       if (!s.enabled) return { enabled: false as const };
-      const rewards = (await this.rewardsIn(tx, true)).map(
-        ({ active: _a, position: _p, productPrice, imageId, ...r }) => ({
-          ...r,
-          // Produto grátis: quanto ele vale hoje (preço base, sem adicionais).
-          amount: r.kind === 'product' ? productPrice : r.amount,
-          imageUrl: mediaUrl(imageId),
-        }),
+      const list = await this.rewardsIn(tx, true);
+      // Produto grátis: o preço do cardápio de entrega (o mesmo que sai de desconto no pedido).
+      const ids = list.map((r) => r.productId).filter((id): id is string => !!id);
+      const menuPrice = new Map(
+        (ids.length
+          ? await q<{ id: string; price: string }>(
+              tx,
+              `SELECT p.id, COALESCE(mi.price, p.price)::text AS price FROM products p
+                 LEFT JOIN menus m ON m.active AND m.kind = 'delivery'
+                 LEFT JOIN menu_items mi ON mi.menu_id = m.id AND mi.product_id = p.id
+                WHERE p.id = ANY($1::uuid[])`,
+              [ids],
+            )
+          : []
+        ).map((p) => [p.id, p.price]),
       );
+      const rewards = list.map(({ active: _a, position: _p, productPrice, imageId, ...r }) => ({
+        ...r,
+        // Quanto ele vale hoje (sem adicionais).
+        amount:
+          r.kind === 'product' ? (menuPrice.get(r.productId ?? '') ?? productPrice) : r.amount,
+        imageUrl: mediaUrl(imageId),
+      }));
       const account = customerId
         ? {
             ...(await this.balanceIn(tx, s, customerId)),
@@ -460,7 +475,7 @@ export class LoyaltyService {
     tx: Tx,
     customerId: string,
     rewardId: string,
-    lines: { productId: string; unitBaseCents: number }[],
+    lines: { productId: string; unitBaseCents: number; lineBaseCents: number }[],
     subtotalCents: number,
   ): Promise<RedeemQuote> {
     const s = await this.settingsIn(tx);
@@ -474,12 +489,13 @@ export class LoyaltyService {
       );
     let discountCents: number;
     if (r.kind === 'product') {
-      const line = lines.find((l) => l.productId === r.productId);
-      if (!line)
+      const mine = lines.filter((l) => l.productId === r.productId);
+      if (!mine.length)
         throw new UnprocessableEntityException(
           `Coloque ${r.productName ?? 'o produto'} na sacola para usar essa recompensa`,
         );
-      discountCents = line.unitBaseCents;
+      // Uma unidade grátis; no item por peso, o que o cliente leva (o quilo pode valer mais).
+      discountCents = Math.max(...mine.map((l) => Math.min(l.unitBaseCents, l.lineBaseCents)));
     } else discountCents = toCents(r.amount!);
     // O desconto nunca passa do valor dos itens (a taxa de entrega continua sendo cobrada).
     discountCents = Math.min(discountCents, subtotalCents);
@@ -527,7 +543,8 @@ export class LoyaltyService {
               source FROM orders WHERE id = $1`,
       [orderId],
     );
-    if (!o) return;
+    // Pedido de aplicativo de delivery não pontua: a compra foi no aplicativo, não na loja.
+    if (!o || o.source === 'app') return;
     // Pedido da equipe só pontua se a loja contar os pedidos do balcão (mesmo com o cliente
     // escolhido no PDV).
     let customerId = o.source === 'online' || s.countStaffOrders ? o.customerId : null;

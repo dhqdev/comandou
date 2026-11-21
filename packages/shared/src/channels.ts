@@ -145,10 +145,39 @@ export const CHANNEL_EVENT_KINDS = [
   'order.cancelled',
   'order.dispute',
   'order.dispute_settled',
+  'order.patched',
+  'order.address_changed',
   'delivery.update',
   'other',
 ] as const;
 export type ChannelEventKind = (typeof CHANNEL_EVENT_KINDS)[number];
+
+/** O que o cliente mudou no pedido (iFood ORDER_PATCHED, `changes[].changeType`). */
+const PATCH_LABELS: Record<string, string> = {
+  ADD_ITEMS: 'incluiu itens',
+  DELETE_ITEMS: 'tirou itens',
+  EDIT_ITEMS: 'mudou quantidades',
+};
+
+/**
+ * Aviso para a equipe quando o cliente mexe no pedido pelo aplicativo depois de confirmado
+ * (`order.patched`) ou pede outro endereço de entrega (`order.address_changed`). O Comandou não
+ * reescreve itens, valores nem endereço sozinho: a pessoa confere no portal do aplicativo.
+ */
+export function channelChangeNotice(
+  kind: ChannelEventKind,
+  channel: string,
+  changes: readonly string[] = [],
+): string | null {
+  const where = withArticle(channelInfo(channel).label, 'no');
+  if (kind === 'order.patched') {
+    const what = [...new Set(changes.map((c) => PATCH_LABELS[c]).filter(Boolean))];
+    return `O cliente alterou o pedido ${where}${what.length ? ` (${what.join(', ')})` : ''}: confira itens e valores no portal`;
+  }
+  if (kind === 'order.address_changed')
+    return `O cliente pediu outro endereço de entrega ${where}: confira o endereço novo no portal antes de sair`;
+  return null;
+}
 
 /** Estado do Comandou que um evento do canal leva (só para a frente; null = não muda). */
 export function statusForEvent(kind: ChannelEventKind): OrderStatus | null {

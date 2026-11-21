@@ -6,6 +6,7 @@ import {
   withArticle,
   channelPath,
   channelInfo,
+  channelChangeNotice,
   customOdId,
   isCustomOd,
   channelMovesForward,
@@ -72,6 +73,21 @@ describe('canais de delivery', () => {
     expect(withArticle('aiqfome', 'pelo')).toBe('pelo aiqfome');
     expect(actionForTransition('ready', 'completed', 'channel')).toBeNull();
     expect(actionForTransition('new', 'cancel_requested', null)).toBe('request_cancellation');
+  });
+
+  it('aviso de pedido alterado ou endereço novo, com o artigo do aplicativo', () => {
+    expect(statusForEvent('order.patched')).toBeNull();
+    expect(statusForEvent('order.address_changed')).toBeNull();
+    expect(channelChangeNotice('order.patched', 'ifood', ['ADD_ITEMS', 'EDIT_ITEMS', 'X'])).toBe(
+      'O cliente alterou o pedido no iFood (incluiu itens, mudou quantidades): confira itens e valores no portal',
+    );
+    expect(channelChangeNotice('order.patched', 'keeta')).toBe(
+      'O cliente alterou o pedido na Keeta: confira itens e valores no portal',
+    );
+    expect(channelChangeNotice('order.address_changed', 'ifood')).toMatch(
+      /^O cliente pediu outro endereço de entrega no iFood/,
+    );
+    expect(channelChangeNotice('order.ready', 'ifood')).toBeNull();
   });
 
   it('tipo, selo e prazo', () => {

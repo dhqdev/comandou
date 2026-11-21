@@ -6,12 +6,18 @@ import {
 } from '@nestjs/common';
 import { fromCents, paymentStatusFor, toCents } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
-import { CashService, changeFor, PaymentInput } from '../cash/cash.service';
+import { CashService, changeFor, PaymentInput, pixPendingMessage } from '../cash/cash.service';
 import type { Ctx } from '../common/context';
 import { withIdempotency } from '../common/idempotency';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
-import { ORDER_SELECT, OrderRow, OrdersService, serviceFeeCents } from '../orders/orders.service';
+import {
+  ON_ACCOUNT_SQL,
+  ORDER_SELECT,
+  OrderRow,
+  OrdersService,
+  serviceFeeCents,
+} from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { completeSeatedForTab } from '../reservations/seated';
 
@@ -23,7 +29,8 @@ const TAB_SELECT = `
          COALESCE(sum(o.surcharge) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS "serviceFee",
          COALESCE(sum(o.total) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS total,
          COALESCE(sum(o.paid_amount), 0)::text AS paid,
-         COALESCE(sum(o.total - o.paid_amount) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS balance,
+         COALESCE(sum(o.total - o.paid_amount)
+           FILTER (WHERE o.status <> 'cancelled' AND NOT ${ON_ACCOUNT_SQL}), 0)::text AS balance,
          count(o.id) FILTER (WHERE o.status <> 'cancelled')::int AS "orderCount"
     FROM tabs tb
     LEFT JOIN dining_tables dt ON dt.id = tb.table_id
@@ -31,10 +38,6 @@ const TAB_SELECT = `
 
 const awaitingMessage = (number: number, action: string) =>
   `O pedido #${number}, feito pelo cliente no celular, ainda espera aceite. Aceite ou recuse antes de ${action}.`;
-
-/** O cliente da mesa já pagou pelo Pix do cardápio e o comprovante espera a conferência. */
-const pixPendingMessage = (number: number) =>
-  `O cliente pagou o pedido #${number} pelo Pix e mandou o comprovante. Aprove ou recuse o comprovante antes de cobrar este pedido.`;
 
 /**
  * Comandas (atendimentos de mesa/balcão). Uma comanda agrupa pedidos até a conta ser fechada.
@@ -83,9 +86,12 @@ export class TabsService {
   async open(ctx: Ctx, b: { tableId?: string; customerName?: string }) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       if (b.tableId) {
-        const table = await one(tx, `SELECT id FROM dining_tables WHERE id = $1 AND active`, [
-          b.tableId,
-        ]);
+        // Trava a mesa (como o primeiro pedido nela): quem chega junto vê a comanda já aberta.
+        const table = await one(
+          tx,
+          `SELECT id FROM dining_tables WHERE id = $1 AND active FOR UPDATE`,
+          [b.tableId],
+        );
         if (!table) throw new NotFoundException('Mesa não encontrada');
         const busy = await one(tx, `SELECT id FROM tabs WHERE table_id = $1 AND status = 'open'`, [
           b.tableId,
@@ -110,11 +116,12 @@ export class TabsService {
   }
 
   private lockOrders(tx: Tx, tabId: string) {
-    return q<OrderRow & { created_at: string; pix_status: string | null }>(
+    return q<OrderRow & { created_at: string; pix_status: string | null; on_account: boolean }>(
       tx,
-      `SELECT id, number, channel, status, total::text, subtotal::text, discount::text, surcharge::text,
-              delivery_fee::text, paid_amount::text, payment_status, tab_id, version, pix_status
-         FROM orders WHERE tab_id = $1 ORDER BY created_at, id FOR UPDATE`,
+      `SELECT o.id, o.number, o.channel, o.status, o.total::text, o.subtotal::text, o.discount::text,
+              o.surcharge::text, o.delivery_fee::text, o.paid_amount::text, o.payment_status,
+              o.tab_id, o.version, o.pix_status, ${ON_ACCOUNT_SQL} AS on_account
+         FROM orders o WHERE o.tab_id = $1 ORDER BY o.created_at, o.id FOR UPDATE`,
       [tabId],
     );
   }
@@ -301,7 +308,8 @@ export class TabsService {
           (o) =>
             o.status !== 'cancelled' &&
             toCents(o.total) > toCents(o.paid_amount) &&
-            (!b.orderIds || b.orderIds.includes(o.id)),
+            // Sem escolher pedidos, o "a receber" fica de fora (é cobrado à parte, se escolhido).
+            (b.orderIds ? b.orderIds.includes(o.id) : !o.on_account),
         );
         if (b.orderIds && b.orderIds.some((oid) => !orders.find((o) => o.id === oid))) {
           throw new UnprocessableEntityException('Pedido inválido ou já pago para esta comanda');
@@ -362,7 +370,10 @@ export class TabsService {
       const orders = (await this.lockOrders(tx, id)).filter((o) => o.status !== 'cancelled');
       const waiting = orders.find((o) => o.status === 'awaiting');
       if (waiting) throw new ConflictException(awaitingMessage(waiting.number, 'fechar a conta'));
-      const unpaid = orders.filter((o) => toCents(o.paid_amount) < toCents(o.total));
+      // Concluído "a receber" ou fiado: a dívida segue no pedido e a conta da mesa fecha.
+      const unpaid = orders.filter(
+        (o) => !o.on_account && toCents(o.paid_amount) < toCents(o.total),
+      );
       if (unpaid.length)
         throw new ConflictException(`Há saldo em aberto em ${unpaid.length} pedido(s)`);
       const pending = orders.filter((o) =>

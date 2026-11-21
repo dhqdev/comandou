@@ -33,6 +33,19 @@ export interface PaymentInput {
   taxDocument?: string | null;
 }
 
+/** O cliente já pagou pelo Pix do cardápio e o comprovante espera a conferência. */
+export const pixPendingMessage = (number: number) =>
+  `O cliente pagou o pedido #${number} pelo Pix e mandou o comprovante. Aprove ou recuse o comprovante antes de cobrar este pedido.`;
+
+/**
+ * Comprovante do Pix esperando conferência: cobrar de novo faria o cliente pagar duas vezes.
+ * Fica fora de applyPayment: a aprovação do próprio comprovante passa por lá.
+ */
+export async function assertNoPixPending(tx: Tx, o: { id: string; number: number }) {
+  if (await one(tx, `SELECT 1 FROM orders WHERE id = $1 AND pix_status = 'submitted'`, [o.id]))
+    throw new ConflictException(pixPendingMessage(o.number));
+}
+
 interface SessionRow {
   id: string;
   status: 'open' | 'closed';
@@ -76,7 +89,8 @@ const toStrings = (t: Totals) =>
  * Caixa e pagamentos.
  *
  * Travas (sempre nesta ordem para evitar deadlock):
- *   sessão de caixa (FOR SHARE em vendas/estornos; FOR UPDATE em sangria/suprimento/fechamento)
+ *   sessão de caixa (FOR SHARE em vendas/estornos; FOR UPDATE em sangria/suprimento/fechamento
+ *   e no estorno em dinheiro)
  *   → comanda → pedidos (por created_at, id) → pagamento.
  * O fechamento trava a sessão em modo exclusivo, então nenhum pagamento entra em uma sessão
  * enquanto ela fecha, e nenhum pagamento é aceito depois de fechada.
@@ -675,6 +689,7 @@ export class CashService {
       withIdempotency(tx, ctx.tenantId, 'payment.create', idemKey, { orderId, ...b }, async () => {
         await this.lockSession(tx, b.cashSessionId, 'SHARE');
         const o = await this.orders.lock(tx, orderId);
+        await assertNoPixPending(tx, o);
         if (b.taxDocument)
           await tx.$client.query(`UPDATE orders SET tax_document = $2 WHERE id = $1`, [
             o.id,
@@ -719,13 +734,15 @@ export class CashService {
         idemKey,
         { paymentId, ...b },
         async () => {
-          await this.lockSession(tx, b.cashSessionId, 'SHARE');
-          const ref = await one<{ order_id: string }>(
+          const ref = await one<{ order_id: string; method: string }>(
             tx,
-            `SELECT order_id FROM payments WHERE id = $1`,
+            `SELECT order_id, method FROM payments WHERE id = $1`,
             [paymentId],
           );
           if (!ref) throw new NotFoundException('Pagamento não encontrado');
+          // Estorno em dinheiro trava a sessão só para ele (como a sangria): dois estornos juntos
+          // não tiram da gaveta mais do que ela tem.
+          await this.lockSession(tx, b.cashSessionId, ref.method === 'cash' ? 'UPDATE' : 'SHARE');
           const o = await this.orders.lock(tx, ref.order_id);
           orderId = o.id;
           await this.orders.assertNoLiveFiscalDocument(tx, o.id, 'estornar');

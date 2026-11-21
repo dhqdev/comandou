@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
   canTransition,
+  channelChangeNotice,
   channelPath,
   statusForEvent,
   toCents,
@@ -320,15 +321,17 @@ export class ChannelInboxService implements OnModuleInit {
     const fx = { stock: 0, print: 0 };
     let created = false;
     let attention: string | undefined;
+    const noticed: string[] = [];
     await this.db.withTenant({ tenantId }, async (tx) => {
       if (fresh) {
         const r = await this.ingest.ingestInTx(tx, tenantId, known.store!, fresh, fx);
         orderId = r.orderId;
         created = r.created;
       }
-      attention = await this.applyInTx(tx, tenantId, orderId!, ev);
+      attention = await this.applyInTx(tx, tenantId, orderId!, ev, noticed);
       await mark(tx, 'done', attention);
     });
+    if (noticed.length) this.realtime.publishToUsers(tenantId, noticed, { type: 'chat.notice' });
     if (created) this.ingest.afterCommit(tenantId, orderId!, fx);
     else this.orders.publishChanged(tenantId, orderId!, { stock: true, print: true });
     return 'done';
@@ -376,7 +379,13 @@ export class ChannelInboxService implements OnModuleInit {
    * Aplica o evento no pedido: só para a frente, pelos passos da máquina de estados, e confirma
    * na caixa de saída o que mandamos. Devolve um aviso quando o evento não pôde ser aplicado.
    */
-  private async applyInTx(tx: Tx, tenantId: string, orderId: string, ev: InboxRow) {
+  private async applyInTx(
+    tx: Tx,
+    tenantId: string,
+    orderId: string,
+    ev: InboxRow,
+    noticed: string[] = [],
+  ) {
     const ctx = channelCtx(tenantId);
     // Entregador não muda a situação do pedido no canal (só a dele).
     if (ev.kind === 'delivery.update')
@@ -385,6 +394,9 @@ export class ChannelInboxService implements OnModuleInit {
         orderId,
         ev.payload?.delivery as ChannelDriverUpdate | null | undefined,
       );
+    // Cliente mexeu no pedido ou pediu outro endereço: aviso, sem mudar a situação.
+    if (ev.kind === 'order.patched' || ev.kind === 'order.address_changed')
+      return this.changeNoticeInTx(tx, tenantId, orderId, ev, noticed);
     await q(tx, `UPDATE channel_orders SET channel_status = $2 WHERE order_id = $1`, [
       orderId,
       ev.kind,
@@ -434,6 +446,51 @@ export class ChannelInboxService implements OnModuleInit {
         fromChannel: true,
       });
     return undefined;
+  }
+
+  /**
+   * O cliente alterou o pedido no aplicativo depois de confirmado (itens, quantidades) ou pediu
+   * outro endereço. Sem ambiente de teste do aplicativo para conferir o formato da mudança, o
+   * Comandou NÃO reescreve itens, valores nem endereço: o aviso entra no começo da observação do
+   * pedido (aparece no pedido, no PDV e na via da cozinha) e no sino da equipe, para a pessoa
+   * conferir no portal.
+   */
+  private async changeNoticeInTx(
+    tx: Tx,
+    tenantId: string,
+    orderId: string,
+    ev: InboxRow,
+    noticed: string[],
+  ) {
+    const changes = Array.isArray(ev.payload?.changes)
+      ? (ev.payload.changes as unknown[]).filter((c): c is string => typeof c === 'string')
+      : [];
+    const notice = channelChangeNotice(ev.kind, ev.channel, changes);
+    if (!notice) return undefined;
+    const o = await one<{ status: OrderStatus; notes: string | null; number: number }>(
+      tx,
+      `SELECT status, notes, number FROM orders WHERE id = $1 FOR UPDATE`,
+      [orderId],
+    );
+    if (!o) return undefined;
+    if (o.status === 'cancelled') return `${notice} (pedido já cancelado aqui)`.slice(0, 300);
+    const text = `Atenção: ${notice}.`;
+    if (!o.notes?.includes(text)) {
+      await q(tx, `UPDATE orders SET notes = $2, version = version + 1 WHERE id = $1`, [
+        orderId,
+        (o.notes?.trim() ? `${text} · ${o.notes.trim()}` : text).slice(0, 1000),
+      ]);
+      noticed.push(
+        ...(await this.orders.noticeTeamIn(
+          tx,
+          tenantId,
+          ['owner', 'manager', 'attendant'],
+          `Pedido #${o.number}: alteração no aplicativo`,
+          notice,
+        )),
+      );
+    }
+    return notice.slice(0, 300);
   }
 
   /**
