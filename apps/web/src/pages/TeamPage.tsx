@@ -6,7 +6,7 @@ import {
   ROLES,
   type Role,
 } from '@comandou/shared';
-import { Hash, KeyRound, UserPlus, Users } from 'lucide-react';
+import { Copy, Hash, KeyRound, Link2, UserPlus, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -21,6 +21,8 @@ import {
   Skeleton,
 } from '../design-system';
 import { useAuth } from '../app/auth';
+import { ACCESS_LINKS, accessUrl } from '../app/role-home';
+import { copyText } from '../features/PixQr';
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api, ApiError } from '../lib/api';
@@ -30,6 +32,12 @@ import type { Member } from '../lib/types';
 import { TourButton } from '../features/tour/PageTour';
 import { PinField, PinModal, PinReveal, pinFieldError } from '../features/StaffPin';
 import './team.css';
+
+/** Link de acesso de um papel (o da área dele; gerente e dono, o endereço do painel). */
+function linkOf(role: Role): string {
+  const area = ACCESS_LINKS.find((l) => l.roles.includes(role)) ?? ACCESS_LINKS.at(-1)!;
+  return accessUrl(area.path);
+}
 
 /** Equipe do restaurante: quem acessa, com qual papel. Só administradores alteram. */
 export function TeamPage() {
@@ -65,6 +73,11 @@ export function TeamPage() {
       toast((e as Error).message, 'danger');
     }
     await load();
+  }
+
+  async function copyLink(url: string, who: string) {
+    if (await copyText(url)) toast(`Link de ${who} copiado`, 'success');
+    else toast(url);
   }
 
   return (
@@ -138,6 +151,15 @@ export function TeamPage() {
                       <td>{m.lastSeenAt ? dateTime(m.lastSeenAt) : '—'}</td>
                       <td className="cm-num">
                         <div className="team-actions">
+                          {!self && m.status === 'active' && (
+                            <Button
+                              variant="ghost"
+                              icon={<Link2 size={16} />}
+                              onClick={() => copyLink(linkOf(m.role as Role), m.name)}
+                              aria-label={`Copiar link de acesso de ${m.name}`}
+                              title="Copiar o link de acesso desta pessoa"
+                            />
+                          )}
                           {!self && isPinRole(m.role) && (
                             <Button
                               variant="ghost"
@@ -187,6 +209,35 @@ export function TeamPage() {
             </table>
           </div>
         )}
+      </Card>
+      <Card title="Links de acesso">
+        <p className="cm-hint">
+          Mande para cada pessoa o link da área dela. O link já abre o login certo e, depois de
+          entrar, a tela de trabalho.
+        </p>
+        <ul className="team-links">
+          {ACCESS_LINKS.map((l) => {
+            const url = accessUrl(l.path);
+            return (
+              <li key={l.path} className="team-link">
+                <div className="team-link__info">
+                  <strong>{l.label}</strong>
+                  <span className="cm-hint">{l.how}</span>
+                </div>
+                <code className="team-link__url">{url.replace(/^https?:\/\//, '')}</code>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Copy size={16} />}
+                  onClick={() => copyLink(url, l.label.toLowerCase())}
+                  aria-label={`Copiar link de ${l.label}`}
+                >
+                  Copiar
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
       </Card>
       <ChangePasswordModal open={pwFor === 'self'} onClose={() => setPwFor(null)} />
       <MemberPasswordModal

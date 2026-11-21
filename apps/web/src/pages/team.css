@@ -5,3 +5,41 @@
   gap: var(--cm-space-2);
   justify-content: flex-end;
 }
+
+/* Links de acesso: área, como entra, o endereço e Copiar; no celular o endereço desce. */
+.team-links {
+  list-style: none;
+  margin: var(--cm-space-3) 0 0;
+  padding: 0;
+  display: grid;
+}
+.team-link {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-2) 0;
+  border-top: 1px solid var(--cm-border);
+}
+.team-link:first-child {
+  border-top: 0;
+}
+.team-link__info {
+  display: grid;
+  gap: 2px;
+}
+.team-link__url {
+  font-family: inherit;
+  font-size: var(--cm-text-sm, 0.875rem);
+  color: var(--cm-text-muted);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .team-link {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .team-link__url {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import { Alert, Button, TextField } from '../design-system';
 import { useAuth } from '../app/auth';
-import { isWaiterAppPath, isWaiterPath } from '../app/WaiterEntry';
+import { loginAreaFor } from '../app/role-home';
 import { api, ApiError } from '../lib/api';
 import { AuthShell, deskFocus, PasswordField, StoreLoginBrand } from './AuthShell';
 import { PinPad } from './PinPad';
@@ -29,25 +29,22 @@ const WHO = {
     cta: 'Entrar nas entregas',
     pin: 'driver',
   },
+  attendant: { place: 'Balcão', title: 'Acesso do PDV', cta: 'Entrar no PDV', pin: null },
+  cashier: { place: 'Caixa', title: 'Acesso do caixa', cta: 'Entrar no caixa', pin: null },
 } as const;
 
 /**
- * Login do restaurante (painel, /garcom, /cozinha e /entregas). Quem entra fica conectado neste
+ * Login do restaurante (painel, /garcom, /entregas, /cozinha, /pdv e /caixa). Quem entra fica conectado neste
  * aparelho: a sessão se renova a cada uso, então não precisa entrar de novo. Para trocar de pessoa,
  * use "Sair".
  */
 export function LoginPage() {
   const { login, loginWithPin, refresh } = useAuth();
   const { pathname } = useLocation();
-  // Também nas telas de dentro (/garcom/mesas): a sessão que venceu ali volta para o PIN.
-  const who =
-    isWaiterPath(pathname) || isWaiterAppPath(pathname)
-      ? WHO.waiter
-      : /^\/cozinha\/?$/.test(pathname)
-        ? WHO.kitchen
-        : /^\/entregas(\/|$)/.test(pathname)
-          ? WHO.driver
-          : null;
+  // Cada área tem o seu link (Equipe › Links de acesso); também nas telas de dentro (/garcom/mesas),
+  // a sessão que venceu ali volta para o login da mesma área.
+  const area = loginAreaFor(pathname);
+  const who = area ? WHO[area] : null;
   const [tenantName, setTenantName] = useState<string | null>(null);
   const [tenantMissing, setTenantMissing] = useState(false);
   const [email, setEmail] = useState(rememberedEmail);

@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.218.0',
+    date: '2026-11-21',
+    title: 'Link de acesso para cada área da equipe',
+    summary:
+      'A tela Equipe agora mostra o link certo de cada área (garçom, entregador, cozinha, PDV, caixa e gerência) com o botão Copiar, para mandar à pessoa e ela já cair no login dela.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Equipe › Links de acesso: o link de cada área com o botão Copiar. Garçom e entregador abrem direto no PIN; cozinha, PDV e caixa abrem o login da área e, depois de entrar, a tela de trabalho.',
+      },
+      {
+        tag: 'novo',
+        text: 'Equipe: botão de link em cada pessoa, que copia o link da área do papel dela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O login de /pdv e /caixa diz qual área está abrindo, e a cozinha que perde a sessão numa tela de dentro volta para o login da cozinha.',
+      },
+    ],
+  },
+  {
     version: '0.217.3',
     date: '2026-11-21',
     title: 'Pedidos, caixa e iFood mais certos',
