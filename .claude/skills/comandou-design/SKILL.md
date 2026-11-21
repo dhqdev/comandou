@@ -176,6 +176,18 @@ solto: aberto por cima do chat ou da ficha do cliente, o pedido mora dentro da g
 ela era alargada e medida no lugar dele (0.202.1, pedido espremido no chat). Aberto pelo chat
 (`variant="modal"`) o pedido vem numa janela `lg`, com as mesmas duas colunas no notebook.
 
+## Personalizar salão (editor de mesas)
+
+`features/TableEditor.tsx` (`table-editor.css`, prefixo `te-`; refeito na 0.211.5 porque o David
+achou ruim a janela "Adicionar mesas" por cima do "Personalizar salão"). **Nunca janela em cima de
+janela:** a partir de 901px o corpo vira duas colunas (`.te[data-split]`): o salão à esquerda
+(números num quadro só `te-stats`, grupos por área com título cinza, cartões `te-card` com a
+mesa escolhida em `aria-current`) e à direita o painel `te-panel` (fixo, rola sozinho) com
+**Adicionar mesas** por padrão ou a mesa tocada (X volta para Adicionar). O botão do formulário
+fica no rodapé da janela, à direita; Concluir à esquerda. No celular, um de cada vez: salão com
+Concluir + Adicionar mesas no rodapé; formulário com Voltar + o botão dele. Excluir é um botão
+vermelho suave no fim do formulário, com confirmação no próprio painel.
+
 ## Clientes (lista e ficha)
 
 `pages/CustomersPage.tsx` + `pages/customers/` (`customers.css`, prefixo `cl-`; pedido do David na

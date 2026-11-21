@@ -1,34 +1,57 @@
-/* Editor visual do salão: mesas desenhadas de cima, agrupadas por área, na cor da loja. */
+/* Editor do salão (Personalizar salão). No notebook: salão à esquerda e um painel fixo à direita
+   com o formulário (adicionar mesas ou a mesa escolhida); nada de janela por cima de janela. No
+   celular, um de cada vez: o salão, ou o formulário com Voltar no rodapé. */
 .te {
   display: grid;
   gap: var(--cm-space-4);
+  min-width: 0;
 }
-.te-stats {
+.te[data-split] {
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+  gap: 0;
+}
+.te-map {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--cm-space-3);
+  gap: var(--cm-space-5);
+  align-content: start;
+  min-width: 0;
+}
+.te[data-split] .te-map {
+  padding-right: var(--cm-space-5);
+}
+
+/* Números do salão: um quadro só, linha fina entre eles, dica à direita. */
+.te-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
 }
 .te-stats > div {
-  display: grid;
-  gap: 2px;
-  padding: var(--cm-space-3) var(--cm-space-4);
-  border-radius: var(--cm-radius-md);
-  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
-  border: 1px solid color-mix(in oklab, var(--cm-brand-500) 22%, var(--cm-border));
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 10px var(--cm-space-4);
+  border-right: 1px solid var(--cm-border);
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+  white-space: nowrap;
 }
 .te-stats strong {
-  font-size: var(--cm-text-2xl);
-  font-weight: 750;
-  letter-spacing: -0.03em;
+  font-size: var(--cm-text-lg);
+  font-weight: 700;
   color: var(--cm-text);
   font-variant-numeric: tabular-nums;
 }
-.te-stats span {
-  font-size: var(--cm-text-sm);
-  color: var(--cm-text-muted);
-}
 .te-tip {
+  flex: 1 1 200px;
   margin: 0;
+  padding: 10px var(--cm-space-4);
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+  text-align: right;
 }
 
 .te-group {
@@ -40,20 +63,22 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--cm-space-3);
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--cm-border);
 }
 .te-group h3 {
   margin: 0;
-  font-size: var(--cm-text-md);
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  color: var(--cm-text-muted);
 }
-.te-group--off {
-  opacity: 0.85;
+.te-group > header > span {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+  font-variant-numeric: tabular-nums;
 }
 .te-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-  gap: var(--cm-space-3);
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: var(--cm-space-2);
 }
 
 /* Cartão de cada mesa */
@@ -61,9 +86,9 @@
   position: relative;
   display: grid;
   justify-items: center;
-  gap: 4px;
-  padding: var(--cm-space-3) var(--cm-space-2);
-  border: 1px solid var(--cm-border-strong);
+  gap: 2px;
+  padding: var(--cm-space-3) var(--cm-space-2) 10px;
+  border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
   color: inherit;
@@ -71,18 +96,20 @@
   cursor: pointer;
   transition:
     border-color var(--cm-dur) var(--cm-ease),
-    box-shadow var(--cm-dur) var(--cm-ease),
-    transform var(--cm-dur-fast) var(--cm-ease);
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
 .te-card[data-shape='rect'] {
   grid-column: span 2;
 }
 .te-card:hover {
-  border-color: var(--cm-brand-500);
-  box-shadow: var(--cm-shadow-md);
+  border-color: var(--cm-border-strong);
 }
 .te-card:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
+}
+.te-card[aria-current] {
+  border-color: var(--cm-brand-500);
+  box-shadow: 0 0 0 1px var(--cm-brand-500);
 }
 .te-card[data-dragging] {
   opacity: 0.45;
@@ -93,29 +120,33 @@
   top: 8px;
   left: 6px;
   color: var(--cm-text-subtle);
+  opacity: 0;
   cursor: grab;
+  transition: opacity var(--cm-dur) var(--cm-ease);
+}
+.te-card:hover .te-card__grip {
+  opacity: 1;
+}
+/* Comanda aberta: bolinha no canto. */
+.te-card__busy {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cm-danger);
 }
 .te-card[data-shape='rect'] .te-drawing {
-  width: 150px;
+  width: 120px;
 }
 .te-card__name {
-  font-weight: 700;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
 }
 .te-card__meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
   font-size: var(--cm-text-xs);
   color: var(--cm-text-muted);
-}
-.te-card__meta em {
-  margin-left: 4px;
-  padding: 1px 6px;
-  border-radius: 99px;
-  font-style: normal;
-  font-weight: 600;
-  background: var(--cm-danger-bg);
-  color: var(--cm-danger);
 }
 
 /* Desenho da mesa (SVG): tampo na cor da loja, cadeiras neutras */
@@ -140,82 +171,150 @@
   letter-spacing: -0.02em;
 }
 
+/* Painel do formulário */
+.te-panel {
+  display: grid;
+  gap: var(--cm-space-4);
+  align-content: start;
+  min-width: 0;
+}
+/* O painel rola sozinho: o formulário inteiro (até Excluir) fica ao alcance sem rolar o salão. */
+.te[data-split] .te-panel {
+  position: sticky;
+  top: 0;
+  max-height: calc(100dvh - 190px - 2 * var(--cm-space-5));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+  padding-bottom: 2px;
+  padding-left: var(--cm-space-5);
+  border-left: 1px solid var(--cm-border);
+}
+.te-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cm-space-2);
+  min-height: 32px;
+}
+.te-panel__head h3 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--cm-text-md);
+  font-weight: 650;
+}
+.te-panel__close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--cm-btn-fill);
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.te-panel__close:hover {
+  background: var(--cm-btn-fill-hover);
+}
+.te .te-panel .te-form.cm-form {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cm-space-4);
+}
+.te-pair {
+  display: grid;
+  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cm-space-3);
+}
+
 .te-preview {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: var(--cm-space-3);
+  border-radius: var(--cm-radius-md);
+  background:
+    radial-gradient(circle at 1px 1px, var(--cm-border) 1px, transparent 0) 0 0 / 14px 14px,
+    var(--cm-surface-muted);
+}
+.te-preview__tables {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   gap: var(--cm-space-2);
-  padding: var(--cm-space-4);
-  border-radius: var(--cm-radius-lg);
-  background:
-    radial-gradient(circle at 1px 1px, var(--cm-border-strong) 1px, transparent 0) 0 0 / 16px 16px,
-    var(--cm-surface-muted);
-  border: 1px solid var(--cm-border);
+  min-height: 76px;
 }
 .te-preview__more {
-  font-weight: 750;
-  font-size: var(--cm-text-lg);
+  font-weight: 700;
   color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
 }
-.te-preview__caption {
-  margin: calc(var(--cm-space-2) * -1) 0 0;
+.te-preview figcaption {
   text-align: center;
+  font-size: var(--cm-text-sm);
   font-weight: 600;
   color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 .te-quick {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
   margin-top: calc(var(--cm-space-2) * -1);
 }
 .te-quick .chip {
   justify-content: center;
-  padding: 0 6px;
+  padding: 0 4px;
+  font-variant-numeric: tabular-nums;
 }
 
 .te-stepper {
   display: grid;
-  grid-template-columns: 48px 1fr 48px;
-  align-items: center;
-  min-height: 48px;
-  border: 1px solid var(--cm-border-strong);
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: stretch;
+  height: 48px;
+  border: 1px solid var(--cm-input-line, var(--cm-border-strong));
   border-radius: var(--cm-radius-md);
-  background: var(--cm-surface);
+  background: var(--cm-input-bg, var(--cm-surface));
   overflow: hidden;
 }
 .te-stepper button {
   display: grid;
   place-items: center;
-  height: 100%;
-  min-height: 48px;
   border: 0;
-  background: var(--cm-surface-muted);
-  color: var(--cm-text);
+  background: transparent;
+  color: var(--cm-text-muted);
   cursor: pointer;
 }
 .te-stepper button:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
-  color: var(--cm-brand-700);
+  background: var(--cm-btn-fill);
+  color: var(--cm-text);
+}
+.te-stepper button:active:not(:disabled) svg {
+  transform: scale(0.85);
 }
 .te-stepper button:disabled {
   color: var(--cm-text-subtle);
+  opacity: 0.5;
   cursor: not-allowed;
 }
 .te-stepper__value {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
-  gap: 4px;
+  min-width: 0;
 }
 .te-stepper__value input {
-  width: 4ch;
+  width: 100%;
+  min-width: 0;
   border: 0;
   background: transparent;
   color: var(--cm-text);
   font: inherit;
-  font-size: var(--cm-text-xl);
-  font-weight: 750;
+  font-size: var(--cm-text-lg);
+  font-weight: 700;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -229,15 +328,17 @@
 
 .te-shapes {
   display: grid;
+  width: 100%;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--cm-space-2);
 }
 .te-shape {
   display: grid;
   justify-items: center;
-  gap: 4px;
-  padding: var(--cm-space-2);
-  border: 1.5px solid var(--cm-border-strong);
+  gap: 2px;
+  min-width: 0;
+  padding: var(--cm-space-2) 4px;
+  border: 1px solid var(--cm-border-strong);
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
   color: var(--cm-text);
@@ -245,10 +346,18 @@
   font-size: var(--cm-text-sm);
   font-weight: 600;
   cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.te-shape:active {
+  transform: scale(0.97);
+}
+.te-shape > span {
+  max-width: 100%;
+  white-space: nowrap;
 }
 .te-shape[aria-checked='true'] {
   border-color: var(--cm-brand-500);
-  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 7%, var(--cm-surface));
   box-shadow: 0 0 0 1px var(--cm-brand-500);
 }
 .te-area {
@@ -257,46 +366,114 @@
 }
 .te-toggle {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--cm-space-3);
-  align-items: flex-start;
-  padding: var(--cm-space-3);
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-md);
+  padding: var(--cm-space-3) 0;
+  border-top: 1px solid var(--cm-border);
+  border-bottom: 1px solid var(--cm-border);
   cursor: pointer;
 }
-.te-toggle input {
-  width: 20px;
-  height: 20px;
-  margin-top: 2px;
-  accent-color: var(--cm-brand-600);
-}
-.te-toggle span {
+.te-toggle > span:first-child {
   display: grid;
   gap: 2px;
 }
+.te-toggle strong {
+  font-size: var(--cm-text-sm);
+}
 .te-toggle small {
+  font-size: var(--cm-text-xs);
   color: var(--cm-text-muted);
 }
-/* Excluir fica à esquerda do rodapé, longe do Salvar. */
-.cm-modal__footer .te-delete {
-  margin-right: auto;
+.te-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in oklab, var(--cm-danger) 9%, transparent);
   color: var(--cm-danger);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.te-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.te-confirm {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.te-confirm p {
+  margin: 0;
+  line-height: 1.5;
+}
+.te-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cm-space-2);
+}
+/* Notebook baixo (1366 × 768): o corpo cede altura para o rodapé não ser cortado. */
+@media (min-width: 901px) {
+  .cm-modal__body:has(> .te[data-split]) {
+    max-height: calc(100dvh - 190px);
+  }
+}
+/* Concluir à esquerda do rodapé, longe do botão do formulário. */
+.cm-modal__footer .te-done {
+  margin-right: auto;
 }
 
+@media (min-width: 1100px) {
+  .te[data-split] {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+}
+/* Notebook com mouse: campos compactos, como o resto dos formulários. */
+@media (min-width: 901px) and (pointer: fine) {
+  .te-stepper {
+    height: 38px;
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    border-color: var(--cm-field-line);
+    background: var(--cm-field-bg);
+  }
+  .te-stepper__value input {
+    font-size: var(--cm-text-md);
+  }
+  .te-quick .chip {
+    min-height: 30px;
+  }
+}
 @media (max-width: 640px) {
-  .te-stats strong {
-    font-size: var(--cm-text-xl);
+  .te-stats > div {
+    flex: 1;
+    justify-content: center;
+    padding: 10px var(--cm-space-2);
+  }
+  .te-stats > div:nth-child(3) {
+    border-right: 0;
+  }
+  .te-tip {
+    flex-basis: 100%;
+    padding-top: 8px;
+    border-top: 1px solid var(--cm-border);
+    text-align: center;
   }
   .te-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .te-card[data-shape='rect'] .te-drawing {
-    width: 132px;
+    width: 100%;
+    max-width: 120px;
   }
-  .te-card__grip {
-    display: none;
-  }
-  .cm-modal__footer .te-delete {
-    margin-right: 0;
+}
+@media (max-width: 380px) {
+  .te-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

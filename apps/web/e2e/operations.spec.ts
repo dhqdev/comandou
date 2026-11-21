@@ -45,12 +45,14 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await nav(page, 'Salão');
   await page.getByRole('button', { name: 'Personalizar mesas' }).click();
   const editor = page.getByRole('dialog', { name: 'Personalizar salão' });
-  await editor.getByRole('button', { name: 'Adicionar mesas' }).click();
-  const bulk = page.getByRole('dialog', { name: 'Adicionar mesas' });
+  // No notebook o formulário já fica ao lado do salão; no celular abre pelo rodapé.
+  if ((page.viewportSize()?.width ?? 0) <= 900)
+    await editor.getByRole('button', { name: 'Adicionar mesas' }).click();
+  const bulk = editor.getByRole('complementary', { name: 'Adicionar mesas' });
   await bulk.getByLabel('Quantas mesas', { exact: true }).fill('1');
   await bulk.getByLabel('Nome da mesa (opcional)').fill(`M${tag}`);
   await bulk.getByRole('radio', { name: 'Redonda' }).click();
-  await bulk.getByRole('button', { name: 'Criar 1 mesa' }).click();
+  await editor.getByRole('button', { name: 'Criar 1 mesa' }).click();
   await expect(editor.getByText(`Mesa M${tag}`)).toBeVisible();
   await shot(page, info.project.name, 'editor-salao');
   await editor.getByRole('button', { name: 'Concluir' }).click();
