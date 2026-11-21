@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.215.1',
+    date: '2026-11-21',
+    title: 'Abas da Cozinha mais organizadas',
+    summary:
+      'As abas de cima da tela da Cozinha (Todos, Delivery, Mesa, Balcão, Retirada) agora ficam num trilho só, todas da mesma largura, com o número sempre no mesmo canto.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cozinha: abas por tipo de pedido num bloco único, alinhado às colunas, com tamanhos iguais e contadores em coluna. No celular, o bloco ocupa a largura toda e rola de lado.',
+      },
+    ],
+  },
+  {
     version: '0.215.0',
     date: '2026-11-21',
     title: 'Busca geral com favoritos e salão do PDV no tamanho que você arrastar',

@@ -149,42 +149,69 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Abas por tipo de pedido */
+/* Abas por tipo de pedido: um trilho só, abas da mesma largura (a mais larga manda), ícone e
+ * nome à esquerda e o número sempre no mesmo canto. Assim os números ficam em coluna e a fileira
+ * não "dança" quando um contador passa de 9 para 10. */
 .kds-tabs {
-  display: flex;
-  gap: var(--cm-space-2);
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(max-content, 1fr);
+  justify-self: start;
+  align-self: start;
+  width: fit-content;
+  max-width: 100%;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
   overflow-x: auto;
   scrollbar-width: none;
 }
+.kds-tabs::-webkit-scrollbar {
+  display: none;
+}
 .kds-tab {
-  flex: none;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
-  height: 40px;
-  padding: 0 14px;
-  border: 1px solid var(--cm-border-strong);
-  border-radius: var(--cm-radius-full);
-  background: var(--cm-surface);
+  min-width: 0;
+  height: 38px;
+  padding: 0 8px 0 12px;
+  border: 0;
+  border-radius: calc(var(--cm-radius-lg) - 4px);
+  background: transparent;
   color: var(--cm-text-muted);
   font: inherit;
   font-size: var(--cm-text-sm);
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     background-color var(--cm-dur-fast) var(--cm-ease),
-    border-color var(--cm-dur-fast) var(--cm-ease);
+    color var(--cm-dur-fast) var(--cm-ease);
+}
+.kds-tab > svg {
+  flex: none;
 }
 .kds-tab:hover {
   color: var(--cm-text);
-  border-color: var(--cm-gray-300, var(--cm-border-strong));
+  background: var(--cm-surface-sunken);
+}
+.kds-tab:focus-visible {
+  outline: 2px solid var(--cm-brand-600);
+  outline-offset: 1px;
 }
 .kds-tab[aria-pressed='true'] {
-  border-color: var(--cm-brand-600);
-  background: var(--cm-brand-50);
-  color: var(--cm-brand-700);
+  background: color-mix(in oklab, var(--kds-kitchen) 14%, var(--cm-surface));
+  color: var(--cm-text);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--kds-kitchen) 45%, transparent);
+}
+.kds-tab[aria-pressed='true'] > svg {
+  color: var(--kds-kitchen);
 }
 .kds-tab__count {
+  margin-left: auto;
   min-width: 24px;
   height: 22px;
   padding: 0 7px;
@@ -194,10 +221,11 @@
   background: var(--cm-surface-sunken);
   color: var(--cm-text-muted);
   font-size: var(--cm-text-xs);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 .kds-tab[aria-pressed='true'] .kds-tab__count {
-  background: var(--cm-brand-600);
+  background: var(--kds-kitchen);
   color: var(--cm-on-brand);
 }
 
@@ -849,6 +877,11 @@
   }
   .kds-clock {
     display: none;
+  }
+}
+@media (max-width: 640px) {
+  .kds-tabs {
+    width: 100%;
   }
 }
 @media (max-width: 520px) {
