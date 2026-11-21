@@ -36,9 +36,13 @@ describe('identidade visual: tons gerados a partir da cor do restaurante', () =>
       if (k !== '--cm-focus') expect(v).toMatch(/^#[0-9a-f]{6}$/);
   });
 
-  it('texto por cima: escuro no amarelo, branco no azul-marinho', () => {
+  it('texto por cima: escuro no amarelo, branco no azul-marinho e no verde', () => {
     expect(onColor('#ffd23f')).toBe('#1a1613');
+    expect(onColor('#a3d633')).toBe('#1a1613');
     expect(onColor('#14213d')).toBe('#ffffff');
+    // Verde médio (botão "Nova venda" no tema escuro): antes saía letra escura.
+    expect(onColor('#418c48')).toBe('#ffffff');
+    expect(onColor('#2b9348')).toBe('#ffffff');
   });
 
   it('sem nada escolhido não gera estilo (vale o tema do Comandou)', () => {

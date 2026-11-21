@@ -117,8 +117,13 @@ function mix(a: string, b: string, k: number) {
   return rgbToHex(x.map((v, i) => v * k + y[i]! * (1 - k)) as Rgb);
 }
 
-/** Texto por cima de um fundo colorido: escuro ou branco, o que tiver mais contraste. */
-export const onColor = (bg: string) => (contrast(bg, INK) >= contrast(bg, WHITE) ? INK : WHITE);
+/** Contraste a partir do qual o texto por cima da cor fica branco (letra em negrito do botão). */
+const WHITE_MIN = 3.9;
+
+/** Texto por cima de um fundo colorido: branco sempre que lê bem (verde, azul, vermelho…); escuro
+ *  só nas cores claras (amarelo, verde-limão), onde o branco some. */
+export const onColor = (bg: string) =>
+  contrast(bg, WHITE) >= WHITE_MIN || contrast(bg, INK) < contrast(bg, WHITE) ? WHITE : INK;
 
 /** Escurece (ou clareia) até o contraste com o fundo passar do mínimo. */
 function legibleOn(base: Lch, bg: string, min = 4.5, dir: 1 | -1 = -1) {

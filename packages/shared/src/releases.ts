@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.220.4',
+    date: '2026-11-21',
+    title: 'Letra branca nos botões verdes',
+    summary:
+      'Botões na cor do restaurante, como o "Nova venda", agora usam letra branca no verde e nas outras cores médias, e o "Loja aberta" do topo deixou de ser escrito em verde.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cor do restaurante: o texto por cima do botão fica branco sempre que lê bem; a letra escura fica só nas cores bem claras, como amarelo e verde-limão.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: "Loja aberta" agora tem a letra normal do tema (branca no escuro); o verde fica no interruptor.',
+      },
+    ],
+  },
+  {
     version: '0.220.3',
     date: '2026-11-21',
     title: 'Entregador ativo na Equipe recebe pedidos',

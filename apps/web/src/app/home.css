@@ -84,8 +84,9 @@
 .pdv__store-short {
   display: none;
 }
+/* Aberta: o verde fica só no interruptor; a letra é a do texto (branca no tema escuro). */
 .pdv__store[data-open='true'] {
-  color: var(--cm-success);
+  color: var(--cm-text);
 }
 .pdv__store.switch input:checked + .switch__track {
   background: var(--cm-success);
