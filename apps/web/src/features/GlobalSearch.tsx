@@ -29,6 +29,7 @@ import {
   Settings,
   Smartphone,
   Sparkles,
+  Star,
   Store,
   Truck,
   User,
@@ -287,6 +288,25 @@ function pushRecent(r: Recent) {
   }
 }
 
+/** Favoritos: o que a pessoa marcou com a estrela, sempre à mão na busca vazia. */
+const FAV_KEY = 'cm.search.fav';
+const MAX_FAV = 12;
+function readFav(): Recent[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(FAV_KEY) ?? '[]') as Recent[];
+    return Array.isArray(v) ? v.filter((x) => x && typeof x.to === 'string').slice(0, MAX_FAV) : [];
+  } catch {
+    return [];
+  }
+}
+function saveFav(list: Recent[]) {
+  try {
+    localStorage.setItem(FAV_KEY, JSON.stringify(list.slice(0, MAX_FAV)));
+  } catch {
+    // Sem armazenamento local: o favorito vale só enquanto a busca está aberta.
+  }
+}
+
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 export const SEARCH_SHORTCUT = isMac ? '⌘K' : 'Ctrl K';
 
@@ -315,6 +335,15 @@ export function GlobalSearch({
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(0);
   const [recent, setRecent] = useState<Recent[]>([]);
+  const [fav, setFav] = useState<Recent[]>([]);
+  /** Aba da busca vazia: Recentes (o que abriu por último) ou Favoritos (as estrelas). */
+  const [tab, setTab] = useState<'recent' | 'fav'>('recent');
+  const isFav = (to: string) => fav.some((f) => f.to === to);
+  function toggleFav(r: Recent) {
+    const next = isFav(r.to) ? fav.filter((f) => f.to !== r.to) : [r, ...fav];
+    setFav(next.slice(0, MAX_FAV));
+    saveFav(next);
+  }
 
   // Abre já com o foco no campo, antes da próxima tecla (quem digita rápido não perde letra).
   useLayoutEffect(() => {
@@ -323,6 +352,8 @@ export function GlobalSearch({
     if (open && !d.open) {
       d.showModal?.();
       setRecent(readRecent());
+      setFav(readFav());
+      setTab('recent');
       setActive(0);
       // Mantém a última busca, já selecionada: digitar substitui.
       input.current?.select();
@@ -389,6 +420,19 @@ export function GlobalSearch({
   });
 
   const rows = useMemo<Row[]>(() => {
+    if (!term && tab === 'fav') {
+      return fav.map((r, i) => ({
+        key: `f-${i}`,
+        group: 'Favoritos',
+        icon: STATIC_ICON[r.icon as StaticIcon] ?? KIND_ICON[r.icon as SearchHit['kind']] ?? (
+          <Star />
+        ),
+        title: r.title,
+        detail: r.detail,
+        recent: r,
+        run: () => go(r.to),
+      }));
+    }
     if (!term) {
       const out: Row[] = recent.map((r, i) => ({
         key: `r-${i}`,
@@ -430,9 +474,9 @@ export function GlobalSearch({
     const restLabel = first.length || server.length ? 'Mais opções' : 'Telas e atalhos';
     const rest = (numeric ? statics : weak).map((e) => staticRow(e, restLabel));
     return [...first, ...server, ...rest];
-  }, [term, hits, hitsFor, recent, can]);
+  }, [term, hits, hitsFor, recent, can, tab, fav]);
 
-  useEffect(() => setActive(0), [term, hitsFor]);
+  useEffect(() => setActive(0), [term, hitsFor, tab]);
   useEffect(() => {
     list.current
       ?.querySelector<HTMLElement>(`[data-index="${active}"]`)
@@ -455,6 +499,10 @@ export function GlobalSearch({
     } else if (e.key === 'Enter') {
       e.preventDefault();
       choose(rows[active]);
+    } else if (!term && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      // Busca vazia: as setas do lado trocam entre Recentes e Favoritos.
+      e.preventDefault();
+      setTab((t) => (t === 'recent' ? 'fav' : 'recent'));
     } else if (e.key === 'Escape') {
       // No campo de busca o Esc do navegador só limparia o texto: aqui ele fecha a busca.
       e.preventDefault();
@@ -503,12 +551,50 @@ export function GlobalSearch({
           </button>
         </div>
 
+        {!term && (
+          <div className="gsearch__tabs" role="tablist" aria-label="Atalhos da busca">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'recent'}
+              onClick={() => {
+                setTab('recent');
+                input.current?.focus();
+              }}
+            >
+              <Clock size={15} aria-hidden /> Recentes
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'fav'}
+              onClick={() => {
+                setTab('fav');
+                input.current?.focus();
+              }}
+            >
+              <Star size={15} aria-hidden /> Favoritos
+              {fav.length > 0 && <b>{fav.length}</b>}
+            </button>
+          </div>
+        )}
         <div className="gsearch__list" id="gsearch-list" role="listbox" ref={list}>
+          {!term && tab === 'fav' && fav.length === 0 && (
+            <div className="gsearch__empty">
+              <Star size={22} aria-hidden />
+              <strong>Nenhum favorito ainda</strong>
+              <span>
+                Toque na estrela de uma tela, pedido, mesa ou cliente na busca para ele ficar sempre
+                aqui.
+              </span>
+            </div>
+          )}
           {rows.map((r, i) => {
-            const header = r.group !== lastGroup;
+            const header = r.group !== lastGroup && !(!term && tab === 'fav');
             lastGroup = r.group;
+            const saved = r.recent ? isFav(r.recent.to) : false;
             return (
-              <div key={r.key} role="presentation">
+              <div key={r.key} role="presentation" className="gsearch__row">
                 {header && <div className="gsearch__group">{r.group}</div>}
                 <button
                   type="button"
@@ -531,6 +617,22 @@ export function GlobalSearch({
                   {r.amount && <span className="gsearch__amount">{brl(r.amount)}</span>}
                   <ArrowRight size={16} className="gsearch__go" aria-hidden />
                 </button>
+                {r.recent && (
+                  <button
+                    type="button"
+                    className="gsearch__star"
+                    data-on={saved || undefined}
+                    aria-label={saved ? `Tirar ${r.title} dos favoritos` : `Favoritar ${r.title}`}
+                    title={saved ? 'Tirar dos favoritos' : 'Salvar nos favoritos'}
+                    tabIndex={-1}
+                    onClick={() => {
+                      toggleFav(r.recent!);
+                      input.current?.focus();
+                    }}
+                  >
+                    <Star size={16} />
+                  </button>
+                )}
               </div>
             );
           })}

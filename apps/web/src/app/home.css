@@ -18,12 +18,13 @@
 .pdv__bar > :not(.pdv__find, .pdv__spacer) {
   flex: none;
 }
-/* Busca larga (pedido do David): cresce até 640px e só ela encolhe quando falta lugar. */
+/* Busca dos pedidos: menor que a busca geral do topo (pedido do David); só ela encolhe quando
+   falta lugar. */
 .pdv__bar > .pdv__find {
   position: relative;
-  flex: 1 1 360px;
+  flex: 1 1 280px;
   min-width: 120px;
-  max-width: 640px;
+  max-width: 420px;
 }
 /* Tablet e celular não têm F2: o atalho só ocupa lugar. */
 @media (pointer: coarse) {
@@ -57,106 +58,6 @@
   font: inherit;
   font-size: var(--cm-text-md, 0.9375rem);
 }
-/* Lista da busca: Recentes e Favoritos, logo embaixo do campo. */
-.pdv-find {
-  position: absolute;
-  z-index: 40;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  padding: 6px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-lg);
-  background: var(--cm-surface);
-  box-shadow: var(--cm-shadow-lg);
-  transform-origin: top center;
-  animation: pdv-tabmenu-in var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
-}
-.pdv-find__tabs {
-  display: flex;
-  gap: 4px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--cm-border);
-}
-.pdv-find__tabs button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: calc(var(--cm-radius-lg) - 7px);
-  background: none;
-  color: var(--cm-text-muted);
-  font: inherit;
-  font-size: var(--cm-text-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-.pdv-find__tabs button[aria-selected='true'] {
-  background: var(--cm-surface-muted);
-  color: var(--cm-text);
-}
-.pdv-find__tabs b {
-  min-width: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--cm-surface-muted);
-  font-size: var(--cm-text-xs);
-  font-variant-numeric: tabular-nums;
-}
-.pdv-find__empty {
-  margin: 0;
-  padding: 14px 10px 10px;
-  color: var(--cm-text-subtle);
-  font-size: var(--cm-text-sm);
-}
-.pdv-find__list {
-  display: grid;
-  max-height: 320px;
-  margin: 0;
-  padding: 6px 0 0;
-  overflow-y: auto;
-  list-style: none;
-}
-.pdv-find__list li {
-  display: flex;
-  align-items: center;
-  border-radius: calc(var(--cm-radius-lg) - 7px);
-}
-.pdv-find__list li:hover,
-.pdv-find__list li:focus-within {
-  background: var(--cm-surface-muted);
-}
-.pdv-find__term {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  height: 38px;
-  padding: 0 10px;
-  border: 0;
-  background: none;
-  color: var(--cm-text);
-  font: inherit;
-  font-size: var(--cm-text-sm);
-  text-align: left;
-  cursor: pointer;
-}
-.pdv-find__term:focus-visible {
-  outline: none;
-}
-.pdv-find__term svg {
-  flex: none;
-  color: var(--cm-text-subtle);
-}
-.pdv-find__term span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pdv-find__star,
 .pdv-find__clear {
   display: grid;
   flex: none;
@@ -170,15 +71,8 @@
   color: var(--cm-text-subtle);
   cursor: pointer;
 }
-.pdv-find__star:hover,
 .pdv-find__clear:hover {
   color: var(--cm-text);
-}
-.pdv-find__star[data-on] {
-  color: var(--cm-warning);
-}
-.pdv-find__star[data-on] svg {
-  fill: currentColor;
 }
 .pdv__store {
   flex: none;
@@ -389,30 +283,6 @@
   font-size: var(--cm-text-xs);
   font-weight: 700;
 }
-.pdv-mini-search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  width: 200px;
-  padding: 0 10px;
-  border: 1px solid var(--cm-border-strong);
-  border-radius: var(--cm-radius-sm);
-  color: var(--cm-text-subtle);
-}
-.pdv-mini-search:focus-within {
-  border-color: var(--cm-brand-500);
-}
-.pdv-mini-search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: none;
-  color: var(--cm-text);
-  font: inherit;
-  font-size: var(--cm-text-xs);
-}
 .pdv-legend {
   display: flex;
   gap: var(--cm-space-4);
@@ -471,40 +341,53 @@
     var(--pdv-row) * var(--pdv-rows) + var(--cm-space-2) * (var(--pdv-rows) - 1) + 4px
   );
 }
-/* Setas entre o Salão e os Pedidos: ficam no vão entre os dois blocos. */
+/* Alça entre o Salão e os Pedidos: segurar e arrastar muda a altura do salão. A área de toque é
+   a faixa toda do vão; o desenho é só a pílula do meio. */
 .pdv-split {
+  position: relative;
   display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 6px;
-  height: 22px;
+  height: 24px;
   margin: calc(var(--cm-space-2) * -1) 0;
+  cursor: row-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.pdv-split__btn {
+.pdv-split:focus-visible {
+  outline: none;
+}
+.pdv-split__grip {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 22px;
-  padding: 0;
+  width: 56px;
+  height: 20px;
   border: 1px solid var(--cm-border-strong);
   border-radius: 999px;
   background: var(--cm-surface);
-  color: var(--cm-text-muted);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  color: var(--cm-text-subtle);
   transition:
     background-color var(--cm-dur-fast) var(--cm-ease),
+    color var(--cm-dur-fast) var(--cm-ease),
     transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
-.pdv-split__btn:hover:not(:disabled) {
+.pdv-split:hover .pdv-split__grip,
+.pdv-split:focus-visible .pdv-split__grip {
   background: var(--cm-surface-muted);
   color: var(--cm-text);
 }
-.pdv-split__btn:active:not(:disabled) {
-  transform: scale(0.94);
+.pdv-split:focus-visible .pdv-split__grip {
+  box-shadow: var(--cm-focus);
 }
-.pdv-split__btn:disabled {
-  opacity: 0.4;
-  cursor: default;
+.pdv-split[data-dragging] .pdv-split__grip {
+  border-color: var(--cm-brand-500);
+  color: var(--cm-brand-600);
+  transform: scale(1.06);
+}
+/* Arrastando: a grade acompanha o dedo, sem pular de linha em linha. */
+.pdv-salon__grid[data-dragging] {
+  scroll-snap-type: none;
 }
 .pdv-table {
   display: grid;
@@ -1257,9 +1140,6 @@
   }
   /* Salão numa linha de mesas (rola dentro se tiver mais); a busca de mesa fica na busca do
      topo. Os botões do cabeçalho ficam pequenos e lado a lado, como no computador. */
-  .pdv-mini-search {
-    display: none;
-  }
   .pdv-salon__grid {
     max-height: calc(var(--pdv-row) + 4px);
   }

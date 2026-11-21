@@ -5,7 +5,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  ChevronUp,
+  GripHorizontal,
   ExternalLink,
   Globe,
   HandPlatter,
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import {
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   ReactNode,
   useCallback,
   useEffect,
@@ -50,7 +51,6 @@ import {
   useSoundSettings,
 } from '../lib/sounds';
 import { useSupportUnread } from '../features/store-chat/SupportInbox';
-import { PdvSearch } from '../features/PdvSearch';
 import type { DiningTable, Order, StoreSettings, Tab } from '../lib/types';
 import '../app/home.css';
 import { AppDriverTag, appDriverTakes } from '../features/channels/AppDriver';
@@ -290,10 +290,12 @@ export function PdvPage() {
   const [density, setDensity] = useState<Density>('compact');
   const [salonView, setSalonView] = useState<SalonView>('tables');
   const [salonOpen, setSalonOpen] = useState(true);
-  const [salonSearch, setSalonSearch] = useState('');
   /** Linhas de mesas à vista, escolhidas pelas setas entre o Salão e os Pedidos (null = padrão). */
   const [salonRows, setSalonRows] = useState<number | null>(readSalonRows);
   const salonGrid = useRef<HTMLDivElement>(null);
+  /** Altura do salão enquanto a alça está sendo arrastada (px); ao soltar vira linhas inteiras. */
+  const [dragH, setDragH] = useState<number | null>(null);
+  const drag = useRef<{ y: number; h: number; row: number; id: number } | null>(null);
   /** Celular: uma coluna por vez (abas), sem arrastar a tela para o lado. */
   const [mobileCol, setMobileCol] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -474,7 +476,7 @@ export function PdvPage() {
   }, [canSell]);
 
   const visible = useMemo(() => {
-    const s = search.trim().toLowerCase();
+    const s = search.trim().toLowerCase().replace(/^#/, '');
     return (orders ?? []).filter(
       (o) =>
         // Pedido de mesa que já chegou na mesa sai do quadro (a conta fica na comanda).
@@ -483,7 +485,8 @@ export function PdvPage() {
           String(o.number).includes(s) ||
           (o.customerName ?? '').toLowerCase().includes(s) ||
           (o.customerPhone ?? '').includes(s) ||
-          (o.tableLabel ?? '').toLowerCase() === s),
+          (o.tableLabel ?? '').toLowerCase() === s ||
+          (!!o.tableLabel && `mesa ${o.tableLabel}`.toLowerCase() === s)),
     );
   }, [orders, search]);
   const colList = (key: string) => {
@@ -539,11 +542,15 @@ export function PdvPage() {
   }
 
   // Salão: mesas (com o estado) ou comandas abertas, filtradas pela busca do bloco.
-  const salonQ = salonSearch.trim().toLowerCase();
+  // Salão: mesas (com o estado) ou comandas abertas. A busca do PDV vale para a tela toda:
+  // pedidos, mesas e comandas (a do topo, Ctrl K, busca o sistema inteiro).
+  const salonQ = search.trim().toLowerCase().replace(/^#/, '');
   const shownTables = (tables ?? []).filter(
     (t) =>
       !salonQ ||
       t.label.toLowerCase().includes(salonQ) ||
+      `mesa ${t.label}`.toLowerCase().includes(salonQ) ||
+      String(t.tabNumber ?? '').includes(salonQ) ||
       (t.tabCustomer ?? '').toLowerCase().includes(salonQ),
   );
   const shownTabs = tabs.filter(
@@ -551,6 +558,7 @@ export function PdvPage() {
       !salonQ ||
       String(t.number).includes(salonQ) ||
       (t.tableLabel ?? '').toLowerCase().includes(salonQ) ||
+      `mesa ${t.tableLabel ?? ''}`.toLowerCase().includes(salonQ) ||
       (t.customerName ?? '').toLowerCase().includes(salonQ),
   );
   const stateCount = (s: TableState) => (tables ?? []).filter((t) => tableState(t) === s).length;
@@ -569,32 +577,71 @@ export function PdvPage() {
         .catch((e: Error) => toast(e.message, 'danger'));
   }
 
-  /**
-   * Setas entre o Salão e os Pedidos: para cima o salão encolhe (de uma linha, recolhe) e os
-   * pedidos ganham a altura; para baixo o salão cresce uma linha por vez. Fica gravado no aparelho.
-   */
-  function resizeSalon(dir: 1 | -1) {
-    let rows = salonRows;
-    if (!salonOpen) rows = 0;
-    else if (rows === null) {
-      // Ainda no padrão (que muda com a altura da janela): parte das linhas que estão à vista.
-      const g = salonGrid.current;
-      const row = (g && parseFloat(getComputedStyle(g).getPropertyValue('--pdv-row'))) || 76;
-      const h = g?.clientHeight ?? row;
-      rows = Math.max(1, Math.round((h + SALON_GAP) / (row + SALON_GAP)));
-    }
-    const next = Math.min(SALON_MAX_ROWS, Math.max(0, rows + dir));
-    if (next === 0) {
+  /** Altura de uma linha de mesas agora (o celular usa linhas mais baixas). */
+  function salonRowPx() {
+    const g = salonGrid.current;
+    return (g && parseFloat(getComputedStyle(g).getPropertyValue('--pdv-row'))) || 76;
+  }
+  const rowsFor = (h: number, row: number) =>
+    Math.min(SALON_MAX_ROWS, Math.max(0, Math.round((h + SALON_GAP) / (row + SALON_GAP))));
+
+  /** Grava o tamanho do salão em linhas inteiras (0 recolhe); fica guardado no aparelho. */
+  function setSalonSize(next: number) {
+    if (next <= 0) {
       setSalonOpen(false);
       return;
     }
     setSalonOpen(true);
+    next = Math.min(SALON_MAX_ROWS, next);
     setSalonRows(next);
     try {
       localStorage.setItem(SALON_ROWS_KEY, String(next));
     } catch {
       /* sem armazenamento: vale só nesta visita */
     }
+  }
+
+  /** Linhas à vista agora (no padrão, conta pela altura que a grade tem na tela). */
+  function currentRows() {
+    if (!salonOpen) return 0;
+    if (salonRows !== null) return salonRows;
+    return Math.max(1, rowsFor(salonGrid.current?.clientHeight ?? 0, salonRowPx()));
+  }
+
+  /**
+   * Alça entre o Salão e os Pedidos: segurar e arrastar para baixo aumenta o salão, para cima
+   * diminui (até recolher). Enquanto arrasta acompanha o dedo; ao soltar, para numa linha inteira.
+   */
+  function startDrag(e: ReactPointerEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const h = salonOpen ? (salonGrid.current?.clientHeight ?? 0) : 0;
+    drag.current = { y: e.clientY, h, row: salonRowPx(), id: e.pointerId };
+    if (!salonOpen) setSalonOpen(true);
+    setDragH(h);
+  }
+  function moveDrag(e: ReactPointerEvent<HTMLDivElement>) {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    const max = d.row * SALON_MAX_ROWS + SALON_GAP * (SALON_MAX_ROWS - 1) + 4;
+    setDragH(Math.round(Math.min(max, Math.max(0, d.h + e.clientY - d.y))));
+  }
+  function endDrag(e: ReactPointerEvent<HTMLDivElement>) {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    drag.current = null;
+    const h = Math.min(
+      d.row * SALON_MAX_ROWS + SALON_GAP * (SALON_MAX_ROWS - 1) + 4,
+      Math.max(0, d.h + e.clientY - d.y),
+    );
+    setDragH(null);
+    // Um toque sem arrastar não muda nada.
+    if (Math.abs(e.clientY - d.y) < 4) {
+      if (d.h === 0) setSalonOpen(false);
+      return;
+    }
+    setSalonSize(rowsFor(h, d.row));
   }
 
   /** Ações do cartão de comanda: abrir, imprimir, transferir e fechar conta. */
@@ -609,7 +656,33 @@ export function PdvPage() {
   return (
     <div className="pdv">
       <div className="pdv__bar">
-        <PdvSearch value={search} onChange={setSearch} userId={me?.user.id} />
+        <div className="pdv__find">
+          <label className="pdv__search">
+            <Search size={18} aria-hidden />
+            <input
+              placeholder="Buscar no PDV: pedido, mesa, comanda ou cliente…"
+              aria-label="Buscar pedido"
+              title="Busca só nesta tela. Para buscar no sistema todo, use a busca do topo (Ctrl K)."
+              autoComplete="off"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && search && setSearch('')}
+            />
+            {search && (
+              <button
+                type="button"
+                className="pdv-find__clear"
+                aria-label="Limpar a busca"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSearch('');
+                }}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </label>
+        </div>
         <div className="pdv__spacer" />
         {/* Silenciar: desliga todos os avisos sonoros deste aparelho (o mesmo do botão de som do
             topo, onde ficam o volume e cada som). */}
@@ -736,17 +809,6 @@ export function PdvPage() {
               </li>
             </ul>
             <div className="pdv__spacer" />
-            {salonOpen && (
-              <label className="pdv-mini-search">
-                <Search size={14} aria-hidden />
-                <input
-                  placeholder={salonView === 'tables' ? 'Buscar mesa' : 'Buscar comanda'}
-                  aria-label="Buscar no salão"
-                  value={salonSearch}
-                  onChange={(e) => setSalonSearch(e.target.value)}
-                />
-              </label>
-            )}
             <Segmented<SalonView>
               label="Ver no salão"
               value={salonView}
@@ -774,7 +836,14 @@ export function PdvPage() {
               ref={salonGrid}
               className="pdv-salon__grid"
               data-rows={salonRows ?? undefined}
-              style={salonRows ? ({ '--pdv-rows': salonRows } as CSSProperties) : undefined}
+              data-dragging={dragH !== null || undefined}
+              style={
+                dragH !== null
+                  ? { maxHeight: dragH, height: dragH }
+                  : salonRows
+                    ? ({ '--pdv-rows': salonRows } as CSSProperties)
+                    : undefined
+              }
             >
               {salonView === 'tables' ? (
                 shownTables.length ? (
@@ -860,27 +929,30 @@ export function PdvPage() {
       )}
 
       {canTables && tables && tables.length + tabs.length > 0 && (
-        <div className="pdv-split" role="group" aria-label="Tamanho do salão e dos pedidos">
-          <button
-            type="button"
-            className="pdv-split__btn"
-            aria-label="Pedidos maior (salão menor)"
-            title="Pedidos maior"
-            disabled={!salonOpen}
-            onClick={() => resizeSalon(-1)}
-          >
-            <ChevronUp size={16} />
-          </button>
-          <button
-            type="button"
-            className="pdv-split__btn"
-            aria-label="Salão maior (pedidos menor)"
-            title="Salão maior"
-            disabled={salonOpen && (salonRows ?? 0) >= SALON_MAX_ROWS}
-            onClick={() => resizeSalon(1)}
-          >
-            <ChevronDown size={16} />
-          </button>
+        <div
+          className="pdv-split"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Tamanho do salão: segure e arraste para cima ou para baixo"
+          aria-valuemin={0}
+          aria-valuemax={SALON_MAX_ROWS}
+          aria-valuenow={salonOpen ? (salonRows ?? undefined) : 0}
+          tabIndex={0}
+          title="Segure e arraste para mudar o tamanho do salão"
+          data-dragging={dragH !== null || undefined}
+          onPointerDown={startDrag}
+          onPointerMove={moveDrag}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+            e.preventDefault();
+            setSalonSize(currentRows() + (e.key === 'ArrowDown' ? 1 : -1));
+          }}
+        >
+          <span className="pdv-split__grip" aria-hidden>
+            <GripHorizontal size={16} />
+          </span>
         </div>
       )}
 

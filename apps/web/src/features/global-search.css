@@ -2,10 +2,12 @@
 
 /* ---------------------------------------------------------------- botão do topo */
 .gsearch-trigger {
-  flex: 1;
-  max-width: 440px;
+  /* A busca geral é a maior da tela (pedido do David): maior que a busca dos pedidos do PDV.
+     Base de 720px: ganha do espaçador do topo e só encolhe quando falta lugar. */
+  flex: 1 1 720px;
+  max-width: 720px;
   min-width: 0;
-  min-height: 36px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -171,6 +173,85 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 6px 8px 10px;
+}
+/* Busca vazia: abas Recentes e Favoritos em cima da lista. */
+.gsearch__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px 0;
+}
+.gsearch__tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.gsearch__tabs button:hover {
+  color: var(--cm-text);
+}
+.gsearch__tabs button[aria-selected='true'] {
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+}
+.gsearch__tabs b {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--cm-surface);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+/* Estrela de favoritar: fica à direita de cada linha que leva a algum lugar. */
+.gsearch__row {
+  position: relative;
+}
+.gsearch__row:has(.gsearch__star) .gsearch__item {
+  padding-right: 48px;
+}
+.gsearch__star {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--cm-text-subtle);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--cm-dur-fast) var(--cm-ease);
+}
+.gsearch__row:hover .gsearch__star,
+.gsearch__row:has([aria-selected='true']) .gsearch__star,
+.gsearch__star[data-on] {
+  opacity: 1;
+}
+@media (hover: none) {
+  .gsearch__star {
+    opacity: 1;
+  }
+}
+.gsearch__star:hover {
+  color: var(--cm-text);
+}
+.gsearch__star[data-on] {
+  color: var(--cm-warning);
+}
+.gsearch__star[data-on] svg {
+  fill: currentColor;
 }
 .gsearch__group {
   padding: 12px 10px 4px;

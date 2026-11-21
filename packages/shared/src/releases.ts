@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.215.0',
+    date: '2026-11-21',
+    title: 'Busca geral com favoritos e salão do PDV no tamanho que você arrastar',
+    summary:
+      'A busca do topo (Ctrl K), que acha tudo no sistema, ficou maior e ganhou as abas Recentes e Favoritos. No PDV, a alça entre o Salão e os Pedidos se segura e arrasta para cima ou para baixo, e a busca do PDV vale para a tela toda: pedidos, mesas e comandas.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Busca do topo: abas Recentes (o que você abriu por último) e Favoritos; a estrela em qualquer resultado (tela, pedido, mesa, cliente…) guarda nos favoritos deste aparelho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: no lugar das setas, uma alça entre o Salão e os Pedidos; segure e arraste para baixo para ver mais mesas ou para cima para dar espaço aos pedidos (até recolher o salão). Ao soltar, para numa linha inteira e fica guardado no aparelho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: a busca de baixo procura só nesta tela (pedidos, mesas e comandas) e ficou menor que a busca geral do topo; saiu o campo "Buscar mesa" do Salão.',
+      },
+    ],
+  },
+  {
     version: '0.214.0',
     date: '2026-11-21',
     title: 'Botão de buscar atualização no aplicativo de impressão',
