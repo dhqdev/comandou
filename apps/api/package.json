@@ -1,6 +1,6 @@
 {
   "name": "@comandou/api",
-  "version": "0.211.5",
+  "version": "0.212.1",
   "private": true,
   "description": "API NestJS do Comandou (monólito modular).",
   "scripts": {

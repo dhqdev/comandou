@@ -1161,6 +1161,17 @@ describe('Impressão (agente local e fila)', () => {
     }[];
     expect(list.find((x) => x.name === 'PC do caixa')!.online).toBe(true);
     expect(list.find((x) => x.name === 'PC do caixa')!.printers?.[0]?.label).toBe('EPSON TM-T20');
+    await agentPost(agentToken, '/heartbeat', {
+      printers: [{ target: null, label: 'EPSON TM-T20', kind: 'usb', state: 'off' }],
+    }).expect(200);
+    const off = (await get('adminA', '/printing/agents').expect(200)).body as {
+      name: string;
+      printers: { state?: string }[];
+    }[];
+    expect(off.find((x) => x.name === 'PC do caixa')!.printers[0].state).toBe('off');
+    await agentPost(agentToken, '/heartbeat', {
+      printers: [{ target: null, label: 'EPSON TM-T20', kind: 'usb', state: 'ok' }],
+    }).expect(200);
   });
 
   it('pedido novo gera comanda de cozinha; dois agentes nunca pegam o mesmo trabalho', async () => {

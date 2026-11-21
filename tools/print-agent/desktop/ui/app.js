@@ -351,6 +351,7 @@ function render() {
   pill.replaceChildren(el('span', { class: 'pill__dot' }), label);
   $('version').textContent = `v${state.version}`;
   $('autostart').checked = state.autostart;
+  $('notifications').checked = state.notifications !== false;
 
   const banner = $('banner');
   const s = state.status.state;
@@ -380,6 +381,30 @@ function render() {
         'Os pedidos ficam guardados e saem assim que a internet voltar.',
       ),
       el('button', { class: 'btn', onclick: () => api.reconnect() }, 'Tentar agora'),
+    );
+    banner.hidden = false;
+  } else if (s === 'online' && state.offPrinters?.length) {
+    banner.className = 'banner banner--danger';
+    banner.replaceChildren(
+      el(
+        'div',
+        {},
+        el('strong', {
+          text: `${state.offPrinters.length === 1 ? 'Impressora desligada' : 'Impressoras desligadas'}: ${state.offPrinters.join(', ')}. `,
+        }),
+        'Ligue e confira o cabo ou a rede. O aviso some sozinho quando ela responder.',
+      ),
+      el(
+        'button',
+        {
+          class: 'btn',
+          onclick: async () => {
+            await api.checkAll();
+            apply(await api.state());
+          },
+        },
+        'Conferir agora',
+      ),
     );
     banner.hidden = false;
   } else if (s === 'online' && (!state.printers.default || state.printers.default === 'none')) {
@@ -1619,6 +1644,9 @@ $('code').addEventListener('paste', () =>
 );
 $('autostart').addEventListener('change', async (e) =>
   apply(await api.setAutostart(e.target.checked)),
+);
+$('notifications').addEventListener('change', async (e) =>
+  apply(await api.setNotifications(e.target.checked)),
 );
 $('open-panel').addEventListener('click', () => api.openPanel());
 $('update-btn').addEventListener('click', async () => {

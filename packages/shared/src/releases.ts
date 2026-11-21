@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.211.5',
+    version: '0.212.1',
     date: '2026-11-21',
     title: 'Personalizar salão sem janela em cima de janela',
     summary:
@@ -37,6 +37,27 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'correção',
         text: 'No notebook de tela baixa (1366 × 768) os botões do rodapé não ficam mais cortados.',
+      },
+    ],
+  },
+  {
+    version: '0.212.0',
+    date: '2026-11-21',
+    title: 'Aviso de impressora desligada, no sistema e no aplicativo',
+    summary:
+      'O aplicativo Comandou Impressão 1.8.0 confere a cada 30 segundos, sem imprimir nada, se as impressoras escolhidas estão ligadas. Se uma desligar, o aviso aparece no aplicativo e no sistema, e some sozinho quando ela voltar. O aplicativo também ganhou a opção de receber ou não as notificações.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Impressão: impressora desligada ou desconectada aparece em vermelho no ícone do topo, na tela Impressão e num aviso na hora em que ela para de responder.',
+      },
+      {
+        tag: 'novo',
+        text: 'Aplicativo de impressão 1.8.0: faixa vermelha e notificação quando a impressora desliga, e outra notificação quando ela volta.',
+      },
+      {
+        tag: 'novo',
+        text: 'Aplicativo de impressão 1.8.0: botão Receber notificações, no rodapé.',
       },
     ],
   },
