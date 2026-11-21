@@ -50,6 +50,27 @@ export const RELEASES: readonly Release[] = [
     ],
   },
   {
+    version: '0.212.1',
+    date: '2026-11-21',
+    title: 'Personalizar salão sem janela em cima de janela',
+    summary:
+      'A tela de personalizar as mesas ficou mais limpa: no notebook o salão fica à esquerda e o formulário de adicionar ou editar mesa fica ao lado, sem abrir outra janela por cima. No celular, um de cada vez, com Voltar no rodapé.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Salão › Personalizar mesas: adicionar mesas e editar uma mesa abrem num painel ao lado do salão (notebook) ou no lugar dele (celular); a mesa escolhida fica marcada no mapa.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Formatos Quadrada, Redonda e Retangular com o nome inteiro, quantidade e lugares lado a lado, atalhos de 1 a 30 mesas e números do salão num quadro só.',
+      },
+      {
+        tag: 'correção',
+        text: 'No notebook de tela baixa (1366 × 768) os botões do rodapé não ficam mais cortados.',
+      },
+    ],
+  },
+  {
     version: '0.212.0',
     date: '2026-11-21',
     title: 'Aviso de impressora desligada, no sistema e no aplicativo',

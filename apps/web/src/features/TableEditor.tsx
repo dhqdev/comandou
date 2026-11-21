@@ -1,4 +1,4 @@
-import { Armchair, GripVertical, LayoutGrid, Minus, Plus, Trash2 } from 'lucide-react';
+import { GripVertical, LayoutGrid, Minus, Plus, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Alert, Button, EmptyState, Modal, TextField, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
@@ -217,9 +217,31 @@ function AreaField({
   );
 }
 
+/** Notebook e computador: salão e formulário lado a lado. Abaixo disso, um de cada vez. */
+const WIDE = '(min-width: 901px)';
+function useWide() {
+  const [wide, setWide] = useState(
+    () => typeof matchMedia === 'function' && matchMedia(WIDE).matches,
+  );
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const m = matchMedia(WIDE);
+    const on = () => setWide(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return wide;
+}
+
+type Panel = { kind: 'add' } | { kind: 'edit'; table: DiningTable };
+
 /**
  * Editor visual do salão: cria várias mesas de uma vez, desenha cada mesa com o formato e as
  * cadeiras, agrupa por área e deixa arrastar para mudar a ordem do mapa.
+ *
+ * Nada de janela por cima de janela: no notebook o salão fica à esquerda e o formulário (adicionar
+ * mesas ou a mesa tocada) num painel fixo à direita; no celular o formulário ocupa a folha, com
+ * Voltar no rodapé.
  */
 export function TableEditor({
   open,
@@ -231,10 +253,10 @@ export function TableEditor({
   onChanged?(): void;
 }) {
   const toast = useToast();
+  const wide = useWide();
   const [tables, setTables] = useState<DiningTable[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<DiningTable | null>(null);
-  const [adding, setAdding] = useState(false);
+  const [panel, setPanel] = useState<Panel | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -253,7 +275,10 @@ export function TableEditor({
     }
   }, []);
   useEffect(() => {
-    if (open) void load();
+    if (open) {
+      setPanel(null);
+      void load();
+    }
   }, [open, load]);
 
   const changed = () => {
@@ -280,6 +305,31 @@ export function TableEditor({
   }, [active]);
   const seats = active.reduce((s, t) => s + t.seats, 0);
 
+  // No notebook o painel nunca fica vazio: sem mesa escolhida, mostra Adicionar mesas.
+  const view: Panel | null = panel ?? (wide && tables !== null ? { kind: 'add' } : null);
+  const editing = view?.kind === 'edit' ? view.table : null;
+
+  const add = useAddForm({
+    open: open && view?.kind === 'add',
+    tables: tables ?? [],
+    areas,
+    onCreated(n) {
+      toast(n === 1 ? '1 mesa criada' : `${n} mesas criadas`, 'success');
+      if (!wide) setPanel(null);
+      changed();
+    },
+  });
+  const edit = useEditForm({
+    table: editing,
+    areas,
+    onSaved(msg) {
+      toast(msg, 'success');
+      setPanel(null);
+      changed();
+    },
+  });
+  const form = view?.kind === 'edit' ? edit : view ? add : null;
+
   /** Solta a mesa arrastada no lugar de outra e grava a nova ordem. */
   async function drop(targetId: string) {
     if (!tables || !dragId || dragId === targetId) return;
@@ -301,62 +351,78 @@ export function TableEditor({
     }
   }
 
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Personalizar salão"
-      size="xl"
-      footer={
+  const openAdd = () => setPanel({ kind: 'add' });
+  const empty = tables !== null && active.length === 0;
+
+  let footer: ReactNode;
+  if (!wide && form)
+    footer = (
+      <>
+        <Button variant="secondary" size="lg" onClick={() => setPanel(null)}>
+          Voltar
+        </Button>
+        {form.action}
+      </>
+    );
+  else if (!wide)
+    footer = (
+      <>
+        <Button variant="secondary" size="lg" onClick={onClose}>
+          Concluir
+        </Button>
+        <Button size="lg" icon={<Plus size={18} />} onClick={openAdd}>
+          Adicionar mesas
+        </Button>
+      </>
+    );
+  else
+    footer = (
+      <>
+        <Button variant="secondary" size="lg" className="te-done" onClick={onClose}>
+          Concluir
+        </Button>
+        {form?.action}
+      </>
+    );
+
+  const map = (
+    <div className="te-map">
+      {error && <Alert tone="danger">{error}</Alert>}
+      {tables === null ? (
+        <Skeleton variant="grid" />
+      ) : empty ? (
+        <EmptyState
+          icon={<LayoutGrid size={20} />}
+          title="Seu salão ainda está vazio"
+          description={
+            wide
+              ? 'Diga ao lado quantas mesas você tem e o Comandou cria todas de uma vez.'
+              : 'Diga quantas mesas você tem e o Comandou cria todas de uma vez.'
+          }
+        />
+      ) : (
         <>
-          <Button variant="secondary" size="lg" onClick={onClose}>
-            Concluir
-          </Button>
-          <Button size="lg" icon={<Plus size={18} />} onClick={() => setAdding(true)}>
-            Adicionar mesas
-          </Button>
-        </>
-      }
-    >
-      <div className="te">
-        {error && <Alert tone="danger">{error}</Alert>}
-        <div className="te-stats">
-          <div>
-            <strong>{active.length}</strong>
-            <span>mesas</span>
+          <div className="te-stats">
+            <div>
+              <strong>{active.length}</strong> {active.length === 1 ? 'mesa' : 'mesas'}
+            </div>
+            <div>
+              <strong>{seats}</strong> {seats === 1 ? 'lugar' : 'lugares'}
+            </div>
+            <div>
+              <strong>{groups.length}</strong> {groups.length === 1 ? 'área' : 'áreas'}
+            </div>
+            <p className="te-tip">
+              {wide
+                ? 'Clique numa mesa para editar. Arraste para mudar a ordem.'
+                : 'Toque numa mesa para editar.'}
+            </p>
           </div>
-          <div>
-            <strong>{seats}</strong>
-            <span>lugares</span>
-          </div>
-          <div>
-            <strong>{groups.length}</strong>
-            <span>{groups.length === 1 ? 'área' : 'áreas'}</span>
-          </div>
-        </div>
-        <p className="cm-hint te-tip">
-          Toque numa mesa para mudar nome, lugares, formato ou área. No computador, arraste pela
-          alça para mudar a ordem do mapa.
-        </p>
-        {tables === null ? (
-          <Skeleton variant="grid" />
-        ) : active.length === 0 ? (
-          <EmptyState
-            icon={<LayoutGrid size={20} />}
-            title="Seu salão ainda está vazio"
-            description="Diga quantas mesas você tem e o Comandou cria todas de uma vez."
-            action={
-              <Button icon={<Plus size={16} />} onClick={() => setAdding(true)}>
-                Criar mesas
-              </Button>
-            }
-          />
-        ) : (
-          groups.map(([area, list]) => (
+          {groups.map(([area, list]) => (
             <section key={area} className="te-group">
               <header>
                 <h3>{area}</h3>
-                <span className="cm-hint">
+                <span>
                   {list.length} {list.length === 1 ? 'mesa' : 'mesas'} ·{' '}
                   {list.reduce((s, t) => s + t.seats, 0)} lugares
                 </span>
@@ -369,7 +435,8 @@ export function TableEditor({
                     className="te-card"
                     data-shape={t.shape}
                     data-dragging={dragId === t.id || undefined}
-                    draggable
+                    aria-current={editing?.id === t.id || undefined}
+                    draggable={wide}
                     onDragStart={(e) => {
                       e.dataTransfer.effectAllowed = 'move';
                       setDragId(t.id);
@@ -382,60 +449,71 @@ export function TableEditor({
                       e.preventDefault();
                       void drop(t.id);
                     }}
-                    onClick={() => setEditing(t)}
+                    onClick={() => setPanel({ kind: 'edit', table: t })}
                     aria-label={`Editar mesa ${t.label}, ${t.seats} lugares, ${SHAPE_LABEL[t.shape].toLowerCase()}`}
                   >
-                    <GripVertical size={16} className="te-card__grip" aria-hidden />
-                    <TableDrawing shape={t.shape} seats={t.seats} label={t.label} />
+                    {wide && <GripVertical size={14} className="te-card__grip" aria-hidden />}
+                    {t.tabId && <span className="te-card__busy" title="Com comanda aberta" />}
+                    <TableDrawing shape={t.shape} seats={t.seats} label={t.label} size={72} />
                     <span className="te-card__name">Mesa {t.label}</span>
                     <span className="te-card__meta">
-                      <Armchair size={13} aria-hidden /> {t.seats}{' '}
-                      {t.seats === 1 ? 'lugar' : 'lugares'}
-                      {t.tabId && <em>em uso</em>}
+                      {t.seats} {t.seats === 1 ? 'lugar' : 'lugares'}
                     </span>
                   </button>
                 ))}
               </div>
             </section>
-          ))
-        )}
-        {inactive.length > 0 && (
-          <section className="te-group te-group--off">
-            <header>
-              <h3>Desativadas</h3>
-              <span className="cm-hint">Não aparecem no mapa do salão nem no QR.</span>
-            </header>
-            <div className="chips">
-              {inactive.map((t) => (
-                <button key={t.id} type="button" className="chip" onClick={() => setEditing(t)}>
-                  Mesa {t.label}
+          ))}
+        </>
+      )}
+      {inactive.length > 0 && (
+        <section className="te-group te-group--off">
+          <header>
+            <h3>Desativadas</h3>
+            <span>Não aparecem no salão nem no QR</span>
+          </header>
+          <div className="chips">
+            {inactive.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className="chip"
+                aria-pressed={editing?.id === t.id}
+                onClick={() => setPanel({ kind: 'edit', table: t })}
+              >
+                Mesa {t.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+
+  return (
+    <Modal open={open} onClose={onClose} title="Personalizar salão" size="xl" footer={footer}>
+      <div className="te" data-split={wide || undefined}>
+        {(wide || !form) && map}
+        {form && (
+          <aside className="te-panel" aria-label={form.title}>
+            <header className="te-panel__head">
+              <h3>{form.title}</h3>
+              {wide && view?.kind === 'edit' && (
+                <button
+                  type="button"
+                  className="te-panel__close"
+                  aria-label="Fechar a mesa"
+                  title="Fechar a mesa"
+                  onClick={() => setPanel(null)}
+                >
+                  <X size={16} />
                 </button>
-              ))}
-            </div>
-          </section>
+              )}
+            </header>
+            {form.body}
+          </aside>
         )}
       </div>
-      <BulkTablesModal
-        open={adding}
-        areas={areas}
-        tables={tables ?? []}
-        onClose={() => setAdding(false)}
-        onCreated={(n) => {
-          setAdding(false);
-          toast(n === 1 ? '1 mesa criada' : `${n} mesas criadas`, 'success');
-          changed();
-        }}
-      />
-      <EditTableModal
-        table={editing}
-        areas={areas}
-        onClose={() => setEditing(null)}
-        onSaved={(msg) => {
-          setEditing(null);
-          toast(msg, 'success');
-          changed();
-        }}
-      />
     </Modal>
   );
 }
@@ -445,19 +523,23 @@ function nextNumber(tables: DiningTable[]) {
   return Math.max(0, ...tables.map((t) => (/^\d+$/.test(t.label) ? Number(t.label) : 0))) + 1;
 }
 
-function BulkTablesModal({
+interface PanelForm {
+  title: string;
+  body: ReactNode;
+  action: ReactNode;
+}
+
+function useAddForm({
   open,
   areas,
   tables,
-  onClose,
   onCreated,
 }: {
   open: boolean;
   areas: string[];
   tables: DiningTable[];
-  onClose(): void;
   onCreated(n: number): void;
-}) {
+}): PanelForm {
   const [count, setCount] = useState(10);
   const [seats, setSeats] = useState(4);
   const [shape, setShape] = useState<TableShape>('square');
@@ -497,44 +579,40 @@ function BulkTablesModal({
     }
   }
 
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Adicionar mesas"
-      footer={
-        <>
-          <Button variant="secondary" size="lg" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button size="lg" loading={busy} onClick={save}>
-            Criar {count} {count === 1 ? 'mesa' : 'mesas'}
-          </Button>
-        </>
-      }
-    >
-      <div className="cm-form">
-        <div className="te-preview" aria-hidden>
-          {Array.from({ length: Math.min(count, 6) }, (_, i) => (
-            <TableDrawing
-              key={i}
-              shape={shape}
-              seats={seats}
-              label={single ?? String(start + i)}
-              size={shape === 'rect' ? 84 : 64}
-            />
-          ))}
-          {count > 6 && <span className="te-preview__more">+{count - 6}</span>}
+  const shown = Math.min(count, 4);
+  return {
+    title: 'Adicionar mesas',
+    action: (
+      <Button size="lg" icon={<Plus size={18} />} loading={busy} onClick={save}>
+        Criar {count} {count === 1 ? 'mesa' : 'mesas'}
+      </Button>
+    ),
+    body: (
+      <div className="cm-form te-form">
+        <figure className="te-preview" aria-hidden>
+          <div className="te-preview__tables">
+            {Array.from({ length: shown }, (_, i) => (
+              <TableDrawing
+                key={i}
+                shape={shape}
+                seats={seats}
+                label={single ?? String(start + i)}
+                size={shape === 'rect' ? 76 : 56}
+              />
+            ))}
+            {count > shown && <span className="te-preview__more">+{count - shown}</span>}
+          </div>
+          <figcaption>
+            {count === 1 ? `Mesa ${single ?? start}` : `Mesas ${start} a ${start + count - 1}`} ·{' '}
+            {count * seats} lugares
+          </figcaption>
+        </figure>
+        <div className="te-pair">
+          <Stepper label="Quantas mesas" value={count} min={1} max={200} onChange={setCount} />
+          <Stepper label="Lugares por mesa" value={seats} min={1} max={30} onChange={setSeats} />
         </div>
-        <p className="te-preview__caption">
-          {count === 1
-            ? `Mesa ${single ?? start}`
-            : `Mesa ${start} até a mesa ${start + count - 1}`}{' '}
-          · {count * seats} lugares
-        </p>
-        <Stepper label="Quantas mesas" value={count} min={1} max={200} onChange={setCount} />
-        <div className="chips te-quick">
-          {[5, 10, 20, 30].map((n) => (
+        <div className="te-quick" role="group" aria-label="Atalhos de quantidade">
+          {[1, 5, 10, 20, 30].map((n) => (
             <button
               key={n}
               type="button"
@@ -542,39 +620,36 @@ function BulkTablesModal({
               aria-pressed={count === n}
               onClick={() => setCount(n)}
             >
-              {n} mesas
+              {n}
             </button>
           ))}
         </div>
         {count === 1 && (
           <TextField
             label="Nome da mesa (opcional)"
-            placeholder={`Vazio = mesa ${start}. Ex.: VIP, Varanda 1`}
+            placeholder={`Vazio = mesa ${start}. Ex.: VIP`}
             value={name}
             maxLength={20}
             onChange={(e) => setName(e.target.value)}
           />
         )}
-        <Stepper label="Lugares por mesa" value={seats} min={1} max={30} onChange={setSeats} />
         <ShapePicker value={shape} onChange={setShape} />
         <AreaField value={area} onChange={setArea} areas={areas} />
         {error && <Alert tone="danger">{error}</Alert>}
       </div>
-    </Modal>
-  );
+    ),
+  };
 }
 
-function EditTableModal({
+function useEditForm({
   table,
   areas,
-  onClose,
   onSaved,
 }: {
   table: DiningTable | null;
   areas: string[];
-  onClose(): void;
   onSaved(msg: string): void;
-}) {
+}): PanelForm {
   const [label, setLabel] = useState('');
   const [seats, setSeats] = useState(4);
   const [shape, setShape] = useState<TableShape>('square');
@@ -622,63 +697,42 @@ function EditTableModal({
     });
 
   const inUse = !!table?.tabId;
-  let footer: ReactNode;
-  if (confirmDelete)
-    footer = (
-      <>
-        <Button variant="secondary" size="lg" onClick={() => setConfirmDelete(false)}>
-          Voltar
-        </Button>
-        <Button variant="danger" size="lg" loading={busy} onClick={remove}>
-          Sim, excluir
-        </Button>
-      </>
-    );
-  else
-    footer = (
-      <>
-        <Button
-          variant="secondary"
-          size="lg"
-          className="te-delete"
-          icon={<Trash2 size={18} />}
-          disabled={inUse}
-          title={inUse ? 'Feche a comanda antes de excluir' : undefined}
-          onClick={() => setConfirmDelete(true)}
-        >
-          Excluir
-        </Button>
-        <Button size="lg" loading={busy} disabled={!label.trim()} onClick={save}>
-          Salvar
-        </Button>
-      </>
-    );
-
-  return (
-    <Modal
-      open={!!table}
-      onClose={onClose}
-      title={table ? `Mesa ${table.label}` : 'Mesa'}
-      footer={footer}
-    >
-      {confirmDelete ? (
-        <div className="cm-form">
-          <Alert tone="warning">
-            Excluir a mesa {table?.label}? Se ela já teve comandas, fica só desativada para não
-            perder o histórico.
-          </Alert>
-          {error && <Alert tone="danger">{error}</Alert>}
+  return {
+    title: table ? `Mesa ${table.label}` : 'Mesa',
+    action: confirmDelete ? null : (
+      <Button size="lg" loading={busy} disabled={!label.trim()} onClick={save}>
+        Salvar mesa
+      </Button>
+    ),
+    body: confirmDelete ? (
+      <div className="te-confirm">
+        <p>
+          Excluir a <strong>mesa {table?.label}</strong>? Se ela já teve comandas, fica só
+          desativada para não perder o histórico.
+        </p>
+        {error && <Alert tone="danger">{error}</Alert>}
+        <div className="te-confirm__actions">
+          <Button variant="secondary" onClick={() => setConfirmDelete(false)}>
+            Voltar
+          </Button>
+          <Button variant="danger" loading={busy} onClick={remove}>
+            Sim, excluir
+          </Button>
         </div>
-      ) : (
-        <div className="cm-form">
-          <div className="te-preview" aria-hidden>
-            <TableDrawing shape={shape} seats={seats} label={label || '?'} size={120} />
+      </div>
+    ) : (
+      <div className="cm-form te-form">
+        <figure className="te-preview" aria-hidden>
+          <div className="te-preview__tables">
+            <TableDrawing shape={shape} seats={seats} label={label || '?'} size={80} />
           </div>
-          {inUse && (
-            <Alert tone="info">
-              Mesa com comanda aberta: dá para editar, mas não excluir nem desativar.
-            </Alert>
-          )}
+        </figure>
+        {inUse && (
+          <Alert tone="info">
+            Mesa com comanda aberta: dá para editar, mas não excluir nem desativar.
+          </Alert>
+        )}
+        <div className="te-pair">
           <TextField
             label="Número ou nome"
             value={label}
@@ -686,23 +740,36 @@ function EditTableModal({
             onChange={(e) => setLabel(e.target.value)}
           />
           <Stepper label="Lugares" value={seats} min={1} max={100} onChange={setSeats} />
-          <ShapePicker value={shape} onChange={setShape} />
-          <AreaField value={area} onChange={setArea} areas={areas} />
-          <label className="te-toggle">
+        </div>
+        <ShapePicker value={shape} onChange={setShape} />
+        <AreaField value={area} onChange={setArea} areas={areas} />
+        <label className="te-toggle">
+          <span>
+            <strong>Mesa ativa</strong>
+            <small>Desativada some do salão, mas guarda o histórico.</small>
+          </span>
+          <span className="switch">
             <input
               type="checkbox"
+              role="switch"
               checked={activeOn}
               disabled={inUse}
               onChange={(e) => setActiveOn(e.target.checked)}
             />
-            <span>
-              <strong>Mesa ativa</strong>
-              <small>Desativada some do mapa do salão, mas guarda o histórico.</small>
-            </span>
-          </label>
-          {error && <Alert tone="danger">{error}</Alert>}
-        </div>
-      )}
-    </Modal>
-  );
+            <span className="switch__track" aria-hidden />
+          </span>
+        </label>
+        {error && <Alert tone="danger">{error}</Alert>}
+        <button
+          type="button"
+          className="te-delete"
+          disabled={inUse}
+          title={inUse ? 'Feche a comanda antes de excluir' : undefined}
+          onClick={() => setConfirmDelete(true)}
+        >
+          <Trash2 size={15} aria-hidden /> Excluir mesa
+        </button>
+      </div>
+    ),
+  };
 }
