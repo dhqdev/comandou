@@ -48,7 +48,8 @@ export interface StoreCtx {
   product(id: string): (PublicProduct & { categoryId: string }) | undefined;
   cart: CartLine[];
   setCart(fn: (c: CartLine[]) => CartLine[]): void;
-  addToCart(line: CartLine, from?: HTMLElement | null): void;
+  /** `leaving`: a tela que adicionou está fechando (a foto voa depois de voltar ao cardápio). */
+  addToCart(line: CartLine, from?: HTMLElement | null, leaving?: boolean): void;
   count: number;
   subtotal: number;
   /** Muda a cada item adicionado (anima o botão da sacola). */
@@ -74,10 +75,29 @@ const Ctx = createContext<StoreCtx | null>(null);
 export const useStore = () => useContext(Ctx)!;
 
 /**
- * A foto "voa" até o botão da sacola (efeito de adicionar). A cópia da foto é tirada na hora;
- * o destino é medido um instante depois, porque a sacola pode estar entrando na tela.
+ * Botão da sacola que está à vista agora. Cada moldura tem o seu (barra do topo no tablet, menu
+ * lateral ou sacola ao lado no notebook, pílula no celular); os escondidos (`data-hidden`,
+ * `display: none`, fora da tela) não contam.
  */
-function flyToCart(from: HTMLElement) {
+export function visibleCartTarget(doc: Document = document): HTMLElement | null {
+  const all = [...doc.querySelectorAll<HTMLElement>('[data-cart-target]')].filter(
+    (el) => el.offsetParent !== null && !el.closest('[data-hidden], [aria-hidden="true"]'),
+  );
+  const vw = doc.documentElement.clientWidth || window.innerWidth;
+  const vh = doc.documentElement.clientHeight || window.innerHeight;
+  const onScreen = all.find((el) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.bottom > 0 && r.right > 0 && r.top < vh && r.left < vw;
+  });
+  return onScreen ?? all[0] ?? null;
+}
+
+/**
+ * A foto "voa" até o botão da sacola (efeito de adicionar). A cópia da foto é tirada na hora;
+ * o destino é medido depois. Saindo da tela do item (`leaving`), espera a volta ao cardápio,
+ * porque lá a sacola pode estar em outro lugar (no notebook largo ela fica no alto, à direita).
+ */
+function flyToCart(from: HTMLElement, leaving = false) {
   if (reducedMotion() || !from.animate) return;
   const a = from.getBoundingClientRect();
   const ghost = from.cloneNode(true) as HTMLElement;
@@ -95,29 +115,40 @@ function flyToCart(from: HTMLElement) {
     transformOrigin: 'center',
   });
   document.body.appendChild(ghost);
-  window.setTimeout(() => {
-    const target = [...document.querySelectorAll<HTMLElement>('[data-cart-target]')].find(
-      (el) => el.offsetParent !== null,
-    );
+  const fly = () => {
+    const target = visibleCartTarget();
     if (!target) return ghost.remove();
     const b = target.getBoundingClientRect();
     const dx = b.left + b.width / 2 - (a.left + a.width / 2);
     const dy = b.top + b.height / 2 - (a.top + a.height / 2);
+    // O arco sobe um pouco antes de descer; indo para cima, só segue a curva.
+    const lift = dy < 0 ? 0 : 90;
     ghost
       .animate(
         [
           { transform: 'translate(0,0) scale(1)', opacity: 1 },
           {
-            transform: `translate(${dx * 0.45}px, ${dy * 0.45 - 90}px) scale(0.55)`,
+            transform: `translate(${dx * 0.45}px, ${dy * 0.45 - lift}px) scale(0.55)`,
             opacity: 0.95,
             offset: 0.5,
           },
           { transform: `translate(${dx}px, ${dy}px) scale(0.1)`, opacity: 0.3 },
         ],
-        { duration: 300, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards' },
+        { duration: leaving ? 380 : 300, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards' },
       )
       .finished.finally(() => ghost.remove());
-  }, 40);
+  };
+  if (!leaving) return void window.setTimeout(fly, 40);
+  // Espera o endereço mudar (a tela do item some em ~160 ms) e o cardápio desenhar.
+  const path = window.location.pathname;
+  const t0 = performance.now();
+  const wait = () => {
+    if (window.location.pathname !== path)
+      return void requestAnimationFrame(() => requestAnimationFrame(fly));
+    if (performance.now() - t0 > 600) return fly();
+    requestAnimationFrame(wait);
+  };
+  requestAnimationFrame(wait);
 }
 
 export function StoreProvider({
@@ -253,7 +284,7 @@ export function StoreProvider({
   }, [account === null, customerId, refreshLoyalty, rules.loyalty]);
 
   const addToCart = useCallback(
-    (line: CartLine, from?: HTMLElement | null) => {
+    (line: CartLine, from?: HTMLElement | null, leaving?: boolean) => {
       setCart((c) => {
         const same = c.find((x) => x.key === line.key);
         return same
@@ -269,7 +300,7 @@ export function StoreProvider({
             )
           : [...c, line];
       });
-      if (from) flyToCart(from);
+      if (from) flyToCart(from, leaving);
       track('add_to_cart', {
         productId: line.productId,
         quantity: line.quantity,

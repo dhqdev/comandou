@@ -251,6 +251,7 @@ export function ProductScreen() {
         notes: notes.trim(),
       },
       hero.current,
+      true,
     );
     close();
   }

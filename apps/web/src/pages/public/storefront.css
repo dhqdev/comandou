@@ -1304,6 +1304,128 @@ html.sf-root {
   }
 }
 
+/* A foto é um botão: toca e abre em tela cheia. */
+.pgal__zoom {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: zoom-in;
+}
+.pgal__zoom:disabled {
+  cursor: default;
+}
+.pgal__zoom:focus-visible {
+  outline: 3px solid var(--cm-brand-500);
+  outline-offset: -3px;
+}
+
+/* Foto em tela cheia: inteira, no escuro, arrasta para trocar. */
+.pview {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: rgb(8 8 10 / 92%);
+  color: #fff;
+  overflow: hidden;
+  animation: pview-in 0.22s var(--cm-ease) both;
+}
+.pview::backdrop {
+  background: transparent;
+}
+@keyframes pview-in {
+  from {
+    opacity: 0;
+  }
+}
+.pview__track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  cursor: zoom-out;
+}
+.pview__track::-webkit-scrollbar {
+  display: none;
+}
+.pview__slide {
+  flex: 0 0 100%;
+  display: grid;
+  place-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 64px) 16px
+    calc(env(safe-area-inset-bottom, 0px) + 56px);
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+.pview__slide img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--sf-r);
+  cursor: default;
+  animation: pview-img 0.32s var(--cm-spring-smooth, var(--cm-ease)) both;
+}
+@keyframes pview-img {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+.pview__close {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: 12px;
+}
+.pview__count {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  padding: 4px 12px;
+  border-radius: var(--cm-radius-full);
+  background: rgb(255 255 255 / 14%);
+  font-size: var(--cm-text-sm);
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+}
+.pview__arrow {
+  position: absolute;
+  top: 50%;
+  margin-top: -20px;
+}
+.pview__arrow:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+.pview__arrow--prev {
+  left: 16px;
+}
+.pview__arrow--next {
+  right: 16px;
+}
+/* No toque é arrastar; as setas são para o mouse. */
+@media (hover: none) {
+  .pview__arrow {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pview,
+  .pview__slide img {
+    animation: none;
+  }
+}
+
 /* Nota do item ao lado do nome: toca e desce até as avaliações. */
 .rchip {
   display: inline-flex;
@@ -2024,13 +2146,15 @@ html.sf-root {
 }
 
 @media (min-width: 900px) {
+  /* Foto grande à esquerda, presa na tela enquanto os detalhes rolam ao lado: ela acompanha a
+     leitura em vez de ficar parada no alto com um vazio embaixo. */
   .pdp {
-    max-width: 1180px;
+    max-width: 1480px;
     margin: 0 auto;
-    padding: 28px 24px 48px;
+    padding: 24px 24px 48px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 32px;
+    grid-template-columns: minmax(0, 1.15fr) minmax(340px, 1fr);
+    gap: 40px;
     align-items: start;
   }
   .pdp__media {
@@ -2040,9 +2164,13 @@ html.sf-root {
   .pdp__hero {
     border-radius: var(--sf-r-lg);
     overflow: hidden;
+    box-shadow: var(--cm-shadow-md);
   }
+  /* Quadrada, mas nunca mais alta que a tela (sobra o respiro de cima e de baixo). */
   .pdp__hero .ph {
+    width: 100%;
     height: auto;
+    max-height: calc(100dvh - var(--sf-appbar) - 48px);
     aspect-ratio: 1 / 1 !important;
   }
   .pdp {
