@@ -858,6 +858,77 @@ button.od-fact__link {
     align-content: center;
   }
 }
+/* Formulário de ação do pedido (fiado, desconto, cancelar, despachar, a receber, estorno) toma a
+   área toda do pedido no lugar das colunas (0.211.4, pedido do David): sem rolar para achar o
+   botão. Centralizado e com largura de leitura; no notebook, nome e WhatsApp do fiado lado a lado. */
+.od-takeover {
+  display: grid;
+  gap: var(--cm-space-4);
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  align-content: start;
+}
+.od-takeover__head {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+.od-takeover__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: -6px;
+  padding: 4px 8px 4px 4px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+.od-takeover__back:hover {
+  background: color-mix(in oklab, var(--cm-text) 6%, transparent);
+  color: var(--cm-text);
+}
+.od-takeover__back:focus-visible {
+  outline: 2px solid var(--cm-focus);
+  outline-offset: 1px;
+}
+.od-takeover__title {
+  margin: 0;
+  font-size: var(--cm-text-xl, 1.35rem);
+  font-weight: 700;
+  color: var(--cm-text);
+}
+.od-takeover__body > .inline-form {
+  gap: var(--cm-space-4);
+  padding: 20px 22px;
+  border-color: var(--cm-border);
+  border-radius: var(--cm-radius-lg, 12px);
+  background: var(--cm-surface);
+}
+.od-takeover__body .actions-row {
+  justify-content: flex-end;
+  padding-top: var(--cm-space-2);
+}
+.od-takeover__body .actions-row > .cm-btn {
+  min-height: 44px;
+  padding-inline: 20px;
+}
+@container od (min-width: 560px) {
+  .od-takeover__body > .fiado-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .od-takeover__body > .fiado-form > * {
+    grid-column: 1 / -1;
+  }
+  .od-takeover__body > .fiado-form > .cm-field {
+    grid-column: auto;
+  }
+}
 /* Fechar conta: o botão grande e verde do rodapé, com a seta no fim. */
 .od-bar > .cm-btn.od-bar__close {
   height: 46px;
@@ -1548,24 +1619,24 @@ button.pay-part {
    (chat, ficha do cliente), o pedido mora dentro dela e um :has() solto alargava a de fora e
    usava a largura dela para as duas colunas, espremendo o pedido (0.202.1). */
 @media (min-width: 1100px) {
-  .side-panel:has(> .side-panel__inner > .side-panel__body > .order-detail) {
+  .side-panel:has(> .side-panel__inner > .side-panel__body > :is(.order-detail, .od-takeover)) {
     width: clamp(600px, 66vw, 1040px);
   }
-  .side-panel__body:has(> .order-detail),
+  .side-panel__body:has(> :is(.order-detail, .od-takeover)),
   .side-panel__foot:has(> .od-foot) {
     padding-inline: 24px;
   }
-  .side-panel__body:has(> .order-detail) {
+  .side-panel__body:has(> :is(.order-detail, .od-takeover)) {
     padding-block: 20px;
   }
-  .side-panel:has(> .side-panel__inner > .side-panel__body > .order-detail)
+  .side-panel:has(> .side-panel__inner > .side-panel__body > :is(.order-detail, .od-takeover))
     > .side-panel__inner
     > .side-panel__head {
     padding: 14px 24px;
   }
 }
 /* As duas colunas medem a própria moldura do pedido (gaveta ou janela), nunca uma de fora. */
-:is(.side-panel__body, .cm-modal__body):has(> .order-detail),
+:is(.side-panel__body, .cm-modal__body):has(> :is(.order-detail, .od-takeover)),
 :is(.side-panel__foot, .cm-modal__footer):has(> .od-foot) {
   container: od / inline-size;
 }

@@ -157,6 +157,9 @@ Todo botão do rodapé tem ícone (passos em `STEP_ICON`). No notebook são duas
 ícones e, embaixo, os passos e o Fechar conta numa fileira só, dividindo a largura (0.211.1). Sem
 botões que decidem (pedido fechado), a barra vira `od-tools--solo`: cartões grandes com ícone ao
 lado do nome, dividindo a largura. Nada de ações no topo do pedido.
+Formulário de ação (fiado, desconto, cancelar, despachar, a receber, estorno) abre no lugar das
+colunas do pedido (`od-takeover`: Voltar ao pedido, título e o formulário centralizado até 720px),
+nunca embaixo dos itens; editar itens e cancelar item seguem dentro da lista (0.211.4).
 Editar itens fica só no botão Editar ao lado de "Itens do pedido" (não repita na fileira). Fora dessa gaveta, o resto do sistema
 segue neutro; não copie os tons para outras telas sem pedido.
 

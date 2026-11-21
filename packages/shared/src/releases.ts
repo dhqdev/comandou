@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.211.4',
+    date: '2026-11-21',
+    title: 'Vender fiado ocupa o pedido todo',
+    summary:
+      'Ao clicar em Vender fiado (e em Desconto, Cancelar, Despachar, A receber ou Estornar), o formulário toma a área toda do pedido, com o título no alto e um Voltar ao pedido, sem precisar rolar para achar os campos e o botão.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Pedido: os formulários de ação abrem no lugar das colunas do pedido, centralizados; no notebook, nome e WhatsApp do fiado ficam lado a lado e o botão de confirmar aparece sem rolar.',
+      },
+    ],
+  },
+  {
     version: '0.211.3',
     date: '2026-11-20',
     title: 'Ícones próprios na barra do pedido',

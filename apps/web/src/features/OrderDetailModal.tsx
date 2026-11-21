@@ -16,6 +16,7 @@ import {
   CalendarClock,
   ChefHat,
   Check,
+  ChevronLeft,
   ChevronRight,
   CircleCheckBig,
   Flame,
@@ -584,6 +585,129 @@ export function OrderDetailModal({
     </div>
   ) : undefined;
 
+  // Formulários de ação (fiado, desconto, cancelar, despachar, a receber, estorno): tomam a área
+  // toda do pedido no lugar das colunas, para caber sem rolar (0.211.4, pedido do David). Editar
+  // itens e cancelar um item continuam dentro da lista de itens.
+  const FORM_TITLE: Record<string, string> = {
+    cancel: order?.status === 'cancel_requested' ? 'Aprovar cancelamento' : 'Cancelar pedido',
+    reject: 'Recusar pedido',
+    adjust: 'Desconto ou acréscimo',
+    dispatch: 'Despachar entregador',
+    receivable: 'Concluir a receber',
+    fiado: order?.fiadoAt ? 'Editar fiado' : 'Vender fiado',
+  };
+  const formTitle = !mode
+    ? null
+    : typeof mode === 'string'
+      ? (FORM_TITLE[mode] ?? null)
+      : 'refund' in mode
+        ? 'Estornar pagamento'
+        : null;
+  const actionForm =
+    order && formTitle ? (
+      <div className="od-takeover">
+        <div className="od-takeover__head">
+          <button type="button" className="od-takeover__back" onClick={() => setMode(null)}>
+            <ChevronLeft size={18} aria-hidden /> Voltar ao pedido
+          </button>
+          <h3 className="od-takeover__title">{formTitle}</h3>
+        </div>
+        <div className="od-takeover__body">
+          {mode === 'cancel' && isApp && (
+            <AppCancelForm
+              orderId={order.id}
+              confirm="Pedir cancelamento ao aplicativo"
+              note='O pedido fica "Cancelamento solicitado" até o aplicativo confirmar. Se ele negar, o pedido volta para onde estava.'
+              busy={busy}
+              onCancel={() => setMode(null)}
+              onConfirm={(r, code) => go('cancel_requested', r, undefined, code)}
+            />
+          )}
+          {mode === 'reject' && isApp && (
+            <AppCancelForm
+              orderId={order.id}
+              confirm="Recusar pedido"
+              busy={busy}
+              onCancel={() => setMode(null)}
+              onConfirm={(r, code) => go('cancelled', r, undefined, code)}
+            />
+          )}
+          {mode === 'cancel' && !isApp && (
+            <ReasonForm
+              label="Motivo do cancelamento (opcional)"
+              confirm={
+                order.status === 'cancel_requested' ? 'Aprovar cancelamento' : 'Cancelar pedido'
+              }
+              danger
+              optional
+              busy={busy}
+              onCancel={() => setMode(null)}
+              onConfirm={(r) => go(canCancel ? 'cancelled' : 'cancel_requested', r)}
+            />
+          )}
+          {mode === 'reject' && !isApp && (
+            <ReasonForm
+              label="Por que recusar? (o cliente vê este motivo)"
+              confirm="Recusar pedido"
+              danger
+              busy={busy}
+              onCancel={() => setMode(null)}
+              onConfirm={(r) => go('cancelled', r)}
+            />
+          )}
+          {mode === 'dispatch' && (
+            <DispatchForm
+              order={order}
+              onCancel={() => setMode(null)}
+              onDone={() => {
+                setMode(null);
+                void load();
+              }}
+            />
+          )}
+          {mode === 'adjust' && (
+            <AdjustForm
+              order={order}
+              onDone={(o) => {
+                setOrder(o);
+                setMode(null);
+              }}
+              onCancel={() => setMode(null)}
+            />
+          )}
+          {mode === 'fiado' && (
+            <FiadoForm
+              order={order}
+              onCancel={() => setMode(null)}
+              onDone={(o) => {
+                setOrder(o);
+                setMode(null);
+              }}
+            />
+          )}
+          {mode === 'receivable' && (
+            <ReasonForm
+              label={`Por que concluir com ${brl(order.balance)} em aberto? (fica em "Concluídos em aberto")`}
+              confirm="Concluir a receber"
+              busy={busy}
+              onCancel={() => setMode(null)}
+              onConfirm={(r) => go('completed', r, true)}
+            />
+          )}
+          {mode && typeof mode === 'object' && 'refund' in mode && (
+            <RefundForm
+              payment={mode.refund}
+              onCancel={() => setMode(null)}
+              onDone={() => {
+                setMode(null);
+                void load();
+              }}
+            />
+          )}
+        </div>
+      </div>
+    ) : null;
+
   const showClient = !!(
     order &&
     (order.customerName || order.customerPhone || order.deliveryAddress)
@@ -600,6 +724,8 @@ export function OrderDetailModal({
       {error && <Alert tone="danger">{error}</Alert>}
       {!order ? (
         !error && <Skeleton variant="detail" />
+      ) : actionForm ? (
+        actionForm
       ) : (
         <div className="order-detail">
           {/* Gaveta larga (computador): o pedido à esquerda e o dinheiro à direita (ops.css). */}
@@ -921,98 +1047,6 @@ export function OrderDetailModal({
                 </ul>
               )}
             </section>
-
-            {mode === 'cancel' && isApp && (
-              <AppCancelForm
-                orderId={order.id}
-                confirm="Pedir cancelamento ao aplicativo"
-                note='O pedido fica "Cancelamento solicitado" até o aplicativo confirmar. Se ele negar, o pedido volta para onde estava.'
-                busy={busy}
-                onCancel={() => setMode(null)}
-                onConfirm={(r, code) => go('cancel_requested', r, undefined, code)}
-              />
-            )}
-            {mode === 'reject' && isApp && (
-              <AppCancelForm
-                orderId={order.id}
-                confirm="Recusar pedido"
-                busy={busy}
-                onCancel={() => setMode(null)}
-                onConfirm={(r, code) => go('cancelled', r, undefined, code)}
-              />
-            )}
-            {mode === 'cancel' && !isApp && (
-              <ReasonForm
-                label="Motivo do cancelamento (opcional)"
-                confirm={
-                  order.status === 'cancel_requested' ? 'Aprovar cancelamento' : 'Cancelar pedido'
-                }
-                danger
-                optional
-                busy={busy}
-                onCancel={() => setMode(null)}
-                onConfirm={(r) => go(canCancel ? 'cancelled' : 'cancel_requested', r)}
-              />
-            )}
-            {mode === 'reject' && !isApp && (
-              <ReasonForm
-                label="Por que recusar? (o cliente vê este motivo)"
-                confirm="Recusar pedido"
-                danger
-                busy={busy}
-                onCancel={() => setMode(null)}
-                onConfirm={(r) => go('cancelled', r)}
-              />
-            )}
-            {mode === 'dispatch' && (
-              <DispatchForm
-                order={order}
-                onCancel={() => setMode(null)}
-                onDone={() => {
-                  setMode(null);
-                  void load();
-                }}
-              />
-            )}
-            {mode === 'adjust' && (
-              <AdjustForm
-                order={order}
-                onDone={(o) => {
-                  setOrder(o);
-                  setMode(null);
-                }}
-                onCancel={() => setMode(null)}
-              />
-            )}
-            {mode === 'fiado' && (
-              <FiadoForm
-                order={order}
-                onCancel={() => setMode(null)}
-                onDone={(o) => {
-                  setOrder(o);
-                  setMode(null);
-                }}
-              />
-            )}
-            {mode === 'receivable' && (
-              <ReasonForm
-                label={`Por que concluir com ${brl(order.balance)} em aberto? (fica em "Concluídos em aberto")`}
-                confirm="Concluir a receber"
-                busy={busy}
-                onCancel={() => setMode(null)}
-                onConfirm={(r) => go('completed', r, true)}
-              />
-            )}
-            {mode && typeof mode === 'object' && 'refund' in mode && (
-              <RefundForm
-                payment={mode.refund}
-                onCancel={() => setMode(null)}
-                onDone={() => {
-                  setMode(null);
-                  void load();
-                }}
-              />
-            )}
           </div>
 
           <div className="od-side">
