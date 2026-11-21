@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.220.2',
+    date: '2026-11-21',
+    title: 'Senha e PIN separados na Equipe',
+    summary:
+      'Na Equipe, cada pessoa mostra como entra: garçom e entregador só com PIN, sem botão de senha; o resto com e-mail e senha.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Equipe: nova coluna Como entra, com PIN (Criar PIN ou Novo PIN) para garçom e entregador e Senha (Nova senha) para os outros papéis. Quem entra com PIN não tem mais o botão Nova senha.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Adicionar pessoa: garçom e entregador são criados só com o PIN, sem e-mail nem senha.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Super Admin: na pessoa da equipe que entra com PIN, Redefinir senha não aparece mais e a tela diz que o PIN é trocado pelo restaurante.',
+      },
+    ],
+  },
+  {
     version: '0.220.1',
     date: '2026-11-21',
     title: 'Pedido de entrega com muitas cozinhas na mesma impressora',

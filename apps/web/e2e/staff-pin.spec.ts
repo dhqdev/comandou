@@ -34,8 +34,10 @@ test('garçom: cadastro só com nome em Equipe e entrada pelo PIN', async ({
   await page.screenshot({ path: shot(`${info.project.name}-pin-criado`) });
   await page.getByRole('button', { name: 'Pronto' }).click();
   const row = page.locator('tr', { hasText: name });
-  await expect(row).toContainText('Entra com PIN');
+  await expect(row).toContainText('PIN');
   await expect(row.getByRole('button', { name: `Novo PIN para ${name}` })).toBeVisible();
+  // Quem entra só com PIN não tem senha para trocar.
+  await expect(row.getByRole('button', { name: /Nova senha/ })).toHaveCount(0);
 
   for (const [label, device] of [
     ['pixel7', devices['Pixel 7']],

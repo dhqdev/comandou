@@ -177,7 +177,7 @@ export function WaitersModal({ open, onClose }: { open: boolean; onClose(): void
               }
               description={
                 all.length === 0
-                  ? 'Cada garçom entra no app com o próprio e-mail e senha e só vê mesas, comandas e o cardápio.'
+                  ? 'Cada garçom entra no app com o próprio PIN e só vê mesas, comandas e o cardápio.'
                   : undefined
               }
               action={

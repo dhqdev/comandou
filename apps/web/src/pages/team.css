@@ -43,3 +43,17 @@
     grid-row: 2;
   }
 }
+
+/* Como entra: PIN (garçom, entregador) ou senha (o resto), com a ação de cada um ao lado. */
+.team-access {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  white-space: nowrap;
+}
+.team-access__what {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 96px;
+}

@@ -111,6 +111,7 @@ export function TeamPage() {
                 <tr>
                   <th>Pessoa</th>
                   <th>Papel</th>
+                  <th>Como entra</th>
                   <th>Último acesso</th>
                   <th />
                 </tr>
@@ -123,10 +124,7 @@ export function TeamPage() {
                       <td>
                         <strong>{m.name}</strong> {self && <Badge tone="info">você</Badge>}{' '}
                         {m.status === 'revoked' && <Badge tone="danger">desativado</Badge>}
-                        <div className="cm-hint">
-                          {isPinOnlyEmail(m.email) ? 'Entra com PIN' : m.email}
-                          {m.hasPin && !isPinOnlyEmail(m.email) && ' · tem PIN'}
-                        </div>
+                        {!isPinOnlyEmail(m.email) && <div className="cm-hint">{m.email}</div>}
                       </td>
                       <td>
                         {self ? (
@@ -148,6 +146,46 @@ export function TeamPage() {
                           </Select>
                         )}
                       </td>
+                      <td>
+                        {isPinRole(m.role) ? (
+                          <div className="team-access">
+                            <span className="team-access__what">
+                              <Hash size={14} aria-hidden /> PIN
+                              <span className="cm-hint">
+                                {m.hasPin ? 'criado' : 'ainda sem PIN'}
+                              </span>
+                            </span>
+                            {!self && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setPinFor(m)}
+                                aria-label={`${m.hasPin ? 'Novo PIN' : 'Criar PIN'} para ${m.name}`}
+                              >
+                                {m.hasPin ? 'Novo PIN' : 'Criar PIN'}
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="team-access">
+                            <span className="team-access__what">
+                              <KeyRound size={14} aria-hidden /> Senha
+                            </span>
+                            {(self || !isPinOnlyEmail(m.email)) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setPwFor(self ? 'self' : m)}
+                                aria-label={
+                                  self ? 'Trocar minha senha' : `Nova senha para ${m.name}`
+                                }
+                              >
+                                {self ? 'Trocar senha' : 'Nova senha'}
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td>{m.lastSeenAt ? dateTime(m.lastSeenAt) : '—'}</td>
                       <td className="cm-num">
                         <div className="team-actions">
@@ -159,26 +197,6 @@ export function TeamPage() {
                               aria-label={`Copiar link de acesso de ${m.name}`}
                               title="Copiar o link de acesso desta pessoa"
                             />
-                          )}
-                          {!self && isPinRole(m.role) && (
-                            <Button
-                              variant="ghost"
-                              icon={<Hash size={16} />}
-                              onClick={() => setPinFor(m)}
-                              aria-label={`${m.hasPin ? 'Novo PIN' : 'Criar PIN'} para ${m.name}`}
-                            >
-                              {m.hasPin ? 'Novo PIN' : 'Criar PIN'}
-                            </Button>
-                          )}
-                          {(self || !isPinOnlyEmail(m.email)) && (
-                            <Button
-                              variant="ghost"
-                              icon={<KeyRound size={16} />}
-                              onClick={() => setPwFor(self ? 'self' : m)}
-                              aria-label={self ? 'Trocar minha senha' : `Nova senha para ${m.name}`}
-                            >
-                              {self ? 'Trocar senha' : 'Nova senha'}
-                            </Button>
                           )}
                           {!self &&
                             (m.status === 'active' ? (
@@ -272,14 +290,13 @@ function AddMemberModal({
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('waiter');
   const [pin, setPin] = useState('');
-  /** Garçom/entregador: também com e-mail e senha (por padrão, só o PIN). */
-  const [withEmail, setWithEmail] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** PIN criado: mostrado uma vez antes de fechar. */
   const [created, setCreated] = useState<{ name: string; pin: string } | null>(null);
   const pinRole = isPinRole(role);
-  const needsEmail = !pinRole || withEmail;
+  /** Garçom e entregador entram só com o PIN: sem e-mail nem senha. */
+  const needsEmail = !pinRole;
   const valid =
     name.trim().length >= 2 &&
     (!needsEmail || (/\S+@\S+\.\S+/.test(email) && password.length >= 8)) &&
@@ -290,7 +307,6 @@ function AddMemberModal({
     setEmail('');
     setPassword('');
     setPin('');
-    setWithEmail(false);
     setError(null);
   }
 
@@ -375,12 +391,7 @@ function AddMemberModal({
           </>
         )}
         <p className="cm-hint cm-form__block">
-          {ROLE_HINTS[role]}{' '}
-          {pinRole && (
-            <button type="button" className="link-btn" onClick={() => setWithEmail((v) => !v)}>
-              {withEmail ? 'Só com PIN' : 'Também com e-mail e senha'}
-            </button>
-          )}
+          {ROLE_HINTS[role]} {pinRole ? 'Entra só com o PIN.' : 'Entra com e-mail e senha.'}
         </p>
       </Modal>
       <Modal

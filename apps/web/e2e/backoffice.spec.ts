@@ -39,11 +39,9 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await page.getByRole('button', { name: 'Adicionar pessoa' }).click();
   let dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nome').fill(`Moto ${tag}`);
-  // Entregador entra com PIN; e-mail e senha só aparecem se o gerente pedir.
+  // Entregador entra só com o PIN: sem e-mail nem senha.
   await dialog.getByLabel('Papel').selectOption('driver');
-  await dialog.getByRole('button', { name: 'Também com e-mail e senha' }).click();
-  await dialog.getByLabel('E-mail').fill(`moto-${tag}@demo.local`);
-  await dialog.getByLabel('Senha inicial').fill('senha-do-moto-1');
+  await expect(dialog.getByLabel('E-mail')).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Adicionar' }).click();
   // O PIN sorteado aparece uma vez.
   dialog = page.getByRole('dialog', { name: 'Pessoa adicionada' });
@@ -51,12 +49,22 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await dialog.getByRole('button', { name: 'Pronto' }).click();
   const moto = page.getByRole('row', { name: new RegExp(`Moto ${tag}`) });
   await expect(moto).toBeVisible();
+  await expect(moto.getByRole('button', { name: `Novo PIN para Moto ${tag}` })).toBeVisible();
+  await expect(moto.getByRole('button', { name: /Nova senha/ })).toHaveCount(0);
   await shot(page, info.project.name, 'equipe');
-  // Esqueceu a senha: o administrador define uma nova.
-  await moto.getByRole('button', { name: `Nova senha para Moto ${tag}` }).click();
+  // Quem entra com senha (balcão): esqueceu, o administrador define uma nova.
+  await page.getByRole('button', { name: 'Adicionar pessoa' }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Nome').fill(`Balcão ${tag}`);
+  await dialog.getByLabel('Papel').selectOption('attendant');
+  await dialog.getByLabel('E-mail').fill(`balcao-${tag}@demo.local`);
+  await dialog.getByLabel('Senha inicial').fill('senha-do-balcao-1');
+  await dialog.getByRole('button', { name: 'Adicionar' }).click();
+  const desk = page.getByRole('row', { name: new RegExp(`Balcão ${tag}`) });
+  await desk.getByRole('button', { name: `Nova senha para Balcão ${tag}` }).click();
   dialog = page.getByRole('dialog', { name: 'Nova senha' });
-  await dialog.getByLabel('Nova senha', { exact: true }).fill('senha-nova-moto-1');
-  await dialog.getByLabel('Repita a nova senha').fill('senha-nova-moto-1');
+  await dialog.getByLabel('Nova senha', { exact: true }).fill('senha-nova-balcao-1');
+  await dialog.getByLabel('Repita a nova senha').fill('senha-nova-balcao-1');
   await dialog.getByRole('button', { name: 'Salvar senha' }).click();
   await expect(page.getByText(/Senha nova salva/)).toBeVisible();
 

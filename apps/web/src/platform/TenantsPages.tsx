@@ -1,4 +1,4 @@
-import { spDate, SUBSCRIPTION_LABELS } from '@comandou/shared';
+import { isPinOnlyEmail, isPinRole, spDate, SUBSCRIPTION_LABELS } from '@comandou/shared';
 import {
   ArrowLeft,
   Copy,
@@ -594,7 +594,8 @@ export function TenantDetailPage() {
                     <span className="adm-row__main">
                       <span className="adm-row__title">{m.name}</span>
                       <span className="adm-row__meta">
-                        {ROLE[m.role] ?? m.role} · {m.email}
+                        {ROLE[m.role] ?? m.role} ·{' '}
+                        {isPinOnlyEmail(m.email) ? 'entra com PIN' : m.email}
                         {m.status !== 'active' || m.disabledAt ? ' · sem acesso' : ''}
                       </span>
                     </span>
@@ -824,6 +825,8 @@ function MemberSheet({
   const [mode, setMode] = useState<'idle' | 'password'>('idle');
   const [busy, setBusy] = useState(false);
   const active = m.status === 'active' && !m.disabledAt;
+  /** Garçom e entregador entram só com o PIN: não há senha para redefinir. */
+  const pinRole = isPinRole(m.role);
 
   async function call(path: string, json: object, ok: string) {
     setBusy(true);
@@ -844,8 +847,14 @@ function MemberSheet({
       <dl className="adm-kv">
         <dt>Função</dt>
         <dd>{ROLE[m.role] ?? m.role}</dd>
-        <dt>E-mail</dt>
-        <dd>{m.email}</dd>
+        <dt>Entra com</dt>
+        <dd>{pinRole ? 'PIN' : 'E-mail e senha'}</dd>
+        {!isPinOnlyEmail(m.email) && (
+          <>
+            <dt>E-mail</dt>
+            <dd>{m.email}</dd>
+          </>
+        )}
         <dt>Último acesso</dt>
         <dd>{m.lastSeenAt ? `${dateTime(m.lastSeenAt)} (${ago(m.lastSeenAt)})` : 'nunca'}</dd>
         <dt>Aparelhos conectados</dt>
@@ -866,10 +875,17 @@ function MemberSheet({
         >
           <LogOut size={14} /> Encerrar sessões
         </button>
-        <button className="adm-action" onClick={() => setMode('password')}>
-          <KeyRound size={14} /> Redefinir senha
-        </button>
+        {!pinRole && (
+          <button className="adm-action" onClick={() => setMode('password')}>
+            <KeyRound size={14} /> Redefinir senha
+          </button>
+        )}
       </div>
+      {pinRole && (
+        <p className="cm-hint" style={{ marginTop: 12 }}>
+          {ROLE[m.role]} entra só com o PIN, sem senha. O restaurante cria ou troca o PIN em Equipe.
+        </p>
+      )}
       {mode === 'password' && (
         <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
           <TextField
