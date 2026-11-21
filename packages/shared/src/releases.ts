@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.214.0',
+    date: '2026-11-21',
+    title: 'Botão de buscar atualização no aplicativo de impressão',
+    summary:
+      'O aplicativo Comandou Impressão 1.9.0 tem um botão fixo no topo: Buscar atualização. Quando há versão nova, ele vira Atualizar para a versão tal, baixa, fecha e abre de novo sozinho.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Aplicativo de impressão 1.9.0: botão Buscar atualização sempre visível no topo, que vira Atualizar quando há versão nova.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Aplicativo de impressão 1.9.0: confere se há versão nova ao abrir a janela, ao voltar da suspensão e a cada hora (antes, só a cada 6 horas).',
+      },
+    ],
+  },
+  {
     version: '0.213.1',
     date: '2026-11-21',
     title: 'Fechar a conta pergunta antes',

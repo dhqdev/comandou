@@ -441,21 +441,24 @@ function render() {
 function renderUpdate() {
   const u = state.update ?? {};
   const btn = $('update-btn');
-  btn.hidden = !u.available && u.progress == null;
-  btn.disabled = u.progress != null;
+  const ready = !!u.available && u.progress == null;
+  btn.className = `btn btn--sm top__update${ready || u.progress != null ? ' btn--primary' : ''}`;
+  btn.disabled = !!u.checking || u.progress != null;
   btn.textContent =
     u.progress != null
       ? u.progress >= 1
         ? 'Reabrindo…'
         : `Baixando ${Math.round(u.progress * 100)}%`
-      : `Atualizar para a ${u.latest}`;
-  btn.title =
-    state.platform === 'darwin' || u.auto === false
+      : u.checking
+        ? 'Buscando…'
+        : ready
+          ? `Atualizar para a ${u.latest}`
+          : 'Buscar atualização';
+  btn.title = ready
+    ? state.platform === 'darwin' || u.auto === false
       ? 'Abre o download da versão nova'
-      : 'Baixa a versão nova, fecha e abre de novo sozinho';
-  const check = $('update-check');
-  check.disabled = !!u.checking || u.progress != null;
-  check.textContent = u.checking ? 'Procurando…' : 'Procurar atualização';
+      : 'Baixa a versão nova, fecha e abre de novo sozinho'
+    : `Você está na versão ${state.version}. Clique para ver se há uma mais nova.`;
 }
 
 function apply(s) {
@@ -1649,29 +1652,33 @@ $('notifications').addEventListener('change', async (e) =>
   apply(await api.setNotifications(e.target.checked)),
 );
 $('open-panel').addEventListener('click', () => api.openPanel());
-$('update-btn').addEventListener('click', async () => {
+// Um botão só: busca a versão nova e, quando acha, vira "Atualizar para a X".
+async function installUpdate() {
   const mac = state.platform === 'darwin' || state.update?.auto === false;
   if (
     !mac &&
     !confirm(
-      `Atualizar para a ${state.update?.latest}? O aplicativo baixa a versão nova, fecha e abre de novo sozinho (leva menos de um minuto). As comandas esperam na fila do Comandou.`,
+      `Atualizar para a ${state.update?.latest}? O aplicativo baixa a versão nova, fecha e abre de novo sozinho (leva alguns minutos). As comandas esperam na fila do Comandou.`,
     )
   )
     return;
+  const s = await api.updateInstall();
+  apply(s);
+  if (s.update?.error) toast(s.update.error, 'danger');
+  else if (mac) toast('Abrimos o download. Abra o arquivo e arraste para Aplicativos.');
+}
+$('update-btn').addEventListener('click', async () => {
   try {
-    apply(await api.updateInstall());
-    if (mac) toast('Abrimos o download. Abra o arquivo e arraste para Aplicativos.');
+    if (state.update?.available) return await installUpdate();
+    const s = await api.updateCheck();
+    apply(s);
+    const u = s.update ?? {};
+    if (u.error) toast(u.error, 'danger');
+    else if (u.available) await installUpdate();
+    else toast(`Você já está na versão mais nova (${s.version}).`);
   } catch (err) {
     toast(errMsg(err), 'danger');
   }
-});
-$('update-check').addEventListener('click', async () => {
-  const s = await api.updateCheck();
-  apply(s);
-  const u = s.update ?? {};
-  if (u.error) toast(u.error, 'danger');
-  else if (u.available) toast(`A versão ${u.latest} está pronta. Clique em Atualizar no topo.`);
-  else toast(`Você já está na versão mais nova (${s.version}).`);
 });
 $('disconnect').addEventListener('click', async () => {
   if (confirm('Desconectar este computador? As comandas param de sair aqui até conectar de novo.'))

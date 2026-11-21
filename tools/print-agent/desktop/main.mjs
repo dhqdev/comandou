@@ -415,7 +415,13 @@ function asset(name) {
   return join(here, 'assets', name);
 }
 
+/** Confere se há versão nova sem insistir: no máximo uma vez a cada 10 minutos. */
+function checkUpdateSoon() {
+  if (Date.now() - (updater.state.checkedAt ?? 0) > 10 * 60_000) void updater.check(true);
+}
+
 function showWindow() {
+  checkUpdateSoon();
   if (win) {
     if (win.isMinimized()) win.restore();
     win.show();
@@ -1043,14 +1049,20 @@ if (!app.requestSingleInstanceLock()) {
     if (pendingCode) void handleLink(pendingCode);
     else if (!hidden || !config.url) showWindow();
     // Volta da suspensão ou rede trocou: tenta na hora em vez de esperar o próximo ciclo.
-    powerMonitor.on('resume', () => agent?.poke());
-    powerMonitor.on('unlock-screen', () => agent?.poke());
+    powerMonitor.on('resume', () => {
+      agent?.poke();
+      checkUpdateSoon();
+    });
+    powerMonitor.on('unlock-screen', () => {
+      agent?.poke();
+      checkUpdateSoon();
+    });
     void checkAll();
     // A cada 30 s: impressora desligada aparece em cerca de um minuto (duas conferências).
     setInterval(() => void checkAll(), 30_000);
     // Versão nova: confere logo depois de abrir e a cada 6 horas (sem atrapalhar a impressão).
     setTimeout(() => void updater.check(true), 15_000);
-    setInterval(() => void updater.check(true), 6 * 60 * 60_000);
+    setInterval(() => void updater.check(true), 60 * 60_000);
   });
   app.on('window-all-closed', () => {
     /* continua na bandeja */

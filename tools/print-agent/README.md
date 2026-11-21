@@ -23,8 +23,8 @@ sem alguém clicar em "Imprimir". O aplicativo faz essa ponte: ele só **busca**
   da fila do sistema (`purgeSpool`, só os nossos; os de outros programas ficam). O pedido vem no
   heartbeat (`purge`) e o aplicativo confirma no seguinte (`purgedAt`).
 - **Atualizar (1.7.0):** `desktop/updater.mjs` lê `versao.json` da Release "impressora" (o
-  workflow `print-agent.yml` gera junto com os instaladores) ao abrir e a cada 6 horas. Com
-  versão nova, aparece **Atualizar para a X** no topo e na bandeja. Windows: baixa o
+  workflow `print-agent.yml` gera junto com os instaladores) ao abrir a janela, ao voltar da suspensão e a cada hora. Com
+  versão nova, o botão fixo **Buscar atualização** do topo vira **Atualizar para a X** (também na bandeja). Windows: baixa o
   `Comandou-Impressao-Setup.exe`, roda com `/S --force-run` (instala em silêncio e reabre) e
   fecha; Linux (AppImage): troca o próprio arquivo e reabre; macOS: abre o download do `.dmg`.
   Quem está na 1.6.0 ou antes instala a 1.7.0 na mão uma última vez.

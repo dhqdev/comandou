@@ -458,15 +458,16 @@ textarea {
 }
 .foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
+  gap: 8px 18px;
   padding: 12px 24px;
   border-top: 1px solid var(--border);
   background: var(--surface);
   font-size: 13px;
 }
 .foot__hint {
-  flex: 1;
+  flex: 1 1 220px;
 }
 .foot__links {
   display: flex;
@@ -474,6 +475,7 @@ textarea {
   gap: 10px;
 }
 .switch {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -589,6 +591,10 @@ textarea {
 }
 .top__help {
   margin-left: 4px;
+}
+.top__update {
+  flex: none;
+  white-space: nowrap;
 }
 .empty-printer,
 .tile {
