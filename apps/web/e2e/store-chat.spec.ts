@@ -49,12 +49,17 @@ test('cliente conversa com a loja pelo cardápio e o PDV responde', async ({
   await expect(c.locator('.scx-msg[data-mine] .scx-status')).toHaveText('Enviada');
   await c.screenshot({ path: shots('cliente') });
 
-  // Equipe: selo no PDV, abre e responde.
+  // Equipe: selo no Chat do topo, aba Clientes, abre e responde.
   await enterPanel(page, EMAIL, PASSWORD);
-  const button = page.locator('.topbar__support');
-  await expect(button.locator('.sbtn__count')).toBeVisible();
+  const button = page.locator('.tc-top:not(.tc-top--ai)');
+  await expect(button.locator('.tc-top__badge')).toBeVisible();
   await button.click();
-  const panel = page.getByRole('dialog', { name: /Mensagens dos clientes/ });
+  const chat = page.getByRole('dialog', { name: 'Chat da equipe' });
+  await chat
+    .getByRole('navigation', { name: 'Seções do chat' })
+    .getByRole('button', { name: /Clientes/ })
+    .click();
+  let panel = chat;
   await panel.getByRole('button', { name: new RegExp(who) }).click();
   await expect(panel.locator('.scx-media img')).toBeVisible();
   await panel.getByLabel('Mensagem').fill('Temos sim! Hambúrguer de grão-de-bico 🌱');
@@ -67,7 +72,7 @@ test('cliente conversa com a loja pelo cardápio e o PDV responde', async ({
   await expect(c.locator('.scx-msg[data-mine] .scx-status')).toHaveText('Lida');
 
   // Nova mensagem com o painel fechado: aviso no canto com "Responder".
-  await panel.getByRole('button', { name: 'Fechar' }).click();
+  await panel.getByRole('button', { name: 'Fechar', exact: true }).click();
   await expect(panel).toBeHidden();
   await c.getByLabel('Mensagem').fill('Perfeito, vou pedir! 😋');
   await c.getByRole('button', { name: 'Enviar', exact: true }).click();
@@ -75,6 +80,7 @@ test('cliente conversa com a loja pelo cardápio e o PDV responde', async ({
   await expect(peek).toContainText(who);
   await page.screenshot({ path: shots('pdv-aviso') });
   await peek.getByRole('button', { name: new RegExp(`Responder ${who}`) }).click();
+  panel = page.getByRole('dialog', { name: /Mensagens dos clientes/ });
   await expect(panel.locator('.scx-msg:not([data-mine])').last()).toContainText('vou pedir');
   await c.screenshot({ path: shots('cliente-resposta') });
   await customer.close();
