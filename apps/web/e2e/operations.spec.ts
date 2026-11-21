@@ -208,7 +208,12 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await expect(page.getByRole('dialog', { name: /^Receber — comanda/ })).toBeHidden();
   await expect(dialog.getByRole('button', { name: 'Fechar conta' })).toBeEnabled();
   await dialog.getByRole('button', { name: 'Fechar conta' }).click();
+  // Fechar a conta pergunta antes (total e pago); a API recusa com pedido em produção.
+  let confirmClose = page.getByRole('dialog', { name: /^Fechar a conta da comanda/ });
+  await confirmClose.getByRole('button', { name: 'Fechar conta' }).click();
   await expect(page.getByText(/há 1 pedido\(s\) ainda em produção/i)).toBeVisible();
+  await confirmClose.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(confirmClose).toBeHidden();
   await dialog.getByRole('button', { name: 'Fechar', exact: true }).click();
 
   await nav(page, 'Cozinha');
@@ -226,6 +231,8 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
     .click();
   dialog = page.getByRole('dialog').filter({ hasText: `Mesa M${tag}` });
   await dialog.getByRole('button', { name: 'Fechar conta' }).click();
+  confirmClose = page.getByRole('dialog', { name: /^Fechar a conta da comanda/ });
+  await confirmClose.getByRole('button', { name: 'Fechar conta' }).click();
   await expect(page.getByText(/Conta da comanda \d+ fechada/)).toBeVisible();
   // Depois de fechar, abre a prévia do comprovante de fechamento.
   const receipt = page.getByRole('dialog', { name: 'Comprovante de fechamento' });
