@@ -1144,4 +1144,43 @@ describe('Tempo real (WebSocket)', () => {
       sb.close();
     }
   });
+
+  it('entregador com login: só o sinal da fila de prontos, na hora em que o pedido fica pronto', async () => {
+    await post('adminA', '/users', {
+      email: 'moto@ops-a.test',
+      name: 'Moto Ops',
+      password: PASSWORD,
+      role: 'driver',
+    }).expect(201);
+    const sd = await connect(HOST_A, await login(HOST_A, 'moto@ops-a.test'));
+    const sb = await connect(HOST_B, cookies.adminB);
+    const got: { type: string }[] = [];
+    sd.on('event', (e) => got.push(e));
+    try {
+      const o = (
+        await post('adminA', '/orders', {
+          channel: 'delivery',
+          deliveryAddress: 'Rua do Teste, 10',
+          items: [{ productId: fx.prodA, quantity: 1, optionIds: [byName(sizeGroup, 'Simples')] }],
+        }).expect(201)
+      ).body;
+      await new Promise((r) => setTimeout(r, 700));
+      got.length = 0;
+      await post('adminA', `/kitchen/orders/${o.id}/bump`, { to: 'ready' }).expect(201);
+      await new Promise((r) => setTimeout(r, 700));
+      // Vários eventos do pedido viram um aviso só, sem o id nem nada da operação.
+      expect(got).toEqual([{ type: 'runs.changed' }]);
+      // Outro restaurante mexendo não chega no entregador de A.
+      got.length = 0;
+      await post('adminB', '/orders', {
+        channel: 'counter',
+        items: [{ productId: fx.prodB, quantity: 1 }],
+      });
+      await new Promise((r) => setTimeout(r, 700));
+      expect(got).toEqual([]);
+    } finally {
+      sd.close();
+      sb.close();
+    }
+  });
 });

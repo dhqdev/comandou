@@ -41,6 +41,48 @@ export const RELEASES: readonly Release[] = [
     ],
   },
   {
+    version: '0.218.0',
+    date: '2026-11-21',
+    title: 'Link de acesso para cada área da equipe',
+    summary:
+      'A tela Equipe agora mostra o link certo de cada área (garçom, entregador, cozinha, PDV, caixa e gerência) com o botão Copiar, para mandar à pessoa e ela já cair no login dela.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Equipe › Links de acesso: o link de cada área com o botão Copiar. Garçom e entregador abrem direto no PIN; cozinha, PDV e caixa abrem o login da área e, depois de entrar, a tela de trabalho.',
+      },
+      {
+        tag: 'novo',
+        text: 'Equipe: botão de link em cada pessoa, que copia o link da área do papel dela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O login de /pdv e /caixa diz qual área está abrindo, e a cozinha que perde a sessão numa tela de dentro volta para o login da cozinha.',
+      },
+    ],
+  },
+  {
+    version: '0.217.4',
+    date: '2026-11-21',
+    title: 'Pedido pronto aparece na hora para o entregador',
+    summary:
+      'Quando um pedido de entrega fica pronto, ele aparece na hora na aba Disponíveis do app do entregador, para quem quiser pegar. O caixa e o PDV continuam podendo escolher quem leva.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'App do entregador: a aba Disponíveis se atualiza sozinha no instante em que o pedido fica pronto, sai com outro entregador ou é cancelado. Antes ela só consultava a cada 15 segundos e podia parecer vazia.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'App do entregador: se o login não estiver ligado a um entregador (ou o cadastro estiver desativado), a aba Disponíveis mostra o motivo, em vez de dizer que não há pedido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Link do entregador sem login: a lista de pedidos para pegar é consultada a cada 8 segundos.',
+      },
+    ],
+  },
+  {
     version: '0.217.3',
     date: '2026-11-21',
     title: 'Pedidos, caixa e iFood mais certos',

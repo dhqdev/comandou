@@ -120,11 +120,14 @@ function Stat({ label, value, onClick }: { label: string; value: string; onClick
 // --------------------------------------------------------------------------- Disponíveis
 export function AvailableTab({
   list,
+  error,
   claim,
   onClaimed,
 }: {
   /** null: ainda carregando. */
   list: AvailableRun[] | null;
+  /** A última consulta falhou: mostra o motivo no lugar da lista vazia. */
+  error?: string | null;
   claim(orderId: string): Promise<unknown>;
   /** Pegou (ou perdeu) a corrida: recarrega as listas; `ok` leva para a aba Entregas. */
   onClaimed(ok: boolean): void;
@@ -132,6 +135,8 @@ export function AvailableTab({
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   if (!list) return <Skeleton />;
+  if (!list.length && error)
+    return <EmptyState mascot title="Não deu para ver os pedidos prontos" description={error} />;
   if (!list.length)
     return (
       <EmptyState
