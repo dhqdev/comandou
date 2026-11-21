@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { PrintAgent, parseConnectionCode } from '../core.mjs';
 import { bindRfcomm, listPairedWithoutPort, validBtMac } from '../bluetooth.mjs';
 import {
+  arpTable,
   checkHost,
   listDirectDevices,
   listSerialPorts,
@@ -51,11 +52,13 @@ import {
   validIp,
   validIppPath,
   validWinPort,
+  windowsPrinterDrivers,
 } from '../usb.mjs';
 import { BleBridge } from './ble.mjs';
 import { Brand } from './brand.mjs';
 import { printDocument } from './document.mjs';
 import { discoverAll } from './discover.mjs';
+import { confirmHealth, macFromLinkLocal, printerEndpoints } from './pure.mjs';
 import { Updater } from './updater.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -75,6 +78,7 @@ if (process.platform === 'linux')
 let config = {
   printers: { default: '', routes: {} },
   autostart: true,
+  notifications: true,
   seenTargets: [],
   bleNames: {},
 };
@@ -196,6 +200,7 @@ function report() {
     target: target === null ? null : String(target).slice(0, 60),
     label: (spec && spec !== 'none' ? printerName(spec) : 'Não imprime').slice(0, 80),
     kind: kindOf(spec),
+    ...(health[spec] ? { state: health[spec].off ? 'off' : 'ok' } : {}),
   });
   const out = [];
   if (config.printers.default) out.push(row(null, config.printers.default));
@@ -264,11 +269,14 @@ function startAgent() {
   agent.on('job', async (j) => {
     jobs = [{ ...j, printerLabel: describePrinter(j.printer) }, ...jobs].slice(0, MAX_LOG);
     if (!j.ok && !j.cancelled) notify(`Falha ao imprimir em ${j.target}`, j.error);
-    health[j.printer] = {
-      ok: j.ok,
-      text: j.ok ? 'Imprimiu agora há pouco.' : j.error,
-      at: Date.now(),
-    };
+    // O Windows aceita a folha mesmo com a impressora desligada: só a conferência tira o aviso.
+    if (!health[j.printer]?.off)
+      health[j.printer] = {
+        ok: j.ok,
+        text: j.ok ? 'Imprimiu agora há pouco.' : j.error,
+        at: Date.now(),
+        misses: health[j.printer]?.misses ?? 0,
+      };
     if (!config.seenTargets.includes(j.target)) {
       config.seenTargets.push(j.target);
       await saveConfig();
@@ -348,6 +356,7 @@ async function fixRawToInkjet() {
 }
 
 function notify(title, body) {
+  if (config.notifications === false) return;
   if (Notification.isSupported()) new Notification({ title, body, silent: false }).show();
 }
 
@@ -367,6 +376,8 @@ function publicState() {
     targets,
     jobs,
     autostart: config.autostart,
+    notifications: config.notifications !== false,
+    offPrinters: offPrinters().map(printerName),
     health,
     bleNames: config.bleNames,
     brand: { ...(config.brand ?? {}), icon: brand.icon },
@@ -484,7 +495,10 @@ function updateTray() {
         .then((img) => win?.setOverlayIcon(img, STATUS_LABEL[st] ?? ''))
         .catch(() => undefined);
   }
-  const label = STATUS_LABEL[status.state] ?? '';
+  const off = offPrinters();
+  const label = off.length
+    ? `Impressora desligada: ${off.map(printerName).join(', ')}`.slice(0, 90)
+    : (STATUS_LABEL[status.state] ?? '');
   tray.setToolTip(
     `Comandou Impressão — ${label}${config.restaurant ? ` (${config.restaurant})` : ''}`,
   );
@@ -615,6 +629,77 @@ async function systemPrinters() {
   return list;
 }
 
+// Dados do Windows (porta, "Local"): custam um PowerShell, então valem por 5 minutos.
+let winInfo = { at: 0, map: new Map() };
+async function windowsInfo(fresh) {
+  if (fresh || Date.now() - winInfo.at > 5 * 60_000)
+    winInfo = { at: Date.now(), map: await windowsPrinterDrivers() };
+  return winInfo.map;
+}
+
+/** A impressora responde na rede? Só abre e fecha a conexão. Null: não tem endereço de rede. */
+async function answersOnNetwork(w) {
+  const points = printerEndpoints(w.host, w.location);
+  // WSD: o endereço do "Local" pode ficar velho; o MAC dele acha o IP atual na tabela ARP.
+  const mac = macFromLinkLocal(w.location);
+  if (mac)
+    for (const [ip, m] of await arpTable().catch(() => []))
+      if (m === mac) for (const port of [80, 631, 9100]) points.push({ host: ip, port });
+  if (!points.length) return null;
+  const replies = await Promise.all(points.map((p) => probe(p.host, p.port, 2000)));
+  return replies.some(Boolean);
+}
+
+/** Impressora instalada no Windows: ligada ou desligada. Null quando o sistema não sabe dizer. */
+async function systemPrinterPower(name) {
+  if (process.platform !== 'win32') return null;
+  let w = (await windowsInfo(false)).get(name);
+  if (!w) return null;
+  let on = await answersOnNetwork(w);
+  if (on === false) {
+    // Antes de acusar, relê os dados: o endereço pode ter mudado.
+    w = (await windowsInfo(true)).get(name) ?? w;
+    on = await answersOnNetwork(w);
+  }
+  if (on) return { ok: true, text: 'Ligada e respondendo.' };
+  if (on === false || w.offline || w.status === 'Offline')
+    return {
+      ok: false,
+      off: true,
+      text: 'Desligada ou desconectada. Ligue a impressora e confira o cabo ou a rede.',
+    };
+  return null;
+}
+
+/** Impressoras escolhidas que estão desligadas agora. */
+function offPrinters() {
+  const specs = [config.printers.default, ...Object.values(config.printers.routes)];
+  return [...new Set(specs)].filter((s) => s && s !== 'none' && health[s]?.off);
+}
+
+/** Avisa uma vez quando desliga e uma vez quando volta, e conta na hora para o sistema. */
+const offWarned = new Set();
+function warnPowerChanges() {
+  const now = new Set(offPrinters());
+  let changed = false;
+  for (const s of now)
+    if (!offWarned.has(s)) {
+      offWarned.add(s);
+      changed = true;
+      notify(
+        'Impressora desligada',
+        `${printerName(s)} não responde. Ligue a impressora e confira o cabo ou a rede.`,
+      );
+    }
+  for (const s of [...offWarned])
+    if (!now.has(s)) {
+      offWarned.delete(s);
+      changed = true;
+      notify('Impressora ligada de novo', `${printerName(s)} voltou a responder.`);
+    }
+  if (changed) agent?.poke();
+}
+
 /** Confere se a impressora está ao alcance sem imprimir nada. */
 async function checkOne(spec) {
   const { base } = parseSpec(spec);
@@ -622,7 +707,11 @@ async function checkOne(spec) {
     const t = parseTcp(base);
     return (await probe(t.host, t.port, 2000))
       ? { ok: true, text: 'Ligada na rede.' }
-      : { ok: false, text: `Não responde em ${t.host}. Ela está ligada e na mesma rede?` };
+      : {
+          ok: false,
+          off: true,
+          text: `Desligada ou fora da rede: não responde em ${t.host}.`,
+        };
   }
   if (base.startsWith('serial:')) {
     const port = base.slice(7).toUpperCase();
@@ -631,18 +720,28 @@ async function checkOne(spec) {
       ? { ok: true, text: 'Porta encontrada.' }
       : {
           ok: false,
-          text: `A porta ${base.slice(7)} sumiu: a impressora foi desconectada ou despareada.`,
+          off: true,
+          text: `A porta ${base.slice(7)} sumiu: a impressora foi desligada, desconectada ou despareada.`,
         };
   }
   if (base.startsWith('file:'))
     return existsSync(base.slice(5))
       ? { ok: true, text: 'Cabo USB conectado.' }
-      : { ok: false, text: 'Não achei a impressora USB. O cabo está conectado e ela, ligada?' };
+      : {
+          ok: false,
+          off: true,
+          text: 'Não achei a impressora USB. O cabo está conectado e ela, ligada?',
+        };
   if (base.startsWith('printer:')) {
     await systemPrinters().catch(() => undefined);
-    return systemNames.includes(base.slice(8))
-      ? { ok: true, text: 'Instalada no sistema.' }
-      : { ok: false, text: 'Não está mais instalada no sistema. Escolha de novo.' };
+    if (!systemNames.includes(base.slice(8)))
+      return { ok: false, text: 'Não está mais instalada no sistema. Escolha de novo.' };
+    return (
+      (await systemPrinterPower(base.slice(8))) ?? {
+        ok: true,
+        text: 'Instalada no sistema.',
+      }
+    );
   }
   return null; // BLE: só se sabe imprimindo (ligar por BLE a cada minuto gasta a bateria dela)
 }
@@ -695,9 +794,10 @@ function checkAll() {
     );
     for (const spec of specs) {
       const r = await checkOne(spec).catch(() => null);
-      if (r) health[spec] = { ...r, at: Date.now() };
+      if (r) health[spec] = { ...confirmHealth(health[spec], r), at: Date.now() };
     }
     for (const k of Object.keys(health)) if (!specs.has(k)) delete health[k];
+    warnPowerChanges();
     push();
   })().finally(() => (checking = undefined));
   return checking;
@@ -773,6 +873,12 @@ function registerIpc() {
       label: p.displayName || p.name,
       isDefault: !!p.isDefault,
     }));
+  });
+  ipcMain.handle('set-notifications', async (_e, on) => {
+    config.notifications = !!on;
+    await saveConfig();
+    push();
+    return publicState();
   });
   ipcMain.handle('update-check', async () => {
     await updater.check(false);
@@ -940,7 +1046,8 @@ if (!app.requestSingleInstanceLock()) {
     powerMonitor.on('resume', () => agent?.poke());
     powerMonitor.on('unlock-screen', () => agent?.poke());
     void checkAll();
-    setInterval(() => void checkAll(), 120_000);
+    // A cada 30 s: impressora desligada aparece em cerca de um minuto (duas conferências).
+    setInterval(() => void checkAll(), 30_000);
     // Versão nova: confere logo depois de abrir e a cada 6 horas (sem atrapalhar a impressão).
     setTimeout(() => void updater.check(true), 15_000);
     setInterval(() => void updater.check(true), 6 * 60 * 60_000);

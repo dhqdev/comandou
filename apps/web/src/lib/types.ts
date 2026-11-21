@@ -879,6 +879,8 @@ export interface PrintAgentPrinter {
   target: string | null;
   label: string;
   kind: 'usb' | 'network' | 'bluetooth' | 'serial' | 'document' | 'none';
+  /** Conferida pelo aplicativo sem imprimir (1.8 em diante): off = desligada ou desconectada. */
+  state?: 'ok' | 'off';
 }
 export interface PrintJob {
   id: string;

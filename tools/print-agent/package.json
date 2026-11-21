@@ -1,7 +1,7 @@
 {
   "name": "comandou-impressao",
   "productName": "Comandou Impressão",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Liga o Comandou às impressoras térmicas do restaurante e imprime as comandas em segundo plano.",
   "author": "Comandou",
   "license": "UNLICENSED",
