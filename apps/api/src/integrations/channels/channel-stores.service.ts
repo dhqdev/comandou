@@ -166,12 +166,19 @@ export class ChannelStoresService {
     return row;
   }
 
-  /** A loja revogou o acesso (403): para de buscar e mostra o motivo na tela. */
+  /**
+   * A loja revogou o acesso (403): para de buscar e mostra o motivo na tela. Vale o primeiro
+   * motivo: as outras rotinas que batem no 403 logo depois ("Autorize a loja de novo") não
+   * trocam a explicação de quem viu a renovação recusada.
+   */
   async markRevoked(tenantId: string, id: string, reason: string) {
     const row = await this.db.withTenant({ tenantId }, (tx) =>
       one<StoreRow>(
         tx,
-        `UPDATE channel_stores SET status = 'revoked', last_error = $2 WHERE id = $1
+        `UPDATE channel_stores SET status = 'revoked',
+                last_error = CASE WHEN status = 'revoked' AND last_error IS NOT NULL
+                                  THEN last_error ELSE $2 END
+          WHERE id = $1
          RETURNING ${STORE_COLUMNS}`,
         [id, reason.slice(0, 300)],
       ),
