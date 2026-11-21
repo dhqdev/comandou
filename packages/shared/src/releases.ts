@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.221.0',
+    date: '2026-11-21',
+    title: 'Foto do item maior e em tela cheia',
+    summary:
+      'No cardápio online, a foto do item ficou maior no notebook e no tablet e acompanha a rolagem ao lado dos detalhes. Tocar na foto abre ela em tela cheia, e a foto do "Adicionar" voa até a sacola que está à vista.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Cardápio online no notebook e no iPad: ao adicionar um item pela tela dele, a foto voava para baixo, até um botão da sacola que sumia na volta ao cardápio. Agora ela voa até a sacola que aparece na tela (no alto, à direita, no notebook largo).',
+      },
+      {
+        tag: 'novo',
+        text: 'Tocar na foto do item abre ela inteira em tela cheia, com arrastar ou setas para ver as outras fotos. Esc, o X ou tocar fora fecham.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No notebook e no tablet, a foto do item ficou maior e fica presa na tela enquanto as opções e avaliações rolam ao lado, sem o espaço vazio embaixo dela.',
+      },
+    ],
+  },
+  {
     version: '0.220.3',
     date: '2026-11-21',
     title: 'Entregador ativo na Equipe recebe pedidos',
