@@ -17,7 +17,7 @@ import {
   toCents,
   qtyTicket,
 } from '@comandou/shared';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { hashToken } from '../auth/session.service';
 import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
@@ -79,6 +79,17 @@ export const JOB_SELECT = `
 
 /** Conferência de um pedido ou da comanda inteira (mesa com várias rodadas). */
 export type ReceiptScope = { kind: 'order' | 'tab'; id: string };
+
+/**
+ * Parte da chave da comanda com as cozinhas dela. A chave tem até 200 letras: com muitas cozinhas
+ * juntas vira um resumo, senão o banco recusaria o trabalho e o pedido inteiro não entraria.
+ */
+const sectorsKey = (ids: string[]) => {
+  const key = [...ids].sort().join('+');
+  return key.length <= 150
+    ? key
+    : `h${createHash('sha256').update(key).digest('hex').slice(0, 40)}`;
+};
 
 interface TicketItem {
   name: string;
@@ -1072,7 +1083,7 @@ export class PrintingService {
          VALUES ($1,$2,'kitchen_ticket',$3,$4,$5,$6) ON CONFLICT (tenant_id, dedupe_key) DO NOTHING RETURNING id`,
         [
           ctx.tenantId,
-          `order:${orderId}:sector:${ids.length > 1 ? ids.sort().join('+') : ids[0]}`,
+          `order:${orderId}:sector:${sectorsKey(ids)}`,
           g[0]!.name.slice(0, 60),
           orderId,
           t.text,

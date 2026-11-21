@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.220.1',
+    date: '2026-11-21',
+    title: 'Pedido de entrega com muitas cozinhas na mesma impressora',
+    summary:
+      'Um pedido de entrega com cinco cozinhas ou mais saindo na mesma impressora não conseguia ser criado. Agora ele entra normalmente e sai numa ficha só.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Pedido de entrega ou retirada com cinco ou mais cozinhas na mesma impressora entra normalmente e imprime tudo numa ficha.',
+      },
+    ],
+  },
+  {
     version: '0.220.0',
     date: '2026-11-21',
     title: 'Delivery numa ficha só e histórico de impressões',

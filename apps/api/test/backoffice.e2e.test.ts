@@ -1520,6 +1520,27 @@ describe('Impressão (agente local e fila)', () => {
     };
     expect(await kitchenJobs(counter.id)).toHaveLength(2);
 
+    // Muitas cozinhas na mesma impressora: o pedido entra e sai numa ficha só.
+    await agentPost(agentToken, '/heartbeat', {
+      printers: [{ target: null, label: 'EPSON TM-T20', kind: 'usb' }],
+    }).expect(200);
+    const many: { productId: string; quantity: number }[] = [];
+    for (let i = 1; i <= 6; i++)
+      many.push({
+        productId: await product(`Item Ficha ${i}`, await sector(`Cozinha Ficha ${i}`)),
+        quantity: 1,
+      });
+    const big = (
+      await order('waiterA', {
+        channel: 'delivery',
+        deliveryAddress: 'Rua das Flores, 100 - Centro',
+        customerName: 'Carla Cliente',
+        customerPhone: '11999990000',
+        items: many,
+      }).expect(201)
+    ).body as { id: string };
+    expect(await kitchenJobs(big.id)).toHaveLength(1);
+
     // Histórico de impressões dentro do pedido: hora, o quê, onde, quem e a prévia.
     await post('adminA', `/orders/${one.id}/print`, { kind: 'delivery' }).expect(201);
     const prints = (await get('adminA', `/orders/${one.id}/prints`).expect(200)).body as {
