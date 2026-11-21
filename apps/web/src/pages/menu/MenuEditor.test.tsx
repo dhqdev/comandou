@@ -35,6 +35,7 @@ const renderIt = () =>
       <MemoryRouter initialEntries={['/m1']}>
         <Routes>
           <Route path=":id" element={<MenuEditor />} />
+          <Route path="/cardapio/itens/:pid" element={<p>Tela do item</p>} />
         </Routes>
       </MemoryRouter>
     </ToastProvider>,
@@ -85,6 +86,16 @@ describe('Editor do cardápio: salva sozinho', () => {
     // Nada mudou desde a última gravação: não grava de novo.
     await new Promise((r) => setTimeout(r, 1000));
     expect(writes()).toHaveLength(1);
+  });
+
+  it('clicar na linha abre o item; preço e chave não abrem', async () => {
+    renderIt();
+    const ipa = await screen.findByRole('switch', { name: 'IPA no cardápio' });
+    fireEvent.click(ipa);
+    fireEvent.click(screen.getByLabelText('Preço de Chopp neste cardápio'));
+    expect(screen.queryByText('Tela do item')).toBeNull();
+    fireEvent.click(screen.getByText('Chopp'));
+    expect(await screen.findByText('Tela do item')).toBeInTheDocument();
   });
 
   it('nome novo grava no PATCH do cardápio', async () => {

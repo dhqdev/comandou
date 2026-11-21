@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.217.2',
+    date: '2026-11-21',
+    title: 'Itens do cardápio abrem com um clique na linha',
+    summary:
+      'No cardápio, clicar em qualquer parte da linha do item já abre a edição dele, sem precisar mirar no lápis.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cardápio › Itens no cardápio: a linha inteira abre o item para editar. O campo de preço e a chave de ligar e desligar continuam funcionando como antes.',
+      },
+    ],
+  },
+  {
     version: '0.217.1',
     date: '2026-11-21',
     title: 'Sistema protegido contra páginas maliciosas e WhatsApp sem aviso repetido',

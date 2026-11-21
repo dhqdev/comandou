@@ -470,7 +470,23 @@ export function MenuEditor() {
                     const parsed = r.price ? parseBrlInput(r.price) : null;
                     const diff = parsed ? priceDiff(toCents(p.price), toCents(parsed)) : null;
                     return (
-                      <div key={p.id} className="mn-menu-row" data-off={!r.on || undefined}>
+                      <div
+                        key={p.id}
+                        className="mn-menu-row"
+                        data-off={!r.on || undefined}
+                        data-open={canWrite || undefined}
+                        // A linha toda abre o item, menos o preço, a chave e os botões.
+                        onClick={
+                          canWrite
+                            ? (e) => {
+                                if ((e.target as HTMLElement).closest('input, label, button, a'))
+                                  return;
+                                if (window.getSelection()?.toString()) return;
+                                navigate(`/cardapio/itens/${p.id}`);
+                              }
+                            : undefined
+                        }
+                      >
                         <span className="mn-menu-row__item">
                           <ItemThumb src={mediaUrl(p.imageId)} name={p.name} size={40} />
                           <span className="mn-menu-row__name">

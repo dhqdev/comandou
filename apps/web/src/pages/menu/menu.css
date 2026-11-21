@@ -294,6 +294,19 @@
   grid-template-columns: minmax(0, 1fr) auto 130px 56px auto;
   padding: var(--cm-space-2) var(--cm-space-4);
 }
+.mn-menu-row[data-open] {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+@media (hover: hover) {
+  .mn-menu-row[data-open]:hover {
+    background: var(--cm-surface-muted);
+  }
+}
+.mn-menu-row[data-open] input,
+.mn-menu-row[data-open] label {
+  cursor: auto;
+}
 .mn-menu-row[data-off] .cm-thumb {
   opacity: 0.5;
 }
