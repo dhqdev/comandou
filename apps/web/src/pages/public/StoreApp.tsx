@@ -284,6 +284,12 @@ function ScreenLoading() {
 }
 
 /**
+ * Pedidos e acompanhamento entram parados, sem esmaecer: o cliente acabou de pedir e quer ver o
+ * status com a cor certa na hora (pedido do David).
+ */
+const STILL = /^\/pedir\/pedidos(\/|$)/;
+
+/**
  * Cada tela entra deslizando: para a frente ao abrir, para trás ao voltar. Entre abas, o lado
  * segue a ordem da barra (aba à direita entra pela direita).
  */
@@ -310,6 +316,7 @@ function Screens() {
       key={location.pathname}
       data-dir={last.dir}
       data-tab={last.tab || undefined}
+      data-still={STILL.test(location.pathname) || undefined}
     >
       <Suspense fallback={<ScreenLoading />}>
         <Routes location={location}>

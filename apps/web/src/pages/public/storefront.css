@@ -98,6 +98,9 @@ html.sf-root {
   animation-duration: 0.24s;
   --sf-shift: 24px;
 }
+.screen[data-still] {
+  animation: none;
+}
 @keyframes sf-in {
   from {
     opacity: 0;

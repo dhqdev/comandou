@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.228.4',
+    date: '2026-11-22',
+    title: 'Pedido do cliente sem esmaecer',
+    summary:
+      'No cardápio do cliente, a aba Pedidos e a tela de acompanhamento do pedido abrem já com a cor certa, sem aparecer mais clara por um instante.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Pedidos e acompanhamento no cardápio do cliente: a tela não entra mais esmaecida e depois escurece. As outras telas do cardápio seguem com a entrada suave.',
+      },
+    ],
+  },
+  {
     version: '0.228.3',
     date: '2026-11-22',
     title: 'Equipe no celular em cartões',
