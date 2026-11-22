@@ -33,7 +33,8 @@ test('garçom: cadastro só com nome em Equipe e entrada pelo PIN', async ({
   expect(pin).toMatch(/^[0-9]{4}$/);
   await page.screenshot({ path: shot(`${info.project.name}-pin-criado`) });
   await page.getByRole('button', { name: 'Pronto' }).click();
-  const row = page.locator('tr', { hasText: name });
+  // Tabela no computador, cartões no celular: os dois têm data-search-id="membro-…".
+  const row = page.locator('[data-search-id^="membro-"]', { hasText: name });
   await expect(row).toContainText('PIN');
   await expect(row.getByRole('button', { name: `Novo PIN para ${name}` })).toBeVisible();
   // Quem entra só com PIN não tem senha para trocar.

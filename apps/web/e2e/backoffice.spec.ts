@@ -47,7 +47,9 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   dialog = page.getByRole('dialog', { name: 'Pessoa adicionada' });
   await expect(dialog.getByTestId('staff-pin')).toHaveText(/^\s*[0-9]{4}\s*$/);
   await dialog.getByRole('button', { name: 'Pronto' }).click();
-  const moto = page.getByRole('row', { name: new RegExp(`Moto ${tag}`) });
+  // Tabela no computador, cartões no celular: os dois têm data-search-id="membro-…".
+  const member = (who: string) => page.locator('[data-search-id^="membro-"]', { hasText: who });
+  const moto = member(`Moto ${tag}`);
   await expect(moto).toBeVisible();
   await expect(moto.getByRole('button', { name: `Novo PIN para Moto ${tag}` })).toBeVisible();
   await expect(moto.getByRole('button', { name: /Nova senha/ })).toHaveCount(0);
@@ -60,7 +62,7 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await dialog.getByLabel('E-mail').fill(`balcao-${tag}@demo.local`);
   await dialog.getByLabel('Senha inicial').fill('senha-do-balcao-1');
   await dialog.getByRole('button', { name: 'Adicionar' }).click();
-  const desk = page.getByRole('row', { name: new RegExp(`Balcão ${tag}`) });
+  const desk = member(`Balcão ${tag}`);
   await desk.getByRole('button', { name: `Nova senha para Balcão ${tag}` }).click();
   dialog = page.getByRole('dialog', { name: 'Nova senha' });
   await dialog.getByLabel('Nova senha', { exact: true }).fill('senha-nova-balcao-1');

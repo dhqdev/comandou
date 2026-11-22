@@ -1244,7 +1244,7 @@ export const TEAM_STOPS: TourStop[] = [
       </>,
       <>Saiu da casa? Desative: o acesso acaba na hora.</>,
     ],
-    targets: [{ css: '.cm-card' }],
+    targets: [{ css: '.cm-card, .team-cards' }],
   },
 ];
 

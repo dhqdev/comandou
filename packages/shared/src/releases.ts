@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.228.3',
+    date: '2026-11-22',
+    title: 'Equipe no celular em cartões',
+    summary:
+      'No celular, a Equipe virou uma lista de cartões: cada pessoa com a inicial, o nome e o e-mail no topo, o papel numa escolha larga, como entra (PIN ou senha) e o último acesso numa linha só, e as ações Abrir, Link e Desativar num rodapé.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Equipe no celular: um cartão por pessoa, no jeito dos cartões de Entregadores, em vez da tabela espremida com rótulos soltos. Novo PIN, Nova senha e Trocar senha ficam ao lado de como a pessoa entra.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pessoa desativada aparece apagada, com o selo e um botão Reativar na largura toda. No computador a tabela continua igual.',
+      },
+    ],
+  },
+  {
     version: '0.228.2',
     date: '2026-11-22',
     title: 'Conversas no celular: teclado sem quebrar a tela',

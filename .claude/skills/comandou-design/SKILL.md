@@ -54,6 +54,15 @@ Acesso, só para quem entra com login. A situação sai de `features/courier-sta
 `app_seen_at`, migração 0109). A cor escolhida (`couriers.color`, 0110) vale em todo `colorOf`
 (mapa, Ao vivo e calendário do Acerto).
 
+## Equipe no celular
+
+`MemberCard` em `pages/TeamPage.tsx` (classes `team-mc*` em `team.css`; 0.228.3, pedido do David,
+que achou a tabela em "rótulo: valor" ruim no celular). Mesmo desenho dos cartões de Entregadores:
+avatar com a inicial em `--cm-brand-100`, nome e e-mail (ou "Entra só com o PIN"), o papel numa
+escolha na largura toda, uma linha "PIN criado/Senha · visto …" com Novo PIN/Nova senha em
+`link-btn` à direita e o rodapé cinza com **Abrir, Link e Desativar** (vermelho). Desativado:
+cartão apagado e só Reativar. No computador continua a tabela.
+
 ## Modais e formulários
 
 - Janela abre **perto de quem abriu** (`liquid.ts`): no computador e no tablet sai de dentro do botão e fica ao lado dele (botão à direita, janela à direita; embaixo se couber) e volta para ele ao fechar; no celular a folha cresce do botão. Use sempre `Modal`/`Sheet`/`useLiquidDialog`: não posicione janela na mão nem com `margin: auto` fixo.
