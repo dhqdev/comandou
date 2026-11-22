@@ -95,7 +95,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/equipe',
     name: 'Equipe',
     perms: ['users:manage'],
-    text: 'pessoas da equipe e perfis (Administrador, Gerente, Caixa, PDV (balcão), Garçom, Cozinha, Entregador): convidar, trocar perfil, desativar e redefinir senha.',
+    text: 'pessoas da equipe e perfis (Administrador, Gerente, Caixa, PDV (balcão), Garçom, Cozinha, Entregador): convidar, trocar perfil, desativar, redefinir senha ou PIN, copiar o link de acesso de cada pessoa (já abre o login da área dela) e abrir a tela de trabalho dela com a sua conta (o app do garçom, a prévia do app do entregador só para ver, ou a tela da área).',
   },
   {
     path: '/impressao',

@@ -128,6 +128,10 @@ const DriverApp = lazyPage(
   () => import('../driver/DriverApp'),
   (m) => m.DriverApp,
 );
+const DriverPreview = lazyPage(
+  () => import('../driver/DriverPreview'),
+  (m) => m.DriverPreview,
+);
 const KitchenApp = lazyPage(
   () => import('../kitchen/KitchenApp'),
   (m) => m.KitchenApp,
@@ -276,6 +280,15 @@ function Gate() {
       <Routes>
         {/* Gestor também abre o app do garçom (para conferir o que a equipe vê). */}
         <Route path="garcom/*" element={<WaiterApp />} />
+        {/* Equipe › Abrir de um entregador: prévia do app dele, só para ver (só o administrador). */}
+        <Route
+          path="equipe/:userId/app"
+          element={
+            <Guard path="equipe">
+              <DriverPreview />
+            </Guard>
+          }
+        />
         <Route element={<AppShell />}>
           <Route index element={<Home />} />
           <Route

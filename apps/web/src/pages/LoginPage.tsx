@@ -41,7 +41,7 @@ const WHO = {
 export function LoginPage() {
   const { login, loginWithPin, refresh } = useAuth();
   const { pathname } = useLocation();
-  // Cada área tem o seu link (Equipe › Links de acesso); também nas telas de dentro (/garcom/mesas),
+  // Cada área tem o seu link (Equipe, copiar o link da pessoa); também nas telas de dentro (/garcom/mesas),
   // a sessão que venceu ali volta para o login da mesma área.
   const area = loginAreaFor(pathname);
   const who = area ? WHO[area] : null;

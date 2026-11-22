@@ -6,7 +6,7 @@ import {
   ROLES,
   type Role,
 } from '@comandou/shared';
-import { Copy, Hash, KeyRound, Link2, UserPlus, Users } from 'lucide-react';
+import { ExternalLink, Hash, KeyRound, Link2, UserPlus, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -21,7 +21,7 @@ import {
   Skeleton,
 } from '../design-system';
 import { useAuth } from '../app/auth';
-import { ACCESS_LINKS, accessUrl } from '../app/role-home';
+import { ACCESS_LINKS, accessUrl, openPathOf } from '../app/role-home';
 import { copyText } from '../features/PixQr';
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
@@ -183,13 +183,25 @@ export function TeamPage() {
                       <td className="cm-num">
                         <div className="team-actions">
                           {!self && m.status === 'active' && (
-                            <Button
-                              variant="ghost"
-                              icon={<Link2 size={16} />}
-                              onClick={() => copyLink(linkOf(m.role as Role), m.name)}
-                              aria-label={`Copiar link de acesso de ${m.name}`}
-                              title="Copiar o link de acesso desta pessoa"
-                            />
+                            <>
+                              <a
+                                className="cm-btn cm-btn--ghost cm-btn--icon"
+                                href={openPathOf(m.role as Role, m.id)}
+                                target="_blank"
+                                rel="noopener"
+                                aria-label={`Abrir a tela de ${m.name}`}
+                                title="Abrir a tela desta pessoa (com a sua conta, em outra aba)"
+                              >
+                                <ExternalLink size={16} aria-hidden />
+                              </a>
+                              <Button
+                                variant="ghost"
+                                icon={<Link2 size={16} />}
+                                onClick={() => copyLink(linkOf(m.role as Role), m.name)}
+                                aria-label={`Copiar link de acesso de ${m.name}`}
+                                title={`Copiar o link de acesso desta pessoa (${linkOf(m.role as Role).replace(/^https?:\/\//, '')})`}
+                              />
+                            </>
                           )}
                           {!self &&
                             (m.status === 'active' ? (
@@ -220,35 +232,6 @@ export function TeamPage() {
             </table>
           </div>
         )}
-      </Card>
-      <Card title="Links de acesso">
-        <p className="cm-hint">
-          Mande para cada pessoa o link da área dela. O link já abre o login certo e, depois de
-          entrar, a tela de trabalho.
-        </p>
-        <ul className="team-links">
-          {ACCESS_LINKS.map((l) => {
-            const url = accessUrl(l.path);
-            return (
-              <li key={l.path} className="team-link">
-                <div className="team-link__info">
-                  <strong>{l.label}</strong>
-                  <span className="cm-hint">{l.how}</span>
-                </div>
-                <code className="team-link__url">{url.replace(/^https?:\/\//, '')}</code>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Copy size={16} />}
-                  onClick={() => copyLink(url, l.label.toLowerCase())}
-                  aria-label={`Copiar link de ${l.label}`}
-                >
-                  Copiar
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
       </Card>
       <ChangePasswordModal open={pwFor === 'self'} onClose={() => setPwFor(null)} />
       <MemberPasswordModal

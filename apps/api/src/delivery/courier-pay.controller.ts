@@ -152,6 +152,41 @@ export class CourierPayController {
     return this.pay.myEarnings(ctxOf(t, u));
   }
 
+  /**
+   * Prévia do app de um entregador da equipe (Equipe › Abrir): o administrador vê o que ele vê
+   * no app (corridas, disponíveis com o ganho pela regra dele, perfil e ganhos). Só leitura e só
+   * de quem gerencia a equipe; as ações do app continuam presas ao login de cada entregador.
+   */
+  @Get('deliveries/preview/:userId')
+  @RequirePermission('users:manage')
+  async appPreview(
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    const ctx = ctxOf(t, u);
+    const home = await this.delivery.previewHome(ctx, userId);
+    const [available, profile, earnings] = await Promise.all([
+      this.delivery.available(ctx, home.courier.id),
+      this.delivery.profile(ctx, home.courier.id),
+      this.pay.earningsByCourier(t.id, home.courier.id),
+    ]);
+    return { ...home, courier: { name: home.courier.name }, available, profile, earnings };
+  }
+
+  @Get('deliveries/preview/:userId/history')
+  @RequirePermission('users:manage')
+  async appPreviewHistory(
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Query(new ZodPipe(z.object({ before: z.coerce.date().optional() }))) f: { before?: Date },
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    const ctx = ctxOf(t, u);
+    const { courier } = await this.delivery.previewHome(ctx, userId);
+    return this.delivery.history(ctx, f.before ?? null, courier.id);
+  }
+
   /** Central do entregador pelo link (sem login). */
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 60 } })

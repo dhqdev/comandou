@@ -246,6 +246,35 @@
   font-size: var(--cm-text-sm);
 }
 
+/* Dono ou gerente no app do garçom: com qual conta está, voltar ao painel ou entrar como garçom. */
+.wt-guest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 0 calc(var(--wt-gutter) * -1);
+  padding: 8px var(--wt-gutter);
+  background: var(--cm-info-bg);
+  color: var(--cm-text);
+  font-size: var(--cm-text-sm);
+}
+.wt-guest__actions {
+  display: inline-flex;
+  gap: 12px;
+}
+.wt-guest__actions a,
+.wt-guest__actions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cm-link);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* ------------------------------------------------------------------ cabeçalho */
 .wt-head {
   position: sticky;

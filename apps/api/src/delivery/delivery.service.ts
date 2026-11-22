@@ -842,6 +842,35 @@ export class DeliveryService {
   }
 
   /**
+   * Prévia do app de um entregador da equipe para o administrador (Equipe › Abrir): as corridas
+   * dele na rua e as de hoje, como no app. Só leitura: quem chama não age pelo entregador.
+   */
+  previewHome(ctx: Ctx, userId: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const courier = await one<{ id: string; name: string }>(
+        tx,
+        `SELECT id, name FROM couriers WHERE user_id = $1`,
+        [userId],
+      );
+      if (!courier)
+        throw new NotFoundException('Esta pessoa ainda não está ligada a um entregador.');
+      const deliveries = await withEstimates(
+        tx,
+        await q<{ id: string; courierId: string; status: string }>(
+          tx,
+          `${DELIVERY_SELECT} CROSS JOIN tenants tz
+            WHERE d.courier_id = $1
+              AND (d.status = 'out'
+                   OR (d.dispatched_at AT TIME ZONE tz.timezone)::date = (now() AT TIME ZONE tz.timezone)::date)
+            ORDER BY d.status = 'out' DESC, d.dispatched_at DESC LIMIT 100`,
+          [courier.id],
+        ),
+      );
+      return { courier, deliveries, store: await storePoint(tx) };
+    });
+  }
+
+  /**
    * Consulta pública do link de rastreio. Mostra o mínimo: número e situação do pedido, primeiro
    * nome do entregador, a última localização e o trajeto (só enquanto está na rua) e o destino
    * arredondado. Nunca endereço ou telefone.

@@ -61,9 +61,9 @@ export function loginAreaFor(pathname: string): LoginArea | null {
 }
 
 /**
- * Link de acesso de cada área (tela Equipe › Links de acesso): o dono copia e manda para a pessoa.
- * Cada link abre o login certo e, depois de entrar, a tela da área. `roles` são os papéis que usam
- * o link; o teste confere que cada um cai no login e na tela que o papel pode abrir.
+ * Link de acesso de cada área (tela Equipe, botão de copiar de cada pessoa): o dono copia e manda
+ * para a pessoa. Cada link abre o login certo e, depois de entrar, a tela da área. `roles` são os
+ * papéis que usam o link; o teste confere que cada um cai no login e na tela que o papel pode abrir.
  */
 export const ACCESS_LINKS: readonly {
   path: string;
@@ -86,3 +86,15 @@ export const ACCESS_LINKS: readonly {
 
 /** Link completo de uma área neste restaurante (o endereço aberto agora). */
 export const accessUrl = (path: string) => `${window.location.origin}${path === '/' ? '' : path}`;
+
+/**
+ * Onde o botão Abrir da Equipe leva o administrador, já com a sessão dele: a tela de trabalho da
+ * pessoa, sem pedir para sair da conta. Garçom: o app do garçom. Entregador: a prévia do app dele
+ * (só para ver, com as corridas dele). Os outros: a tela da área no painel.
+ */
+export function openPathOf(role: Role, userId: string): string {
+  if (role === 'waiter') return '/garcom/mesas';
+  if (role === 'driver') return `/equipe/${userId}/app`;
+  const area = ACCESS_LINKS.find((l) => l.roles.includes(role));
+  return area?.path ?? '/';
+}

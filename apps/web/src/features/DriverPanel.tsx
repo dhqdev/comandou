@@ -100,6 +100,7 @@ export function DriverPanel({
   earnings,
   data,
   live = false,
+  preview = false,
 }: {
   deliveries: Delivery[];
   actions: DriverActions;
@@ -114,6 +115,8 @@ export function DriverPanel({
    * Sem login (link), não há conexão: a lista é consultada a cada poucos segundos.
    */
   live?: boolean;
+  /** Prévia do administrador: sem GPS nem tela acesa (as ações respondem que é só para ver). */
+  preview?: boolean;
 }) {
   useDriverPanelMounted();
   const [tab, setTab] = useState<DriverTab>('home');
@@ -214,7 +217,13 @@ export function DriverPanel({
           />
         )}
         {tab === 'runs' && (
-          <Runs deliveries={deliveries} actions={actions} onChanged={onChanged} store={store} />
+          <Runs
+            deliveries={deliveries}
+            actions={actions}
+            onChanged={onChanged}
+            store={store}
+            share={!preview}
+          />
         )}
         {tab === 'history' && <HistoryTab load={data.history} earnings={earnings} />}
         {tab === 'profile' && <ProfileTab profile={profile} />}
@@ -248,15 +257,18 @@ function Runs({
   actions,
   onChanged,
   store,
+  share,
 }: {
   deliveries: Delivery[];
   actions: DriverActions;
   onChanged(): void;
   store?: LatLng | null;
+  /** Manda a posição do celular (desligado na prévia do administrador). */
+  share: boolean;
 }) {
   const out = deliveries.filter((d) => d.status === 'out');
   const done = deliveries.filter((d) => d.status !== 'out');
-  const sharing = useShareLocation(out, actions);
+  const sharing = useShareLocation(out, actions, share);
   const me = sharing.fix ? ([sharing.fix.lat, sharing.fix.lng] as LatLng) : null;
   const riders: MapRider[] = [
     {
@@ -286,7 +298,7 @@ function Runs({
           className="driver__map"
           riders={riders}
           store={store}
-          emptyHint="Procurando o seu GPS…"
+          emptyHint={share ? 'Procurando o seu GPS…' : 'Na prévia o GPS fica desligado.'}
         />
       )}
       {sharing.error && <p className="form-error">{sharing.error}</p>}
@@ -617,7 +629,7 @@ const SEND_MAX_MS = 20_000;
  * chega aqui com a localização permitida. Mantém a tela acesa durante as corridas (o navegador
  * pausa o GPS com a tela apagada).
  */
-function useShareLocation(out: Delivery[], actions: DriverActions) {
+function useShareLocation(out: Delivery[], actions: DriverActions, on: boolean) {
   const [fix, setFix] = useState<Fix | null>(null);
   const [fixAt, setFixAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -626,6 +638,7 @@ function useShareLocation(out: Delivery[], actions: DriverActions) {
   ref.current = { ids, actions };
 
   useEffect(() => {
+    if (!on) return;
     if (!navigator.geolocation) {
       setError('Este aparelho não informa a localização.');
       return;
@@ -665,9 +678,9 @@ function useShareLocation(out: Delivery[], actions: DriverActions) {
       { enableHighAccuracy: true, maximumAge: 5_000, timeout: 30_000 },
     );
     return () => navigator.geolocation.clearWatch(watch);
-  }, []);
+  }, [on]);
 
-  useWakeLock(!!ids);
+  useWakeLock(on && !!ids);
   return { fix, fixAt, error };
 }
 

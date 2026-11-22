@@ -85,6 +85,25 @@
   height: 40px;
 }
 
+/* Prévia do administrador (Equipe › Abrir): de quem é o app e que é só para ver. */
+.driver-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: var(--cm-space-3, 12px);
+  padding: 10px 12px;
+  border: 1px solid color-mix(in oklab, var(--cm-info) 25%, transparent);
+  border-radius: var(--cm-radius-md, 10px);
+  background: var(--cm-info-bg);
+  color: var(--cm-text);
+  font-size: var(--cm-text-sm);
+}
+.driver-preview svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--cm-info);
+}
+
 /* Faixa de sem internet / alterações na fila (app/OfflineBanner.tsx) */
 .courier-page__offline {
   border: 1px solid color-mix(in oklab, var(--cm-warning) 20%, transparent);

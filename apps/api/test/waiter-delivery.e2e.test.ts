@@ -652,4 +652,52 @@ describe('Link do entregador (sem login)', () => {
     await patch('adminA', `/users/${userId}`, { role: 'waiter' }).expect(200);
     expect((await courier()).active).toBe(false);
   });
+
+  it('Equipe › Abrir: o administrador vê a prévia do app do entregador, só leitura', async () => {
+    const m = (
+      await post('adminA', '/users', {
+        email: 'moto-previa@wd-a.test',
+        name: 'Moto Prévia',
+        password: PASSWORD,
+        role: 'driver',
+      }).expect(201)
+    ).body;
+    const userId = m.id as string;
+    cookies.motoPrev = await login(HOST_A, 'moto-previa@wd-a.test');
+    const o = (
+      await post('adminA', '/orders', {
+        channel: 'delivery',
+        deliveryAddress: 'Rua Prévia, 9',
+        items: [{ productId: fx.prodA, quantity: 1 }],
+      }).expect(201)
+    ).body;
+    await post('adminA', `/orders/${o.id}/status`, { to: 'ready' }).expect(201);
+    // Antes de pegar: o pedido aparece em Disponíveis na prévia, como no app dele.
+    const before = (await get('adminA', `/deliveries/preview/${userId}`).expect(200)).body;
+    expect(before.courier).toEqual({ name: 'Moto Prévia' });
+    expect(before.available.some((x: { orderId: string }) => x.orderId === o.id)).toBe(true);
+    expect(before.deliveries).toEqual([]);
+    const d = (await post('motoPrev', `/orders/${o.id}/claim`).expect(201)).body;
+
+    const p = (await get('adminA', `/deliveries/preview/${userId}`).expect(200)).body;
+    expect(p.deliveries.map((x: { id: string }) => x.id)).toEqual([d.id]);
+    expect(p.profile).toMatchObject({ name: 'Moto Prévia', delivered: 0 });
+    expect(p.earnings).toBeTruthy();
+    expect(p.courier.id).toBeUndefined();
+    const h = (await get('adminA', `/deliveries/preview/${userId}/history`).expect(200)).body;
+    expect(h).toMatchObject({ items: [], next: null });
+
+    // Só quem gerencia a equipe: caixa, garçom e o próprio entregador não abrem a prévia.
+    await get('cashierA', `/deliveries/preview/${userId}`).expect(403);
+    await get('waiterA', `/deliveries/preview/${userId}`).expect(403);
+    await get('motoPrev', `/deliveries/preview/${userId}`).expect(403);
+    await get('motoPrev', `/deliveries/preview/${userId}/history`).expect(403);
+    // Outro restaurante não acha o entregador; quem não é entregador não tem prévia.
+    await get('adminB', `/deliveries/preview/${userId}`).expect(404);
+    const [w] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM users WHERE email = 'garcom@wd-a.test'`,
+    );
+    await get('adminA', `/deliveries/preview/${w.id}`).expect(404);
+    await get('adminA', '/deliveries/preview/nao-e-uuid').expect(400);
+  });
 });

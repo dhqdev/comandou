@@ -9,7 +9,7 @@ import {
   MessagesSquare,
 } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect, useState } from 'react';
-import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router';
+import { Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router';
 import { Modal, ThemeToggle } from '../design-system';
 import { useAuth } from '../app/auth';
 import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
@@ -121,6 +121,20 @@ export function WaiterApp() {
         </aside>
 
         <main className="wt-main">
+          {/* Dono ou gerente abrindo o app do garçom com a própria conta (Equipe › Abrir ou /garcom). */}
+          {me && me.user.role !== 'waiter' && (
+            <div className="wt-guest" role="status">
+              <span>
+                App do garçom com a conta de <b>{me.user.name}</b> ({me.user.roleLabel}).
+              </span>
+              <span className="wt-guest__actions">
+                <Link to="/">Voltar ao painel</Link>
+                <button type="button" onClick={() => void logout()}>
+                  Entrar como garçom
+                </button>
+              </span>
+            </div>
+          )}
           <OfflineBanner className="wt-offline" />
           {online && live === 'offline' && (
             <div className="wt-offline" role="status">

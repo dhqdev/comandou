@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.228.0',
+    date: '2026-11-22',
+    title: 'Equipe: abrir a tela de cada pessoa e copiar o link dela',
+    summary:
+      'Na Equipe, cada pessoa tem agora dois botões: Abrir, que leva você direto à tela de trabalho dela sem sair da sua conta, e Copiar link, para mandar o acesso. O quadro Links de acesso, embaixo da lista, saiu.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Equipe › Abrir (ícone de abrir em outra aba, ao lado da pessoa): abre em outra aba a tela de trabalho dela com a sua conta de administrador. Garçom: o app do garçom. Cozinha, PDV e Caixa: a tela da área. Gerente: o painel.',
+      },
+      {
+        tag: 'novo',
+        text: 'Entregador: o Abrir mostra a prévia do app dele, só para ver, com as corridas na rua, os pedidos disponíveis (com o ganho pela regra dele), o histórico, o perfil e os ganhos. A prévia não manda GPS e não pega nem conclui corrida.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O link de cada área ficou só no botão de copiar de cada pessoa (o endereço aparece ao parar o mouse). Saiu o quadro Links de acesso do pé da tela.',
+      },
+      {
+        tag: 'correção',
+        text: 'Com a sessão do dono ou do gerente aberta, o endereço /garcom entra direto no app do garçom em vez de pedir para sair da conta. No app, uma faixa no topo mostra com qual conta você está, com Voltar ao painel e Entrar como garçom.',
+      },
+    ],
+  },
+  {
     version: '0.227.1',
     date: '2026-11-22',
     title: 'Abas e botões na mesma linha',

@@ -43,6 +43,7 @@ export function DriverShell({
   loading,
   onLogout,
   chat,
+  preview,
   children,
 }: {
   name: string | null;
@@ -52,6 +53,11 @@ export function DriverShell({
   onLogout?: () => void;
   /** Mostra o botão do chat da equipe (só no app com login; o link não tem chat). */
   chat?: boolean;
+  /**
+   * Prévia do administrador (Equipe › Abrir): a faixa de cima explica e a tela abre sem pedir a
+   * localização (a prévia não manda GPS).
+   */
+  preview?: ReactNode;
   children: ReactNode;
 }) {
   const [panel, setPanel] = useState(false);
@@ -78,10 +84,18 @@ export function DriverShell({
         </header>
         <OfflineBanner className="offline-banner courier-page__offline" />
         <DriverShellContext.Provider value={ctx}>
-          <DriverGate>
-            {error && <Alert tone={loading ? 'danger' : 'warning'}>{error}</Alert>}
-            {loading ? !error && <Skeleton /> : children}
-          </DriverGate>
+          {preview ? (
+            <>
+              {preview}
+              {error && <Alert tone={loading ? 'danger' : 'warning'}>{error}</Alert>}
+              {loading ? !error && <Skeleton /> : children}
+            </>
+          ) : (
+            <DriverGate>
+              {error && <Alert tone={loading ? 'danger' : 'warning'}>{error}</Alert>}
+              {loading ? !error && <Skeleton /> : children}
+            </DriverGate>
+          )}
         </DriverShellContext.Provider>
       </div>
     </main>

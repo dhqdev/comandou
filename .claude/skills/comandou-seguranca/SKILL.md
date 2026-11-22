@@ -38,6 +38,9 @@ cookie, CSRF, corpo gigante e Host estranho.
 - Ação só do dono (plano, equipe, domínio): `ownerOnly(u)` ou papel conferido no serviço.
 - Dado do próprio usuário (agenda, conversa, corridas): filtre por `user_id` no SQL, não só pelo
   restaurante (o RLS separa restaurantes, não pessoas).
+- Ver a tela de outra pessoa (Equipe › Abrir, prévia do app do entregador em
+  `GET deliveries/preview/:userId`): só leitura, só `users:manage`, e nunca uma sessão nem uma
+  ação em nome dela (pegar, concluir, GPS seguem presos ao login de cada entregador).
 - Cadastro do restaurante (`tenants`/`tenant_profiles`, banco central) pela rota do restaurante:
   só o dono, só o `t.id` da sessão, nunca `notes` (observação interna do painel), e grave no
   histórico do painel (`platformAudit` com `by`). Conta da pessoa: só funções que usam

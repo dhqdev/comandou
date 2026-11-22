@@ -115,8 +115,8 @@ export const WELCOME_STOPS: TourStop[] = [
       </>,
       <>Informe nome, e-mail, uma senha inicial e o papel (Garçom, Cozinha, Caixa, Gerente).</>,
       <>
-        Em <b>Links de acesso</b>, copie o link da área da pessoa e mande junto com o PIN ou a
-        senha: ele já abre o login certo.
+        No botão de link ao lado da pessoa, copie o link de acesso e mande junto com o PIN ou a
+        senha: ele já abre o login certo. O botão de abrir mostra a tela dela para você.
       </>,
     ],
     targets: [{ button: 'Adicionar pessoa' }],
