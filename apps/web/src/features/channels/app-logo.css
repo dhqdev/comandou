@@ -1,0 +1,22 @@
+/* Ícone do aplicativo de delivery (AppLogo): quadrado de cantos redondos, como o ícone do app no
+   celular. A linha fina (outline, que fica por cima da imagem) separa o logo de fundo branco (Open Delivery) do cartão. */
+.app-logo {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--app-logo);
+  height: var(--app-logo);
+  border-radius: calc(var(--app-logo) * 0.26);
+  background: #fff;
+  outline: 1px solid color-mix(in oklab, var(--cm-text) 8%, transparent);
+  outline-offset: -1px;
+  object-fit: cover;
+  user-select: none;
+}
+.app-logo--initial {
+  background: var(--ch);
+  color: var(--ch-ink);
+  font-size: calc(var(--app-logo) * 0.45);
+  font-weight: 800;
+  line-height: 1;
+}

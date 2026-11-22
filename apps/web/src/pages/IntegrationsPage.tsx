@@ -1,15 +1,11 @@
-import {
-  CHANNEL_ACTION_LABELS,
-  channelInfo,
-  withArticle,
-  type ChannelAction,
-} from '@comandou/shared';
+import { CHANNEL_ACTION_LABELS, withArticle, type ChannelAction } from '@comandou/shared';
 import { ArrowRight, Check, ChevronDown, Link2, RotateCcw, Store } from 'lucide-react';
 import { Link } from 'react-router';
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, useToast, Skeleton } from '../design-system';
 import { useCan } from '../app/auth';
 import { AppReviewsCard } from '../features/channels/AppReviews';
+import { AppLogo } from '../features/channels/AppLogo';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
 import { ConnectStore, connectsHere } from '../features/channels/ConnectStore';
 import {
@@ -218,9 +214,16 @@ export function IntegrationsPage() {
 
           {setup.length > 0 && (
             <section className="intg-group" aria-labelledby="intg-setup">
-              <h2 id="intg-setup" className="intg-group__title">
-                {live.length ? 'Ligar mais um aplicativo' : 'Ligue o seu primeiro aplicativo'}
-              </h2>
+              <div className="intg-group__head">
+                <h2 id="intg-setup" className="intg-group__title">
+                  {live.length ? 'Ligar mais um aplicativo' : 'Ligue o seu primeiro aplicativo'}
+                </h2>
+                {setup.some((c) => !c.configured) && (
+                  <p className="intg-group__hint">
+                    Para liberar um aplicativo, fale com o suporte do Comandou.
+                  </p>
+                )}
+              </div>
               <div className="intg-setup">
                 {setup.map((c) => (
                   <SetupChannel
@@ -238,7 +241,10 @@ export function IntegrationsPage() {
             <p className="intg-soon">
               <span>Em breve:</span>
               {soon.map((c) => (
-                <ChannelBadge key={c.id} channel={c.id} label={c.label} size="sm" />
+                <span key={c.id} className="intg-soon__app">
+                  <AppLogo channel={c.id} label={c.label} size={20} />
+                  {c.label}
+                </span>
               ))}
             </p>
           )}
@@ -398,16 +404,24 @@ function UnlinkedRow({
   );
 }
 
-/** Nome do aplicativo num bloco na cor da marca (cor de marca é dado: igual no claro e no escuro). */
-function ChannelMark({ channel, label }: { channel: string; label: string }) {
-  const info = channelInfo(channel, label);
+/** Logo do aplicativo, nome e, embaixo, a situação com a bolinha. */
+function ChannelHead({
+  channel,
+  status,
+}: {
+  channel: ChannelView;
+  status: ReturnType<typeof situation>;
+}) {
   return (
-    <span
-      className="intg-mark"
-      style={{ '--ch': info.color, '--ch-ink': info.ink } as CSSProperties}
-    >
-      {info.label}
-    </span>
+    <div className="intg-id">
+      <AppLogo channel={channel.id} label={channel.label} />
+      <div className="intg-id__text">
+        <strong className="intg-id__name">{channel.label}</strong>
+        <span className="intg-state" data-tone={status.tone}>
+          {status.text}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -500,7 +514,7 @@ function Capabilities({ channel }: { channel: ChannelView }) {
   return (
     <details className="intg-caps">
       <summary>
-        O que funciona com {channel.label}
+        O que funciona
         <span className="intg-caps__count">
           {on.length} de {channel.capabilities.length}
         </span>
@@ -544,10 +558,7 @@ function LiveChannel({
   return (
     <article className="intg-ch" data-search-id={`canal-${c.id}`}>
       <header className="intg-ch__head">
-        <ChannelMark channel={c.id} label={c.label} />
-        <span className="intg-state" data-tone={st.tone}>
-          {st.text}
-        </span>
+        <ChannelHead channel={c} status={st} />
         {(c.failedEvents > 0 || c.failedActions > 0 || c.pendingActions > 0) && (
           <span className="intg-counts">
             {c.pendingActions > 0 && <span>{c.pendingActions} enviando</span>}
@@ -636,33 +647,30 @@ function SetupChannel({
   onDone(): void;
 }) {
   const st = situation(c);
-  const on = c.capabilities.filter((k) => k.on).length;
   const here = connectsHere(c.id) && c.configured;
+  // Sem liberação, a situação já diz tudo (a dica de falar com o suporte fica no título do grupo).
+  const text = !c.configured
+    ? null
+    : c.id === 'ifood'
+      ? 'A loja do iFood se liga no cardápio.'
+      : here && !canConfigure
+        ? 'Quem cuida dos ajustes do restaurante liga a loja aqui.'
+        : `Pedidos ${withArticle(c.label, 'do')} entram na mesma fila da cozinha.`;
+  const action =
+    c.configured && c.id === 'ifood' ? (
+      <Link className="cm-btn cm-btn--secondary cm-btn--sm" to="/cardapio/cardapios">
+        Ligar no Cardápio
+        <ArrowRight size={14} aria-hidden />
+      </Link>
+    ) : here && canConfigure ? (
+      <ConnectStore channel={c.id} label={c.label} onDone={onDone} />
+    ) : null;
   return (
     <article className="intg-new" data-search-id={`canal-${c.id}`}>
-      <div className="intg-new__head">
-        <ChannelMark channel={c.id} label={c.label} />
-        <span className="intg-state" data-tone={st.tone}>
-          {st.text}
-        </span>
-      </div>
-      <p className="intg-new__text">
-        {!c.configured
-          ? `${withArticle(c.label, 'O')} ainda não foi liberado para o seu restaurante. Fale com o suporte do Comandou.`
-          : c.id === 'ifood'
-            ? 'A loja do iFood se liga no cardápio. Depois ela aparece aqui e você liga "Receber pedidos".'
-            : here && !canConfigure
-              ? 'Quem cuida dos ajustes do restaurante liga a loja aqui.'
-              : `Pedidos ${withArticle(c.label, 'do')} entram na mesma fila da cozinha, com ${on} recursos funcionando daqui.`}
-      </p>
+      <ChannelHead channel={c} status={st} />
+      {text && <p className="intg-new__text">{text}</p>}
+      {action && <div className="intg-new__action">{action}</div>}
       <div className="intg-new__foot">
-        {c.configured && c.id === 'ifood' && (
-          <Link className="cm-btn cm-btn--secondary cm-btn--sm" to="/cardapio/cardapios">
-            Ligar no Cardápio
-            <ArrowRight size={14} aria-hidden />
-          </Link>
-        )}
-        {here && canConfigure && <ConnectStore channel={c.id} label={c.label} onDone={onDone} />}
         <Capabilities channel={c} />
       </div>
     </article>

@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.231.4',
+    version: '0.231.5',
     date: '2026-11-22',
     title: 'A logo do restaurante no lugar do panda',
     summary:
@@ -41,6 +41,23 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'correção',
         text: 'Comandou Impressão (aplicativo 1.11.1): o ícone da barra de tarefas, dos atalhos e das notificações volta a ser o do restaurante, também depois de o aplicativo se atualizar.',
+      },
+    ],
+  },
+  {
+    version: '0.231.4',
+    date: '2026-11-22',
+    title: 'Aplicativos de delivery com o logo de cada um',
+    summary:
+      'Os cartões da tela Aplicativos de delivery ficaram mais limpos: cada aplicativo aparece com o logo oficial, o nome e a situação, sem a mesma frase repetida em todos.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Aplicativos de delivery: iFood, Keeta, 99Food, Rappi, aiqfome e Open Delivery com o logo oficial no formato do ícone do app.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cartões mais enxutos: logo, nome e situação em cima e "O que funciona" no pé. O aviso de falar com o suporte para liberar aparece uma vez só, no título do grupo.',
       },
     ],
   },

@@ -1,22 +1,28 @@
-/* Integrações › Aplicativos de delivery (prefixo intg-). Só tokens; a cor de cada aplicativo
-   (marca, igual no claro e no escuro) vem em --ch/--ch-ink, pelo ChannelMark e pelo ChannelBadge.
+/* Integrações › Aplicativos de delivery (prefixo intg-). Só tokens; o logo de cada aplicativo
+   vem do AppLogo (features/channels) e a cor da marca, no ChannelBadge, em --ch/--ch-ink.
    Ordem da tela: números, Ligados (cartão grande por aplicativo, cada loja com os ajustes),
    Ligar mais um aplicativo (cartões menores), Em breve (uma linha). */
 
-/* Nome do aplicativo num bloco na cor da marca. */
-.intg-mark {
-  display: inline-grid;
-  place-items: center;
-  min-width: 76px;
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 10px;
-  background: var(--ch);
-  color: var(--ch-ink);
-  font-size: 0.9375rem;
-  font-weight: 800;
+/* Logo do aplicativo (AppLogo), nome e situação embaixo. */
+.intg-id {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.intg-id__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.intg-id__name {
+  font-size: var(--cm-text-md);
+  font-weight: 700;
   letter-spacing: -0.01em;
-  white-space: nowrap;
+  line-height: 1.25;
+}
+.intg-id .intg-state {
+  font-size: var(--cm-text-xs);
 }
 
 /* Situação: bolinha + texto. */
@@ -104,6 +110,18 @@
 .intg-group {
   display: grid;
   gap: var(--cm-space-3);
+}
+.intg-group__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+.intg-group__hint {
+  margin: 0;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
 }
 .intg-group__title {
   margin: 0;
@@ -306,27 +324,26 @@
   line-height: 1.5;
 }
 
-/* ---------- Aplicativo para ligar ---------- */
+/* ---------- Aplicativo para ligar ----------
+   Cartão enxuto: logo, nome e situação; uma frase só quando há algo a fazer; "O que funciona"
+   no pé, separado por linha fina. */
 .intg-setup {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--cm-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--cm-space-3);
   align-items: start;
 }
 .intg-new {
   display: grid;
-  gap: 12px;
-  padding: 16px 18px;
+  gap: 14px;
+  padding: 16px 16px 0;
   border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-lg);
   background: var(--cm-surface);
+  transition: border-color var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
-.intg-new__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
+.intg-new:hover {
+  border-color: var(--cm-border-strong);
 }
 .intg-new__text {
   margin: 0;
@@ -334,15 +351,13 @@
   font-size: var(--cm-text-sm);
   line-height: 1.5;
 }
-.intg-new__foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 16px;
+.intg-new__action:empty {
+  display: none;
 }
-.intg-new__foot .intg-caps,
-.intg-new__foot .intg-connect {
-  flex: 1 1 100%;
+.intg-new__foot {
+  margin-inline: -16px;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--cm-border);
 }
 
 /* ---------- Em breve ---------- */
@@ -350,10 +365,18 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 8px 16px;
   margin: 0;
   color: var(--cm-text-subtle);
   font-size: var(--cm-text-sm);
+}
+
+.intg-soon__app {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--cm-text-muted);
+  font-weight: 500;
 }
 
 @media (max-width: 900px) {
@@ -370,8 +393,7 @@
 @media (max-width: 600px) {
   .intg-ch__head,
   .intg-store,
-  .intg-ch__foot,
-  .intg-new {
+  .intg-ch__foot {
     padding-inline: 14px;
   }
   .intg-counts {
