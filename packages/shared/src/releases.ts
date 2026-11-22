@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.231.3',
+    date: '2026-11-22',
+    title: 'Logo da loja já abre redonda',
+    summary:
+      'No cardápio online, ao abrir ou recarregar a página inicial, a logo do restaurante aparecia quadrada por um instante e depois ficava redonda. Agora ela já nasce redonda.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Cardápio online: a logo da loja não aparece mais quadrada ao abrir a página. A própria foto passou a ser arredondada, e não só o quadro em volta, o que vale também para as outras fotos redondas do cardápio.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A logo do celular não faz mais a animação de entrada: ela aparece parada no mesmo lugar da tela de carregamento, sem pulo.',
+      },
+    ],
+  },
+  {
     version: '0.231.2',
     date: '2026-11-22',
     title: 'Janela da mesa mais simples',

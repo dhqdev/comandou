@@ -92,11 +92,17 @@
 .ph {
   position: relative;
   overflow: hidden;
+  /* A foto também arredonda sozinha (não só pelo recorte do quadro): no celular, enquanto o quadro
+     anima ou a foto aparece, o navegador desenha a foto numa camada à parte e o recorte do
+     border-radius do quadro chegava atrasado. Era a logo da loja nascendo quadrada e virando
+     redonda num instante. */
+  isolation: isolate;
   background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface-muted));
 }
 .ph img {
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -130,6 +136,7 @@
 .ph__fallback {
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   display: grid;
   place-items: center;
   font-weight: 750;
