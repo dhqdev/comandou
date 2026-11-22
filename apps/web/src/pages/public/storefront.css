@@ -1134,10 +1134,35 @@ html.sf-root {
   border-radius: var(--cm-radius-full);
   background: var(--cm-border-strong);
 }
+/* No celular a foto fica parada no topo e a folha dos detalhes sobe por cima dela ao rolar
+   (só CSS: sticky + a folha numa camada acima). */
 .pdp__media {
-  position: relative;
+  position: sticky;
+  top: var(--sf-appbar);
+  z-index: 0;
+}
+/* A foto escurece um pouco enquanto é coberta (rolagem pelo CSS, sem JS; quem não tem, só não
+   escurece). */
+@supports (animation-timeline: scroll()) {
+  .pdp__hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    animation: pdp-cover linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 min(56vh, 520px);
+  }
+}
+@keyframes pdp-cover {
+  to {
+    opacity: 0.35;
+  }
 }
 .pdp__hero {
+  position: relative;
   transform-origin: top left;
   will-change: transform;
 }
@@ -1185,6 +1210,7 @@ html.sf-root {
 }
 .pdp__panel {
   position: relative;
+  z-index: 1;
   margin-top: -30px;
   padding: 22px 18px 8px;
   border-radius: calc(var(--sf-r-lg) + 8px) calc(var(--sf-r-lg) + 8px) 0 0;
@@ -1231,7 +1257,8 @@ html.sf-root {
 @media (prefers-reduced-motion: reduce) {
   .pdp__panel,
   .pdp__panel > *,
-  .pdp__topbar .iconbtn {
+  .pdp__topbar .iconbtn,
+  .pdp__hero::after {
     animation: none;
   }
 }
@@ -2163,6 +2190,9 @@ html.sf-root {
   .pdp__media {
     position: sticky;
     top: calc(var(--sf-appbar) + 24px);
+  }
+  .pdp__hero::after {
+    display: none;
   }
   .pdp__hero {
     border-radius: var(--sf-r-lg);
