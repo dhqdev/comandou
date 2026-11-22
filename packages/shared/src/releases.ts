@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.224.1',
+    date: '2026-11-22',
+    title: 'Botões com a cor da loja de letra branca no modo escuro',
+    summary:
+      'Com uma cor própria clara (verde, amarelo…), o botão principal no modo escuro vinha com letra escura. Agora ele fica um tom mais fechado e a letra é sempre branca, como no laranja do Comandou.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Modo escuro: botões cheios na cor do restaurante (Nova venda, Salvar, Confirmar…) com letra branca e contraste de pelo menos 4,5:1, para qualquer cor escolhida.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Selos e etiquetas cheios na cor do restaurante também escurecem um pouco no modo escuro para a letra branca ler bem.',
+      },
+    ],
+  },
+  {
     version: '0.224.0',
     date: '2026-11-22',
     title: 'Calendário de ganhos dos entregadores',

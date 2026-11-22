@@ -180,8 +180,11 @@ export function brandTokens(brand: string) {
   // toque dela e texto colorido clareado até ler bem sobre o cartão escuro.
   const dC = C * 0.78;
   const dL = Math.min(Math.max(L, 0.6), 0.74);
-  const d500 = lch(dL, dC, H);
-  const d600 = lch(dL - 0.025, dC, H);
+  // Botão e selos cheios levam texto branco também no escuro (como o laranja padrão): a cor
+  // escurece até o branco passar de 4,5:1 no botão (600) e de 3:1 nos selos (500). Sem isso,
+  // cores claras (verde, amarelo) ficavam com letra escura no botão principal.
+  const d500 = legibleOn([dL, dC, H], WHITE, 3);
+  const d600 = legibleOn([rgbToOklch(hexToRgb(d500))[0] - 0.025, dC, H], WHITE, 4.5);
   const d700 = legibleOn([Math.max(dL, 0.72), dC, H], DARK_SURFACE, 5, 1);
   const d700L = rgbToOklch(hexToRgb(d700))[0];
   const dark: Record<string, string> = {
@@ -195,7 +198,7 @@ export function brandTokens(brand: string) {
     '--cm-brand-600': d600,
     '--cm-brand-700': d700,
     '--cm-brand-800': lch(Math.min(0.92, d700L + 0.08), dC * 0.7, H),
-    '--cm-on-brand': onColor(d600),
+    '--cm-on-brand': WHITE,
     '--cm-link': d700,
     '--cm-focus': `0 0 0 3px color-mix(in oklab, ${d500} 26%, transparent)`,
   };

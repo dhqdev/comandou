@@ -26,7 +26,10 @@ describe('identidade visual: tons gerados a partir da cor do restaurante', () =>
     expect(contrast(dark['--cm-brand-700']!, '#283141')).toBeGreaterThanOrEqual(4.5);
     // Botão principal: escolhe texto escuro ou branco, o que ler melhor.
     expect(contrast(light['--cm-brand-600']!, light['--cm-on-brand']!)).toBeGreaterThanOrEqual(3.9);
-    expect(contrast(dark['--cm-brand-600']!, dark['--cm-on-brand']!)).toBeGreaterThanOrEqual(3.9);
+    // No escuro o botão é sempre de letra branca (igual ao laranja padrão), com 4,5:1.
+    expect(dark['--cm-on-brand']).toBe('#ffffff');
+    expect(contrast(dark['--cm-brand-600']!, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(dark['--cm-brand-500']!, '#ffffff')).toBeGreaterThanOrEqual(3);
     // O escuro redefine todos os tons que o tema escuro do Comandou também redefine.
     for (const k of ['300', '400', '500', '600', '700', '800'])
       expect(dark[`--cm-brand-${k}`]).toMatch(/^#[0-9a-f]{6}$/);
