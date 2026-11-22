@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { useRealtime } from '../lib/realtime';
 import type { OrderPrint } from '../lib/types';
 import { dateTime } from './format';
+import { PaperText } from './PaperText';
 
 const KIND: Record<OrderPrint['kind'], string> = {
   kitchen_ticket: 'Comanda da cozinha',
@@ -88,11 +89,7 @@ export function OrderPrints({ orderId, open }: { orderId: string; open?: boolean
                   <Badge tone={tone}>{label}</Badge>
                   <ChevronDown size={16} aria-hidden className="od-prints__chev" />
                 </button>
-                {isOpen && (
-                  <pre className="receipt-paper od-prints__paper" aria-label="Prévia do papel">
-                    {p.text}
-                  </pre>
-                )}
+                {isOpen && <PaperText text={p.text} className="receipt-paper od-prints__paper" />}
               </li>
             );
           })}

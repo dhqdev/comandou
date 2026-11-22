@@ -635,6 +635,13 @@ test('folha da impressora comum: escapa o texto e troca o QR Code pelo endereço
   assert.doesNotMatch(html, /<script/i);
 });
 
+test('folha: negrito e letra grande viram <b>, a logo some e o texto da marca é escapado', () => {
+  const html = documentHtml(`@@LOGO@@\n@@N@@<Loja>\n@@G@@TOTAL: R$ 1,00\nfim`);
+  assert.match(html, /<b>&lt;Loja&gt;<\/b>/);
+  assert.match(html, /<b class="g">TOTAL: R\$ 1,00<\/b>/);
+  assert.doesNotMatch(html, /@@/);
+});
+
 test('ícone .ico com o PNG dentro e cores da bolinha', () => {
   const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
   const ico = pngToIco(png);

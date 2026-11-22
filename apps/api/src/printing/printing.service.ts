@@ -16,6 +16,8 @@ import {
   PaymentMethod,
   toCents,
   qtyTicket,
+  agentSupportsMarks,
+  plainPrintText,
 } from '@comandou/shared';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { hashToken } from '../auth/session.service';
@@ -179,7 +181,7 @@ export class PrintingService {
               o.subtotal::text, o.discount::text, o.surcharge::text, o.delivery_fee::text,
               o.payment_hint, o.change_for::text, o.tax_document,
               to_char(o.created_at AT TIME ZONE t.timezone, 'DD/MM HH24:MI') AS local_time,
-              to_char(o.created_at AT TIME ZONE t.timezone, 'DD/MM/YYYY HH24:MI:SS') AS full_time
+              to_char(o.created_at AT TIME ZONE t.timezone, 'DD/MM/YYYY HH24:MI') AS full_time
          FROM orders o JOIN tenants t ON t.id = o.tenant_id
          LEFT JOIN tabs tb ON tb.id = o.tab_id LEFT JOIN dining_tables dt ON dt.id = tb.table_id
         WHERE o.id = $1`,
@@ -215,12 +217,34 @@ export class PrintingService {
     const t = await one<{ body: string }>(tx, `SELECT body FROM print_templates WHERE kind = $1`, [
       kind,
     ]);
-    if (!t) return null;
-    try {
-      return await renderTemplate(t.body, { largura: WIDTH, ...data });
-    } catch {
-      return null;
+    // Sem modelo salvo, o modelo padrão (estilo cupom). Modelo com erro cai no padrão e, se até
+    // o padrão falhar, no leiaute embutido abaixo de cada impressão.
+    for (const body of t ? [t.body, DEFAULT_TEMPLATES[kind]] : [DEFAULT_TEMPLATES[kind]]) {
+      try {
+        return await renderTemplate(body, { largura: WIDTH, ...data });
+      } catch {
+        /* tenta o próximo */
+      }
     }
+    return null;
+  }
+
+  /** Dados da loja para o topo do papel: endereço, telefone e se tem logo (a da Loja online). */
+  private async storeInfo(tx: Tx) {
+    const r = await one<{ address: string | null; phone: string | null; logo: string | null }>(
+      tx,
+      `SELECT address, whatsapp AS phone, logo_image_id AS logo FROM tenant_store_settings LIMIT 1`,
+    );
+    return { endereco: r?.address ?? null, telefone: r?.phone ?? null, logo: !!r?.logo };
+  }
+
+  /** Endereço da logo para a prévia da tela desenhar igual ao papel. */
+  private async logoUrl(tx: Tx) {
+    const r = await one<{ logo: string | null }>(
+      tx,
+      `SELECT logo_image_id AS logo FROM tenant_store_settings LIMIT 1`,
+    );
+    return r?.logo ? `/api/v1/media/${r.logo}` : null;
   }
 
   private orderData(o: Awaited<ReturnType<PrintingService['orderHeader']>>) {
@@ -236,6 +260,7 @@ export class PrintingService {
     return {
       numero: o.number,
       hora: o.local_time,
+      data: o.full_time ?? o.local_time,
       canal: CHANNEL_LABELS[o.channel],
       local,
       mesa: o.table_label,
@@ -321,9 +346,16 @@ export class PrintingService {
       if (!data) {
         const t = await one<{ name: string }>(tx, `SELECT name FROM tenants LIMIT 1`);
         data = sampleData(kind, t?.name ?? 'Restaurante');
+        const store = await this.storeInfo(tx);
+        data.loja = { ...(data.loja as object), ...store };
       }
+      const logoUrl = await this.logoUrl(tx);
       try {
-        return { text: await renderTemplate(body, { largura: WIDTH, ...data }), width: WIDTH };
+        return {
+          text: await renderTemplate(body, { largura: WIDTH, ...data }),
+          width: WIDTH,
+          logoUrl,
+        };
       } catch (err) {
         if (err instanceof TemplateError) throw new UnprocessableEntityException(err.message);
         throw err;
@@ -343,7 +375,12 @@ export class PrintingService {
       )
         throw new NotFoundException('Pedido não encontrado');
       const agent = await this.hasActiveAgent(tx);
-      return { text: await this.receipt(tx, scope), width: WIDTH, agent };
+      return {
+        text: await this.receipt(tx, scope),
+        width: WIDTH,
+        agent,
+        logoUrl: await this.logoUrl(tx),
+      };
     });
   }
 
@@ -372,19 +409,26 @@ export class PrintingService {
     if (kind === 'delivery_slip') return (await this.deliveryData(tx, orderId)).data;
     const o = await this.orderHeader(tx, orderId);
     const items = await this.items(tx, orderId);
-    return this.kitchenData(o, 'Cozinha', items);
+    return this.kitchenData(o, 'Cozinha', [{ name: 'Cozinha', items }], await this.storeInfo(tx));
   }
 
   private kitchenData(
     o: Awaited<ReturnType<PrintingService['orderHeader']>>,
     sectorName: string,
-    items: TicketItem[],
+    groups: { name: string; items: TicketItem[] }[],
+    store: Awaited<ReturnType<PrintingService['storeInfo']>>,
   ) {
+    const grupos = groups.map((g) => ({
+      nome: g.name,
+      itens: g.items.map((i) => this.itemData(i)),
+    }));
     return {
-      loja: { nome: o.store_name },
+      loja: { nome: o.store_name, ...store },
       setor: sectorName,
       pedido: this.orderData(o),
-      itens: items.map((i) => this.itemData(i)),
+      itens: grupos.flatMap((g) => g.itens),
+      /** Cozinhas da ficha (pedido de entrega junta várias): cada uma com os itens dela. */
+      grupos,
     };
   }
 
@@ -401,6 +445,7 @@ export class PrintingService {
               COALESCE(sum(o.surcharge), 0)::text AS surcharge, COALESCE(sum(o.delivery_fee), 0)::text AS delivery_fee,
               NULL AS payment_hint, NULL AS change_for, max(o.tax_document) AS tax_document,
               to_char(tb.opened_at AT TIME ZONE t.timezone, 'DD/MM HH24:MI') AS local_time,
+              to_char(tb.opened_at AT TIME ZONE t.timezone, 'DD/MM/YYYY HH24:MI') AS full_time,
               COALESCE(array_agg(o.id ORDER BY o.created_at) FILTER (WHERE o.id IS NOT NULL), '{}') AS order_ids
          FROM tabs tb JOIN tenants t ON t.id = tb.tenant_id
          LEFT JOIN dining_tables dt ON dt.id = tb.table_id
@@ -442,11 +487,11 @@ export class PrintingService {
          FROM payments WHERE order_id = ANY($1::uuid[]) AND amount > refunded_amount ORDER BY created_at`,
       [orderIds],
     );
-    const extra = await one<{ address: string | null; now: string }>(
+    const extra = await one<{ now: string }>(
       tx,
-      `SELECT (SELECT address FROM tenant_store_settings LIMIT 1) AS address,
-              to_char(now() AT TIME ZONE (SELECT timezone FROM tenants LIMIT 1), 'DD/MM/YYYY HH24:MI:SS') AS now`,
+      `SELECT to_char(now() AT TIME ZONE (SELECT timezone FROM tenants LIMIT 1), 'DD/MM/YYYY HH24:MI:SS') AS now`,
     );
+    const store = await this.storeInfo(tx);
     const received = paid.reduce((a, p) => a + num(p.amount), 0);
     const falta = Math.max(0, Math.round((num(o.total) - received) * 100) / 100);
     const t = {
@@ -458,7 +503,7 @@ export class PrintingService {
       falta,
     };
     const data = {
-      loja: { nome: o.store_name, endereco: extra?.address ?? null },
+      loja: { nome: o.store_name, ...store },
       impresso_em: extra?.now ?? null,
       comanda_inteira: scope.kind === 'tab',
       pedidos: orderIds.length,
@@ -503,7 +548,11 @@ export class PrintingService {
     }
     const all = groups.flatMap((g) => g.items);
     const title = groups.map((g) => g.name).join(' + ') || sectors[0]?.name || 'Cozinha';
-    const custom = await this.custom(tx, 'kitchen_ticket', this.kitchenData(o, title, all));
+    const custom = await this.custom(
+      tx,
+      'kitchen_ticket',
+      this.kitchenData(o, title, groups, await this.storeInfo(tx)),
+    );
     if (custom !== null) return { text: custom, count: all.length };
     const where = o.table_label
       ? `Mesa ${o.table_label}`
@@ -705,7 +754,12 @@ export class PrintingService {
       if (!(await one(tx, `SELECT 1 FROM orders WHERE id = $1`, [orderId])))
         throw new NotFoundException('Pedido não encontrado');
       const agent = await this.hasActiveAgent(tx);
-      return { text: await this.deliverySlip(tx, orderId), width: WIDTH, agent };
+      return {
+        text: await this.deliverySlip(tx, orderId),
+        width: WIDTH,
+        agent,
+        logoUrl: await this.logoUrl(tx),
+      };
     });
   }
 
@@ -1326,7 +1380,7 @@ export class PrintingService {
           WHERE status = 'printing' AND claimed_at < now() - make_interval(secs => $1) AND attempts >= $2`,
         [PRINT_LEASE_SECONDS, PRINT_MAX_ATTEMPTS],
       );
-      return q(
+      const jobs = await q<{ id: string; kind: string; target: string; payload: string }>(
         tx,
         `UPDATE print_jobs SET status = 'printing', attempts = attempts + 1, claimed_by = $1,
                 claimed_at = now(), retry_at = NULL
@@ -1339,6 +1393,17 @@ export class PrintingService {
           RETURNING id, kind, target, payload, attempts`,
         [agentId, limit, PRINT_MAX_ATTEMPTS, PRINT_LEASE_SECONDS],
       );
+      if (!jobs.length) return jobs;
+      // Aplicativo antigo não entende negrito, letra grande nem logo: recebe o papel sem as
+      // marcas (continua legível e alinhado), até ele se atualizar sozinho.
+      const a = await one<{ version: string | null }>(
+        tx,
+        `SELECT version FROM print_agents WHERE id = $1`,
+        [agentId],
+      );
+      return agentSupportsMarks(a?.version)
+        ? jobs
+        : jobs.map((j) => ({ ...j, payload: plainPrintText(j.payload) }));
     });
   }
 

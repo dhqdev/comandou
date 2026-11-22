@@ -460,6 +460,14 @@ export function registerTransport(prefix, send) {
   transports.set(prefix, send);
 }
 
+/** Logo do restaurante já em pontos (o aplicativo de computador prepara; a linha de comando não). */
+let printLogo = null;
+
+/** @param {{ width: number, height: number, data: Buffer } | null} img */
+export function setPrintLogo(img) {
+  printLogo = img ?? null;
+}
+
 /** Imprime `text` (já formatado em colunas) na impressora descrita por `spec`. */
 export async function printText(spec, text) {
   if (!spec || spec === 'none') return;
@@ -474,7 +482,7 @@ export async function printText(spec, text) {
       throw new Error('Impressora comum (folha) só funciona no aplicativo Comandou Impressão.');
     return doc(base, text, opts);
   }
-  const data = toEscPos(text, opts);
+  const data = toEscPos(text, { ...opts, logo: printLogo });
   if (base.startsWith('tcp://')) {
     const t = parseTcp(base);
     if (!t) throw new Error(`Endereço de impressora inválido: ${base}`);

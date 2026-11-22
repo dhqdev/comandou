@@ -627,12 +627,12 @@ describe('Emissão de NFC-e', () => {
       key(),
     ).expect(201);
     const rc = (await get('adminA', `/orders/${c.id}/receipt`).expect(200)).body;
-    expect(rc.text).toMatch(/Desconto\s+R\$ -1,00/);
-    expect(rc.text).toMatch(/Taxa de serviço\s+R\$ 2,50/);
-    expect(rc.text).toMatch(/Taxa de entrega\s+R\$ 3,00/);
-    expect(rc.text).toMatch(/Pago \(Dinheiro\)/);
-    expect(rc.text).toMatch(/Troco\s+R\$ 5,00/);
-    expect(rc.text).toContain('CPF/CNPJ na nota: 529.982.247-25');
+    expect(rc.text).toMatch(/DESCONTO:\s+-R\$ 1,00/);
+    expect(rc.text).toMatch(/TAXA DE SERVIÇO:\s+R\$ 2,50/);
+    expect(rc.text).toMatch(/TAXA DE ENTREGA:\s+R\$ 3,00/);
+    expect(rc.text).toMatch(/PAGO \(Dinheiro\)/);
+    expect(rc.text).toMatch(/TROCO:\s+R\$ 5,00/);
+    expect(rc.text).toMatch(/CPF\/CNPJ:\s+529\.982\.247-25/);
     expect(rc.text).not.toContain('FALTA PAGAR');
   });
 
@@ -662,11 +662,11 @@ describe('Emissão de NFC-e', () => {
     // Comprovante de fechamento da mesa: as duas rodadas num papel só, pagas.
     const rc = (await get('waiterA', `/tabs/${o1.tabId}/receipt`).expect(200)).body;
     expect(rc.text).toContain('CONFERÊNCIA DE CONTA');
-    expect(rc.text).toContain('Mesa NF-M1');
-    expect(rc.text.match(/1x X-Burguer A/g)).toHaveLength(2);
+    expect(rc.text).toMatch(/TIPO:\s+MESA NF-M1/);
+    expect(rc.text.match(/1x\s+X-Burguer A/g)).toHaveLength(2);
     expect(rc.text).not.toContain('FALTA PAGAR');
     const total = fromCents(toCents(o1.total) + toCents(o2.total)).replace('.', ',');
-    expect(rc.text).toMatch(new RegExp(`TOTAL\\s+R\\$ ${total}`));
+    expect(rc.text).toMatch(new RegExp(`TOTAL:\\s+R\\$ ${total}`));
     await get('adminB', `/tabs/${o1.tabId}/receipt`).expect(404);
     // Conta ainda aberta: a nota espera (senão um pedido novo ficaria fora dela).
     await post('cashierA', `/orders/${o1.id}/nfce`).expect(409);

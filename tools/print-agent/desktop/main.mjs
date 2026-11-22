@@ -247,6 +247,7 @@ function startAgent() {
         await saveConfig();
       }
       brand.update(config.url, colors.iconUrl).catch(() => undefined);
+      brand.updateLogo(config.url, s.brand.logoUrl ?? null).catch(() => undefined);
     }
     if (s.restaurant && (s.restaurant !== config.restaurant || s.agent !== config.agentName)) {
       config.restaurant = s.restaurant;

@@ -40,6 +40,61 @@ const GS = 0x1d;
 
 /** Linha do texto que vira QR Code (ex.: o QR da NFC-e). Igual a QR_MARK da API. */
 export const QR_MARK = '@@QR@@';
+/**
+ * Marcas de estilo da linha inteira (iguais a PRINT_MARKS de packages/shared/src/print-marks.ts):
+ * a logo do restaurante, negrito e letra grande (largura e altura duplas: 21 colunas).
+ */
+export const LOGO_MARK = '@@LOGO@@';
+export const BOLD_MARK = '@@N@@';
+export const BIG_MARK = '@@G@@';
+
+/**
+ * Imagem em pontos pretos e brancos (GS v 0), centralizada. `img.data` tem `width / 8` bytes por
+ * linha, 1 = ponto preto. Vai em faixas de até 128 linhas: algumas térmicas (Elgin, Bematech)
+ * perdem a imagem inteira quando ela é alta demais num comando só.
+ *
+ * @param {{ width: number, height: number, data: Buffer }} img
+ */
+export function rasterImage(img) {
+  const bytesPerRow = Math.ceil(img.width / 8);
+  const out = [Buffer.from([ESC, 0x61, 1])]; // ESC a 1  centraliza
+  for (let y = 0; y < img.height; y += 128) {
+    const rows = Math.min(128, img.height - y);
+    out.push(
+      Buffer.from([
+        GS,
+        0x76,
+        0x30,
+        0, // GS v 0, modo normal
+        bytesPerRow & 0xff,
+        (bytesPerRow >> 8) & 0xff,
+        rows & 0xff,
+        (rows >> 8) & 0xff,
+      ]),
+      img.data.subarray(y * bytesPerRow, (y + rows) * bytesPerRow),
+    );
+  }
+  out.push(Buffer.from([ESC, 0x61, 0])); // ESC a 0  volta a alinhar à esquerda
+  return Buffer.concat(out);
+}
+
+/** A imagem está inteira e no tamanho que cabe no papel? (o resto é ignorado em silêncio) */
+const validImage = (img, paper) =>
+  !!img &&
+  Number.isInteger(img.width) &&
+  Number.isInteger(img.height) &&
+  img.width > 0 &&
+  img.height > 0 &&
+  img.width <= (paper === 58 ? 384 : 576) &&
+  img.height <= 600 &&
+  Buffer.isBuffer(img.data) &&
+  img.data.length >= Math.ceil(img.width / 8) * img.height;
+
+/** Tira as marcas de estilo (impressão sem ESC/POS: folha, tela). */
+export function stripStyle(line) {
+  for (const m of [BOLD_MARK, BIG_MARK]) if (line.startsWith(m)) return line.slice(m.length);
+  return line;
+}
 
 /**
  * QR Code nativo (GS ( k, modelo 2), centralizado. Funciona nas térmicas ESC/POS atuais
@@ -67,8 +122,12 @@ export function qrCode(data, size = 5) {
  * As comandas têm 42 colunas. No papel de 80 mm cabem com a fonte normal; no de 58 mm
  * (384 pontos) usa a fonte B (9 × 17), em que 42 colunas cabem numa linha.
  *
+ * Linhas marcadas: LOGO_MARK vira a logo (`o.logo`, já em pontos; sem ela a linha some),
+ * BOLD_MARK sai em negrito e BIG_MARK em letra grande.
+ *
  * @param {string} text
- * @param {{ paper?: 80 | 58, codepage?: '860' | '850' | 'ascii' }} [o]
+ * @param {{ paper?: 80 | 58, codepage?: '860' | '850' | 'ascii',
+ *   logo?: { width: number, height: number, data: Buffer } | null }} [o]
  */
 export function toEscPos(text, o = {}) {
   const paper = o.paper === 58 ? 58 : 80;
@@ -77,6 +136,20 @@ export function toEscPos(text, o = {}) {
   for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
     if (line.startsWith(QR_MARK))
       body.push(qrCode(line.slice(QR_MARK.length), paper === 58 ? 4 : 5));
+    else if (line.startsWith(LOGO_MARK)) {
+      if (validImage(o.logo, paper)) body.push(rasterImage(o.logo));
+    } else if (line.startsWith(BOLD_MARK))
+      body.push(
+        Buffer.from([ESC, 0x45, 1]), // ESC E 1  negrito
+        encodeText(`${line.slice(BOLD_MARK.length)}\n`, codepage),
+        Buffer.from([ESC, 0x45, 0]),
+      );
+    else if (line.startsWith(BIG_MARK))
+      body.push(
+        Buffer.from([ESC, 0x45, 1, GS, 0x21, 0x11]), // negrito + GS ! 0x11 (largura e altura duplas)
+        encodeText(`${line.slice(BIG_MARK.length)}\n`, codepage),
+        Buffer.from([GS, 0x21, 0, ESC, 0x45, 0]),
+      );
     else body.push(encodeText(`${line}\n`, codepage));
   }
   return Buffer.concat([

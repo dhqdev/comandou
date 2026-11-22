@@ -88,24 +88,40 @@ fiscal**. O corpo do cupom não muda, porque o leiaute é obrigatório.
 
 ## Modelos de impressão (o "Jinja" do Comandou)
 
-Em **Impressão > Modelos de impressão** o restaurante muda o formato de três papéis: o comprovante
-de fechamento (conferência de conta), a comanda da cozinha e o rodapé do cupom fiscal. A linguagem
-é a **Liquid**, que funciona do mesmo jeito que o Jinja:
+Em **Impressão > Modelos de impressão** o restaurante muda o formato de quatro papéis: a
+conferência de conta, a via de entrega, a comanda da cozinha e o rodapé do cupom fiscal. A
+linguagem é a **Liquid**, que funciona do mesmo jeito que o Jinja. Desde a 0.226 o padrão é no
+estilo cupom (logo e nome grande no topo, campos em coluna, observação em destaque, tabela de itens
+e total grande):
 
 ```liquid
-{{ loja.nome | centro }}
+{% if loja.logo %}{{ loja.logo }}
+{% endif %}{{ loja.nome | upcase | grande: "centro" }}
 {{ "=" | traco }}
-{% for item in itens %}{{ item.quantidade | qtd | append: "x " | append: item.nome | linha: item.total_formatado }}
-{% endfor %}{{ "TOTAL" | linha: totais.total_formatado }}
+{% assign num = "#" | append: pedido.numero %}{{ "PEDIDO:" | campo: num | negrito }}
+{{ "DATA:" | campo: pedido.data }}
+{% for item in itens %}{{ item.quantidade_formatada | coluna: 6 | append: item.nome | linha: item.total_formatado, 42, 6 }}
+{% endfor %}{{ "TOTAL:" | linha: totais.total_formatado, 21 | grande }}
 ```
 
 - `{{ ... }}` mostra um dado e `{% for %}` / `{% if %}` fazem listas e condições.
-- Ajudantes da bobina: `dinheiro`, `linha` (texto à esquerda e valor à direita), `centro`, `traco`,
-  `quebra` e `qtd`.
-- **Ver prévia** monta o papel com o último pedido de verdade antes de salvar. **Voltar ao padrão**
-  desfaz.
+- Ajudantes da bobina: `dinheiro`, `linha` (texto à esquerda e valor à direita, com largura e recuo
+  opcionais), `campo` (rótulo e valor em coluna), `coluna`, `centro`, `traco`, `quebra` e `qtd`.
+- Estilo (a linha inteira): `negrito`, `grande` (largura e altura duplas, 21 colunas) e a logo da
+  Loja online por `loja.logo`. No texto saem como marcas no começo da linha (`@@N@@`, `@@G@@`,
+  `@@LOGO@@`, além do `@@QR@@` da NFC-e), definidas em `packages/shared/src/print-marks.ts`; o
+  aplicativo Comandou Impressão 1.11+ troca por ESC/POS (`ESC E`, `GS !`, `GS v 0`). Aplicativo
+  mais antigo recebe o papel sem as marcas (`plainPrintText` no `claim`). Texto que vem do cliente
+  tem o `@@` desfeito antes de montar o papel, para ninguém imprimir QR Code pela observação.
+- **Ver prévia** monta o papel com o último pedido de verdade antes de salvar, já com negrito,
+  letra grande e logo. **Voltar ao padrão** desfaz.
+- **Conversa com a IA** ao lado do editor (`printing/template-ai.service.ts`, instruções em
+  `template-ai-prompt.ts`): a pessoa pede a mudança em palavras, a IA devolve o modelo inteiro
+  alterado, o servidor confere sintaxe e largura (uma segunda chance para a IA corrigir) e a tela
+  põe no editor com a prévia e o botão Desfazer. Nada é salvo pela IA. Usa a chave, o modelo e o
+  limite do assistente do restaurante (uso gravado como `print_template`).
 - Um modelo com erro não chega a ser salvo. Se mesmo assim algo der errado na hora de imprimir, sai
-  o leiaute padrão, para o caixa nunca ficar sem papel.
+  o modelo padrão, para o caixa nunca ficar sem papel.
 - Liquid foi escolhida no lugar do Jinja de verdade (que é do Python) porque roda no nosso servidor
   em JavaScript e foi feita para o cliente escrever modelo **sem conseguir rodar código**: ela não
   lê arquivos nem acessa a rede. Ainda assim limitamos o tamanho, o tempo e a memória de cada

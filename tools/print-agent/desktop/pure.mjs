@@ -1,5 +1,5 @@
 // Partes do aplicativo sem Electron (testadas em discovery.test.mjs).
-import { QR_MARK } from '../escpos.mjs';
+import { BIG_MARK, BOLD_MARK, LOGO_MARK, QR_MARK } from '../escpos.mjs';
 
 // ------------------------------------------------------------------ folha (impressora comum)
 const esc = (s) =>
@@ -8,11 +8,23 @@ const esc = (s) =>
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
   );
 
-/** HTML da folha (testado à parte). O QR Code da NFC-e vira o endereço por escrito. */
+/**
+ * HTML da folha (testado à parte). O QR Code da NFC-e vira o endereço por escrito; negrito e letra
+ * grande saem iguais à bobina; a logo fica de fora (a folha não baixa imagens).
+ */
 export function documentHtml(text, { paper = 80 } = {}) {
   const lines = String(text)
     .split('\n')
-    .map((l) => (l.startsWith(QR_MARK) ? `Consulte pelo QR Code: ${l.slice(QR_MARK.length)}` : l));
+    .filter((l) => !l.startsWith(LOGO_MARK))
+    .map((l) =>
+      l.startsWith(QR_MARK)
+        ? esc(`Consulte pelo QR Code: ${l.slice(QR_MARK.length)}`)
+        : l.startsWith(BOLD_MARK)
+          ? `<b>${esc(l.slice(BOLD_MARK.length))}</b>`
+          : l.startsWith(BIG_MARK)
+            ? `<b class="g">${esc(l.slice(BIG_MARK.length))}</b>`
+            : esc(l),
+    );
   const size = paper === 58 ? '9.5pt' : '10.5pt';
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Comandou</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
@@ -21,7 +33,8 @@ export function documentHtml(text, { paper = 80 } = {}) {
 html, body { margin: 0; background: #fff; color: #000; }
 pre { font: ${size}/1.35 "Consolas", "Menlo", "DejaVu Sans Mono", "Courier New", monospace;
   white-space: pre-wrap; word-break: break-word; margin: 0; }
-</style></head><body><pre>${esc(lines.join('\n'))}</pre></body></html>`;
+.g { font-size: 200%; line-height: 1.15; }
+</style></head><body><pre>${lines.join('\n')}</pre></body></html>`;
 }
 
 // ------------------------------------------------------------------ ícone do restaurante

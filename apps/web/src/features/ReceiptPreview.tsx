@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Modal, useToast, Skeleton } from '../design-system';
 import { api } from '../lib/api';
 import { paperCss } from '../lib/pos-device';
+import { PaperText, paperHtml } from './PaperText';
 
 export type ReceiptTarget = {
   kind: 'order' | 'tab';
@@ -11,18 +12,18 @@ export type ReceiptTarget = {
   doc?: 'receipt' | 'delivery';
 };
 
-/** Imprime um texto de bobina pelo navegador (sem o app de impressão). */
-function browserPrint(text: string) {
+/** Imprime um texto de bobina pelo navegador (sem o app de impressão), com negrito e logo. */
+function browserPrint(text: string, logoUrl?: string | null) {
   const frame = document.createElement('iframe');
   frame.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0';
   document.body.appendChild(frame);
   const doc = frame.contentDocument!;
   const pre = doc.createElement('pre');
-  pre.textContent = text;
+  pre.innerHTML = paperHtml(text, logoUrl);
   const style = doc.createElement('style');
   // Largura da bobina deste aparelho (58 mm na maquininha, 80 mm no caixa): Ajustes › Este aparelho.
   const paper = paperCss();
-  style.textContent = `${paper.page}body{margin:0}pre{font:${paper.font}/1.3 ui-monospace,Menlo,Consolas,monospace;white-space:pre;margin:0}`;
+  style.textContent = `${paper.page}body{margin:0}pre{font:${paper.font}/1.3 ui-monospace,Menlo,Consolas,monospace;white-space:pre;margin:0}b{font-weight:800}.big{font-size:2em;line-height:1.15}.logo{display:block;text-align:center}.logo img{max-width:55%;max-height:30mm;filter:grayscale(1)}`;
   doc.head.appendChild(style);
   doc.body.appendChild(pre);
   frame.contentWindow!.focus();
@@ -42,7 +43,11 @@ export function ReceiptPreview({
   onClose(): void;
 }) {
   const toast = useToast();
-  const [data, setData] = useState<{ text: string; agent: boolean } | null>(null);
+  const [data, setData] = useState<{
+    text: string;
+    agent: boolean;
+    logoUrl?: string | null;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const base = target ? `/${target.kind === 'tab' ? 'tabs' : 'orders'}/${target.id}` : null;
@@ -52,7 +57,9 @@ export function ReceiptPreview({
     setData(null);
     setError(null);
     if (!base) return;
-    api<{ text: string; agent: boolean }>(`${base}/${delivery ? 'delivery-slip' : 'receipt'}`)
+    api<{ text: string; agent: boolean; logoUrl?: string | null }>(
+      `${base}/${delivery ? 'delivery-slip' : 'receipt'}`,
+    )
       .then(setData)
       .catch((e: Error) => setError(e.message));
   }, [base, delivery]);
@@ -60,7 +67,7 @@ export function ReceiptPreview({
   async function print() {
     if (!data || !target) return;
     if (!data.agent) {
-      browserPrint(data.text);
+      browserPrint(data.text, data.logoUrl);
       return;
     }
     setBusy(true);
@@ -107,9 +114,7 @@ export function ReceiptPreview({
       ) : !data ? (
         <Skeleton variant="detail" />
       ) : (
-        <pre className="receipt-paper" aria-label="Comprovante">
-          {data.text}
-        </pre>
+        <PaperText text={data.text} logoUrl={data.logoUrl} label="Comprovante" />
       )}
     </Modal>
   );

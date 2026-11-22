@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.226.0',
+    date: '2026-11-22',
+    title: 'Impressão no estilo cupom, com logo, negrito e IA no editor',
+    summary:
+      'A conferência de conta, a via de entrega e a comanda da cozinha saem no jeito de cupom: logo da loja no topo, nome em letra grande, campos alinhados, observação em destaque, tabela de itens e o total grande. E o editor de modelos ganhou uma conversa com a IA, que muda o papel pelo restaurante.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Modelos padrão no estilo cupom: logo e nome grande no topo, PEDIDO/DATA/TIPO/CLIENTE/ENDEREÇO em coluna, OBSERVAÇÃO em negrito, tabela QTDE/DESCRIÇÃO/VALOR (nome comprido quebra sem perder o preço) e TOTAL em letra grande.',
+      },
+      {
+        tag: 'novo',
+        text: 'Negrito, letra grande e a logo da Loja online na térmica: ajudantes negrito, grande, campo e coluna nos modelos, e a variável loja.logo. A prévia da tela, a impressão pelo navegador e o histórico de impressões do pedido mostram igual ao papel.',
+      },
+      {
+        tag: 'novo',
+        text: 'Impressão › Modelos de impressão: conversa com a IA ao lado do editor. Peça "deixe o total maior" ou "tire o telefone" e ela muda o código; a mudança entra no editor com a prévia, dá para desfazer e só vale depois de Salvar modelo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Aplicativo Comandou Impressão 1.11.0: imprime a logo (em pontos pretos e brancos, com pontilhado para logo colorida), o negrito e a letra grande. Quem ainda está no aplicativo antigo recebe o papel sem esses estilos, alinhado e legível, até atualizar sozinho.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Texto do cliente (observação, nome) nunca vira marca de impressão: "@@" escrito por alguém não imprime QR Code nem letra grande. A IA do editor só propõe: o modelo é conferido no servidor (sintaxe e largura) e nada é salvo sem a pessoa.',
+      },
+    ],
+  },
+  {
     version: '0.225.0',
     date: '2026-11-22',
     title: 'Entregas: pagar os entregadores ficou todo no Acerto',

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { encodeCp860, QR_MARK, toEscPos } from './escpos.mjs';
+import { BIG_MARK, BOLD_MARK, encodeCp860, LOGO_MARK, QR_MARK, toEscPos } from './escpos.mjs';
 
 test('acentos do português viram CP860', () => {
   assert.deepEqual([...encodeCp860('ção')], [0x87, 0x84, 0x6f]);
@@ -28,4 +28,27 @@ test('linha com a marca de QR vira QR Code nativo (GS ( k), não texto', () => {
   assert.ok(!b.includes(Buffer.from(QR_MARK)));
   assert.ok(b.includes(Buffer.from([0x1d, 0x28, 0x6b, 3, 0, 0x31, 0x51, 0x30])));
   assert.ok(b.includes(Buffer.from('fim')));
+});
+
+test('negrito e letra grande viram ESC E e GS !, sem a marca no papel', () => {
+  const b = toEscPos(`${BOLD_MARK}PEDIDO: #12\n${BIG_MARK}TOTAL:   R$ 9,00\nfim`);
+  assert.ok(b.includes(Buffer.from([0x1b, 0x45, 1])));
+  assert.ok(b.includes(Buffer.from([0x1d, 0x21, 0x11])));
+  assert.ok(b.includes(Buffer.from([0x1d, 0x21, 0])));
+  assert.ok(!b.includes(Buffer.from('@@')));
+  assert.ok(b.includes(Buffer.from('TOTAL:   R$ 9,00')));
+});
+
+test('logo vira imagem GS v 0 centralizada; sem logo a linha some', () => {
+  const logo = { width: 16, height: 2, data: Buffer.from([0xff, 0x00, 0x0f, 0xf0]) };
+  const b = toEscPos(`${LOGO_MARK}\nLoja`, { logo });
+  assert.ok(b.includes(Buffer.from([0x1d, 0x76, 0x30, 0, 2, 0, 2, 0, 0xff, 0x00, 0x0f, 0xf0])));
+  const sem = toEscPos(`${LOGO_MARK}\nLoja`);
+  assert.ok(!sem.includes(Buffer.from([0x1d, 0x76, 0x30])));
+  assert.ok(!sem.includes(Buffer.from('@@')));
+  // Imagem maior que o papel de 58 mm é ignorada (não imprime lixo).
+  const larga = { width: 576, height: 1, data: Buffer.alloc(72, 0xff) };
+  assert.ok(
+    !toEscPos(`${LOGO_MARK}`, { paper: 58, logo: larga }).includes(Buffer.from([0x1d, 0x76])),
+  );
 });

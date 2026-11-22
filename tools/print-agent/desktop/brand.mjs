@@ -6,6 +6,7 @@ import { app, nativeImage, shell } from 'electron';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { setPrintLogo } from '../printers.mjs';
 import { DOT, pngToIco } from './pure.mjs';
 
 const fromDataUrl = (u) => Buffer.from(String(u).split(',')[1] ?? '', 'base64');
@@ -22,6 +23,8 @@ export class Brand {
     this.icon = null;
     this.iconKey = null;
     this.tray = new Map();
+    /** endereço da logo da bobina já preparada (undefined = ainda não olhou o disco) */
+    this.logoKey = undefined;
   }
 
   /** Lê o ícone salvo (abre já com a cara do restaurante, antes do primeiro heartbeat). */
@@ -61,6 +64,49 @@ export class Brand {
     this.tray.clear();
     this.updateShortcuts();
     this.o.onChange();
+  }
+
+  /**
+   * Logo da bobina (a da Loja online): baixada quando muda, convertida em pontos pretos e brancos
+   * pela janela escondida e guardada no disco, para imprimir já na primeira comanda do dia.
+   */
+  async updateLogo(baseUrl, logoUrl) {
+    const file = join(this.dir, 'logo-bobina.json');
+    if (!logoUrl) {
+      if (this.logoKey !== null) {
+        this.logoKey = null;
+        setPrintLogo(null);
+        await writeFile(file, '{}').catch(() => undefined);
+      }
+      return;
+    }
+    if (logoUrl === this.logoKey) return;
+    if (this.logoKey === undefined && existsSync(file)) {
+      // Abriu agora: usa a que já estava salva, se for a mesma logo.
+      try {
+        const saved = JSON.parse(await readFile(file, 'utf8'));
+        if (saved.key === logoUrl && saved.data) {
+          setPrintLogo({ ...saved, data: Buffer.from(saved.data, 'base64') });
+          this.logoKey = logoUrl;
+          return;
+        }
+      } catch {
+        /* arquivo estragado: baixa de novo */
+      }
+    }
+    const res = await fetch(new URL(logoUrl, baseUrl), { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return;
+    const type = res.headers.get('content-type') || 'image/png';
+    if (!/^image\//.test(type)) return;
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (bytes.length > 5_000_000) return;
+    const src = `data:${type};base64,${bytes.toString('base64')}`;
+    const img = await this.o.helper.call(`renderLogo(${JSON.stringify(src)}, 320, 160)`);
+    if (!img?.width || !img?.height || typeof img.data !== 'string') return;
+    setPrintLogo({ width: img.width, height: img.height, data: Buffer.from(img.data, 'base64') });
+    this.logoKey = logoUrl;
+    await mkdir(this.dir, { recursive: true });
+    await writeFile(file, JSON.stringify({ key: logoUrl, ...img }));
   }
 
   /** Imagem da janela e da barra de tarefas. */

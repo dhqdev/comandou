@@ -111,6 +111,8 @@ cookie, CSRF, corpo gigante e Host estranho.
   `chat/agent-guard.ts`. Ação da IA (reserva, cancelamento) só por marca lida pelo servidor e
   confirmada pela pessoa (`pending` + SIM); a IA nunca grava direto.
 - Saída da IA validada por Zod e mostrada como texto (nada de HTML ou link de fora).
+- IA que mexe em código do restaurante (modelos de impressão, `printing/template-ai.service.ts`) só
+  propõe: o servidor confere a proposta (sintaxe, largura) e a pessoa aplica e salva.
 - O que entra no prompt respeita a permissão de quem pergunta (`roleHas` antes de montar o
   contexto): dado que o perfil não vê na tela também não vai para a IA dele.
 - IA do WhatsApp só vê dados do **próprio número** que escreveu (reservas por `upcomingByPhone`,

@@ -45,4 +45,44 @@ describe('Modelos de impressão', () => {
       json: { body: '{{ loja.nome }}' },
     });
   });
+
+  it('conversa com a IA: a mudança entra no editor com a prévia e dá para desfazer', async () => {
+    apiMock.mockImplementation((url: string, opts?: { method?: string; json?: unknown }) => {
+      if (url === '/printing/templates') return Promise.resolve(LIST);
+      if (url === '/printing/templates/ai' && !opts)
+        return Promise.resolve({ enabled: true, reason: null, name: 'Bia' });
+      if (url === '/printing/templates/ai')
+        return Promise.resolve({
+          resposta: 'Deixei o nome grande. Confira a prévia.',
+          modelo: '{{ loja.nome | grande }}',
+          aviso: null,
+        });
+      if (url === '/printing/templates/preview')
+        return Promise.resolve({ text: '@@G@@LOJA GRANDE', logoUrl: null });
+      return Promise.reject(new Error(`inesperado ${url}`));
+    });
+    render(
+      <ToastProvider>
+        <PrintTemplatesCard />
+      </ToastProvider>,
+    );
+    const area = (await screen.findByLabelText('Modelo')) as HTMLTextAreaElement;
+    const ask = await screen.findByLabelText('O que mudar no papel');
+    fireEvent.change(ask, { target: { value: 'nome maior' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(await screen.findByText(/Deixei o nome grande/)).toBeInTheDocument();
+    expect(area.value).toBe('{{ loja.nome | grande }}');
+    const big = await screen.findByText('LOJA GRANDE');
+    expect(big.className).toContain('paper-text__big');
+    const call = apiMock.mock.calls.find(
+      ([u, o]) => u === '/printing/templates/ai' && (o as { method?: string })?.method,
+    )!;
+    expect((call[1] as { json: { body: string; messages: unknown[] } }).json).toMatchObject({
+      kind: 'receipt',
+      body: '{{ "CONTA" | centro }}',
+      messages: [{ role: 'user', content: 'nome maior' }],
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Desfazer/ }));
+    expect(area.value).toBe('{{ "CONTA" | centro }}');
+  });
 });

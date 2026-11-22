@@ -1197,6 +1197,14 @@ describe('Impressão (agente local e fila)', () => {
     expect(forOrder[0].kind).toBe('kitchen_ticket');
     expect(forOrder[0].payload).toContain('2x X-Burguer A');
     expect(forOrder[0].payload).toContain('OBS: sem cebola');
+    // Aplicativo sem versão (antigo) recebe o papel sem as marcas de negrito e letra grande;
+    // no banco o papel continua com elas, para o aplicativo novo.
+    expect(forOrder[0].payload).not.toContain('@@');
+    const saved = await ownerQuery<{ payload: string }>(
+      `SELECT payload FROM print_jobs WHERE id = $1`,
+      [forOrder[0].id],
+    );
+    expect(saved[0].payload).toMatch(/^@@N@@2x X-Burguer A/m);
     const owner = c1.body.jobs.some((j: { id: string }) => j.id === forOrder[0].id)
       ? agentToken
       : agent2Token;
@@ -1294,10 +1302,12 @@ describe('Impressão (agente local e fila)', () => {
         r[0].id,
       ])
     )[0].payload;
-    expect(payload).toContain('Subtotal');
-    expect(payload).toMatch(/Taxa de entrega\s+R\$ 6,00/);
+    // Modelo padrão no estilo cupom (0.226): campos em coluna e a observação em destaque.
+    expect(payload).toContain('SUBTOTAL:');
+    expect(payload).toMatch(/TAXA DE ENTREGA:\s+R\$ 6,00/);
     expect(payload).toContain('OBS: sem picles');
-    expect(payload).toContain('OBS DO PEDIDO: Interfone quebrado, ligar.');
+    expect(payload).toMatch(/@@N@@OBSERVAÇÃO:\nInterfone quebrado, ligar\./);
+    expect(payload).toMatch(/^@@G@@TOTAL:\s+R\$ \d/m);
     await ownerQuery(`UPDATE print_jobs SET status = 'done' WHERE order_id = $1`, [o.id]);
   });
 
@@ -1328,12 +1338,12 @@ describe('Impressão (agente local e fila)', () => {
     expect(Number(adj.total)).toBeCloseTo(Number(o.subtotal) + 7, 2);
     const pv = (await get('cashierA', `/orders/${o.id}/delivery-slip`).expect(200)).body;
     expect(pv.text).toContain('VIA DE ENTREGA');
-    expect(pv.text).toContain('Telefone: 19982362030');
+    expect(pv.text).toMatch(/TELEFONE:\s+19982362030/);
     expect(pv.text).toContain('Avenida Antonio Barbosa, 130');
-    expect(pv.text).toMatch(/Taxa de entrega:\s+R\$ 7,00/);
-    expect(pv.text).toMatch(/TOTAL A COBRAR:\s+R\$ \d/);
-    expect(pv.text).toContain('Pagamento: Dinheiro');
-    expect(pv.text).toMatch(/Levar de troco:/);
+    expect(pv.text).toMatch(/TAXA DE ENTREGA:\s+R\$ 7,00/);
+    expect(pv.text).toMatch(/@@G@@A COBRAR:\s+R\$ \d/);
+    expect(pv.text).toMatch(/PAGAMENTO:\s+Dinheiro/);
+    expect(pv.text).toMatch(/LEVAR DE TROCO:/);
     expect(pv.agent).toBe(true);
     const r = (await post('cashierA', `/orders/${o.id}/print`, { kind: 'delivery' }).expect(201))
       .body as { id: string; kind: string }[];

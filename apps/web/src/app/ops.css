@@ -1815,3 +1815,33 @@ button.pay-part {
 .settings-link + .inline-add {
   margin-top: var(--cm-space-4);
 }
+
+/* Papel da bobina com estilo (negrito, letra grande e logo), igual ao que sai na térmica. */
+.paper-text b {
+  font-weight: 800;
+}
+.paper-text__big {
+  font-size: 2em;
+  line-height: 1.15;
+}
+.paper-text__logo {
+  display: block;
+  text-align: center;
+  margin-bottom: 0.4em;
+}
+.paper-text__logo img {
+  max-width: 55%;
+  max-height: 110px;
+  object-fit: contain;
+  filter: grayscale(1) contrast(1.4);
+}
+.paper-text__logo > span {
+  display: inline-block;
+  padding: 0.6em 1.4em;
+  border: 1px dashed currentColor;
+  border-radius: 6px;
+  opacity: 0.55;
+}
+.paper-text__qr {
+  opacity: 0.7;
+}

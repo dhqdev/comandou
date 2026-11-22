@@ -164,3 +164,48 @@ window.renderIcon = async (src, size, dot, round = true) => {
   }
   return c.toDataURL('image/png');
 };
+
+// ------------------------------------------------------------------ logo da bobina
+/**
+ * Logo do restaurante em pontos pretos e brancos para a térmica (GS v 0): cabe em `maxW` x `maxH`
+ * pontos, fundo transparente vira branco, tons de cinza viram pontilhado (Floyd–Steinberg) para
+ * a logo colorida não sair um borrão preto. Devolve { width, height, data } com data em base64
+ * (width / 8 bytes por linha, bit 1 = ponto preto).
+ */
+window.renderLogo = async (src, maxW, maxH) => {
+  const img = await loadImage(src);
+  const k = Math.min(1, maxW / img.width, maxH / img.height);
+  const width = Math.max(8, Math.round((img.width * k) / 8) * 8);
+  const height = Math.max(1, Math.round(img.height * k));
+  const c = document.createElement('canvas');
+  c.width = width;
+  c.height = height;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, width, height);
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(img, 0, 0, width, height);
+  const px = g.getImageData(0, 0, width, height).data;
+  const gray = new Float32Array(width * height);
+  for (let i = 0; i < gray.length; i++)
+    gray[i] = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2];
+  const bytesPerRow = width / 8;
+  const out = new Uint8Array(bytesPerRow * height);
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x;
+      const old = gray[i];
+      const black = old < 128;
+      if (black) out[y * bytesPerRow + (x >> 3)] |= 0x80 >> (x & 7);
+      const err = old - (black ? 0 : 255);
+      if (x + 1 < width) gray[i + 1] += (err * 7) / 16;
+      if (y + 1 < height) {
+        if (x > 0) gray[i + width - 1] += (err * 3) / 16;
+        gray[i + width] += (err * 5) / 16;
+        if (x + 1 < width) gray[i + width + 1] += err / 16;
+      }
+    }
+  let bin = '';
+  for (let i = 0; i < out.length; i++) bin += String.fromCharCode(out[i]);
+  return { width, height, data: btoa(bin) };
+};

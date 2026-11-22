@@ -209,6 +209,110 @@
   }
 }
 
+/* Conversa com a IA ao lado do editor de modelos */
+.tpl-ai {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--cm-space-2);
+  min-height: 420px;
+  max-height: 640px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  padding: var(--cm-space-3);
+  background: var(--cm-surface);
+}
+.tpl-ai__scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cm-space-2);
+  overflow-y: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+.tpl-ai__hello {
+  display: grid;
+  gap: var(--cm-space-2);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.tpl-ai__hello p {
+  margin: 0;
+}
+.tpl-ai__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tpl-ai__chip {
+  border: 1px solid var(--cm-border-strong);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.tpl-ai__chip:hover {
+  border-color: var(--cm-brand-600);
+}
+.tpl-ai__chip:active {
+  transform: scale(0.97);
+}
+.tpl-ai__msg {
+  display: grid;
+  gap: 4px;
+  max-width: 92%;
+  padding: var(--cm-space-2) var(--cm-space-3);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-sunken);
+  font-size: var(--cm-text-sm);
+}
+.tpl-ai__msg p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tpl-ai__msg.is-mine {
+  align-self: flex-end;
+  background: color-mix(in oklab, var(--cm-brand-600) 12%, var(--cm-surface));
+}
+.tpl-ai__who {
+  font-weight: 600;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.tpl-ai__warn {
+  color: var(--cm-warning);
+  font-size: var(--cm-text-xs);
+}
+.tpl-ai__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  flex-wrap: wrap;
+}
+.tpl-ai__typing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-text-muted);
+}
+.tpl-ai__paper {
+  align-self: center;
+}
+.tpl-ai__form {
+  display: flex;
+  gap: var(--cm-space-2);
+  align-items: flex-end;
+}
+.tpl-ai__input {
+  flex: 1;
+  resize: none;
+  min-height: 44px;
+}
+
 /* Como ligar a impressora: um bloco por tipo de ligação. */
 .print-conn__intro {
   margin: 0 0 var(--cm-space-4);

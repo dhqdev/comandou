@@ -1,10 +1,27 @@
-import { Eye, RotateCcw, Save } from 'lucide-react';
-import { useCallback, useEffect, useId, useState } from 'react';
-import { Alert, Badge, Button, Card, useToast, Skeleton } from '../design-system';
+import {
+  PRINT_TEMPLATE_FILTERS,
+  PRINT_TEMPLATE_HELP,
+  PRINT_TEMPLATE_LABELS,
+  PRINT_TEMPLATE_VARS,
+  type PrintTemplateKind,
+} from '@comandou/shared';
+import { Eye, RotateCcw, Save, Send, Sparkles, Undo2 } from 'lucide-react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Segmented,
+  Skeleton,
+  Spinner,
+  useToast,
+} from '../design-system';
 import { api } from '../lib/api';
 import { Tabs } from './forms';
+import { PaperText } from './PaperText';
 
-type Kind = 'receipt' | 'delivery_slip' | 'kitchen_ticket' | 'fiscal_footer';
+type Kind = PrintTemplateKind;
 interface Template {
   kind: Kind;
   body: string | null;
@@ -12,75 +29,17 @@ interface Template {
   default: string;
 }
 
-const LABEL: Record<Kind, string> = {
-  receipt: 'Conferência de conta',
-  delivery_slip: 'Via de entrega',
-  kitchen_ticket: 'Comanda da cozinha',
-  fiscal_footer: 'Rodapé do cupom fiscal',
-};
+const LABEL = PRINT_TEMPLATE_LABELS;
+const HELP = PRINT_TEMPLATE_HELP;
+const VARS = PRINT_TEMPLATE_VARS;
+const FILTERS = PRINT_TEMPLATE_FILTERS;
 
-const HELP: Record<Kind, string> = {
-  receipt:
-    'Papel que o cliente confere antes de pagar. Não é documento fiscal: você pode mudar tudo.',
-  delivery_slip:
-    'Vai com o motoboy: cliente, telefone, endereço, itens, quanto cobrar na porta e o troco. Sai pelo botão "Imprimir via de entrega" do pedido.',
-  kitchen_ticket: 'Sai em cada setor (cozinha, bar) quando o pedido entra.',
-  fiscal_footer:
-    'Só o final do cupom da NFC-e é seu (agradecimento, Wi-Fi, redes sociais). O resto do cupom segue o modelo obrigatório da SEFAZ e não muda.',
-};
-
-/** Variáveis que cada modelo enxerga, para a cola ao lado do editor. */
-const VARS: Record<Kind, [string, string][]> = {
-  receipt: [
-    ['loja.nome', 'nome do restaurante'],
-    ['pedido.numero / pedido.hora', 'número e hora do pedido'],
-    ['pedido.local', '"Mesa 7", "Comanda 12" ou o canal'],
-    ['pedido.cliente / pedido.telefone', 'cliente'],
-    ['pedido.entrega / pedido.endereco', 'é delivery? e o endereço'],
-    ['pedido.observacao', 'observação do pedido'],
-    [
-      'itens (lista)',
-      'item.nome, item.quantidade, item.quantidade_formatada (2x ou 0,350kg), item.unidade (un ou kg), item.total_formatado, item.opcoes, item.observacao',
-    ],
-    ['totais.*', 'subtotal, desconto, acrescimo, entrega, total, falta (+ _formatado)'],
-    ['pagamentos (lista)', 'p.forma, p.valor_formatado, p.troco_formatado'],
-    ['pedido.cpf_cnpj', 'CPF/CNPJ que o cliente pediu na nota'],
-  ],
-  delivery_slip: [
-    ['loja.nome', 'nome do restaurante'],
-    ['pedido.numero / pedido.data', 'número, data e hora completas do pedido'],
-    ['pedido.cliente / pedido.telefone / pedido.endereco', 'para quem e onde entregar'],
-    ['pedido.cobrar_formatado / pedido.pago', 'quanto cobrar na porta (pago = nada a cobrar)'],
-    ['pedido.pagar_na_entrega', 'como o cliente disse que vai pagar'],
-    ['pedido.troco_para_formatado / pedido.levar_de_troco_formatado', 'troco'],
-    ['pedido.observacao', 'observação do pedido'],
-    ['itens (lista)', 'item.nome, item.quantidade_formatada, item.total_formatado, item.opcoes'],
-    ['totais.*', 'subtotal, desconto, acrescimo, entrega, total (+ _formatado)'],
-    ['pagamentos (lista)', 'p.forma, p.valor_formatado'],
-  ],
-  kitchen_ticket: [
-    ['setor', 'nome do setor (Cozinha, Bar…)'],
-    ['pedido.*', 'numero, hora, local, cliente, observacao'],
-    ['itens (lista)', 'item.nome, item.quantidade_formatada, item.opcoes, item.observacao'],
-  ],
-  fiscal_footer: [
-    ['loja.nome', 'nome do restaurante'],
-    ['nota.numero / nota.serie', 'número e série da NFC-e'],
-  ],
-};
-
-const FILTERS: [string, string][] = [
-  ['{{ valor | dinheiro }}', 'R$ 1.234,50'],
-  ['{{ "Total" | linha: valor }}', 'texto à esquerda e valor à direita'],
-  ['{{ "texto" | centro }}', 'centraliza na bobina'],
-  ['{{ "-" | traco }}', 'linha separadora'],
-  ['{{ texto | quebra }}', 'quebra texto longo em linhas'],
-  ['{{ item.quantidade | qtd }}', '2,000 → 2'],
-];
+type Side = 'ai' | 'preview' | 'help';
 
 /**
  * Modelos de impressão em Liquid (a mesma ideia do Jinja): o restaurante muda o que sai na
- * conferência, na via de entrega, na comanda da cozinha e no rodapé do cupom fiscal, com prévia antes de salvar.
+ * conferência, na via de entrega, na comanda da cozinha e no rodapé do cupom fiscal, com prévia
+ * antes de salvar. Ao lado do editor, a conversa com a IA muda o código pelo restaurante.
  */
 export function PrintTemplatesCard() {
   const toast = useToast();
@@ -93,9 +52,11 @@ export function PrintTemplatesCard() {
     kitchen_ticket: '',
     fiscal_footer: '',
   });
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ text: string; logoUrl: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'preview' | 'save' | 'reset' | null>(null);
+  const [ai, setAi] = useState<AiStatus | null>(null);
+  const [side, setSide] = useState<Side>('help');
 
   const load = useCallback(async () => {
     const r = await api<Template[]>('/printing/templates');
@@ -106,21 +67,32 @@ export function PrintTemplatesCard() {
   }, []);
   useEffect(() => {
     load().catch((e: Error) => setError(e.message));
+    api<AiStatus>('/printing/templates/ai')
+      .then((s) => {
+        setAi(s);
+        if (s.enabled) setSide('ai');
+      })
+      .catch(() => setAi(null));
   }, [load]);
 
   const cur = list?.find((t) => t.kind === kind);
   const body = draft[kind];
+
+  const showPreview = useCallback(async (k: Kind, text: string) => {
+    const r = await api<{ text: string; logoUrl?: string | null }>('/printing/templates/preview', {
+      method: 'POST',
+      json: { kind: k, body: text },
+    });
+    setPreview({ text: r.text, logoUrl: r.logoUrl ?? null });
+  }, []);
 
   async function run(what: 'preview' | 'save' | 'reset') {
     setBusy(what);
     setError(null);
     try {
       if (what === 'preview') {
-        const r = await api<{ text: string }>('/printing/templates/preview', {
-          method: 'POST',
-          json: { kind, body },
-        });
-        setPreview(r.text);
+        await showPreview(kind, body);
+        setSide('preview');
       } else if (what === 'save') {
         await api(`/printing/templates/${kind}`, { method: 'PUT', json: { body } });
         toast('Modelo salvo: as próximas impressões já saem assim', 'success');
@@ -137,6 +109,19 @@ export function PrintTemplatesCard() {
       setBusy(null);
     }
   }
+
+  /** A IA mandou o modelo novo: entra no editor (sem salvar) e a prévia já atualiza. */
+  function applyFromAi(next: string) {
+    setDraft((d) => ({ ...d, [kind]: next }));
+    setError(null);
+    showPreview(kind, next).catch((e: Error) => setError(e.message));
+  }
+
+  const sides: [Side, string][] = [
+    ...(ai?.enabled ? ([['ai', `Conversar com ${ai.name || 'a IA'}`]] as [Side, string][]) : []),
+    ['preview', 'Prévia'],
+    ['help', 'O que dá para usar'],
+  ];
 
   return (
     <Card searchId="secao-modelos" title="Modelos de impressão">
@@ -170,22 +155,47 @@ export function PrintTemplatesCard() {
                 id={areaId}
                 className="cm-input print-tpl__area"
                 spellCheck={false}
-                rows={18}
+                rows={22}
                 maxLength={8000}
                 value={body}
                 onChange={(e) => setDraft((d) => ({ ...d, [kind]: e.target.value }))}
               />
               <span className="cm-hint">
                 Use {'{{ variável }}'} para mostrar um dado e {'{% if %}'} / {'{% for %}'} para
-                condições e listas. A bobina tem 42 colunas.
+                condições e listas. A bobina tem 42 colunas; a letra grande, 21.
               </span>
             </div>
             <div className="print-tpl__side">
-              {preview !== null ? (
-                <>
-                  <strong>Prévia (último pedido)</strong>
-                  <pre className="print-tpl__paper">{preview}</pre>
-                </>
+              <Segmented
+                label="Ao lado do editor"
+                value={side}
+                onChange={(v) => {
+                  setSide(v);
+                  if (v === 'preview' && !preview && body.trim())
+                    showPreview(kind, body).catch((e: Error) => setError(e.message));
+                }}
+                options={sides.map(([value, label]) => ({ value, label }))}
+              />
+              {side === 'ai' && ai?.enabled ? (
+                <TemplateAiChat
+                  key={kind}
+                  kind={kind}
+                  body={body}
+                  name={ai.name || 'IA'}
+                  preview={preview}
+                  onApply={applyFromAi}
+                />
+              ) : side === 'preview' ? (
+                preview ? (
+                  <PaperText
+                    text={preview.text}
+                    logoUrl={preview.logoUrl}
+                    className="print-tpl__paper"
+                    label="Prévia do modelo"
+                  />
+                ) : (
+                  <p className="cm-hint">Clique em Ver prévia para ver como sai no papel.</p>
+                )
               ) : (
                 <>
                   <strong>O que dá para usar</strong>
@@ -237,14 +247,215 @@ export function PrintTemplatesCard() {
                 Voltar ao padrão
               </Button>
             )}
-            {preview !== null && (
-              <Button variant="ghost" onClick={() => setPreview(null)}>
-                Ver ajuda
-              </Button>
-            )}
           </div>
         </div>
       )}
     </Card>
+  );
+}
+
+interface AiStatus {
+  enabled: boolean;
+  reason: string | null;
+  name: string;
+}
+
+interface ChatMsg {
+  role: 'user' | 'assistant';
+  content: string;
+  /** Modelo que estava no editor antes desta resposta mudar (para desfazer). */
+  before?: string;
+  aviso?: string | null;
+}
+
+const SUGGESTIONS: Record<Kind, string[]> = {
+  receipt: [
+    'Deixe o nome da loja maior e o total em destaque',
+    'Tire o CPF/CNPJ e a data de impressão',
+    'Coloque "Volte sempre!" no final',
+  ],
+  delivery_slip: [
+    'Deixe o endereço e o telefone bem grandes',
+    'Coloque "Confira o pedido na entrega" no final',
+    'Tire os preços dos itens',
+  ],
+  kitchen_ticket: [
+    'Deixe os itens em letra grande',
+    'Mostre a observação do pedido logo no topo',
+    'Tire o nome do cliente',
+  ],
+  fiscal_footer: [
+    'Coloque a senha do Wi-Fi: cliente123',
+    'Coloque nosso Instagram @minhaloja',
+    'Deixe o agradecimento em letra grande',
+  ],
+};
+
+/**
+ * Conversa com a IA ao lado do editor. Cada pedido vai com o modelo que está no editor; a
+ * resposta com modelo novo entra no editor (dá para desfazer) e a prévia atualiza. Salvar continua
+ * sendo da pessoa.
+ */
+function TemplateAiChat({
+  kind,
+  body,
+  name,
+  preview,
+  onApply,
+}: {
+  kind: Kind;
+  body: string;
+  name: string;
+  preview: { text: string; logoUrl: string | null } | null;
+  onApply(next: string): void;
+}) {
+  const [msgs, setMsgs] = useState<ChatMsg[]>([]);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const inputId = useId();
+
+  useEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [msgs, busy]);
+
+  async function send(ask: string) {
+    const q = ask.trim();
+    if (!q || busy) return;
+    const next: ChatMsg[] = [...msgs, { role: 'user', content: q }];
+    setMsgs(next);
+    setText('');
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api<{ resposta: string; modelo: string | null; aviso: string | null }>(
+        '/printing/templates/ai',
+        {
+          method: 'POST',
+          json: {
+            kind,
+            body,
+            messages: next.slice(-12).map((m) => ({ role: m.role, content: m.content })),
+          },
+        },
+      );
+      setMsgs((m) => [
+        ...m,
+        {
+          role: 'assistant',
+          content: r.resposta,
+          before: r.modelo ? body : undefined,
+          aviso: r.aviso,
+        },
+      ]);
+      if (r.modelo) onApply(r.modelo);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="tpl-ai">
+      <div className="tpl-ai__scroll" ref={scroller}>
+        {msgs.length === 0 && (
+          <div className="tpl-ai__hello">
+            <Sparkles size={18} aria-hidden />
+            <p>
+              Diga como quer o papel e eu mudo o modelo para você. A mudança entra no editor com a
+              prévia; nada é salvo até você clicar em Salvar modelo.
+            </p>
+            <div className="tpl-ai__chips">
+              {SUGGESTIONS[kind].map((s) => (
+                <button key={s} type="button" className="tpl-ai__chip" onClick={() => void send(s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {msgs.map((m, i) => (
+          <div key={i} className={`tpl-ai__msg ${m.role === 'user' ? 'is-mine' : ''}`}>
+            {m.role === 'assistant' && <span className="tpl-ai__who">{name}</span>}
+            <p>{m.content}</p>
+            {m.aviso && <span className="tpl-ai__warn">{m.aviso}</span>}
+            {m.before !== undefined && (
+              <div className="tpl-ai__actions">
+                <span className="cm-hint">Mudança aplicada no editor.</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={<Undo2 size={14} />}
+                  onClick={() => {
+                    onApply(m.before!);
+                    setMsgs((all) =>
+                      all.map((x, j) => (j === i ? { ...x, before: undefined } : x)),
+                    );
+                  }}
+                >
+                  Desfazer
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
+        {busy && (
+          <div className="tpl-ai__msg">
+            <span className="tpl-ai__who">{name}</span>
+            <p className="tpl-ai__typing">
+              <Spinner inline label="Mexendo no modelo" /> Mexendo no modelo…
+            </p>
+          </div>
+        )}
+        {preview && msgs.length > 0 && !busy && (
+          <PaperText
+            text={preview.text}
+            logoUrl={preview.logoUrl}
+            className="print-tpl__paper tpl-ai__paper"
+            label="Prévia do modelo"
+          />
+        )}
+      </div>
+      {error && <Alert tone="danger">{error}</Alert>}
+      <form
+        className="tpl-ai__form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void send(text);
+        }}
+      >
+        <label className="cm-sr-only" htmlFor={inputId}>
+          O que mudar no papel
+        </label>
+        <textarea
+          id={inputId}
+          className="cm-input tpl-ai__input"
+          rows={2}
+          maxLength={1500}
+          placeholder="Ex.: deixe o total maior e tire o telefone"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              void send(text);
+            }
+          }}
+        />
+        <Button
+          type="submit"
+          size="sm"
+          icon={<Send size={14} />}
+          loading={busy}
+          disabled={!text.trim() || !body.trim()}
+          aria-label="Enviar"
+        >
+          Enviar
+        </Button>
+      </form>
+    </div>
   );
 }

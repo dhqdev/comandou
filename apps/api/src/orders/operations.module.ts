@@ -23,6 +23,7 @@ import { MessagingService } from '../messaging/messaging.service';
 import { WhatsAppClient } from '../messaging/whatsapp.client';
 import { PrintAgentController, PrintingController } from '../printing/printing.controller';
 import { PrintingService } from '../printing/printing.service';
+import { TemplateAiService } from '../printing/template-ai.service';
 import { StockController } from '../stock/stock.controller';
 import { StockService } from '../stock/stock.service';
 import { StockCostsService } from '../stock/stock-costs.service';
@@ -128,6 +129,7 @@ import { OrdersService } from './orders.service';
     StockCostsService,
     StockOpsService,
     PrintingService,
+    TemplateAiService,
     DeliveryService,
     CourierPayService,
     ZonesService,

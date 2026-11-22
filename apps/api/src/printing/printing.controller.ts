@@ -33,6 +33,7 @@ import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { JOB_SELECT, PrintingService } from './printing.service';
+import { TemplateAiService } from './template-ai.service';
 import { TEMPLATE_KINDS, TEMPLATE_MAX, TemplateKind } from './templates';
 
 const Agent = z.object({ name: z.string().trim().min(1).max(60), active: z.boolean().optional() });
@@ -103,6 +104,20 @@ const PrinterRef = z.object({
 
 const Kind = z.enum(TEMPLATE_KINDS);
 const TemplateBody = z.object({ body: z.string().min(1).max(TEMPLATE_MAX) });
+/** Conversa com a IA do modelo: o modelo do editor e as últimas falas (a última é o pedido). */
+const TemplateAsk = TemplateBody.extend({
+  kind: z.enum(TEMPLATE_KINDS),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string().trim().min(1).max(4000),
+      }),
+    )
+    .min(1)
+    .max(12)
+    .refine((m) => m[m.length - 1].role === 'user', { message: 'A última fala é da pessoa' }),
+});
 const Preview = TemplateBody.extend({
   kind: Kind,
   orderId: z.string().uuid().nullable().optional(),
@@ -122,6 +137,7 @@ export class PrintingController {
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
     private readonly orders: OrdersService,
+    private readonly templateAi: TemplateAiService,
   ) {}
 
   @Get('printing/agents')
@@ -216,6 +232,29 @@ export class PrintingController {
       });
       return { ok: true };
     });
+  }
+
+  /** A IA do editor de modelos está ligada para este restaurante? */
+  @Get('printing/templates/ai')
+  @RequirePermission('printing:manage')
+  templateAiStatus(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.templateAi.status(ctxOf(t, u));
+  }
+
+  /**
+   * Conversa com a IA do editor: ela propõe o modelo alterado (não salva nada). A pessoa aplica no
+   * editor, vê a prévia e salva pelo PUT de sempre.
+   */
+  @Post('printing/templates/ai')
+  @HttpCode(200)
+  @RequirePermission('printing:manage')
+  @Throttle({ default: { ttl: 60_000, limit: 12 } })
+  askTemplateAi(
+    @Body(new ZodPipe(TemplateAsk)) b: z.infer<typeof TemplateAsk>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.templateAi.ask(ctxOf(t, u), b.kind, b.body, b.messages);
   }
 
   /** Prévia: monta o texto com o último pedido (ou o escolhido), sem imprimir nada. */
