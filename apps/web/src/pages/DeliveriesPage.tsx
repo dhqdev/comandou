@@ -29,6 +29,7 @@ import {
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { minutesSince, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE, time } from '../features/format';
+import { CourierCalendar } from '../features/CourierCalendar';
 import { CourierCollections } from '../features/CourierCollections';
 import { CourierPayouts } from '../features/CourierPayouts';
 import { DeliveryAreas } from '../features/DeliveryAreas';
@@ -407,7 +408,12 @@ export function DeliveriesPage() {
         />
       )}
       {aba === 'area' && <DeliveryAreas canEdit={canSetup} />}
-      {aba === 'acerto' && canSettle && <CourierCollections />}
+      {aba === 'acerto' && canSettle && (
+        <div className="dl-acerto">
+          {canPay && <CourierCalendar colorOf={colorOf} />}
+          <CourierCollections />
+        </div>
+      )}
       {aba === 'repasses' && canPay && <CourierPayouts />}
       <Modal open={!!link} title={link?.title ?? ''} onClose={() => setLink(null)}>
         {link && <TrackingLink path={link.path} />}

@@ -823,3 +823,9 @@
 .dl-cour__actions .cm-hint {
   font-size: var(--cm-text-xs);
 }
+
+/* Acerto: calendário de ganhos em cima, acertos pendentes embaixo. */
+.dl-acerto {
+  display: grid;
+  gap: var(--cm-space-4);
+}

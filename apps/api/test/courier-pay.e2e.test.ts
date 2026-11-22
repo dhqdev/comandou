@@ -182,6 +182,25 @@ describe('Ganhos e repasses do entregador', () => {
       taxRegime: 'autonomo',
     });
     expect(rep.totals.deliveryFees).toBe('16.00');
+
+    // Calendário de ganhos: o dia com corridas + diária; o detalhe lista as duas corridas.
+    const cal = (await get('adminA', `/courier-pay/calendar?month=${month()}`).expect(200)).body;
+    const cell = cal.days.find((x: { courierId: string }) => x.courierId === c.id);
+    expect(cell).toMatchObject({
+      delivered: 1,
+      failed: 1,
+      rides: '11.85',
+      daily: '20.00',
+      total: '31.85',
+    });
+    expect(cal.couriers.some((x: { id: string }) => x.id === c.id)).toBe(true);
+    const rides = (await get('adminA', `/courier-pay/calendar/day?day=${cell.day}`).expect(200))
+      .body as { id: string; pay: string }[];
+    expect(rides.map((r) => r.id).sort()).toEqual([d1.id, d2.id].sort());
+    await get('cashierA', `/courier-pay/calendar?month=${month()}`).expect(403);
+    expect(
+      (await get('adminB', `/courier-pay/calendar?month=${month()}`).expect(200)).body.days,
+    ).toEqual([]);
     expect(
       (await get('adminB', `/courier-pay/report?month=${month()}`).expect(200)).body.couriers,
     ).toEqual([]);

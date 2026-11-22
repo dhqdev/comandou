@@ -637,6 +637,101 @@ export class CourierPayService {
   }
 
   /**
+   * Calendário de ganhos (Entregas › Acerto): por dia do mês e por entregador, quanto fez
+   * (corridas encerradas no dia + a diária de quem entregou), as entregas, os km e o que
+   * recebeu na porta. A diária segue a regra de cada um, como na central do entregador.
+   */
+  calendar(ctx: Ctx, month: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const s = await this.settingsIn(tx);
+      const b = await one<{ a: Date; z: Date; tz: string }>(
+        tx,
+        `SELECT ($1::date::timestamp AT TIME ZONE ${TZ}) AS a,
+                (($1::date + interval '1 month')::timestamp AT TIME ZONE ${TZ}) AS z, ${TZ} AS tz`,
+        [`${month}-01`],
+      );
+      const rows = await q<{
+        day: string;
+        courier_id: string;
+        delivered: number;
+        failed: number;
+        distance: string;
+        rides: string;
+        collected: string;
+        first: Date;
+        last: Date;
+      }>(
+        tx,
+        `SELECT to_char(finished_at AT TIME ZONE $3, 'YYYY-MM-DD') AS day, courier_id,
+                count(*) FILTER (WHERE status = 'delivered')::int AS delivered,
+                count(*) FILTER (WHERE status = 'failed')::int AS failed,
+                COALESCE(sum(distance_m), 0)::text AS distance,
+                COALESCE(sum(courier_pay), 0)::numeric(14,2)::text AS rides,
+                COALESCE(sum(collect_amount) FILTER (WHERE status = 'delivered'), 0)::numeric(14,2)::text AS collected,
+                min(finished_at) AS first, max(finished_at) AS last
+           FROM deliveries WHERE finished_at >= $1 AND finished_at < $2 AND status <> 'out'
+          GROUP BY 1, 2 ORDER BY 1`,
+        [b!.a, b!.z, b!.tz],
+      );
+      const ids = [...new Set(rows.map((r) => r.courier_id))];
+      const couriers = await q<CourierRow>(
+        tx,
+        `SELECT id, name, tax_regime, pay_rule, pix_key, active FROM couriers
+          WHERE active OR id = ANY($1::uuid[]) ORDER BY name`,
+        [ids],
+      );
+      const rate = new Map(
+        couriers.map((c) => [
+          c.id,
+          toCents((c.pay_rule ? parseRule(c.pay_rule) : s.rule).dailyRate),
+        ]),
+      );
+      return {
+        month,
+        couriers: couriers.map((c) => ({ id: c.id, name: c.name, active: c.active })),
+        days: rows.map((r) => {
+          const daily = r.delivered > 0 ? (rate.get(r.courier_id) ?? 0) : 0;
+          return {
+            day: r.day,
+            courierId: r.courier_id,
+            delivered: r.delivered,
+            failed: r.failed,
+            distanceM: Number(r.distance),
+            rides: r.rides,
+            daily: fromCents(daily),
+            total: fromCents(toCents(r.rides) + daily),
+            collected: r.collected,
+            first: r.first,
+            last: r.last,
+          };
+        }),
+      };
+    });
+  }
+
+  /** Corridas encerradas num dia (detalhe do calendário de ganhos). */
+  calendarDay(ctx: Ctx, day: string) {
+    return this.db.withTenant(ctx, (tx) =>
+      q(
+        tx,
+        `SELECT d.id, d.courier_id AS "courierId", o.number AS "orderNumber",
+                o.customer_name AS "customerName", o.delivery_address AS "deliveryAddress",
+                d.status, d.dispatched_at AS "dispatchedAt", d.finished_at AS "finishedAt",
+                d.failure_reason AS "failureReason", d.distance_m AS "distanceM",
+                COALESCE(d.courier_pay, 0)::numeric(14,2)::text AS pay,
+                o.delivery_fee::text AS fee, d.collect_amount::text AS "collectAmount",
+                d.collect_status AS "collectStatus", (d.payout_id IS NOT NULL) AS paid
+           FROM deliveries d JOIN orders o ON o.id = d.order_id
+          WHERE d.status <> 'out'
+            AND d.finished_at >= ($1::date::timestamp AT TIME ZONE ${TZ})
+            AND d.finished_at < (($1::date + 1)::timestamp AT TIME ZONE ${TZ})
+          ORDER BY d.finished_at`,
+        [day],
+      ),
+    );
+  }
+
+  /**
    * Central do entregador: quanto ganhou hoje, na semana (desde segunda) e no mês, o que falta
    * receber (com a estimativa das retenções), as últimas corridas e os repasses recebidos.
    */

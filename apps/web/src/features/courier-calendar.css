@@ -1,0 +1,409 @@
+/* Calendário de ganhos dos entregadores (Entregas › Acerto). Cor de cada um em --rider. */
+
+.ccal {
+  display: grid;
+  gap: var(--cm-space-4);
+  container-type: inline-size;
+}
+
+.ccal-month {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ccal-month strong {
+  min-width: 132px;
+  text-align: center;
+  font-weight: 600;
+}
+.ccal-month strong::first-letter {
+  text-transform: uppercase;
+}
+
+/* Números do mês */
+.ccal-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+}
+.ccal-kpi {
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  min-width: 0;
+}
+.ccal-kpi + .ccal-kpi {
+  border-left: 1px solid var(--cm-border);
+}
+.ccal-kpi span {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.ccal-kpi strong {
+  font-size: var(--cm-text-lg);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ccal-kpi small {
+  color: var(--cm-text-muted);
+  font-weight: 500;
+  font-size: var(--cm-text-sm);
+}
+
+/* Legenda: um botão por entregador, com o total do mês e uma barra fina na cor dele */
+.ccal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ccal-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 12px 8px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    opacity 160ms ease;
+}
+.ccal-chip:active {
+  transform: scale(0.97);
+}
+.ccal-chip[aria-pressed='true'] {
+  border-color: var(--rider);
+  background: color-mix(in oklab, var(--rider) 10%, var(--cm-surface));
+}
+.ccal-chip[data-dim] {
+  opacity: 0.45;
+}
+.ccal-chip__name {
+  font-weight: 600;
+}
+.ccal-chip__value {
+  color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ccal-chip__bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--rider);
+  border-radius: 0 2px 0 0;
+}
+
+.ccal-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--rider);
+}
+.ccal-dot--lg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Grade do mês: 7 dias + a soma da semana */
+.ccal-grid {
+  display: grid;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  overflow: hidden;
+}
+.ccal-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) 96px;
+}
+.ccal-row + .ccal-row {
+  border-top: 1px solid var(--cm-border);
+}
+.ccal-row--head span {
+  padding: 8px 10px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  background: var(--cm-surface-muted);
+}
+.ccal-week {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 10px;
+  border-left: 1px solid var(--cm-border);
+  background: var(--cm-surface-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ccal-row--head .ccal-week {
+  justify-content: flex-end;
+}
+
+.ccal-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 112px;
+  min-width: 0;
+  padding: 8px;
+  border: 0;
+  border-left: 1px solid var(--cm-border);
+  /* Quanto mais o dia rendeu, mais forte o fundo (bem de leve). */
+  background: color-mix(in oklab, var(--cm-brand-500) calc(var(--heat, 0) * 9%), var(--cm-surface));
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+}
+.ccal-row > :first-child {
+  border-left: 0;
+}
+button.ccal-cell {
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+button.ccal-cell:hover {
+  box-shadow: inset 0 0 0 1px var(--cm-border-strong);
+}
+button.ccal-cell:active {
+  transform: scale(0.98);
+}
+button.ccal-cell:focus-visible {
+  outline: 2px solid var(--cm-focus);
+  outline-offset: -2px;
+}
+.ccal-cell--out {
+  background: var(--cm-surface-muted);
+}
+.ccal-cell--empty[data-future] .ccal-cell__n {
+  opacity: 0.5;
+}
+
+.ccal-cell__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.ccal-cell__n {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.ccal-cell[data-today] .ccal-cell__n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  margin: -2px 0 0 -2px;
+  border-radius: 11px;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font-weight: 600;
+}
+.ccal-cell__total {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ccal-short {
+  display: none;
+}
+
+/* Barra do dia dividida entre os entregadores, do tamanho do que cada um fez */
+.ccal-stack {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ccal-stack span {
+  flex-basis: 0;
+  min-width: 3px;
+}
+
+.ccal-lines {
+  display: grid;
+  gap: 3px;
+}
+.ccal-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  font-size: var(--cm-text-xs);
+}
+.ccal-line .ccal-dot {
+  width: 7px;
+  height: 7px;
+}
+.ccal-line__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--cm-text-muted);
+}
+.ccal-line__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.ccal-more {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.ccal-dots {
+  display: none;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.ccal-dots .ccal-dot {
+  width: 7px;
+  height: 7px;
+}
+
+/* Tela média: some a coluna Semana e os nomes viram só bolinhas */
+@container (max-width: 880px) {
+  .ccal-row {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .ccal-week {
+    display: none;
+  }
+  .ccal-lines {
+    display: none;
+  }
+  .ccal-dots {
+    display: flex;
+  }
+  .ccal-cell {
+    min-height: 78px;
+  }
+}
+
+/* Celular: célula pequena com o valor curto */
+@container (max-width: 560px) {
+  .ccal-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ccal-kpi:nth-child(3) {
+    border-left: 0;
+  }
+  .ccal-kpi:nth-child(n + 3) {
+    border-top: 1px solid var(--cm-border);
+  }
+  .ccal-cell {
+    min-height: 64px;
+    padding: 5px 4px;
+    gap: 4px;
+  }
+  .ccal-cell__top {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ccal-cell__total {
+    font-size: var(--cm-text-2xs);
+  }
+  .ccal-full {
+    display: none;
+  }
+  .ccal-short {
+    display: inline;
+  }
+  .ccal-row--head span {
+    padding: 6px 4px;
+    text-align: center;
+  }
+  .ccal-stack {
+    height: 4px;
+  }
+}
+
+/* Detalhe do dia */
+.ccal-detail {
+  display: grid;
+  gap: var(--cm-space-4);
+  container-type: inline-size;
+}
+.ccal-person {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: color-mix(in oklab, var(--rider) 5%, var(--cm-surface));
+}
+.ccal-person__head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.ccal-person__head > div {
+  display: grid;
+  min-width: 0;
+}
+.ccal-person__total {
+  font-size: var(--cm-text-lg);
+  font-variant-numeric: tabular-nums;
+}
+.ccal-person__split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 24px;
+  margin: 0;
+}
+.ccal-person__split div {
+  display: flex;
+  gap: 6px;
+  font-size: var(--cm-text-sm);
+}
+.ccal-person__split dt {
+  color: var(--cm-text-muted);
+}
+.ccal-person__split dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ccal-rides {
+  margin: 0;
+}
+.ccal-rides summary {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.ccal-rides[open] summary {
+  margin-bottom: 6px;
+}
+.ccal-rides ul {
+  margin: 0;
+}
+.ccal-cell--empty .ccal-cell__n {
+  align-self: flex-start;
+}
+@container (max-width: 560px) {
+  .ccal-kpi small {
+    display: block;
+  }
+}

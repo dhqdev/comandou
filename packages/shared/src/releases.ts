@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.224.0',
+    date: '2026-11-22',
+    title: 'Calendário de ganhos dos entregadores',
+    summary:
+      'A aba Acerto, em Entregas, ganhou um calendário do mês com quanto cada entregador fez em cada dia, cada um na sua cor, com o total do dia, da semana e do mês.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Calendário de ganhos em Entregas › Acerto: em cada dia, a barra dividida entre os entregadores e o valor de cada um (corridas + diária), na mesma cor do mapa.',
+      },
+      {
+        tag: 'novo',
+        text: 'Toque num dia para ver o detalhe: entregas, km, horário, corridas, diária, o que recebeu na porta e cada corrida com a situação do pagamento.',
+      },
+      {
+        tag: 'novo',
+        text: 'Toque no nome de um entregador para ver só os dias e os ganhos dele; no topo, ganhos do mês, entregas, dias com entrega e o melhor dia.',
+      },
+    ],
+  },
+  {
     version: '0.223.0',
     date: '2026-11-22',
     title: 'Entregadores em cartões, com a situação de cada um',

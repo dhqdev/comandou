@@ -104,6 +104,26 @@ export class CourierPayController {
     return this.pay.report(ctxOf(t, u), m.month);
   }
 
+  @Get('courier-pay/calendar')
+  @RequirePermission('finance:read')
+  calendar(
+    @Query(new ZodPipe(Month)) m: z.infer<typeof Month>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.pay.calendar(ctxOf(t, u), m.month);
+  }
+
+  @Get('courier-pay/calendar/day')
+  @RequirePermission('finance:read')
+  calendarDay(
+    @Query(new ZodPipe(z.object({ day: Day }))) d: { day: string },
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.pay.calendarDay(ctxOf(t, u), d.day);
+  }
+
   @Post('courier-pay/preview')
   @RequirePermission('finance:write')
   preview(
