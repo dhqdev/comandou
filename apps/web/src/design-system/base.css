@@ -206,6 +206,12 @@ html.cm-kb-open .tc-panel {
   bottom: var(--cm-kb, 0px);
   max-height: var(--cm-vvh, 100dvh);
 }
+/* Menus de baixo somem enquanto o teclado está aberto, como nos aplicativos do celular: no
+   iPhone eles subiam junto com a conversa e ocupavam o pouco espaço que sobra acima do teclado
+   (menu do app, do garçom, do entregador e do cardápio; as abas do chat em chat.css). */
+html.cm-kb-open :is(.cm-tabbar, .wt-tabs, .dnav, .mnav) {
+  display: none;
+}
 /* Folhas que sobem de baixo: um respiro em cima para a alça continuar à vista. */
 html.cm-kb-open .cm-modal:modal,
 html.cm-kb-open .cm-sheet:modal {

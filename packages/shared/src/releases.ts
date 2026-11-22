@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.228.2',
+    date: '2026-11-22',
+    title: 'Conversas no celular: teclado sem quebrar a tela',
+    summary:
+      'No celular, ao tocar para escrever numa conversa, a tela não pula mais para cima antes de se ajeitar, e os menus de baixo saem da frente enquanto o teclado está aberto.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Chat (Conversas, Pessoas, Mural, Avisos, Clientes, Suporte e IA), conversa do cliente no cardápio e conversas do Super Admin: ao abrir o teclado no iPhone, a conversa já encolhe para o espaço acima dele, sem empurrar o topo para fora da tela e voltar depois.',
+      },
+      {
+        tag: 'correção',
+        text: 'Com o teclado aberto, as abas de baixo do chat e os menus de baixo do app, do garçom, do entregador e do cardápio somem e voltam ao fechar o teclado. Antes elas subiam junto e ocupavam o espaço da conversa.',
+      },
+    ],
+  },
+  {
     version: '0.228.1',
     date: '2026-11-22',
     title: 'Delivery com um botão só: despachar',

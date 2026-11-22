@@ -449,3 +449,11 @@ linha de ações, entra nas ações do primeiro cartão, como na Impressão). Ab
 mesma linha das ações (Salão, Loja online, Cardápio); no celular descem para baixo delas. Explicação curta de aba vira `title` da aba. Exceções que mantêm título:
 Estoque e Fiscal (subtelas com trilha e voltar), Ajustes, Assinatura e Novidades. A lista de
 Pedidos estica o cartão até o pé da janela (`.cm-frame__content:has(> .ord-board)`).
+
+## Teclado do celular nas conversas (0.228.2)
+
+Com o teclado aberto (`html.cm-kb-open`, de `design-system/viewport.ts`) nenhum menu de baixo
+aparece: abas do chat (`.tc-tabs`, em `chat.css`), `.cm-tabbar`, `.wt-tabs`, `.dnav` e `.mnav`
+(`base.css`). Menu de baixo novo entra nessa lista. Conversa nova presa à tela no celular entra em
+`CHAT` de `viewport.ts`: ao tocar no campo, ela já encolhe para o tamanho previsto do teclado (o
+último medido no aparelho, guardado em `cm-kb-h`), e o iPhone não empurra a tela para cima.

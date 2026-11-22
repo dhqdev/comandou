@@ -1854,7 +1854,10 @@
   .tc-panel[data-view='conv'] .tc-split__side {
     display: none;
   }
-  .tc-panel[data-view='conv'] .tc-tabs {
+  .tc-panel[data-view='conv'] .tc-tabs,
+  html.cm-kb-open .tc-tabs {
+    /* Teclado aberto (viewport.ts): as abas de baixo saem e a conversa fica com o espaço todo
+       acima do teclado, em todas as abas (Suporte, IA, Mural...). */
     display: none;
   }
   .tc-panel[data-view='conv'] .tc-split__main {

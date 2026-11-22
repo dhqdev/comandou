@@ -9,9 +9,19 @@ function fakeViewport(height: number, offsetTop: number) {
     height,
     offsetTop,
     addEventListener: (_: string, fn: Listener) => listeners.push(fn),
+    /** O iPhone avisa que a área visível mudou (teclado terminou de subir). */
+    fire: () => listeners.forEach((fn) => fn()),
   };
   Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true });
   return vv;
+}
+
+/** Celular: tela de toque estreita. */
+function phone(matches = true) {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: () => ({ matches }),
+  });
 }
 
 const root = document.documentElement;
@@ -23,6 +33,8 @@ describe('trackViewport', () => {
     root.removeAttribute('style');
     document.body.innerHTML = '';
     vi.restoreAllMocks();
+    localStorage.clear();
+    phone(false);
   });
 
   it('com o teclado do iPhone aberto, guarda o retângulo visível', () => {
@@ -69,5 +81,63 @@ describe('trackViewport', () => {
     fakeViewport(844, 0);
     trackViewport();
     expect(css('--cm-fixgap')).toBe('0px');
+  });
+
+  it('no celular, tocar no campo da conversa já encolhe a conversa antes do teclado subir', () => {
+    vi.spyOn(root, 'clientHeight', 'get').mockReturnValue(1000);
+    phone();
+    const vv = fakeViewport(1000, 0);
+    trackViewport();
+    const panel = document.createElement('div');
+    panel.className = 'tc-panel';
+    const input = document.createElement('textarea');
+    panel.append(input);
+    document.body.append(panel);
+    input.focus();
+    // Primeira vez: 40% da tela para o teclado, sem esperar o iPhone.
+    expect(root.classList.contains('cm-kb-open')).toBe(true);
+    expect(css('--cm-kb')).toBe('400px');
+    expect(css('--cm-vvh')).toBe('600px');
+    expect(css('--cm-vvtop')).toBe('0px');
+    // O teclado de verdade chegou: vale o tamanho dele e ele fica guardado para a próxima vez.
+    vv.height = 640;
+    vv.fire();
+    expect(css('--cm-kb')).toBe('360px');
+    expect(css('--cm-vvh')).toBe('640px');
+    expect(localStorage.getItem('cm-kb-h')).toBe('360');
+  });
+
+  it('usa o tamanho de teclado guardado e não prevê fora das conversas', () => {
+    vi.spyOn(root, 'clientHeight', 'get').mockReturnValue(1000);
+    localStorage.setItem('cm-kb-h', '330');
+    phone();
+    fakeViewport(1000, 0);
+    trackViewport();
+    const plain = document.createElement('input');
+    document.body.append(plain);
+    plain.focus();
+    expect(root.classList.contains('cm-kb-open')).toBe(false);
+    plain.blur();
+    const chat = document.createElement('div');
+    chat.className = 'sfchat';
+    const input = document.createElement('input');
+    chat.append(input);
+    document.body.append(chat);
+    input.focus();
+    expect(css('--cm-kb')).toBe('330px');
+  });
+
+  it('no computador não prevê teclado', () => {
+    vi.spyOn(root, 'clientHeight', 'get').mockReturnValue(1000);
+    phone(false);
+    fakeViewport(1000, 0);
+    trackViewport();
+    const panel = document.createElement('div');
+    panel.className = 'tc-panel';
+    const input = document.createElement('input');
+    panel.append(input);
+    document.body.append(panel);
+    input.focus();
+    expect(root.classList.contains('cm-kb-open')).toBe(false);
   });
 });
