@@ -774,10 +774,36 @@ export class PlatformServerController {
     const [feed, job] = await Promise.all([
       this.releases.latest(),
       this.agent.enabled
-        ? this.agent.call<{ job: unknown }>('GET', '/v1/update').catch(() => ({ job: null }))
-        : Promise.resolve({ job: null }),
+        ? this.agent
+            .call<{ job: unknown; now?: string }>('GET', '/v1/update')
+            .catch(() => ({ job: null, now: undefined, agentDown: true }))
+        : Promise.resolve({ job: null, now: undefined }),
     ]);
-    return { ...feed, job: job.job };
+    return {
+      ...feed,
+      job: job.job,
+      // Hora do agente: a tela mede "parado há X min" sem depender do relógio do celular.
+      now: job.now ?? new Date().toISOString(),
+      ...('agentDown' in job ? { agentDown: true } : {}),
+    };
+  }
+
+  /**
+   * Destravar: larga a atualização que parou no meio e continua de onde ficou, na mesma versão
+   * (o serviço que ficou no meio da troca é refeito com reinício forçado).
+   */
+  @Post('update/resume')
+  @HttpCode(202)
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  async resumeUpdate(@Req() req: Request) {
+    const r = await this.agent.call<{
+      job: { version: string; steps: { service: string; status: string }[] };
+    }>('POST', '/v1/update/resume', {}, 60_000);
+    await this.audit(req, 'system_update_resumed', {
+      version: r.job.version,
+      services: r.job.steps.filter((s) => s.status === 'pending').map((s) => s.service),
+    });
+    return r;
   }
 
   /** Troca a tag das imagens do Comandou nos serviços (migração primeiro). Ver agente/updater.ts. */

@@ -228,6 +228,14 @@ button.adm-tile:hover {
 .adm-panel__body {
   padding: 18px;
 }
+/* Destravar a atualização: texto curto e os dois botões, sem caixa extra. */
+.adm-unstick {
+  display: grid;
+  gap: 12px;
+  border-bottom: 1px solid var(--a-line);
+  font-size: 14px;
+  line-height: 1.5;
+}
 .adm-rows {
   list-style: none;
   margin: 0;

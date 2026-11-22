@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.230.0',
+    date: '2026-11-22',
+    title: 'Destravar a atualização pelo painel',
+    summary:
+      'No Super Admin › Infra, a atualização que para no meio agora se destrava ali mesmo, sem ir ao Portainer: cada serviço mostra há quanto tempo está trocando e, se passar do normal, aparecem Destravar e continuar e Reiniciar.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Destravar e continuar: larga a troca parada, refaz o serviço que ficou no meio e segue com os que faltam, na mesma versão.',
+      },
+      {
+        tag: 'novo',
+        text: 'Reiniciar o serviço parado direto do quadro da atualização, o mesmo que reiniciar no Portainer.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cada serviço mostra há quanto tempo está atualizando, e fica em amarelo com "parado há X min" quando passa de 3 minutos (10 na migração).',
+      },
+      {
+        tag: 'correção',
+        text: 'O agente se destrava sozinho: se o serviço já está de pé na versão nova mas o Swarm não marcou "concluído", segue em frente; se travou de verdade, reinicia o serviço uma vez antes de desistir.',
+      },
+      {
+        tag: 'correção',
+        text: 'O andamento da atualização fica guardado no servidor: se o agente reiniciar no meio, a tela mostra onde parou e oferece Continuar, em vez de perder a atualização.',
+      },
+    ],
+  },
+  {
     version: '0.229.0',
     date: '2026-11-22',
     title: 'Edição do item no app do garçom',

@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { DockerClient } from './docker';
 
 /**
@@ -28,9 +29,13 @@ interface Svc {
 }
 interface Task {
   CreatedAt?: string;
+  DesiredState?: string;
   Status: { State: string; Err?: string };
   Spec?: { ContainerSpec?: { Image?: string } };
 }
+
+/** Estados do Swarm em que a troca de um serviço ficou no meio (nem concluída, nem desfeita). */
+const HALFWAY = /^(updating|paused|rollback_started|rollback_paused)$/;
 
 export type StepStatus = 'pending' | 'running' | 'ok' | 'skipped' | 'failed';
 export interface UpdateStep {
@@ -41,6 +46,8 @@ export interface UpdateStep {
   message?: string;
   /** Imagem completa que o serviço vai usar (repositório atual + tag nova). */
   image: string;
+  /** Quando este serviço começou a trocar (para a tela saber há quanto tempo está parado). */
+  startedAt?: string;
 }
 export interface UpdateJob {
   id: string;
@@ -52,7 +59,12 @@ export interface UpdateJob {
   steps: UpdateStep[];
   /** Limpeza feita ao fim da atualização (contêineres parados, imagens e volumes anônimos sem uso). */
   cleanup?: { target: string; reclaimed: number; removed: number; error?: string }[];
+  /** Última vez que o agente conferiu o andamento (se parar de mudar, o agente travou ou caiu). */
+  checkedAt?: string;
 }
+
+/** Atualização interrompida pelo painel ("Destravar e continuar"): o laço antigo para quieto. */
+class Cancelled extends Error {}
 
 const split = (image: string) => {
   const clean = image.replace(/@sha256:[a-f0-9]+$/, '');
@@ -89,7 +101,16 @@ export interface UpdaterOptions {
   registryAuth?: string | null;
   /** Roda quando todos os serviços, menos o agente, já estão saudáveis na versão nova. */
   cleanup?: () => Promise<NonNullable<UpdateJob['cleanup']>>;
+  /**
+   * Arquivo onde o andamento fica guardado, para sobreviver a um reinício do agente (sem ele, a
+   * tela perdia a atualização e ninguém sabia onde tinha parado). null = só na memória.
+   */
+  stateFile?: string | null;
 }
+
+const defaultStateFile = () =>
+  process.env.AGENT_UPDATE_STATE ??
+  join(process.env.AGENT_VM_DIR ?? '/host/comandou-vm', 'atualizacao.json');
 
 export class Updater {
   private job: UpdateJob | null = null;
@@ -98,6 +119,8 @@ export class Updater {
   private readonly pollMs: number;
   private readonly timeoutMs: number;
   private readonly authHeaders: Record<string, string>;
+  private readonly stateFile: string | null;
+  private cancelled = new WeakSet<UpdateJob>();
 
   constructor(
     private readonly docker: Pick<DockerClient, 'call'>,
@@ -110,10 +133,82 @@ export class Updater {
     const auth =
       opts.registryAuth === undefined ? registryAuthFromEnv(this.prefix) : opts.registryAuth;
     this.authHeaders = auth ? { 'X-Registry-Auth': auth } : {};
+    this.stateFile = opts.stateFile === undefined ? defaultStateFile() : opts.stateFile;
+    this.job = this.load();
   }
 
   current() {
     return this.job;
+  }
+
+  /**
+   * Andamento guardado antes de o agente reiniciar. "Rodando" no arquivo quer dizer que o agente
+   * caiu no meio (ou é ele mesmo trocando de versão, o último passo): vira interrompida, e a tela
+   * oferece continuar de onde parou.
+   */
+  private load(): UpdateJob | null {
+    if (!this.stateFile) return null;
+    try {
+      const job = JSON.parse(readFileSync(this.stateFile, 'utf8')) as UpdateJob;
+      if (!job?.id || !Array.isArray(job.steps)) return null;
+      if (job.status === 'running') {
+        const left = job.steps.filter((s) => s.status === 'pending' || s.status === 'running');
+        const onlySelf = left.length === 1 && left[0] === job.steps[job.steps.length - 1];
+        for (const s of left) s.status = onlySelf ? 'ok' : 'skipped';
+        job.status = onlySelf ? 'done' : 'failed';
+        if (!onlySelf)
+          job.message = 'O agente reiniciou no meio da atualização. Toque em Continuar.';
+        job.finishedAt = new Date().toISOString();
+      }
+      return job;
+    } catch {
+      return null;
+    }
+  }
+
+  private save(job: UpdateJob) {
+    if (!this.stateFile || job !== this.job) return;
+    try {
+      mkdirSync(dirname(this.stateFile), { recursive: true });
+      const tmp = `${this.stateFile}.tmp`;
+      writeFileSync(tmp, JSON.stringify(job));
+      renameSync(tmp, this.stateFile);
+    } catch {
+      /* sem pasta gravável: segue só na memória */
+    }
+  }
+
+  /**
+   * Destravar: larga a atualização em curso (o laço antigo para no próximo passo, sem mexer em
+   * mais nada) e começa de novo na mesma versão. O plano novo pula o que já está na versão nova e
+   * refaz, com reinício forçado, o serviço que ficou no meio da troca.
+   */
+  async resume(version?: string): Promise<UpdateJob> {
+    const target = version ?? this.job?.version;
+    if (!target) throw new Error('não há atualização para continuar');
+    const old = this.job;
+    if (old?.status === 'running') {
+      this.cancelled.add(old);
+      old.status = 'failed';
+      old.message = 'Interrompida pelo painel para destravar.';
+      old.finishedAt = new Date().toISOString();
+      for (const s of old.steps)
+        if (s.status === 'running' || s.status === 'pending') s.status = 'skipped';
+    }
+    try {
+      return await this.start(target);
+    } catch (e) {
+      // Nada mais para trocar: a troca que parecia parada já tinha terminado.
+      if (old && /já está nesta versão/.test((e as Error).message)) {
+        old.status = 'done';
+        old.message = undefined;
+        for (const s of old.steps) if (s.status === 'skipped') s.status = 'ok';
+        this.save(old);
+        return old;
+      }
+      if (old) this.save(old);
+      throw e;
+    }
   }
 
   /** Nome do serviço em que este agente roda (para atualizá-lo por último). */
@@ -146,14 +241,20 @@ export class Updater {
         .sort((a, b) => rank(a) - rank(b) || a.Spec.Name.localeCompare(b.Spec.Name))
         .map((s): UpdateStep => {
           const { repo, tag } = split(s.Spec.TaskTemplate.ContainerSpec.Image);
-          return {
+          const step: UpdateStep = {
             service: s.Spec.Name,
             from: tag,
             to: version,
             image: `${repo}:${version}`,
-            status: tag === version ? 'skipped' : 'pending',
-            message: tag === version ? 'já está nesta versão' : undefined,
+            status: 'pending',
           };
+          if (tag !== version) return step;
+          // Já tem a versão nova escrita, mas a troca parou no meio: refaz (com reinício forçado).
+          if (HALFWAY.test(s.UpdateStatus?.State ?? '')) {
+            step.message = 'tinha parado no meio; refazendo';
+            return step;
+          }
+          return { ...step, status: 'skipped', message: 'já está nesta versão' };
         })
     );
   }
@@ -183,10 +284,13 @@ export class Updater {
       steps,
     };
     this.job = job;
+    this.save(job);
     void this.run(job).catch((e: Error) => {
+      if (e instanceof Cancelled) return;
       job.status = 'failed';
       job.message = e.message;
       job.finishedAt = new Date().toISOString();
+      this.save(job);
     });
     return job;
   }
@@ -205,32 +309,81 @@ export class Updater {
     };
     for (const step of job.steps) {
       if (step.status !== 'pending') continue;
-      if (step.service === self) await clean();
-      step.status = 'running';
+      this.alive(job);
       const isSelf = step.service === self;
-      try {
-        await this.apply(step, step.image, isSelf);
+      if (isSelf) {
+        await clean();
+        // Antes de se trocar: o arquivo já diz "feito", porque o agente some no meio da troca.
         step.status = 'ok';
-        if (isSelf) step.message = 'o agente reinicia agora; confira a versão em alguns segundos';
+        step.message = 'o agente reinicia agora; confira a versão em alguns segundos';
+        job.status = 'done';
+        job.finishedAt = new Date().toISOString();
+        this.save(job);
+        try {
+          await this.apply(step, step.image, true, job);
+        } catch (e) {
+          if (e instanceof Cancelled) throw e;
+          step.status = 'failed';
+          step.message = (e as Error).message;
+          job.status = 'failed';
+          job.message = `Parou em ${step.service}: ${step.message}`;
+          this.save(job);
+        }
+        return;
+      }
+      step.status = 'running';
+      step.startedAt = new Date().toISOString();
+      this.save(job);
+      try {
+        await this.apply(step, step.image, false, job);
+        step.status = 'ok';
+        this.save(job);
       } catch (e) {
+        if (e instanceof Cancelled) throw e;
         step.status = 'failed';
         step.message = (e as Error).message;
         job.status = 'failed';
         job.message = `Parou em ${step.service}: ${step.message}`;
         for (const rest of job.steps) if (rest.status === 'pending') rest.status = 'skipped';
         job.finishedAt = new Date().toISOString();
+        this.save(job);
         return;
       }
     }
+    this.alive(job);
     await clean();
     job.status = 'done';
     job.finishedAt = new Date().toISOString();
+    this.save(job);
   }
 
-  private async apply(step: UpdateStep, image: string, isSelf: boolean) {
+  /** Para o laço de uma atualização largada pelo painel, e marca que o agente segue vivo. */
+  private alive(job: UpdateJob) {
+    if (this.cancelled.has(job)) throw new Cancelled('interrompida');
+    job.checkedAt = new Date().toISOString();
+  }
+
+  /** Tarefas do serviço que deveriam estar rodando já estão de pé na imagem nova? */
+  private async converged(name: string, image: string, replicas: number | undefined) {
+    const tasks = await this.docker.call<Task[]>(
+      'GET',
+      `/tasks?filters=${encodeURIComponent(JSON.stringify({ service: [name], 'desired-state': ['running'] }))}`,
+    );
+    const live = tasks.filter((t) => (t.DesiredState ?? 'running') === 'running');
+    const fresh = live.filter(
+      (t) => t.Spec?.ContainerSpec?.Image?.startsWith(image) && t.Status.State === 'running',
+    );
+    return fresh.length > 0 && fresh.length === live.length && fresh.length >= (replicas ?? 1);
+  }
+
+  private async apply(step: UpdateStep, image: string, isSelf: boolean, job: UpdateJob) {
     const s = await this.docker.call<Svc>('GET', `/services/${encodeURIComponent(step.service)}`);
+    this.alive(job);
     const spec = structuredClone(s.Spec);
+    // Mesma imagem (retomando uma troca que parou no meio): sem forçar, o Swarm não faz nada.
+    const same = spec.TaskTemplate.ContainerSpec.Image === image;
     spec.TaskTemplate.ContainerSpec.Image = image;
+    if (same) spec.TaskTemplate.ForceUpdate = (spec.TaskTemplate.ForceUpdate ?? 0) + 1;
     const migrate = /migrate/i.test(step.service);
     if (!migrate) {
       // Se a versão nova não subir, o Swarm volta sozinho para a anterior.
@@ -240,7 +393,7 @@ export class Updater {
         Monitor: spec.UpdateConfig?.Monitor || 15_000_000_000,
       };
     }
-    const startedAt = Date.now();
+    let startedAt = Date.now();
     // A migração baixa a imagem e passa por todos os bancos de restaurante: tem mais tempo.
     const limit = migrate ? this.timeoutMs * 3 : this.timeoutMs;
     // Com login, o Swarm repassa a credencial aos nós (igual a `--with-registry-auth`).
@@ -248,8 +401,30 @@ export class Updater {
       headers: this.authHeaders,
     });
     if (isSelf) return;
-    while (Date.now() - startedAt < limit) {
+    const replicas = spec.Mode.Replicated?.Replicas;
+    let forced = false;
+    for (;;) {
+      if (Date.now() - startedAt >= limit) {
+        if (migrate) break;
+        // Tudo de pé na versão nova, só o Swarm que não marcou "concluído": segue em frente.
+        if (await this.converged(step.service, image, replicas)) return;
+        if (forced) break;
+        // Travou no meio: um reinício forçado (o mesmo de reiniciar no Portainer) e mais um prazo.
+        forced = true;
+        const cur = await this.docker.call<Svc>('GET', `/services/${s.ID}`);
+        const again = structuredClone(cur.Spec);
+        again.TaskTemplate.ForceUpdate = (again.TaskTemplate.ForceUpdate ?? 0) + 1;
+        step.message = 'demorou; reiniciando o serviço para destravar';
+        await this.docker.call(
+          'POST',
+          `/services/${s.ID}/update?version=${cur.Version.Index}`,
+          again,
+          { headers: this.authHeaders },
+        );
+        startedAt = Date.now();
+      }
       await this.sleep(this.pollMs);
+      this.alive(job);
       if (migrate) {
         const tasks = await this.docker.call<Task[]>(
           'GET',
@@ -265,14 +440,17 @@ export class Updater {
       }
       const now = await this.docker.call<Svc>('GET', `/services/${s.ID}`);
       const st = now.UpdateStatus?.State;
-      if (st === 'completed') return;
+      if (st === 'completed') {
+        if (forced) step.message = undefined;
+        return;
+      }
       if (st && /rollback|paused/.test(st))
         throw new Error(`a versão nova não subiu; o Swarm voltou para a anterior (${st})`);
     }
     throw new Error(
       migrate
         ? 'a migração ainda não terminou; veja os logs do serviço e tente atualizar de novo'
-        : 'demorou demais para atualizar',
+        : 'não terminou nem depois de reiniciar o serviço',
     );
   }
 }

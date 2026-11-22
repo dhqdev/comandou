@@ -1,8 +1,21 @@
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Updater } from './updater';
 
 /** Docker de mentira: serviços em memória; cada update muda a imagem e conclui na hora. */
-function fakeDocker(opts: { failOn?: string; missingImage?: string; migrateFails?: boolean } = {}) {
+function fakeDocker(
+  opts: {
+    failOn?: string;
+    missingImage?: string;
+    migrateFails?: boolean;
+    /** Serviço cuja troca fica em "updating" para sempre (as tarefas sobem ou não). */
+    stuck?: { service: string; tasksUp: boolean; untilForce?: boolean };
+    /** Estado do Swarm de cada serviço antes de qualquer troca. */
+    state?: Record<string, string>;
+  } = {},
+) {
   const services = new Map<string, any>();
   const add = (name: string, image: string) =>
     services.set(name, {
@@ -29,16 +42,30 @@ function fakeDocker(opts: { failOn?: string; missingImage?: string; migrateFails
           throw new Error('manifest unknown');
         return {};
       }
-      if (method === 'GET' && path === '/services') return [...services.values()];
+      if (method === 'GET' && path === '/services')
+        return [...services.values()].map((s) => ({
+          ...s,
+          UpdateStatus: { State: opts.state?.[s.Spec.Name] ?? 'completed' },
+        }));
       const sm = /^\/services\/([^/?]+)(\/update)?/.exec(path);
       if (sm && method === 'GET') {
         const key = [...services.keys()].find(
           (k) => k === decodeURIComponent(sm[1]!) || services.get(k).ID === sm[1],
         )!;
         const s = services.get(key);
+        const stuck =
+          opts.stuck?.service === s.Spec.Name &&
+          !(opts.stuck?.untilForce && s.Spec.TaskTemplate.ForceUpdate);
         return {
           ...s,
-          UpdateStatus: { State: opts.failOn === s.Spec.Name ? 'rollback_completed' : 'completed' },
+          UpdateStatus: {
+            State:
+              opts.failOn === s.Spec.Name
+                ? 'rollback_completed'
+                : stuck
+                  ? 'updating'
+                  : (opts.state?.[s.Spec.Name] ?? 'completed'),
+          },
         };
       }
       if (sm && method === 'POST') {
@@ -46,6 +73,18 @@ function fakeDocker(opts: { failOn?: string; missingImage?: string; migrateFails
         s.Spec = body;
         s.Version.Index++;
         return {};
+      }
+      if (path.startsWith('/tasks') && !path.includes('migrate')) {
+        const name = JSON.parse(decodeURIComponent(path.split('filters=')[1]!)).service[0];
+        const s = services.get(name);
+        const up = opts.stuck?.service === name ? opts.stuck?.tasksUp : true;
+        return [
+          {
+            DesiredState: 'running',
+            Spec: { ContainerSpec: { Image: s.Spec.TaskTemplate.ContainerSpec.Image } },
+            Status: { State: up ? 'running' : 'preparing' },
+          },
+        ];
       }
       if (path.startsWith('/tasks')) {
         const image = services.get('comandou_comandou-migrate').Spec.TaskTemplate.ContainerSpec
@@ -63,10 +102,12 @@ function fakeDocker(opts: { failOn?: string; missingImage?: string; migrateFails
   };
   return { docker, services, calls };
 }
-const make = (f: ReturnType<typeof fakeDocker>) =>
+const make = (f: ReturnType<typeof fakeDocker>, extra: Record<string, unknown> = {}) =>
   new Updater(f.docker as never, {
     sleep: async () => undefined,
     selfName: async () => 'comandou_comandou-agent',
+    stateFile: null,
+    ...extra,
   });
 const finish = async (u: Updater) => {
   for (let i = 0; i < 50 && u.current()?.status === 'running'; i++)
@@ -169,6 +210,7 @@ describe('Atualização do sistema', () => {
       {
         sleep: async () => undefined,
         selfName: async () => 'comandou_comandou-agent',
+        stateFile: null,
         cleanup: async () => {
           order.push('limpeza');
           return [{ target: 'containers', reclaimed: 1, removed: 2 }];
@@ -194,6 +236,7 @@ describe('Atualização do sistema', () => {
     const u = new Updater(f.docker as never, {
       sleep: async () => undefined,
       selfName: async () => 'comandou_comandou-agent',
+      stateFile: null,
       cleanup: async () => {
         ran = true;
         return [];
@@ -202,6 +245,169 @@ describe('Atualização do sistema', () => {
     await u.start('v0.11.0');
     await finish(u);
     expect(ran).toBe(false);
+  });
+});
+
+describe('Destravar a atualização', () => {
+  // Relógio que anda 1 min a cada espera: o prazo de 5 min estoura em poucas voltas.
+  const clock = () => {
+    let t = 0;
+    const real = Date.now;
+    Date.now = () => real() + t;
+    return {
+      sleep: async () => {
+        t += 60_000;
+      },
+      restore: () => (Date.now = real),
+    };
+  };
+
+  it('troca que não marca "concluído" mas já está de pé na versão nova: segue em frente', async () => {
+    const f = fakeDocker({ stuck: { service: 'comandou_comandou-api', tasksUp: true } });
+    const c = clock();
+    try {
+      const u = make(f, { sleep: c.sleep });
+      await u.start('v0.11.0');
+      const job = await finish(u);
+      expect(job.status).toBe('done');
+      expect(job.steps.map((s) => s.status)).toEqual(['ok', 'ok', 'ok', 'ok']);
+    } finally {
+      c.restore();
+    }
+  });
+
+  it('troca parada no meio: reinicia o serviço sozinho uma vez (como no Portainer) e continua', async () => {
+    const f = fakeDocker({
+      stuck: { service: 'comandou_comandou-api', tasksUp: false, untilForce: true },
+    });
+    const c = clock();
+    try {
+      const u = make(f, { sleep: c.sleep });
+      await u.start('v0.11.0');
+      const job = await finish(u);
+      expect(job.status).toBe('done');
+      expect(f.services.get('comandou_comandou-api').Spec.TaskTemplate.ForceUpdate).toBe(1);
+      const apiPosts = f.calls.filter((x) =>
+        x.startsWith('POST /services/id-comandou_comandou-api'),
+      );
+      expect(apiPosts).toHaveLength(2);
+    } finally {
+      c.restore();
+    }
+  });
+
+  it('nem o reinício resolve: para com a explicação e não mexe nos que faltam', async () => {
+    const f = fakeDocker({ stuck: { service: 'comandou_comandou-api', tasksUp: false } });
+    const c = clock();
+    try {
+      const u = make(f, { sleep: c.sleep });
+      await u.start('v0.11.0');
+      const job = await finish(u);
+      expect(job.status).toBe('failed');
+      expect(job.message).toMatch(/nem depois de reiniciar/);
+      expect(job.steps.map((s) => s.status)).toEqual(['ok', 'failed', 'skipped', 'skipped']);
+    } finally {
+      c.restore();
+    }
+  });
+
+  it('Destravar e continuar: larga a parada e refaz só o que ficou no meio e o que falta', async () => {
+    const f = fakeDocker({ stuck: { service: 'comandou_comandou-api', tasksUp: false } });
+    let resumed = false;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    // A troca da API "trava": a espera só volta quando a gente soltar.
+    const u: Updater = make(f, {
+      sleep: async () => {
+        if (!resumed && u.current()?.steps[1]?.status === 'running') await gate;
+      },
+    });
+    await u.start('v0.11.0');
+    for (let i = 0; i < 50 && u.current()!.steps[1]!.status !== 'running'; i++)
+      await new Promise((r) => setTimeout(r, 1));
+    const first = u.current()!;
+    expect(first.steps[1]).toMatchObject({ status: 'running' });
+    expect(first.steps[1]!.startedAt).toBeTruthy();
+
+    // No Swarm, a API já tem a tag nova escrita, mas a troca ficou "updating".
+    const real = f.docker.call;
+    let stuck = true;
+    f.docker.call = async (m: string, p: string, b?: any) => {
+      if (m === 'GET' && p === '/services')
+        return [...f.services.values()].map((s) => ({
+          ...s,
+          UpdateStatus: {
+            State: stuck && s.Spec.Name === 'comandou_comandou-api' ? 'updating' : 'completed',
+          },
+        }));
+      if (m === 'POST' && p.startsWith('/services/id-comandou_comandou-api')) stuck = false;
+      if (m === 'GET' && p.startsWith('/services/id-comandou_comandou-api') && !stuck)
+        return {
+          ...f.services.get('comandou_comandou-api'),
+          UpdateStatus: { State: 'completed' },
+        };
+      return real(m, p, b);
+    };
+    const before = f.calls.length;
+    resumed = true;
+    const job = await u.resume();
+    expect(job).not.toBe(first);
+    expect(first.status).toBe('failed');
+    expect(first.message).toMatch(/destravar/);
+    expect(job.steps.map((s) => [s.service, s.status])).toEqual([
+      ['comandou_comandou-migrate', 'skipped'],
+      ['comandou_comandou-api', 'pending'],
+      ['comandou_comandou-web', 'pending'],
+      ['comandou_comandou-agent', 'pending'],
+    ]);
+    const done = await finish(u);
+    expect(done.status).toBe('done');
+    // A API foi refeita com reinício forçado (a imagem já era a nova).
+    expect(f.services.get('comandou_comandou-api').Spec.TaskTemplate.ForceUpdate).toBe(1);
+    // O laço antigo, solto agora, para sem mexer em mais nada.
+    release();
+    await new Promise((r) => setTimeout(r, 10));
+    const posts = f.calls.slice(before).filter((x) => x.startsWith('POST'));
+    expect(posts).toHaveLength(3);
+  });
+
+  it('o andamento sobrevive ao reinício do agente e vira "interrompida", pronta para continuar', async () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'upd-')), 'atualizacao.json');
+    const f = fakeDocker({ migrateFails: true });
+    const u = make(f, { stateFile: file });
+    await u.start('v0.11.0');
+    await finish(u);
+    expect(JSON.parse(readFileSync(file, 'utf8')).status).toBe('failed');
+
+    // Agente caiu com a API trocando.
+    const saved = JSON.parse(readFileSync(file, 'utf8'));
+    saved.status = 'running';
+    saved.steps[0].status = 'ok';
+    saved.steps[1].status = 'running';
+    saved.steps[2].status = 'pending';
+    writeFileSync(file, JSON.stringify(saved));
+    const again = make(fakeDocker(), { stateFile: file }).current()!;
+    expect(again.status).toBe('failed');
+    expect(again.message).toMatch(/reiniciou no meio/);
+    expect(again.steps.map((s) => s.status)).toEqual(['ok', 'skipped', 'skipped', 'skipped']);
+  });
+
+  it('o próprio agente é o último: o arquivo já diz "concluída" antes de ele reiniciar', async () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'upd-')), 'atualizacao.json');
+    const u = make(fakeDocker(), { stateFile: file });
+    await u.start('v0.11.0');
+    await finish(u);
+    const next = make(fakeDocker(), { stateFile: file }).current()!;
+    expect(next.status).toBe('done');
+  });
+
+  it('continuar quando tudo já terminou: fecha como concluída', async () => {
+    const f = fakeDocker();
+    const u = make(f);
+    await u.start('v0.11.0');
+    await finish(u);
+    const job = await u.resume();
+    expect(job.status).toBe('done');
   });
 });
 

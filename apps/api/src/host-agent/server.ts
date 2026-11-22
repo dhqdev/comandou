@@ -60,7 +60,8 @@ export function agentServer(agent: HostAgent, token: string): Server {
         return send(res, 200, { results: await agent.cleanup(targets) });
       }
       if (path === '/v1/update') {
-        if (req.method === 'GET') return send(res, 200, { job: agent.updater.current() });
+        if (req.method === 'GET')
+          return send(res, 200, { job: agent.updater.current(), now: new Date().toISOString() });
         if (req.method === 'POST') {
           const body = (await readJson(req)) as { version?: unknown };
           try {
@@ -68,6 +69,16 @@ export function agentServer(agent: HostAgent, token: string): Server {
           } catch (e) {
             return send(res, 400, { message: (e as Error).message });
           }
+        }
+      }
+      // Destravar: larga a atualização parada e continua na mesma versão de onde ficou.
+      if (path === '/v1/update/resume' && req.method === 'POST') {
+        const body = (await readJson(req)) as { version?: unknown };
+        try {
+          const v = body.version === undefined ? undefined : String(body.version);
+          return send(res, 202, { job: await agent.updater.resume(v) });
+        } catch (e) {
+          return send(res, 400, { message: (e as Error).message });
         }
       }
       // Versões antigas lado a lado (versions.ts): listar, garantir no ar e tirar do ar.

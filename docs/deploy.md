@@ -264,6 +264,22 @@ atualização falhar, nada é limpo. Se a stack for reaplicada no Portainer, ela
 na stack para que “Re-pull” e o painel andem juntos). A primeira vez que esta função existe, é
 preciso atualizar a stack à mão, porque o agente em execução ainda é o antigo.
 
+**Atualização parada no meio (0.230).** Cada serviço mostra há quanto tempo está trocando. Se a
+troca passa de 3 minutos (10 na migração), a tela oferece **Destravar e continuar** e
+**Reiniciar <serviço>**, sem ir ao Portainer:
+
+- *Destravar e continuar* (`POST /platform/server/update/resume` → agente `POST /v1/update/resume`)
+  larga a atualização em curso (o laço antigo para no próximo passo, sem mexer em mais nada) e
+  começa de novo na mesma versão. O plano pula o que já está na versão nova e refaz, com
+  `ForceUpdate`, o serviço que tem a tag nova mas ficou `updating`/`paused` no Swarm.
+- *Reiniciar* é o mesmo reinício da lista de serviços (`docker service update --force`).
+- O próprio agente também se destrava: se o prazo (5 min) estoura e as tarefas já estão de pé na
+  imagem nova, segue em frente (o Swarm às vezes não marca "concluído"); senão, reinicia o serviço
+  uma vez e espera mais um prazo antes de desistir.
+- O andamento fica gravado em `/var/lib/comandou/vm/atualizacao.json` (dentro do agente,
+  `/host/comandou-vm`; `AGENT_UPDATE_STATE` muda o caminho). Se o agente reiniciar no meio, a tela
+  mostra a atualização como interrompida, com **Continuar atualização**, em vez de sumir.
+
 ### Consumo e operação de cada restaurante
 
 No painel, a página de cada restaurante tem as abas **Operação** (pedidos, faturamento, horários,

@@ -374,6 +374,8 @@ export interface UpdateStep {
   to: string;
   status: 'pending' | 'running' | 'ok' | 'skipped' | 'failed';
   message?: string;
+  /** Quando este serviço começou a trocar (agente 0.230+). */
+  startedAt?: string;
 }
 export interface UpdateJob {
   id: string;
@@ -384,11 +386,17 @@ export interface UpdateJob {
   message?: string;
   steps: UpdateStep[];
   cleanup?: { target: string; reclaimed: number; removed: number; error?: string }[];
+  /** Última vez que o agente conferiu o andamento. */
+  checkedAt?: string;
 }
 export interface UpdateInfo {
   latest: { version: string; url: string; publishedAt: string | null } | null;
   error?: string;
   job: UpdateJob | null;
+  /** Hora do servidor (mede "parado há X min" sem depender do relógio do aparelho). */
+  now?: string;
+  /** O agente não respondeu a esta consulta. */
+  agentDown?: boolean;
 }
 
 export interface BackupSettings {

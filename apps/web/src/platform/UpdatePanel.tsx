@@ -1,10 +1,10 @@
-import { ArrowUpCircle } from 'lucide-react';
+import { ArrowUpCircle, Play, RotateCcw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Modal, useToast } from '../design-system';
 import { api } from '../lib/api';
 import { freshReload } from '../lib/fresh-reload';
 import { useLoad } from './OverviewPages';
-import type { ServerService, UpdateInfo, UpdateStep } from './types';
+import type { ServerService, UpdateInfo, UpdateJob, UpdateStep } from './types';
 import { Dot, Level, Section, Tag, Tile, useInterval } from './ui';
 
 const TAG_OF = (image: string) => image.slice(image.lastIndexOf(':') + 1);
@@ -33,22 +33,151 @@ const STEP_LABEL: Record<UpdateStep['status'], string> = {
   failed: 'falhou',
 };
 
-function Steps({ steps }: { steps: UpdateStep[] }) {
+/**
+ * Quanto tempo um serviço pode ficar trocando antes de a tela oferecer o destravar. Uma troca
+ * normal leva 1 a 2 minutos (a migração pode passar dos 5, com muitos restaurantes).
+ */
+const STALL_MS = 3 * 60_000;
+const STALL_MIGRATE_MS = 10 * 60_000;
+
+/** Passo em andamento e há quanto tempo (pelo relógio do servidor). */
+export function runningStep(job: UpdateJob | null | undefined, now: string | undefined) {
+  if (!job || job.status !== 'running') return null;
+  const step = job.steps.find((s) => s.status === 'running');
+  if (!step) return null;
+  const since = Date.parse(step.startedAt ?? job.startedAt);
+  const ms = Math.max(0, (now ? Date.parse(now) : Date.now()) - since);
+  const limit = /migrate/i.test(step.service) ? STALL_MIGRATE_MS : STALL_MS;
+  return { step, ms, stalled: ms >= limit };
+}
+
+const minutes = (ms: number) => {
+  const m = Math.floor(ms / 60_000);
+  return m < 1 ? 'menos de 1 min' : `${m} min`;
+};
+/** "comandou_comandou-api" → "comandou-api" (nome curto para botão). */
+const shortName = (service: string) => service.slice(service.indexOf('_') + 1);
+
+function Steps({
+  steps,
+  current,
+}: {
+  steps: UpdateStep[];
+  current: ReturnType<typeof runningStep>;
+}) {
   return (
     <div className="adm-rows">
-      {steps.map((s) => (
-        <div key={s.service} className="adm-row">
-          <Dot level={STEP_LEVEL[s.status]} />
-          <span className="adm-row__main">
-            <span className="adm-row__title">{s.service}</span>
-            <span className="adm-row__meta">
-              {s.from} → {s.to}
-              {s.message ? ` · ${s.message}` : ''}
+      {steps.map((s) => {
+        const here = current?.step.service === s.service ? current : null;
+        return (
+          <div key={s.service} className="adm-row">
+            <Dot level={here?.stalled ? 'warn' : STEP_LEVEL[s.status]} />
+            <span className="adm-row__main">
+              <span className="adm-row__title">{s.service}</span>
+              <span className="adm-row__meta">
+                {s.from} → {s.to}
+                {s.message ? ` · ${s.message}` : ''}
+              </span>
             </span>
-          </span>
-          <span className="adm-row__side">{STEP_LABEL[s.status]}</span>
-        </div>
-      ))}
+            <span className="adm-row__side">
+              {here
+                ? here.stalled
+                  ? `parado há ${minutes(here.ms)}`
+                  : `atualizando… ${minutes(here.ms)}`
+                : STEP_LABEL[s.status]}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Destravar sem ir ao Portainer: "Destravar e continuar" larga a troca parada e segue de onde
+ * ficou; "Reiniciar" sobe tarefas novas só daquele serviço (o mesmo que reiniciar no Portainer).
+ */
+function Unstick({
+  job,
+  service,
+  stalledFor,
+  onDone,
+}: {
+  job: UpdateJob;
+  service: string | null;
+  stalledFor: number | null;
+  onDone: () => void;
+}) {
+  const toast = useToast();
+  const [busy, setBusy] = useState<'resume' | 'restart' | null>(null);
+
+  async function resume() {
+    setBusy('resume');
+    try {
+      await api('/platform/server/update/resume', { method: 'POST', json: {} });
+      toast('Continuando a atualização de onde parou', 'success');
+      onDone();
+    } catch (e) {
+      const msg = (e as Error).message;
+      // Agente de antes da 0.230 não tem essa ação: reiniciar o serviço resolve.
+      toast(
+        /rota não encontrada/.test(msg)
+          ? 'O agente ainda é da versão antiga. Use Reiniciar o serviço; depois desta atualização, o Destravar passa a funcionar.'
+          : msg,
+        'danger',
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function restart() {
+    if (!service) return;
+    setBusy('restart');
+    try {
+      await api(`/platform/server/services/${encodeURIComponent(service)}/restart`, {
+        method: 'POST',
+      });
+      toast(`${shortName(service)} reiniciando`, 'success');
+      onDone();
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="adm-panel__body adm-unstick">
+      {stalledFor !== null && service ? (
+        <p style={{ margin: 0 }}>
+          {shortName(service)} está trocando de versão há {minutes(stalledFor)}, mais do que o
+          normal. <strong>Destravar e continuar</strong> refaz a troca que ficou no meio e segue com
+          os serviços que faltam. Se não andar, <strong>Reiniciar</strong> sobe o serviço de novo,
+          como no Portainer.
+        </p>
+      ) : (
+        <p style={{ margin: 0 }}>
+          <strong>Continuar atualização</strong> segue de onde parou. Se não andar,{' '}
+          <strong>Reiniciar</strong> sobe o serviço de novo, como no Portainer.
+        </p>
+      )}
+      <div className="adm-actions">
+        <button className="adm-action adm-action--primary" disabled={!!busy} onClick={resume}>
+          <Play size={14} />{' '}
+          {busy === 'resume'
+            ? 'Destravando…'
+            : job.status === 'running'
+              ? 'Destravar e continuar'
+              : 'Continuar atualização'}
+        </button>
+        {service && (
+          <button className="adm-action" disabled={!!busy} onClick={restart}>
+            <RotateCcw size={14} />{' '}
+            {busy === 'restart' ? 'Reiniciando…' : `Reiniciar ${shortName(service)}`}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -157,6 +286,10 @@ export function UpdatePanel({
 
   if (ours.length === 0 && !data?.job) return null;
   const job = data?.job;
+  const current = runningStep(job, data?.now);
+  const failedStep = job?.status === 'failed' ? job.steps.find((s) => s.status === 'failed') : null;
+  // Parou antes do fim e ainda falta serviço na versão dela: oferece continuar.
+  const canContinue = job?.status === 'failed' && ours.some((s) => TAG_OF(s.image) !== job.version);
   return (
     <Section
       title="Versão"
@@ -203,7 +336,26 @@ export function UpdatePanel({
               <Alert tone="danger">{job.message}</Alert>
             </div>
           )}
-          <Steps steps={job.steps} />
+          {data?.agentDown && running && (
+            <div className="adm-panel__body">
+              <Alert tone="warning">
+                O agente do servidor não respondeu agora. Se não voltar em 1 minuto, reinicie o
+                serviço do agente em Serviços, logo abaixo.
+              </Alert>
+            </div>
+          )}
+          {(current?.stalled || canContinue) && (
+            <Unstick
+              job={job}
+              service={current?.step.service ?? failedStep?.service ?? null}
+              stalledFor={current?.stalled ? current.ms : null}
+              onDone={() => {
+                reload();
+                onChanged();
+              }}
+            />
+          )}
+          <Steps steps={job.steps} current={current} />
           {job.cleanup && (
             <div className="adm-panel__body">
               Limpeza ao fim:{' '}
