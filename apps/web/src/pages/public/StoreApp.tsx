@@ -258,16 +258,6 @@ function CartPill() {
   );
 }
 
-/** Ordem das abas de baixo: trocar de aba desliza para o lado da aba escolhida. */
-const TAB_ORDER = [
-  '/pedir',
-  '/pedir/favoritos',
-  '/pedir/pedidos',
-  '/pedir/conversa',
-  '/pedir/conta',
-];
-const tabIndex = (path: string) => TAB_ORDER.indexOf(path.replace(/\/+$/, '') || '/pedir');
-
 /** Tela que o cardápio aberto não tem (ex.: conversa na mesa): volta para o início. */
 function Allowed({ screen, el }: { screen: string; el: ReactElement }) {
   const { rules } = useStore();
@@ -284,40 +274,18 @@ function ScreenLoading() {
 }
 
 /**
- * Pedidos e acompanhamento entram parados, sem esmaecer: o cliente acabou de pedir e quer ver o
- * status com a cor certa na hora (pedido do David).
- */
-const STILL = /^\/pedir\/pedidos(\/|$)/;
-
-/**
- * Cada tela entra deslizando: para a frente ao abrir, para trás ao voltar. Entre abas, o lado
- * segue a ordem da barra (aba à direita entra pela direita).
+ * Telas do cardápio entram paradas, sem esmaecer nem deslizar: no iPhone a animação de entrada
+ * voltava a rodar sozinha e a tela (o pedido, principalmente) ficava piscando mais clara e mais
+ * escura (pedido do David). Abrir é trocar na hora.
  */
 function Screens() {
   const location = useLocation();
   const nav = useNavigationType();
-  const [last, setLast] = useState({ path: location.pathname, dir: 'fwd', tab: false });
-  if (last.path !== location.pathname) {
-    const from = tabIndex(last.path);
-    const to = tabIndex(location.pathname);
-    const tab = from >= 0 && to >= 0;
-    setLast({
-      path: location.pathname,
-      tab,
-      dir: tab ? (to < from ? 'back' : 'fwd') : nav === 'POP' ? 'back' : 'fwd',
-    });
-  }
   useEffect(() => {
     if (nav !== 'POP') window.scrollTo({ top: 0 });
   }, [location.pathname, nav]);
   return (
-    <div
-      className="screen"
-      key={location.pathname}
-      data-dir={last.dir}
-      data-tab={last.tab || undefined}
-      data-still={STILL.test(location.pathname) || undefined}
-    >
+    <div className="screen" key={location.pathname}>
       <Suspense fallback={<ScreenLoading />}>
         <Routes location={location}>
           <Route index element={<HomeScreen />} />

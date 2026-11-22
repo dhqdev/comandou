@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.230.1',
+    date: '2026-11-22',
+    title: 'Cardápio do cliente sem piscar',
+    summary:
+      'As telas do cardápio do cliente abrem paradas, sem esmaecer nem deslizar. No iPhone a entrada suave voltava a rodar sozinha e a tela do pedido ficava piscando entre um tom mais claro e um mais escuro.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Acompanhamento do pedido no cardápio do cliente: a tela fica parada, sem piscar mais clara e mais escura no iPhone.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Trocar de tela ou de aba no cardápio do cliente agora é na hora, sem a animação de entrada.',
+      },
+    ],
+  },
+  {
     version: '0.230.0',
     date: '2026-11-22',
     title: 'Destravar a atualização pelo painel',

@@ -84,42 +84,10 @@ html.sf-root {
   letter-spacing: var(--cm-tracking-tight);
 }
 
-/* ---------------------------------------------------------------- transição entre telas */
-/* Sem transform: elementos fixos (barras) continuam presos à tela durante a animação. */
+/* ---------------------------------------------------------------- telas */
+/* Sem animação de entrada: no iPhone ela voltava a rodar sozinha e a tela piscava. */
 .screen {
   position: relative;
-  animation: sf-in 0.22s var(--sf-ease) backwards;
-}
-.screen[data-dir='back'] {
-  animation-name: sf-in-back;
-}
-/* Troca de aba: desliza um pouco mais, para o lado da aba escolhida. */
-.screen[data-tab] {
-  animation-duration: 0.24s;
-  --sf-shift: 24px;
-}
-.screen[data-still] {
-  animation: none;
-}
-@keyframes sf-in {
-  from {
-    opacity: 0;
-    left: var(--sf-shift, 16px);
-  }
-  to {
-    opacity: 1;
-    left: 0;
-  }
-}
-@keyframes sf-in-back {
-  from {
-    opacity: 0;
-    left: calc(var(--sf-shift, 16px) * -1);
-  }
-  to {
-    opacity: 1;
-    left: 0;
-  }
 }
 /* Entradas só com opacidade (nada sobe nem desliza ao abrir: rápido e sem pular). */
 @keyframes sf-rise {
