@@ -162,6 +162,67 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--cm-space-3);
 }
+/* Coluna Estoque da lista de itens: quanto ainda tem (tocar muda, quando dá para digitar). */
+.mn-stock {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0 4px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mn-stock__n {
+  font-weight: 600;
+}
+.mn-stock__u,
+.mn-stock__hint {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.mn-stock__hint {
+  flex-basis: 100%;
+  text-align: right;
+}
+.mn-stock--none {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+button.mn-stock {
+  min-height: 32px;
+  padding: 2px 8px;
+  margin-right: -8px;
+  border: 1px solid transparent;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+button.mn-stock:hover {
+  border-color: var(--cm-border);
+}
+button.mn-stock:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.mn-stock--set {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.mn-stock--low .mn-stock__n {
+  color: var(--cm-warning);
+}
+.mn-stock--out .mn-stock__n {
+  color: var(--cm-danger);
+}
+.mn-stock-form {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+
 @media (max-width: 640px) {
   /* Cadastro do item/cardápio: a trilha com "Salvar" gruda no topo ao rolar o formulário. */
   .mn-crumbs {
@@ -193,7 +254,8 @@
     grid-template-columns: 56px minmax(0, 1fr) auto;
     grid-template-areas:
       'photo name price'
-      'photo state acts';
+      'photo state acts'
+      'photo stock acts';
     align-items: center;
     gap: 6px 12px;
     padding: 12px var(--cm-space-4);
@@ -239,6 +301,26 @@
   /* "Disponível" é o normal: no celular só aparece o selo de esgotado. */
   .mn-items td.mn-items__state .cm-badge--success {
     display: none;
+  }
+  .mn-items td.mn-items__stock {
+    grid-area: stock;
+    text-align: left;
+  }
+  .mn-items td.mn-items__stock .mn-stock {
+    justify-content: flex-start;
+    margin: 0;
+  }
+  .mn-items td.mn-items__stock .mn-stock::before {
+    content: 'Estoque:';
+    color: var(--cm-text-muted);
+    font-size: var(--cm-text-xs);
+    font-weight: 400;
+  }
+  .mn-items td.mn-items__stock button.mn-stock {
+    padding-left: 0;
+  }
+  .mn-items td.mn-items__stock .mn-stock__hint {
+    flex-basis: auto;
   }
   .mn-items td.mn-items__price {
     grid-area: price;
@@ -872,4 +954,13 @@
     background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
     color: var(--cm-brand-700);
   }
+}
+
+/* Cadastro do item: quantidade que sai da ficha técnica (não se digita). */
+.mn-stock-ficha {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
