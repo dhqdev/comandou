@@ -45,6 +45,10 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'correção',
         text: 'O andamento da atualização fica guardado no servidor: se o agente reiniciar no meio, a tela mostra onde parou e oferece Continuar, em vez de perder a atualização.',
+      },
+    ],
+  },
+  {
     version: '0.229.1',
     date: '2026-11-22',
     title: 'Foto do item parada ao rolar',
