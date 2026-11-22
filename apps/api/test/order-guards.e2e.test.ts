@@ -306,7 +306,7 @@ describe('Conferência depois de estorno', () => {
       key(),
     ).expect(201);
     const text = (await get('adminA', `/orders/${o.id}/receipt`).expect(200)).body.text as string;
-    const troco = text.split('\n').find((l) => l.includes('Troco'));
+    const troco = text.split('\n').find((l) => /troco:/i.test(l));
     expect(troco).toContain('24,10');
   });
 });
