@@ -445,6 +445,7 @@ As telas do app do restaurante não mostram o nome da tela nem frase de explica�
 nome já está no menu): o conteúdo começa logo abaixo da barra. Toda tela mantém um
 `<h1 className="page-title cm-sr-only">Nome</h1>` (leitor de tela e testes e2e usam), o botão
 Tutorial vai à direita, junto das ações (`.page-head > .tour-btn` ganha `margin-left: auto`; sem
-ações, `.page-tools`). Explicação curta de aba vira `title` da aba. Exceções que mantêm título:
+linha de ações, entra nas ações do primeiro cartão, como na Impressão). Abas da tela sobem para a
+mesma linha das ações (Salão, Loja online, Cardápio); no celular descem para baixo delas. Explicação curta de aba vira `title` da aba. Exceções que mantêm título:
 Estoque e Fiscal (subtelas com trilha e voltar), Ajustes, Assinatura e Novidades. A lista de
 Pedidos estica o cartão até o pé da janela (`.cm-frame__content:has(> .ord-board)`).

@@ -29,6 +29,10 @@
 .salon__tabs {
   justify-self: start;
 }
+/* Abas, Tutorial e ações numa linha só (a tela não tem título visível). */
+.salon .page-head {
+  align-items: center;
+}
 .salon-tab {
   display: inline-flex;
   align-items: center;
@@ -642,8 +646,13 @@
 }
 
 @media (max-width: 860px) {
-  .salon .page-head > div:first-child {
+  .salon .page-head > .tour-btn {
     display: none;
+  }
+  /* No celular as abas descem para baixo das ações, ocupando a linha. */
+  .salon .page-head > .salon__tabs {
+    order: 1;
+    width: 100%;
   }
   /* Ações: a principal da aba em cima, ocupando a linha; as de ajuste em fileira abaixo. */
   .salon .page-head .actions-row {

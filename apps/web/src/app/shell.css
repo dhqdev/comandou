@@ -39,12 +39,6 @@
   margin-left: auto;
   align-self: center;
 }
-/* Linha só com ferramentas da tela (ex.: Tutorial), à direita, quando a tela não tem título. */
-.page-tools {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--cm-space-2);
-}
 .page-sub {
   margin: 4px 0 0;
   color: var(--cm-text-muted);

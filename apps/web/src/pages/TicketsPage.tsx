@@ -93,27 +93,31 @@ function TicketList() {
     <div className="tk-page tk-page--wide">
       <div className="tk-page__head">
         <h1 className="page-title cm-sr-only">Chamados</h1>
-        <Button icon={<Plus size={16} />} onClick={() => setCreating(true)}>
+        {list && list.length > 0 && (
+          <div className="tk-summary" aria-label="Resumo">
+            <span className="tk-summary__item">
+              <b>{board.filter((t) => !t.done).length}</b> em andamento
+            </span>
+            <span className="tk-summary__item" data-hot={unread > 0}>
+              <b>{unread}</b> {unread === 1 ? 'resposta nova' : 'respostas novas'}
+            </span>
+            <span className="tk-summary__item">
+              <b>{list.filter((t) => t.statusLabel === 'Resolvido').length}</b>{' '}
+              {list.filter((t) => t.statusLabel === 'Resolvido').length === 1
+                ? 'resolvido'
+                : 'resolvidos'}
+            </span>
+          </div>
+        )}
+        <Button
+          className="tk-page__new"
+          icon={<Plus size={16} />}
+          onClick={() => setCreating(true)}
+        >
           Abrir chamado
         </Button>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
-      {list && list.length > 0 && (
-        <div className="tk-summary" aria-label="Resumo">
-          <span className="tk-summary__item">
-            <b>{board.filter((t) => !t.done).length}</b> em andamento
-          </span>
-          <span className="tk-summary__item" data-hot={unread > 0}>
-            <b>{unread}</b> {unread === 1 ? 'resposta nova' : 'respostas novas'}
-          </span>
-          <span className="tk-summary__item">
-            <b>{list.filter((t) => t.statusLabel === 'Resolvido').length}</b>{' '}
-            {list.filter((t) => t.statusLabel === 'Resolvido').length === 1
-              ? 'resolvido'
-              : 'resolvidos'}
-          </span>
-        </div>
-      )}
       {!list && !error && <Skeleton />}
       {list && list.length === 0 && (
         <EmptyState

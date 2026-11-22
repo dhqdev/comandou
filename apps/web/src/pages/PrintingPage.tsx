@@ -162,10 +162,7 @@ export function PrintingPage() {
 
   return (
     <>
-      <div className="page-tools">
-        <h1 className="page-title cm-sr-only">Impressão</h1>
-        <TourButton tour="impressao" />
-      </div>
+      <h1 className="page-title cm-sr-only">Impressão</h1>
       {error && <Alert tone="danger">{error}</Alert>}
 
       {agents !== null && health.state !== 'none' && (
@@ -184,14 +181,17 @@ export function PrintingPage() {
         searchId="secao-agentes"
         title="Computadores conectados"
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Plus size={16} />}
-            onClick={() => setConnectOpen(true)}
-          >
-            Conectar computador
-          </Button>
+          <div className="actions-row">
+            <TourButton tour="impressao" />
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Plus size={16} />}
+              onClick={() => setConnectOpen(true)}
+            >
+              Conectar computador
+            </Button>
+          </div>
         }
         bodyless
       >

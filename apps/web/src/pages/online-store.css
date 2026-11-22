@@ -5,6 +5,11 @@
   gap: var(--cm-space-6);
   align-items: start;
 }
+/* Abas à esquerda; Tutorial e atalhos à direita, na mesma linha quando cabem. */
+.os-head__tools {
+  margin-left: auto;
+  align-items: center;
+}
 .os-main {
   display: grid;
   gap: var(--cm-space-4);

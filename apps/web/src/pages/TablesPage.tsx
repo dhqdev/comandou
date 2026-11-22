@@ -331,6 +331,35 @@ export function TablesPage() {
     <div className="salon" data-view={view}>
       <div className="page-head">
         <h1 className="page-title cm-sr-only">Salão</h1>
+        <SlideTabs<View>
+          label="Salão"
+          className="salon__tabs"
+          value={view}
+          onChange={setView}
+          tabs={[
+            {
+              value: 'tables',
+              label: tabIcon(<LayoutGrid size={16} aria-hidden />, 'Mesas'),
+              count: counts.busy + counts.paying,
+              title: 'Mesas ocupadas',
+            },
+            {
+              value: 'tabs',
+              label: tabIcon(<Receipt size={16} aria-hidden />, 'Comandas'),
+              count: tabs.length,
+            },
+            {
+              value: 'delivery',
+              label: tabIcon(<Bike size={16} aria-hidden />, 'Delivery'),
+              count: byChannel('delivery').length,
+            },
+            {
+              value: 'pickup',
+              label: tabIcon(<ShoppingBag size={16} aria-hidden />, 'Para levar'),
+              count: byChannel('pickup').length,
+            },
+          ]}
+        />
         <TourButton tour="salao" />
         <div className="actions-row" data-count={view === 'tables' && canSetup ? 4 : 1}>
           {view === 'tables' && canSetup && (
@@ -358,36 +387,6 @@ export function TablesPage() {
         </div>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
-
-      <SlideTabs<View>
-        label="Salão"
-        className="salon__tabs"
-        value={view}
-        onChange={setView}
-        tabs={[
-          {
-            value: 'tables',
-            label: tabIcon(<LayoutGrid size={16} aria-hidden />, 'Mesas'),
-            count: counts.busy + counts.paying,
-            title: 'Mesas ocupadas',
-          },
-          {
-            value: 'tabs',
-            label: tabIcon(<Receipt size={16} aria-hidden />, 'Comandas'),
-            count: tabs.length,
-          },
-          {
-            value: 'delivery',
-            label: tabIcon(<Bike size={16} aria-hidden />, 'Delivery'),
-            count: byChannel('delivery').length,
-          },
-          {
-            value: 'pickup',
-            label: tabIcon(<ShoppingBag size={16} aria-hidden />, 'Para levar'),
-            count: byChannel('pickup').length,
-          },
-        ]}
-      />
 
       <div className="salon__bar">
         {view === 'tables' && (

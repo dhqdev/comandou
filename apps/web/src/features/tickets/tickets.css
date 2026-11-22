@@ -247,9 +247,13 @@
 .tk-page__head {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+/* Resumo à esquerda e "Abrir chamado" à direita, na mesma linha. */
+.tk-page__new {
+  margin-left: auto;
 }
 .tk-list {
   display: grid;

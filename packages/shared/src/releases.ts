@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.227.1',
+    date: '2026-11-22',
+    title: 'Abas e botões na mesma linha',
+    summary:
+      'Sem o título no topo, Salão, Loja online e Chamados juntam abas, Tutorial e botões numa linha só, e o Tutorial da Impressão foi para o quadro Computadores conectados.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Salão: Mesas, Comandas, Delivery e Para levar ficam na mesma linha de Tutorial, Personalizar mesas, QR das mesas, Garçons e a ação principal. No celular, as abas continuam embaixo das ações.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Loja online: as abas (Aparência, Página, Banners…) sobem para a linha de Tutorial, Copiar link, Página do restaurante e Abrir cardápio.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Chamados: o resumo (em andamento, respostas novas, resolvidos) fica na mesma linha de Abrir chamado. Impressão: o Tutorial fica ao lado de Conectar computador, sem uma linha só para ele.',
+      },
+    ],
+  },
+  {
     version: '0.227.0',
     date: '2026-11-22',
     title: 'Cartões dos entregadores mais limpos, com Copiar link e cor',

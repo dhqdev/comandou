@@ -731,11 +731,27 @@ export function OnlineStorePage() {
     <>
       <div className="page-head">
         <h1 className="page-title cm-sr-only">Loja online</h1>
-        <TourButton tour="loja" />
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <SlideTabs
+          label="Seções da loja online"
+          value={tab}
+          onChange={(v) => setTab(v as Tab)}
+          tabs={[
+            { value: 'aparencia', label: 'Aparência' },
+            { value: 'pagina', label: 'Página' },
+            { value: 'banners', label: 'Banners' },
+            { value: 'destaques', label: 'Destaques' },
+            { value: 'fidelidade', label: 'Fidelidade' },
+            { value: 'funcionamento', label: 'Funcionamento' },
+            { value: 'pix', label: 'Pix' },
+            { value: 'pagamentos', label: 'Pagamentos' },
+          ]}
+        />
+        <div className="actions-row os-head__tools">
+          <TourButton tour="loja" />
           <Button
             variant="secondary"
-            icon={<Link2 size={16} />}
+            size="sm"
+            icon={<Link2 size={15} />}
             onClick={() =>
               navigator.clipboard
                 ?.writeText(link)
@@ -745,32 +761,22 @@ export function OnlineStorePage() {
           >
             Copiar link
           </Button>
-          <Button variant="secondary" icon={<Globe size={16} />} onClick={openSitePage}>
+          <Button variant="secondary" size="sm" icon={<Globe size={15} />} onClick={openSitePage}>
             Página do restaurante
           </Button>
-          <a className="cm-btn cm-btn--primary" href="/pedir" target="_blank" rel="noreferrer">
-            <ExternalLink size={16} /> Abrir cardápio
+          <a
+            className="cm-btn cm-btn--primary cm-btn--sm"
+            href="/pedir"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <ExternalLink size={15} /> Abrir cardápio
           </a>
         </div>
       </div>
       {!canManage && <Alert tone="info">Somente gerentes alteram a loja online.</Alert>}
       <div className="os-layout">
         <div className="os-main">
-          <SlideTabs
-            label="Seções da loja online"
-            value={tab}
-            onChange={(v) => setTab(v as Tab)}
-            tabs={[
-              { value: 'aparencia', label: 'Aparência' },
-              { value: 'pagina', label: 'Página' },
-              { value: 'banners', label: 'Banners' },
-              { value: 'destaques', label: 'Destaques' },
-              { value: 'fidelidade', label: 'Fidelidade' },
-              { value: 'funcionamento', label: 'Funcionamento' },
-              { value: 'pix', label: 'Pix' },
-              { value: 'pagamentos', label: 'Pagamentos' },
-            ]}
-          />
           <div className="os-panel" key={tab}>
             {tab === 'aparencia' && (
               <AppearanceTab onSaved={refresh} onDraft={onDraft} canManage={canManage} />
