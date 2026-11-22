@@ -56,6 +56,23 @@ body {
   overflow-x: clip;
   overscroll-behavior: none;
 }
+/* Celular no navegador: a página passa um pouco das pontas e volta (o elástico do próprio
+   navegador, sem script). `contain` mantém o elástico e tira o "puxar para atualizar" do
+   navegador, para o garçom ou o caixa não recarregarem a tela sem querer. Fica de fora:
+   - o app instalado e a tela cheia, onde quem faz o elástico e o recarregar é o pull-refresh.ts;
+   - as telas com a moldura (`cm-framed`, posto pelo AppFrame): ela é fixa e quem rola é o
+     painel (app-frame.css), então a página parada não arrasta a moldura junto;
+   - janela aberta: a página de trás fica parada.
+   O :where() deixa a regra fraca, para as telas que travam a página (conversa aberta no
+   cardápio, por exemplo) continuarem valendo. */
+@media (hover: none) and (pointer: coarse) {
+  @media not all and (display-mode: standalone) {
+    html:where(:not(.cm-framed, :fullscreen, :has(dialog[open]:modal))),
+    html:where(:not(.cm-framed, :fullscreen, :has(dialog[open]:modal))) body {
+      overscroll-behavior-y: contain;
+    }
+  }
+}
 body {
   touch-action: manipulation;
 }

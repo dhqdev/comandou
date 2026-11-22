@@ -203,6 +203,13 @@ export function AppFrame({
     peekTimer.current = window.setTimeout(() => setPeek(v), ms);
   };
   useEffect(() => () => window.clearTimeout(peekTimer.current), []);
+  // Com a moldura na tela, quem rola é o painel dela (não a página): base.css deixa a página
+  // sem elástico e o painel estica sozinho nas pontas.
+  useEffect(() => {
+    const html = document.documentElement;
+    html.classList.add('cm-framed');
+    return () => html.classList.remove('cm-framed');
+  }, []);
   /** Barra aberta na tela: fixa (`wide`) ou espiando (`peek`). */
   const expanded = wide || peek;
   // Menu largo: o grupo aberto (um por vez). Começa no grupo da tela atual.

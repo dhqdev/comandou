@@ -466,3 +466,15 @@ aparece: abas do chat (`.tc-tabs`, em `chat.css`), `.cm-tabbar`, `.wt-tabs`, `.d
 (`base.css`). Menu de baixo novo entra nessa lista. Conversa nova presa à tela no celular entra em
 `CHAT` de `viewport.ts`: ao tocar no campo, ela já encolhe para o tamanho previsto do teclado (o
 último medido no aparelho, guardado em `cm-kb-h`), e o iPhone não empurra a tela para cima.
+
+## Rolagem elástica no celular (0.228.5)
+
+No navegador do celular, toda tela passa um pouco das pontas e volta, com o elástico do próprio
+navegador (sem script, pedido do dono: "deixe o site leve"). Regras em `design-system/base.css`
+(página, `overscroll-behavior-y: contain`, só toque e fora do app instalado) e no fim de
+`app-frame.css` (o painel da moldura estica; a página fica parada pela classe `cm-framed` que o
+`AppFrame` põe no `<html>`, senão o topo e as abas iriam junto). No app instalado e em tela cheia
+quem faz o elástico e o puxar para atualizar é o `pull-refresh.ts` (o nativo brigaria com a
+bolinha do topo). Caixa nova que rola por dentro: `overscroll-behavior: contain` (estica e não
+leva a página), nunca `none`, a não ser que a tela precise ficar parada (conversa aberta).
+Tela que trava a página: regra com `html.<classe>` já ganha da de base.css (ela vai em `:where`).

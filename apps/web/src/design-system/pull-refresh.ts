@@ -2,7 +2,8 @@
  * Puxar para recarregar (app instalado na tela inicial).
  *
  * O app instalado (e o navegador em tela cheia) não tem a barra nem o "puxar para atualizar" do
- * navegador, e base.css desliga o elástico da página para a moldura não sair do lugar. Aqui:
+ * navegador, e base.css desliga o elástico da página para a moldura não sair do lugar (no
+ * navegador comum do celular o elástico é o nativo, ligado por base.css e app-frame.css). Aqui:
  * - no topo da tela, puxar para baixo e segurar mostra uma bolinha que vai enchendo; passou do
  *   ponto, ela fica cheia e, ao soltar, a página recarrega. Soltar antes desiste;
  * - no fim da tela, puxar para cima estica o conteúdo um pouco (com resistência) e ele volta
