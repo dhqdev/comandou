@@ -716,3 +716,332 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Janela da mesa (TabModal, 0.231 a pedido do David: "mais entendível e minimalista").
+   Duas partes: Pedidos à esquerda e a Conta à direita (Falta receber em destaque, de onde vem o
+   valor e as outras opções com uma frase do que fazem). Embaixo da Conta, numa coluna só. */
+.tabm-modal.cm-modal--lg {
+  width: min(960px, calc(100vw - 32px));
+}
+@media (max-width: 640px) {
+  .tabm-modal.cm-modal--lg {
+    width: 100vw;
+  }
+}
+.tabm-title {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--cm-space-2);
+}
+.tabm-title__sub {
+  font-size: var(--cm-text-sm);
+  font-weight: 500;
+  color: var(--cm-text-muted);
+}
+.tabm-title__sub::before {
+  content: '·';
+  margin-right: var(--cm-space-2);
+}
+/* No celular o título fica só com a mesa e a comanda (a hora quebrava a linha). */
+@media (max-width: 640px) {
+  .tabm-title__sub + .tabm-title__sub {
+    display: none;
+  }
+}
+.tabm-wrap {
+  container: tabm / inline-size;
+}
+/* Uma coluna (celular e janela estreita): quanto falta e de onde vem, os pedidos e, por
+   último, as outras opções. A coluna da conta se desfaz para os blocos entrarem nessa ordem. */
+.tabm {
+  display: grid;
+  gap: var(--cm-space-5);
+}
+.tabm__bill {
+  display: contents;
+}
+.tabm-due {
+  order: 1;
+}
+.tabm-lines {
+  order: 2;
+}
+.tabm__orders {
+  order: 3;
+}
+.tabm-tools,
+.tabm-move {
+  order: 4;
+}
+@container tabm (min-width: 720px) {
+  .tabm {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+  }
+  .tabm__orders {
+    order: 0;
+  }
+  .tabm__bill {
+    display: grid;
+    gap: var(--cm-space-4);
+    align-content: start;
+    padding-left: var(--cm-space-5);
+    border-left: 1px solid var(--cm-border);
+  }
+}
+.tabm__orders {
+  display: grid;
+  gap: var(--cm-space-2);
+  align-content: start;
+  min-width: 0;
+}
+.tabm__heading {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.tabm__count {
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-text-subtle);
+}
+
+/* Pedido: número, hora, situação e total numa linha; os itens por extenso embaixo. */
+.tabm-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  overflow: hidden;
+}
+.tabm-list > li + li {
+  border-top: 1px solid var(--cm-border);
+}
+.tabm-order {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: var(--cm-space-3) var(--cm-space-4);
+  border: 0;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--cm-dur) var(--cm-ease);
+}
+.tabm-order:hover {
+  background: var(--cm-surface-muted);
+}
+.tabm-order:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: -2px;
+}
+.tabm-order__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--cm-space-3);
+  font-variant-numeric: tabular-nums;
+}
+.tabm-order__num {
+  font-size: var(--cm-text-md);
+}
+.tabm-order__time {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-subtle);
+}
+.tabm-order__total {
+  margin-left: auto;
+  font-size: var(--cm-text-md);
+}
+.tabm-order__states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--cm-space-3);
+}
+.tabm-order__items {
+  display: grid;
+  gap: 2px;
+  margin-top: 2px;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text);
+  line-height: 1.4;
+}
+.tabm-item {
+  display: grid;
+  grid-template-columns: 2.5em minmax(0, 1fr);
+}
+.tabm-item__qty {
+  color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* Situação: bolinha na cor + texto (nada de selo cheio). */
+.tabm-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--cm-text-sm);
+  font-weight: 500;
+  color: var(--cm-text-muted);
+}
+.tabm-state > .cm-dot {
+  color: var(--cm-text-subtle);
+}
+.tabm-state[data-tone='success'] > .cm-dot {
+  color: var(--cm-success);
+}
+.tabm-state[data-tone='warning'] > .cm-dot {
+  color: var(--cm-warning);
+}
+.tabm-state[data-tone='danger'] > .cm-dot {
+  color: var(--cm-danger);
+}
+.tabm-state[data-tone='info'] > .cm-dot {
+  color: var(--cm-info);
+}
+.tabm-state[data-tone='brand'] > .cm-dot {
+  color: var(--cm-brand-500);
+}
+
+/* Falta receber: o número grande da janela. */
+.tabm-due {
+  display: grid;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.tabm-due__label {
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.tabm-due__value {
+  font-size: 2rem;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--cm-text);
+}
+.tabm-due[data-paid] .tabm-due__value {
+  color: var(--cm-success);
+}
+.tabm-due__hint {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+
+/* De onde vem o valor: linhas rótulo/valor, o total com linha em cima. */
+.tabm-lines {
+  display: grid;
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.tabm-lines > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  padding: 6px 0;
+}
+.tabm-lines dt {
+  display: grid;
+  gap: 2px;
+  color: var(--cm-text-muted);
+}
+.tabm-lines dd {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  margin: 0;
+  color: var(--cm-text);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.tabm-lines .link-btn {
+  padding: 0;
+  font-size: var(--cm-text-xs);
+}
+.tabm-fee__hint {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+}
+.tabm-lines > .tabm-lines__total {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cm-border);
+}
+.tabm-lines__total dt,
+.tabm-lines__total dd {
+  color: var(--cm-text);
+  font-weight: 600;
+}
+.tabm-lines > div[data-paid] dd {
+  color: var(--cm-success);
+}
+
+/* Mais opções: cada uma com ícone solto, nome e o que faz. */
+.tabm-tools,
+.tabm-move {
+  display: grid;
+  gap: var(--cm-space-2);
+  padding-top: var(--cm-space-4);
+  border-top: 1px solid var(--cm-border);
+}
+.tabm-move > .cm-btn {
+  justify-self: start;
+}
+.tabm-tool {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--cm-space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: 10px var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--cm-dur) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.tabm-tool:hover {
+  background: var(--cm-surface-muted);
+}
+.tabm-tool:active {
+  transform: scale(0.98);
+}
+.tabm-tool:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: 2px;
+}
+.tabm-tool > svg {
+  margin-top: 1px;
+}
+.tabm-tool__text {
+  display: grid;
+  gap: 1px;
+}
+.tabm-tool__text > strong {
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text);
+}
+.tabm-tool__text > span {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+/* Mesa pediu a conta: a opção fica marcada em âmbar suave até o caixa receber. */
+.tabm-tool[aria-pressed='true'] {
+  border-color: color-mix(in oklab, var(--cm-warning) 45%, var(--cm-border));
+  background: var(--cm-warning-bg);
+  color: var(--cm-warning);
+}

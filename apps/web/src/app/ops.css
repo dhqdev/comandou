@@ -1186,9 +1186,8 @@ button.od-fact__link {
     margin-right: 0;
   }
 }
-.pay-balance,
-/* Taxa de serviço da comanda: uma linha com o valor e o botão de tirar/cobrar. */
-.tab-fee {
+/* Saldo da janela de receber: uma linha com o valor. */
+.pay-balance {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1303,24 +1302,7 @@ button.pay-part {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-/* Ações da comanda: botões com contorno visível, mesma altura, lado a lado (empilham no celular). */
-.tab-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: var(--cm-space-2);
-}
-.tab-actions .cm-btn[aria-pressed='true'] {
-  border-color: var(--cm-warning);
-  background: var(--cm-warning-bg);
-}
-.tab-actions__hint {
-  grid-column: 1 / -1;
-  margin: 0;
-}
 @media (max-width: 640px) {
-  .tab-actions {
-    grid-template-columns: 1fr;
-  }
   .tab-summary > div {
     padding: var(--cm-space-2) var(--cm-space-3);
   }

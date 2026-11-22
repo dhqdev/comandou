@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.230.2',
+    date: '2026-11-22',
+    title: 'Janela da mesa mais simples',
+    summary:
+      'Tocar numa mesa ocupada no Salão abre uma janela mais limpa: o quanto falta receber em destaque, a conta explicada linha por linha (consumo, taxa de serviço, total e já pago) e os pedidos com um item por linha.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Salão: a janela da mesa ficou em duas partes no computador, com os pedidos à esquerda e a conta à direita. No celular vem primeiro quanto falta, depois os pedidos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A taxa de serviço aparece como uma linha da conta, com o valor, a porcentagem e o aviso de que é opcional, e o Tirar taxa ou Cobrar ao lado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Sem botões repetidos: Receber fica só no rodapé (a divisão por pessoa continua na tela de receber) e Pediu a conta, Transferir mesa e Comprovante ficam em Mais opções, cada um com uma frase do que faz.',
+      },
+    ],
+  },
+  {
     version: '0.230.1',
     date: '2026-11-22',
     title: 'Cardápio do cliente sem piscar',

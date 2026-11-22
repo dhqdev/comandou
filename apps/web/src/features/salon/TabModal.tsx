@@ -1,25 +1,7 @@
 import { toCents, qtyLabel } from '@comandou/shared';
-import {
-  ArrowRightLeft,
-  BellRing,
-  CircleCheck,
-  Plus,
-  Receipt,
-  ReceiptText,
-  Wallet,
-} from 'lucide-react';
+import { ArrowRightLeft, BellRing, CircleCheck, Plus, ReceiptText, Wallet } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Badge,
-  Button,
-  EmptyState,
-  ItemThumbStrip,
-  Modal,
-  useToast,
-  Skeleton,
-} from '../../design-system';
-import { mediaUrl } from '../../lib/media';
+import { Button, EmptyState, Modal, useToast, Skeleton } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { NewSaleModal } from '../NewSaleModal';
 import { OrderDetailModal } from '../OrderDetailModal';
@@ -31,6 +13,7 @@ import {
   PAYMENT_STATUS_LABEL,
   PAYMENT_STATUS_TONE,
   STATUS_TONE,
+  time,
 } from '../format';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
@@ -194,21 +177,25 @@ export function TabModal({
     }
   }, [tab, tabId, canOperate, canPay]);
 
-  const title = tab
-    ? tab.tableLabel
-      ? `Mesa ${tab.tableLabel} · comanda ${tab.number}`
-      : `Comanda ${tab.number}`
-    : 'Comanda';
   const label = tab?.tableLabel ? `Mesa ${tab.tableLabel}` : `Comanda ${tab?.number ?? ''}`;
+  const title = tab ? (
+    <span className="tabm-title">
+      {label}
+      {tab.tableLabel && <span className="tabm-title__sub">comanda {tab.number}</span>}
+      <span className="tabm-title__sub">aberta às {time(tab.openedAt)}</span>
+    </span>
+  ) : (
+    'Comanda'
+  );
   const open = tab?.status === 'open';
   const owes = !!tab && toCents(tab.balance) > 0;
-  // Rodapé fixo (padrão das folhas): a ação principal fica sempre à vista, grande, embaixo.
+  const orders = tab?.orders ?? [];
+  const feeCents = toCents(tab?.serviceFee ?? '0');
+  const paidCents = toCents(tab?.paid ?? '0');
+  const parts = tab?.billSplitParts ?? 0;
+  // Rodapé fixo (padrão das folhas): lançar mais e a ação principal (receber ou fechar a conta).
   const footer =
-    !tab || !open ? undefined : transfer ? (
-      <Button variant="secondary" size="lg" onClick={() => setTransfer(false)}>
-        Voltar
-      </Button>
-    ) : (
+    !tab || !open ? undefined : (
       <>
         {canOperate && (
           <Button
@@ -220,14 +207,6 @@ export function TabModal({
             Adicionar pedido
           </Button>
         )}
-        <Button
-          variant="secondary"
-          size="lg"
-          icon={<ReceiptText size={18} />}
-          onClick={() => setReceipt({ afterClose: false })}
-        >
-          Comprovante
-        </Button>
         {canPay &&
           (owes ? (
             <Button size="lg" icon={<Wallet size={18} />} onClick={() => setPaying(true)}>
@@ -247,150 +226,207 @@ export function TabModal({
       </>
     );
   return (
-    <Modal open={!!tabId} onClose={onClose} title={title} size="lg" footer={footer}>
+    <Modal
+      open={!!tabId}
+      onClose={onClose}
+      title={title}
+      size="lg"
+      footer={footer}
+      className="tabm-modal"
+    >
       {!tab ? (
         <Skeleton variant="detail" />
       ) : (
-        <div className="order-detail">
-          {tab.billRequestedAt && (
-            <Alert tone="warning">
-              Mesa pediu a conta às{' '}
-              {new Date(tab.billRequestedAt).toLocaleTimeString('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-              {tab.billSplitParts
-                ? `, dividida em ${tab.billSplitParts}. Ao receber, já vem uma parte por pessoa.`
-                : '.'}
-            </Alert>
-          )}
-          <div className="tab-summary">
-            <div>
-              <span>Total</span>
-              <strong>{brl(tab.total)}</strong>
-            </div>
-            <div>
-              <span>Pago</span>
-              <strong>{brl(tab.paid)}</strong>
-            </div>
-            <div data-owes={owes || undefined}>
-              <span>Saldo</span>
-              <strong>{brl(tab.balance)}</strong>
-            </div>
-          </div>
-          {open && (tab.serviceFeePercent || Number(defaultFee) > 0) && (
-            <div className="tab-fee">
-              {tab.serviceFeePercent ? (
-                <span>
-                  Taxa de serviço {pct(tab.serviceFeePercent)} ·{' '}
-                  <strong>{brl(tab.serviceFee ?? '0')}</strong>
-                </span>
+        <div className="tabm-wrap">
+          <div className="tabm">
+            {/* Pedidos: o que a mesa consumiu, um por linha, com o que tem dentro escrito por extenso. */}
+            <section className="tabm__orders" aria-label="Pedidos da comanda">
+              <h3 className="tabm__heading">
+                Pedidos <span className="tabm__count">{orders.length}</span>
+              </h3>
+              {orders.length === 0 ? (
+                <EmptyState title="Nenhum pedido nesta comanda" />
               ) : (
-                <span>Sem taxa de serviço nesta comanda</span>
-              )}
-              {canManage &&
-                (tab.serviceFeePercent ? (
-                  <Button variant="ghost" size="sm" onClick={() => void setFee(null)}>
-                    Tirar taxa
-                  </Button>
-                ) : (
-                  <Button variant="ghost" size="sm" onClick={() => void setFee(defaultFee)}>
-                    Cobrar {pct(defaultFee)}
-                  </Button>
-                ))}
-            </div>
-          )}
-          {(tab.orders ?? []).length === 0 ? (
-            <EmptyState title="Nenhum pedido nesta comanda" />
-          ) : (
-            <table className="cm-table cm-table--click">
-              <tbody>
-                {tab.orders!.map((o) => (
-                  <tr key={o.id} onClick={() => setOrderId(o.id)}>
-                    <td>
-                      <strong>#{o.number}</strong>
-                      <ItemThumbStrip
-                        items={o.items.map((i) => ({
-                          key: i.id,
-                          src: mediaUrl(i.imageId),
-                          name: i.name,
-                        }))}
-                        size={24}
-                      />
-                      <div className="cm-hint">
-                        {o.items.map((i) => `${qtyLabel(i.quantity, i.unit)} ${i.name}`).join(', ')}
-                      </div>
-                    </td>
-                    <td>
-                      <Badge tone={STATUS_TONE[o.status]}>{ORDER_STATUS_LABELS[o.status]}</Badge>
-                    </td>
-                    <td>
-                      <Badge tone={PAYMENT_STATUS_TONE[o.paymentStatus]}>
-                        {PAYMENT_STATUS_LABEL[o.paymentStatus]}
-                      </Badge>
-                      {/* Cliente pagou pelo Pix do cardápio: tocar no pedido abre o comprovante. */}
-                      {o.pixStatus && o.paymentStatus !== 'paid' && <PixReceiptChip order={o} />}
-                    </td>
-                    <td className="cm-num">{brl(o.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {transfer && (
-            <div className="inline-form">
-              <strong>Transferir para</strong>
-              <div className="chips">
-                {tables
-                  .filter((t) => !t.tabId)
-                  .map((t) => (
-                    <button key={t.id} className="chip" onClick={() => moveTo(t.id)}>
-                      Mesa {t.label}
-                    </button>
+                <ul className="tabm-list">
+                  {orders.map((o) => (
+                    <li key={o.id}>
+                      <button
+                        type="button"
+                        className="tabm-order"
+                        onClick={() => setOrderId(o.id)}
+                        aria-label={`Abrir o pedido ${o.number}`}
+                      >
+                        <span className="tabm-order__top">
+                          <strong className="tabm-order__num">#{o.number}</strong>
+                          <span className="tabm-order__time">{time(o.createdAt)}</span>
+                          <strong className="tabm-order__total">{brl(o.total)}</strong>
+                        </span>
+                        <span className="tabm-order__states">
+                          <span className="tabm-state" data-tone={STATUS_TONE[o.status]}>
+                            <span className="cm-dot" aria-hidden />
+                            {ORDER_STATUS_LABELS[o.status]}
+                          </span>
+                          <span
+                            className="tabm-state"
+                            data-tone={PAYMENT_STATUS_TONE[o.paymentStatus]}
+                          >
+                            <span className="cm-dot" aria-hidden />
+                            {PAYMENT_STATUS_LABEL[o.paymentStatus]}
+                          </span>
+                        </span>
+                        {/* Um item por linha: quantidade em destaque e o nome por extenso. */}
+                        <span className="tabm-order__items">
+                          {o.items.map((i) => (
+                            <span key={i.id} className="tabm-item">
+                              <span className="tabm-item__qty">{qtyLabel(i.quantity, i.unit)}</span>
+                              {i.name}
+                            </span>
+                          ))}
+                        </span>
+                        {/* Cliente pagou pelo Pix do cardápio: tocar no pedido abre o comprovante. */}
+                        {o.pixStatus && o.paymentStatus !== 'paid' && <PixReceiptChip order={o} />}
+                      </button>
+                    </li>
                   ))}
+                </ul>
+              )}
+            </section>
+
+            {/* Conta: quanto falta (o número que importa), de onde ele vem e o que dá para fazer. */}
+            <aside className="tabm__bill" aria-label="Conta">
+              <div className="tabm-due" data-paid={!owes || undefined}>
+                <span className="tabm-due__label">{owes ? 'Falta receber' : 'Conta paga'}</span>
+                <strong className="tabm-due__value">{brl(tab.balance)}</strong>
+                {owes && (
+                  <span className="tabm-due__hint">
+                    {parts > 1
+                      ? `Dividida em ${parts}: cerca de ${brl(
+                          (toCents(tab.balance) / parts / 100).toFixed(2),
+                        )} por pessoa.`
+                      : 'Ao receber, dá para dividir entre as pessoas.'}
+                  </span>
+                )}
               </div>
-            </div>
-          )}
-          {open && !transfer && (
-            <div className="tab-actions">
-              {canPay && owes && (
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  icon={<Receipt size={18} />}
-                  onClick={() => setPaying(true)}
-                >
-                  Receber / dividir
-                </Button>
+              <dl className="tabm-lines">
+                <div>
+                  <dt>Consumo</dt>
+                  <dd>{brl(((toCents(tab.total) - feeCents) / 100).toFixed(2))}</dd>
+                </div>
+                {(tab.serviceFeePercent || (open && Number(defaultFee) > 0)) && (
+                  <div className="tabm-fee">
+                    <dt>
+                      {tab.serviceFeePercent
+                        ? `Taxa de serviço (${pct(tab.serviceFeePercent)})`
+                        : 'Taxa de serviço'}
+                      <span className="tabm-fee__hint">
+                        {tab.serviceFeePercent
+                          ? 'Opcional: tire se o cliente não quiser pagar.'
+                          : 'Não cobrada nesta comanda.'}
+                      </span>
+                    </dt>
+                    <dd>
+                      {tab.serviceFeePercent ? brl(tab.serviceFee ?? '0') : '—'}
+                      {open &&
+                        canManage &&
+                        (tab.serviceFeePercent ? (
+                          <button
+                            type="button"
+                            className="link-btn"
+                            onClick={() => void setFee(null)}
+                          >
+                            Tirar taxa
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="link-btn"
+                            onClick={() => void setFee(defaultFee)}
+                          >
+                            Cobrar {pct(defaultFee)}
+                          </button>
+                        ))}
+                    </dd>
+                  </div>
+                )}
+                <div className="tabm-lines__total">
+                  <dt>Total da conta</dt>
+                  <dd>{brl(tab.total)}</dd>
+                </div>
+                <div data-paid={paidCents > 0 || undefined}>
+                  <dt>Já pago</dt>
+                  <dd>{brl(tab.paid)}</dd>
+                </div>
+              </dl>
+
+              {transfer ? (
+                <div className="tabm-move">
+                  <h3 className="tabm__heading">Transferir para qual mesa?</h3>
+                  {tables.filter((t) => !t.tabId).length === 0 ? (
+                    <p className="cm-hint">Nenhuma mesa livre agora.</p>
+                  ) : (
+                    <div className="chips">
+                      {tables
+                        .filter((t) => !t.tabId)
+                        .map((t) => (
+                          <button key={t.id} className="chip" onClick={() => moveTo(t.id)}>
+                            Mesa {t.label}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                  <Button variant="ghost" onClick={() => setTransfer(false)}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <div className="tabm-tools">
+                  <h3 className="tabm__heading">Mais opções</h3>
+                  {open && canOperate && (
+                    <button
+                      type="button"
+                      className="tabm-tool"
+                      aria-pressed={!!tab.billRequestedAt}
+                      onClick={() => billRequest(!tab.billRequestedAt)}
+                    >
+                      <BellRing size={18} aria-hidden />
+                      <span className="tabm-tool__text">
+                        <strong>
+                          {tab.billRequestedAt ? 'Desfazer pedido de conta' : 'Pediu a conta'}
+                        </strong>
+                        <span>
+                          {tab.billRequestedAt
+                            ? `A mesa pediu às ${time(tab.billRequestedAt)}${
+                                parts > 1 ? `, dividida em ${parts}` : ''
+                              }.`
+                            : 'Avisa o caixa que a mesa quer fechar.'}
+                        </span>
+                      </span>
+                    </button>
+                  )}
+                  {open && canOperate && tab.tableId && (
+                    <button type="button" className="tabm-tool" onClick={() => setTransfer(true)}>
+                      <ArrowRightLeft size={18} aria-hidden />
+                      <span className="tabm-tool__text">
+                        <strong>Transferir mesa</strong>
+                        <span>Leva a comanda inteira para outra mesa livre.</span>
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="tabm-tool"
+                    onClick={() => setReceipt({ afterClose: false })}
+                  >
+                    <ReceiptText size={18} aria-hidden />
+                    <span className="tabm-tool__text">
+                      <strong>Comprovante</strong>
+                      <span>Mostra ou imprime a conta para o cliente conferir.</span>
+                    </span>
+                  </button>
+                </div>
               )}
-              {canOperate && (
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  icon={<BellRing size={18} />}
-                  aria-pressed={!!tab.billRequestedAt}
-                  onClick={() => billRequest(!tab.billRequestedAt)}
-                >
-                  {tab.billRequestedAt ? 'Desfazer pedido de conta' : 'Pediu a conta'}
-                </Button>
-              )}
-              {canOperate && tab.tableId && (
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  icon={<ArrowRightLeft size={18} />}
-                  onClick={() => setTransfer(true)}
-                >
-                  Transferir mesa
-                </Button>
-              )}
-              {canPay && owes && (
-                <p className="cm-hint tab-actions__hint">
-                  Para fechar a conta, receba o saldo de {brl(tab.balance)}.
-                </p>
-              )}
-            </div>
-          )}
+            </aside>
+          </div>
           <NewSaleModal
             open={adding}
             onClose={() => setAdding(false)}

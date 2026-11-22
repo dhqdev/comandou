@@ -194,8 +194,8 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await page.getByRole('button', { name: `Mesa M${tag} ocupada` }).click();
   dialog = page.getByRole('dialog').filter({ hasText: `Mesa M${tag}` });
   await settled(page);
-  await expect(dialog.locator('.tab-summary')).toContainText('R$ 40,00');
-  await dialog.getByRole('button', { name: 'Receber / dividir' }).click();
+  await expect(dialog.locator('.tabm-due')).toContainText('R$ 40,00');
+  await dialog.getByRole('button', { name: /^Receber R\$ 40,00/ }).click();
   const tabPay = page.getByRole('dialog').filter({ hasText: 'Receber — comanda' });
   await pickCaixa(tabPay, tag);
   await tabPay.getByRole('button', { name: '2', exact: true }).click();
