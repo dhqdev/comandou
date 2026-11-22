@@ -4,7 +4,7 @@ import { account, nav, enterPanel, expectNoHorizontalScroll } from './nav';
 /**
  * Fluxo da Etapa 5 no navegador, sem contas reais de Focus NFe ou WhatsApp:
  * dados fiscais no cardápio → configuração fiscal → NFC-e no pedido pago (bloqueada com a
- * emissão desativada) → tela do WhatsApp (QR Code com aviso de risco; API oficial) → Novidades.
+ * emissão desativada) → tela do WhatsApp (só QR Code, com aviso de risco) → Novidades.
  */
 const EMAIL = process.env.E2E_EMAIL ?? 'dono@demo.local';
 const PASSWORD = process.env.E2E_PASSWORD ?? '';
@@ -116,7 +116,7 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
     `e2e-close-${tag}`,
   );
 
-  // WhatsApp: QR Code por padrão, com aviso de risco; API oficial como alternativa
+  // WhatsApp: só QR Code (a API oficial da Meta saiu), com aviso de risco
   await nav(page, 'WhatsApp');
   await expect(page.getByRole('heading', { name: 'Conexão por QR Code' })).toBeVisible();
   await expect(page.getByText(/pode bloquear o número/)).toBeVisible();
@@ -126,10 +126,7 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
   await page.getByRole('button', { name: 'Salvar textos' }).click();
   await expect(page.getByText('Textos salvos')).toBeVisible();
   await shot(page, info.project.name, 'whatsapp-qr');
-  await page.getByRole('tab', { name: 'API oficial da Meta' }).click();
-  await expect(page.getByLabel('ID do número de telefone')).toBeVisible();
-  await page.getByRole('tab', { name: 'QR Code (padrão)' }).click();
-  await expect(page.getByRole('heading', { name: 'Conexão por QR Code' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'API oficial da Meta' })).toHaveCount(0);
 
   // Novidades (no menu do perfil desde a 0.159.0)
   await account(page, 'Novidades');

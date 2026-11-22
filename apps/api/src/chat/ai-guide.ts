@@ -113,7 +113,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/whatsapp',
     name: 'WhatsApp',
     perms: ['messaging:manage'],
-    text: 'conectar o WhatsApp da loja lendo o QR Code (ou a API oficial da Meta), escolher os avisos automáticos ao cliente (pedido aceito, pronto, saiu, entregue) e enviar uma mensagem de teste.',
+    text: 'conectar o WhatsApp da loja lendo o QR Code, escolher os avisos automáticos ao cliente (pedido aceito, pronto, saiu, entregue) e enviar uma mensagem de teste.',
   },
   {
     path: '/assistente-ia',

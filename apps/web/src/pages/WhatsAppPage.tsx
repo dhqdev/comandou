@@ -12,7 +12,7 @@ import {
   Skeleton,
 } from '../design-system';
 import { dateTime } from '../features/format';
-import { CheckField, Tabs } from '../features/forms';
+import { CheckField } from '../features/forms';
 import { api } from '../lib/api';
 import { NOTICE_KEYS, NoticeKey } from '../lib/types';
 import type { MessagingSettings, OutboxMessage, WhatsAppSession } from '../lib/types';
@@ -50,8 +50,8 @@ const SESSION: Record<
 };
 
 /**
- * WhatsApp do restaurante. Padrão: conexão por QR Code (Baileys), como o WhatsApp Web.
- * Alternativa: API oficial da Meta (Cloud API), com modelos aprovados.
+ * WhatsApp do restaurante: conexão por QR Code (Baileys), como o WhatsApp Web. É a única forma
+ * de conexão oferecida na tela (a API oficial da Meta saiu na 0.222.1).
  */
 export function WhatsAppPage() {
   const toast = useToast();
@@ -142,22 +142,21 @@ export function WhatsAppPage() {
           </div>
         </div>
         {error && <Alert tone="danger">{error}</Alert>}
-        <div style={{ marginTop: 12 }}>
-          <Tabs<MessagingSettings['provider']>
-            value={s.provider}
-            onChange={(p) => save({ provider: p }, 'Forma de conexão alterada')}
-            items={[
-              ['baileys', 'QR Code (padrão)'],
-              ['meta_cloud', 'API oficial da Meta'],
-            ]}
-          />
-        </div>
+        {s.provider !== 'baileys' && (
+          <Alert tone="warning">
+            Este restaurante ainda está na conexão antiga pela API oficial da Meta, que não é mais
+            oferecida.{' '}
+            <Button
+              variant="ghost"
+              loading={busy}
+              onClick={() => save({ provider: 'baileys' }, 'Conexão por QR Code ativada')}
+            >
+              Usar QR Code
+            </Button>
+          </Alert>
+        )}
       </Card>
-      {s.provider === 'baileys' ? (
-        <BaileysCard s={s} busy={busy} save={save} />
-      ) : (
-        <MetaCard s={s} busy={busy} save={save} />
-      )}
+      <BaileysCard s={s} busy={busy} save={save} />
       <Card searchId="secao-teste" title="Enviar teste">
         <div className="form-grid">
           <TextField
@@ -383,97 +382,6 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
       <p className="cm-hint">
         Use {'{cliente}'}, {'{pedido}'} e {'{restaurante}'} no texto. O código de “esqueci minha
         senha” do cardápio também sai por este número.
-      </p>
-    </Card>
-  );
-}
-
-function MetaCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; save: SaveFn }) {
-  const [form, setForm] = useState({
-    phoneNumberId: s.phoneNumberId ?? '',
-    token: '',
-    language: s.language,
-    templateReset: s.templateReset ?? '',
-    ...(Object.fromEntries(
-      NOTICE_KEYS.map((k) => [`template${k}`, s[`template${k}`] ?? '']),
-    ) as Record<`template${NoticeKey}`, string>),
-  });
-  const tpl = /^[a-z0-9_]*$/;
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (
-      await save({
-        phoneNumberId: form.phoneNumberId.trim() || null,
-        language: form.language.trim() || 'pt_BR',
-        templateReset: form.templateReset.trim() || null,
-        ...Object.fromEntries(
-          NOTICE_KEYS.map((k) => [`template${k}`, form[`template${k}`].trim() || null]),
-        ),
-        ...(form.token.trim() ? { token: form.token.trim() } : {}),
-      })
-    )
-      setForm((f) => ({ ...f, token: '' }));
-  }
-  return (
-    <Card searchId="secao-meta" title="API oficial da Meta">
-      {!s.keyConfigured && (
-        <Alert tone="warning">
-          O servidor ainda não tem a chave que protege tokens (INTEGRATIONS_KEY). Peça ao suporte
-          para configurá-la antes de salvar o token.
-        </Alert>
-      )}
-      <form onSubmit={submit} className="form-grid">
-        <TextField
-          label="ID do número de telefone"
-          inputMode="numeric"
-          value={form.phoneNumberId}
-          onChange={(e) => setForm({ ...form, phoneNumberId: e.target.value.replace(/\D/g, '') })}
-          hint="Painel da Meta > WhatsApp > Configuração da API"
-        />
-        <TextField
-          label="Token de acesso"
-          type="password"
-          autoComplete="off"
-          value={form.token}
-          onChange={(e) => setForm({ ...form, token: e.target.value })}
-          hint={
-            s.hasToken
-              ? `Token salvo (final ${s.tokenLast4}). Preencha só para trocar.`
-              : 'Token permanente de usuário do sistema'
-          }
-        />
-        <TextField
-          label="Idioma dos modelos"
-          value={form.language}
-          onChange={(e) => setForm({ ...form, language: e.target.value })}
-        />
-        {NOTICE_KEYS.map((k) => (
-          <TextField
-            key={k}
-            label={`Modelo: ${NOTICE[k].label.toLowerCase()}`}
-            value={form[`template${k}`]}
-            error={tpl.test(form[`template${k}`]) ? undefined : 'minúsculas, números e _'}
-            onChange={(e) => setForm({ ...form, [`template${k}`]: e.target.value })}
-          />
-        ))}
-        <TextField
-          label="Modelo: código de nova senha"
-          value={form.templateReset}
-          error={tpl.test(form.templateReset) ? undefined : 'minúsculas, números e _'}
-          hint="Modelo de autenticação, com o código em {{1}}"
-          onChange={(e) => setForm({ ...form, templateReset: e.target.value })}
-        />
-        <div style={{ alignSelf: 'end' }}>
-          <Button type="submit" loading={busy}>
-            Salvar
-          </Button>
-        </div>
-      </form>
-      <p className="cm-hint">
-        Os modelos precisam estar aprovados na Meta com três variáveis no corpo, nesta ordem:{' '}
-        {'{{1}}'} nome do cliente, {'{{2}}'} número do pedido e {'{{3}}'} nome do restaurante. Aviso
-        sem modelo não é enviado. O código de nova senha usa um modelo da categoria Autenticação
-        (com o botão copiar código). Mensagens iniciadas pelo restaurante são cobradas pela Meta.
       </p>
     </Card>
   );

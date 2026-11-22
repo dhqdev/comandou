@@ -731,16 +731,6 @@ const SECTIONS: StaticEntry[] = [
     perms: ['messaging:manage'],
   },
   {
-    id: 'c-meta',
-    group: 'Seções',
-    title: 'API oficial da Meta',
-    hint: 'WhatsApp',
-    words: 'cloud api business oficial',
-    icon: 'whatsapp',
-    to: '/whatsapp?foco=secao-meta',
-    perms: ['messaging:manage'],
-  },
-  {
     id: 'c-teste',
     group: 'Seções',
     title: 'Enviar mensagem de teste',

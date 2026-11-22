@@ -66,7 +66,8 @@ espalha os números por mais de um IP, o que reduz o risco de bloqueio.
 O Baileys não é a API oficial: o WhatsApp pode bloquear números que parecem robô. O gateway já
 reduz o risco (ritmo de envio, "digitando..." antes da resposta da IA, "offline" fora das
 respostas, religação espalhada), mas **não manda campanhas em massa**. Para disparos para quem
-nunca falou com o restaurante, use a API oficial (Meta), que o Comandou também suporta.
+nunca falou com o restaurante, o Comandou não oferece saída: a integração com a API oficial da
+Meta saiu da tela na 0.222.1 e não será feita (o código antigo segue na API, sem uso).
 
 ## IA que atende no WhatsApp
 

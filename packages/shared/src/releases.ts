@@ -45,6 +45,22 @@ export const RELEASES: readonly Release[] = [
     ],
   },
   {
+    version: '0.222.1',
+    date: '2026-11-22',
+    title: 'WhatsApp só por QR Code',
+    summary: 'A opção API oficial da Meta saiu da tela do WhatsApp: a conexão é só pelo QR Code.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Tela WhatsApp sem a aba "API oficial da Meta" e sem o formulário de token e modelos; a conexão é sempre pelo QR Code.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Restaurante que ainda estava na API oficial vê um aviso com o botão Usar QR Code.',
+      },
+    ],
+  },
+  {
     version: '0.222.0',
     date: '2026-11-21',
     title: 'App do entregador de cara nova',
