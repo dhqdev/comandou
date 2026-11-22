@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.228.1',
+    date: '2026-11-22',
+    title: 'Delivery com um botão só: despachar',
+    summary:
+      'No pedido de delivery que ainda não foi entregue, o botão grande agora é só o próximo passo (Despachar entregador e, depois, Entregue). O Fechar conta saiu dali, porque o pagamento é acertado na entrega.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Pedido de delivery: o Fechar conta não aparece mais ao lado do Despachar entregador. Entregue com valor em aberto continua indo para o acerto do entregador, com a forma de pagamento que o cliente escolheu.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cliente que já pagou antes da entrega (Pix na hora, por exemplo): use Receber agora, na barra de Cobrança do pedido. Retirada, balcão e mesa continuam com o Fechar conta grande.',
+      },
+    ],
+  },
+  {
     version: '0.228.0',
     date: '2026-11-22',
     title: 'Equipe: abrir a tela de cada pessoa e copiar o link dela',

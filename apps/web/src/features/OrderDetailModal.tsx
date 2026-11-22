@@ -312,7 +312,18 @@ export function OrderDetailModal({
     canDispatch &&
     !appTakes;
   const canReject = !!order && !mode && order.status === 'awaiting' && canWrite;
-  const leadIsStep = !canReceive && !canSend;
+  // Delivery que ainda não foi entregue tem um botão principal só: o próximo passo (despachar,
+  // Entregue). O pagamento é acertado na entrega e o "Entregue" com saldo vira acerto do
+  // entregador; quem já recebeu antes (Pix na hora, por exemplo) usa o "Receber agora" da barra
+  // de Cobrança (0.227.2, pedido do David).
+  const receiveOnDelivery =
+    !!order &&
+    canReceive &&
+    order.channel === 'delivery' &&
+    !appTakes &&
+    ['awaiting', 'new', 'in_production', 'ready', 'dispatched'].includes(order.status);
+  const canCloseBill = canReceive && !receiveOnDelivery;
+  const leadIsStep = !canCloseBill && !canSend;
   const canAdjust =
     !!order && !isApp && !['completed', 'cancelled', 'awaiting'].includes(order.status);
   // Editar itens: pedido aceito que ainda não saiu nem fechou (o servidor confere o resto).
@@ -345,6 +356,16 @@ export function OrderDetailModal({
                 icon: <BadgePercent size={20} />,
                 hue: 'green' as const,
                 run: () => setMode('adjust'),
+              },
+            ]
+          : []),
+        ...(receiveOnDelivery
+          ? [
+              {
+                label: 'Receber agora',
+                icon: <Wallet size={20} />,
+                hue: 'green' as const,
+                run: () => setPaying(true),
               },
             ]
           : []),
@@ -382,7 +403,7 @@ export function OrderDetailModal({
     : [];
   const canPrintSlip = !!order && !mode && canPrint && order.status !== 'cancelled';
   const hasBar =
-    !!order && !mode && (nextSteps.length > 0 || canReceive || canSend || canReject || canServe);
+    !!order && !mode && (nextSteps.length > 0 || canCloseBill || canSend || canReject || canServe);
 
   const header = order ? (
     <span className="odh" data-hue={CHANNEL_HUE[order.channel]}>
@@ -564,7 +585,7 @@ export function OrderDetailModal({
           )}
           {canServe && (
             <Button
-              variant={canReceive ? 'secondary' : 'primary'}
+              variant={canCloseBill ? 'secondary' : 'primary'}
               loading={busy}
               icon={<UtensilsCrossed size={18} />}
               onClick={() => void serve()}
@@ -572,7 +593,7 @@ export function OrderDetailModal({
               Entregue na mesa
             </Button>
           )}
-          {canReceive && (
+          {canCloseBill && (
             <Button
               variant={order.status === 'awaiting' ? 'secondary' : 'primary'}
               className={order.status === 'awaiting' ? undefined : 'od-bar__close'}
