@@ -56,7 +56,7 @@ const SKIP =
 /** Elementos que rolam na vertical, do mais perto do dedo até a página. */
 export function scrollChain(target: Element | null): HTMLElement[] {
   const chain: HTMLElement[] = [];
-  for (let el = target; el && el !== document.body && el !== document.documentElement;) {
+  for (let el = target; el && el !== document.body && el !== document.documentElement; ) {
     if (el instanceof HTMLElement) {
       const oy = getComputedStyle(el).overflowY;
       if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1)
@@ -117,7 +117,7 @@ export function installPullToRefresh(opts: Options = {}): () => void {
   const standalone =
     window.matchMedia?.('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  // No navegador comum, só em tela cheia (a abinha do topo): aí também some a barra dele.
+  // No navegador comum, só em tela cheia (F11 ou o botão da Cozinha): aí também some a barra dele.
   const enabled = () => opts.force || standalone || !!document.fullscreenElement;
   const reload = () => window.location.reload();
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;

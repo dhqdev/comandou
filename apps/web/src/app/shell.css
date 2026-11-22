@@ -13,6 +13,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.topbar__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Menu aberto (fixo) no computador: o nome do restaurante já está ao lado do logo. */
+@media (min-width: 861px) {
+  .cm-frame[data-pinned] .topbar__name {
+    display: none;
+  }
+}
 .topbar__version {
   font-size: var(--cm-text-2xs);
   font-weight: 500;

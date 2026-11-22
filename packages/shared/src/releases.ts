@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.233.1',
+    date: '2026-11-22',
+    title: 'Topo do sistema mais limpo',
+    summary:
+      'O botãozinho de tela cheia que ficava em cima da busca saiu, e com o menu aberto o nome do restaurante aparece uma vez só, ao lado do logo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Saiu a abinha "Tela cheia" do meio do topo, no sistema e no Super Admin. A Cozinha continua com o próprio botão de tela cheia, e o F11 do navegador segue funcionando.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Com o menu lateral aberto, o topo mostra só a versão: o nome do restaurante fica ao lado do logo. Com o menu recolhido, o nome volta para o topo.',
+      },
+    ],
+  },
+  {
     version: '0.233.0',
     date: '2026-11-22',
     title: 'IA que monta o papel da impressora',

@@ -453,8 +453,9 @@ export function AppShell() {
         contentKey={location.pathname}
         top={
           <>
+            {/* Com o menu aberto, o nome já aparece ao lado do logo: aqui fica só a versão. */}
             <div className="topbar__tenant" title={me?.tenant.name}>
-              {me?.tenant.name}
+              <span className="topbar__name">{me?.tenant.name}</span>
               <span className="topbar__version">v{__APP_VERSION__}</span>
             </div>
             <GlobalSearchTrigger onOpen={() => setSearchOpen(true)} />

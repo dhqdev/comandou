@@ -3,7 +3,6 @@ import { Route, Routes, unstable_HistoryRouter as HistoryRouter, useLocation } f
 import { appHistory, ScreenDrawn, ToastProvider } from '../design-system';
 import { TenantBrand } from './TenantBrand';
 import { AppLoading } from './PageLoading';
-import { FullscreenTab, isPublicPath } from '../features/FullscreenTab';
 import { UpdatePrompt } from './UpdatePrompt';
 import { isPlatformHost } from '../platform/host';
 import { lazyPage } from '../lib/lazy-page';
@@ -64,12 +63,6 @@ const PlatformApp = lazyPage(
   (m) => m.PlatformApp,
 );
 
-/** Aba de tela cheia no topo de todas as telas do sistema (fora as do cliente final). */
-function ShellFullscreenTab() {
-  const { pathname } = useLocation();
-  return <FullscreenTab hidden={isPublicPath(pathname)} />;
-}
-
 export function App() {
   const host = useSiteHost();
   // /codigo#123456: botão "Copiar código" dos e-mails de nova senha, igual em qualquer endereço.
@@ -88,7 +81,6 @@ export function App() {
           <PlatformApp />
         </Suspense>
         <UpdatePrompt />
-        <FullscreenTab />
       </>
     );
   }
@@ -112,7 +104,6 @@ export function App() {
       <TenantBrand />
       {/* Em todas as telas: painel, garçom, cozinha, cardápio do cliente e links públicos. */}
       <UpdatePrompt />
-      <ShellFullscreenTab />
       <ToastProvider>
         <Suspense fallback={<AppLoading />}>
           <Routes>
