@@ -95,7 +95,12 @@ beforeAll(async () => {
     u.id,
   ]);
   app = await createApp(
-    testEnv({ AUTH_LOGIN_RATE_LIMIT: '1000', GEOCODER_URL: geoUrl, PHOTON_URL: '' }),
+    testEnv({
+      AUTH_LOGIN_RATE_LIMIT: '1000',
+      GEOCODER_URL: geoUrl,
+      PHOTON_URL: '',
+      INTEGRATIONS_KEY: Buffer.alloc(32, 7).toString('base64'),
+    }),
     {
       logger: false,
     },
@@ -440,6 +445,16 @@ describe('Link do entregador (sem login)', () => {
         }[]
       ).find((c) => c.id === id)!.linkSeenAt;
     expect(await seenOf(c1.id)).toBeNull();
+    // Copiar link: devolve o mesmo link (sem trocar), só para quem gerencia entregas.
+    expect((await get('adminA', `/couriers/${c1.id}/link`).expect(200)).body).toEqual({
+      path: l1.path,
+    });
+    await get('waiterA', `/couriers/${c1.id}/link`).expect(403);
+    // Cor do entregador no mapa e no calendário de pagamento.
+    await patch('adminA', `/couriers/${c2.id}`, { color: 'vermelho' }).expect(400);
+    expect(
+      (await patch('adminA', `/couriers/${c2.id}`, { color: '#1C7ED6' }).expect(200)).body,
+    ).toMatchObject({ color: '#1C7ED6', linkCopyable: true });
 
     const mk = async (courierId: string) => {
       const o = (
@@ -524,12 +539,18 @@ describe('Link do entregador (sem login)', () => {
     const l1b = (await post('adminA', `/couriers/${c1.id}/link`).expect(201)).body;
     await pub.get(`/courier-app/${t1}`).expect(404);
     expect(await seenOf(c1.id)).toBeNull(); // link novo: ainda não aberto
+    expect((await get('adminA', `/couriers/${c1.id}/link`).expect(200)).body).toEqual({
+      path: l1b.path,
+    });
     const t1b = l1b.path.split('/').pop();
     await pub.get(`/courier-app/${t1b}`).expect(200);
     await patch('adminA', `/couriers/${c1.id}`, { active: false }).expect(200);
     await pub.get(`/courier-app/${t1b}`).expect(403);
     await del('adminA', `/couriers/${c2.id}/link`).expect(200);
     await pub.get(`/courier-app/${t2}`).expect(404);
+    expect((await get('adminA', `/couriers/${c2.id}/link`).expect(200)).body).toEqual({
+      path: null,
+    });
   });
 
   it('entregador pega sozinho o pedido pronto; histórico e perfil com score', async () => {

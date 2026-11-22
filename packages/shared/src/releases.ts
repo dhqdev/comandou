@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.227.0',
+    date: '2026-11-22',
+    title: 'Cartões dos entregadores mais limpos, com Copiar link e cor',
+    summary:
+      'Em Entregas › Entregadores, cada cartão ficou mais organizado e tem só três ações: Copiar link, WhatsApp e Desativar. O link é sempre o mesmo, dá para trocar a senha de quem entra com PIN e escolher a cor do entregador no calendário de pagamento.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Copiar link: copia o link do entregador de novo, sem gerar outro (o que ele já tem continua valendo). O WhatsApp manda esse mesmo link.',
+      },
+      {
+        tag: 'novo',
+        text: 'Alterar senha no cartão de quem entra com PIN em /entregas: escolha os 4 números ou sorteie uma.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cor do entregador escolhida no cartão: vale no calendário de pagamento do Acerto e no mapa.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cartão novo: nome sem cortar, situação e o que está fazendo numa linha, e as três ações embaixo. Novo link e Desligar link saíram; Desativar também vale para quem entra com login (desativa o acesso na Equipe).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Link criado antes desta versão não dá para copiar de novo: no primeiro Copiar link o sistema avisa e cria um novo.',
+      },
+    ],
+  },
+  {
     version: '0.226.1',
     date: '2026-11-22',
     title: 'Telas sem título repetido e lista de pedidos maior',

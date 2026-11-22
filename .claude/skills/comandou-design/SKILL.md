@@ -42,12 +42,17 @@ principal na largura toda e Não consegui (ghost) + Entreguei. Corrida encerrada
 ## Entregas › Entregadores
 
 `CouriersCard`/`CourierCard` em `pages/DeliveriesPage.tsx` (classes `dl-cour*` em
-`deliveries.css`, 0.223, pedido do David): um cartão por entregador em grade (`minmax(320px)`),
-avatar com as iniciais na cor do motoboy no mapa (`--rider`), situação em pílula com bolinha
-(`data-state`: na rua laranja, disponível verde, offline cinza, sem acesso âmbar, desativado
-cinza com o cartão apagado), frase do agora, quadro Hoje/Login/Link com linha fina e as ações
-pequenas embaixo. A situação sai de `features/courier-status.ts` (`courierState`, testado):
-disponível = app ou link aberto há até 2 min (`couriers.link_seen_at`/`app_seen_at`, migração 0109).
+`deliveries.css`; 0.223, refeito na 0.227 a pedido do David): um cartão por entregador em grade
+(`minmax(300px)`), avatar cheio na cor do entregador (`--rider`, letra branca), nome inteiro e
+celular; linha da situação (pílula com bolinha, `data-state`: na rua laranja, disponível verde,
+offline cinza, sem acesso âmbar, desativado cinza com o cartão apagado) + o que está fazendo;
+quadro Hoje/Link/Acesso/Cor com linha fina (Cor = bolinhas `COURIER_COLORS`, a escolhida com anel)
+e um rodapé cinza com **só três ações** iguais: Copiar link, WhatsApp e Desativar (vermelho). Não
+volte com Novo link/Desligar link (pedido do David). Alterar senha (PIN) é um `link-btn` na linha
+Acesso, só para quem entra com login. A situação sai de `features/courier-status.ts`
+(`courierState`, testado): disponível = app ou link aberto há até 2 min (`couriers.link_seen_at`/
+`app_seen_at`, migração 0109). A cor escolhida (`couriers.color`, 0110) vale em todo `colorOf`
+(mapa, Ao vivo e calendário do Acerto).
 
 ## Modais e formulários
 

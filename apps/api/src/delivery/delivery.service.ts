@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   GoneException,
+  Inject,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -18,6 +19,8 @@ import {
   toCents,
 } from '@comandou/shared';
 import { createHash, randomBytes, randomInt } from 'node:crypto';
+import { ENV, type Env } from '../config/env';
+import { open as openSecret, seal } from '../common/secret-box';
 import { AuditService } from '../audit/audit.service';
 import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
@@ -38,6 +41,9 @@ export const CONFIRM_MAX_ATTEMPTS = 5;
 export const newConfirmCode = () => String(randomInt(0, 10_000)).padStart(4, '0');
 
 const trackingHash = (token: string) => createHash('sha256').update(token).digest();
+/** Contexto da cópia cifrada do link: não decifra em outro restaurante nem em outro entregador. */
+const linkContext = (tenantId: string, courierId: string) =>
+  `courier-link:${tenantId}:${courierId}`;
 
 /** Posição enviada pelo celular do entregador. Velocidade em m/s, rumo em graus, precisão em m. */
 export interface CourierFix {
@@ -128,6 +134,7 @@ export class DeliveryService {
     private readonly orders: OrdersService,
     private readonly realtime: RealtimeService,
     private readonly cash: CashService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   private newToken() {
@@ -700,12 +707,16 @@ export class DeliveryService {
    */
   async newCourierLink(ctx: Ctx, courierId: string) {
     const token = randomBytes(24).toString('base64url');
+    // Cópia cifrada do token: o botão Copiar link mostra o mesmo link de novo, sem trocar.
+    const key = this.env.INTEGRATIONS_KEY;
+    const enc = key ? seal(key, token, linkContext(ctx.tenantId, courierId)) : null;
     await this.db.withTenant(ctx, async (tx) => {
       const r = await one(
         tx,
-        `UPDATE couriers SET access_token_hash = $2, access_created_at = now(), link_seen_at = NULL
+        `UPDATE couriers SET access_token_hash = $2, access_token_enc = $3, access_created_at = now(),
+                link_seen_at = NULL
           WHERE id = $1 RETURNING id`,
-        [courierId, trackingHash(token)],
+        [courierId, trackingHash(token), enc],
       );
       if (!r) throw new NotFoundException('Entregador não encontrado');
       await this.audit.record(tx, {
@@ -720,11 +731,46 @@ export class DeliveryService {
     return { path: `/entregador/${token}` };
   }
 
+  /**
+   * Link atual do entregador, para copiar ou mandar de novo (o mesmo, sem trocar). Link gerado
+   * antes da cópia cifrada (ou sem INTEGRATIONS_KEY) devolve null: aí só gerando outro.
+   */
+  async currentCourierLink(ctx: Ctx, courierId: string) {
+    const key = this.env.INTEGRATIONS_KEY;
+    return this.db.withTenant(ctx, async (tx) => {
+      const c = await one<{ enc: Buffer | null; hash: Buffer | null }>(
+        tx,
+        `SELECT access_token_enc AS enc, access_token_hash AS hash FROM couriers WHERE id = $1`,
+        [courierId],
+      );
+      if (!c) throw new NotFoundException('Entregador não encontrado');
+      if (!c.hash || !c.enc || !key) return { path: null };
+      let token: string;
+      try {
+        token = openSecret(key, c.enc, linkContext(ctx.tenantId, courierId));
+      } catch {
+        return { path: null }; // chave trocada: o link segue valendo, mas não dá para mostrar
+      }
+      // Confere que a cópia é do link que vale agora (nunca mostra um link morto).
+      if (!trackingHash(token).equals(c.hash)) return { path: null };
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'courier.link_viewed',
+        entity: 'courier',
+        entityId: courierId,
+        ip: ctx.ip,
+      });
+      return { path: `/entregador/${token}` };
+    });
+  }
+
   async revokeCourierLink(ctx: Ctx, courierId: string) {
     await this.db.withTenant(ctx, async (tx) => {
       const r = await one(
         tx,
-        `UPDATE couriers SET access_token_hash = NULL, access_created_at = NULL, link_seen_at = NULL
+        `UPDATE couriers SET access_token_hash = NULL, access_token_enc = NULL, access_created_at = NULL,
+                link_seen_at = NULL
           WHERE id = $1 RETURNING id`,
         [courierId],
       );

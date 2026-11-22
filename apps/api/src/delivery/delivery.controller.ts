@@ -39,6 +39,12 @@ const Courier = z.object({
   phone: z.string().trim().max(30).nullable().optional(),
   userId: uuid.nullable().optional(),
   active: z.boolean().optional(),
+  /** Cor no mapa e no calendário de pagamento; null volta para a automática. */
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'cor no formato #RRGGBB')
+    .nullable()
+    .optional(),
 });
 /** Posição do celular. Campos opcionais vêm do GPS quando o aparelho informa. */
 const Fix = z.object({
@@ -62,7 +68,8 @@ const Complete = z.object({
 const HistoryQuery = z.object({ before: z.coerce.date().optional() });
 const Settle = z.object({ cashSessionId: uuid, method: z.enum(PAYMENT_METHODS).optional() });
 const COURIER_COLS = `c.id, c.name, c.phone, c.user_id AS "userId", u.name AS "userName", c.active,
-  c.access_created_at AS "linkCreatedAt", c.link_seen_at AS "linkSeenAt", c.app_seen_at AS "appSeenAt"`;
+  c.access_created_at AS "linkCreatedAt", c.link_seen_at AS "linkSeenAt", c.app_seen_at AS "appSeenAt", c.color,
+  (c.access_token_enc IS NOT NULL) AS "linkCopyable"`;
 
 /** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
 @AllowWhenBlocked()
@@ -98,8 +105,9 @@ export class DeliveryController {
         throw new ConflictException('Esta pessoa já está na lista de entregadores.');
       const c = await one<{ id: string }>(
         tx,
-        `INSERT INTO couriers (tenant_id, name, phone, user_id, active) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-        [t.id, b.name, b.phone ?? null, b.userId ?? null, b.active ?? true],
+        `INSERT INTO couriers (tenant_id, name, phone, user_id, active, color)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+        [t.id, b.name, b.phone ?? null, b.userId ?? null, b.active ?? true, b.color ?? null],
       );
       await this.audit.record(tx, {
         tenantId: t.id,
@@ -146,7 +154,8 @@ export class DeliveryController {
         `UPDATE couriers SET name = COALESCE($2, name),
                 phone = CASE WHEN $3 THEN $4 ELSE phone END,
                 user_id = CASE WHEN $5 THEN $6::uuid ELSE user_id END,
-                active = COALESCE($7, active)
+                active = COALESCE($7, active),
+                color = CASE WHEN $8 THEN $9 ELSE color END
           WHERE id = $1 RETURNING id`,
         [
           id,
@@ -156,6 +165,8 @@ export class DeliveryController {
           b.userId !== undefined,
           b.userId ?? null,
           b.active ?? null,
+          b.color !== undefined,
+          b.color ?? null,
         ],
       );
       if (!c) throw new NotFoundException('Entregador não encontrado');
@@ -334,6 +345,18 @@ export class DeliveryController {
     @Req() req: Request,
   ) {
     return this.delivery.newCourierLink(ctxOf(t, u, req), id);
+  }
+
+  /** O link que vale agora, para copiar ou mandar de novo (sem trocar). */
+  @Get('couriers/:id/link')
+  @RequirePermission('delivery:manage')
+  currentCourierLink(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.delivery.currentCourierLink(ctxOf(t, u, req), id);
   }
 
   @Delete('couriers/:id/link')

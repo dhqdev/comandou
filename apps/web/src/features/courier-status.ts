@@ -53,3 +53,17 @@ export function whatsappNumber(p: string | null) {
   if (!d) return '';
   return d.length >= 12 ? d : `55${d}`;
 }
+
+/** Cores que dá para escolher para o entregador (mapa e calendário de pagamento). */
+export const COURIER_COLORS = [
+  '#e8590c',
+  '#1c7ed6',
+  '#2f9e44',
+  '#ae3ec9',
+  '#e03131',
+  '#0c8599',
+  '#5c7cfa',
+  '#f08c00',
+  '#d6336c',
+  '#495057',
+] as const;

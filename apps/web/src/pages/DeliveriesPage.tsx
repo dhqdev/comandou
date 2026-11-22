@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   Copy,
   Link2,
-  Link2Off,
   MessageCircle,
   MapPin,
   Navigation,
@@ -11,6 +10,8 @@ import {
   Route,
   Timer,
   Truck,
+  UserCheck,
+  UserX,
   XCircle,
 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
@@ -43,6 +44,7 @@ import {
   type LatLng,
 } from '../features/live-geo';
 import {
+  COURIER_COLORS,
   COURIER_STATE,
   courierState,
   type CourierState,
@@ -460,9 +462,13 @@ function useMedia(query: string) {
 }
 
 /** Cor fixa por entregador (pela ordem do cadastro), a mesma no mapa, na lista e na legenda. */
+/** Cor de cada entregador: a escolhida no cartão dele, senão uma automática (fixa pelo id). */
 function courierColors(couriers: Courier[]) {
   const ids = [...couriers].sort((a, b) => a.id.localeCompare(b.id)).map((c) => c.id);
+  const chosen = new Map(couriers.filter((c) => c.color).map((c) => [c.id, c.color!]));
   return (id: string) => {
+    const own = chosen.get(id);
+    if (own) return own;
     const i = ids.indexOf(id);
     return RIDER_COLORS[(i < 0 ? 0 : i) % RIDER_COLORS.length]!;
   };
@@ -853,6 +859,7 @@ function CouriersCard({
   const [phone, setPhone] = useState('');
   const [userId, setUserId] = useState('');
   const [shared, setShared] = useState<{ courier: Courier; url: string } | null>(null);
+  const [pinFor, setPinFor] = useState<Courier | null>(null);
   const [drivers, setDrivers] = useState<
     { id: string; name: string; role: string; status: string }[]
   >([]);
@@ -883,15 +890,76 @@ function CouriersCard({
     }
   }
 
-  async function makeLink(c: Courier) {
-    if (
-      c.linkCreatedAt &&
-      !window.confirm(`Gerar um link novo para ${c.name}? O link antigo para de funcionar.`)
-    )
+  /** Link atual do entregador; sem link (ou link antigo, de antes da cópia) gera um. */
+  async function linkOf(c: Courier): Promise<string | null> {
+    try {
+      if (c.linkCreatedAt && c.linkCopyable) {
+        const r = await api<{ path: string | null }>(`/couriers/${c.id}/link`);
+        if (r.path) return `${window.location.origin}${r.path}`;
+      }
+      if (
+        c.linkCreatedAt &&
+        !window.confirm(
+          `O link de ${c.name} é de antes desta versão e não dá para copiar de novo. Criar um link novo? O antigo para de abrir.`,
+        )
+      )
+        return null;
+      const r = await api<{ path: string }>(`/couriers/${c.id}/link`, { method: 'POST', json: {} });
+      onChanged();
+      return `${window.location.origin}${r.path}`;
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+      return null;
+    }
+  }
+
+  async function copyLink(c: Courier) {
+    const url = await linkOf(c);
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast(`Link de ${c.name.split(' ')[0]} copiado`, 'success');
+    } catch {
+      setShared({ courier: c, url }); // sem permissão de copiar: mostra para selecionar
+    }
+  }
+
+  async function sendWhatsApp(c: Courier) {
+    // Abre a aba já no clique (senão o navegador bloqueia) e põe o endereço quando o link chega.
+    const tab = window.open('', '_blank');
+    const url = await linkOf(c);
+    if (!url) {
+      tab?.close();
       return;
-    const r = await call(`/couriers/${c.id}/link`, 'POST', {}, '');
-    if (r && typeof r === 'object' && r.path)
-      setShared({ courier: c, url: `${window.location.origin}${r.path}` });
+    }
+    const href = whatsappHref(c, url);
+    if (tab) tab.location.href = href;
+    else window.location.href = href;
+  }
+
+  async function toggle(c: Courier) {
+    if (c.userId) {
+      // Entra com login: ativo ou não é o acesso dele na Equipe (a API segue a Equipe).
+      if (
+        c.active &&
+        !window.confirm(`Desativar ${c.name}? O acesso dele na Equipe também é desativado.`)
+      )
+        return;
+      await call(
+        `/users/${c.userId}`,
+        'PATCH',
+        { status: c.active ? 'revoked' : 'active' },
+        c.active ? 'Entregador desativado' : 'Entregador ativado',
+      );
+      return;
+    }
+    if (c.active && !window.confirm(`Desativar ${c.name}? Ele para de receber pedidos.`)) return;
+    await call(
+      `/couriers/${c.id}`,
+      'PATCH',
+      { active: !c.active },
+      c.active ? 'Entregador desativado' : 'Entregador ativado',
+    );
   }
 
   const now = Date.now();
@@ -996,19 +1064,13 @@ function CouriersCard({
                 runs={runs}
                 done={done}
                 now={now}
-                onLink={() => makeLink(c)}
-                onRevoke={() =>
-                  window.confirm(
-                    `Desligar o link de ${c.name}? Ele deixa de ver as corridas pelo link na hora.`,
-                  ) && void call(`/couriers/${c.id}/link`, 'DELETE', {}, 'Link desligado')
-                }
-                onToggle={() =>
-                  void call(
-                    `/couriers/${c.id}`,
-                    'PATCH',
-                    { active: !c.active },
-                    c.active ? 'Entregador desativado' : 'Entregador ativado',
-                  )
+                canUsers={canUsers}
+                onCopy={() => void copyLink(c)}
+                onWhatsApp={() => void sendWhatsApp(c)}
+                onToggle={() => void toggle(c)}
+                onPin={() => setPinFor(c)}
+                onColor={(color) =>
+                  void call(`/couriers/${c.id}`, 'PATCH', { color }, 'Cor do entregador salva')
                 }
               />
             ))}
@@ -1022,11 +1084,18 @@ function CouriersCard({
       >
         {shared && <CourierLink courier={shared.courier} url={shared.url} />}
       </Modal>
+      <Modal
+        open={!!pinFor}
+        title={pinFor ? `Senha de ${pinFor.name}` : ''}
+        onClose={() => setPinFor(null)}
+      >
+        {pinFor && <CourierPin courier={pinFor} onDone={() => setPinFor(null)} />}
+      </Modal>
     </>
   );
 }
 
-/** Um cartão por entregador: situação, o dia dele, como entra no app e as ações do link. */
+/** Um cartão por entregador: situação, o dia dele, acesso, cor e as três ações. */
 function CourierCard({
   courier: c,
   color,
@@ -1034,9 +1103,12 @@ function CourierCard({
   runs,
   done,
   now,
-  onLink,
-  onRevoke,
+  canUsers,
+  onCopy,
+  onWhatsApp,
   onToggle,
+  onPin,
+  onColor,
 }: {
   courier: Courier;
   color: string;
@@ -1044,14 +1116,16 @@ function CourierCard({
   runs: Delivery[];
   done: Delivery[];
   now: number;
-  onLink(): void;
-  onRevoke(): void;
+  canUsers: boolean;
+  onCopy(): void;
+  onWhatsApp(): void;
   onToggle(): void;
+  onPin(): void;
+  onColor(color: string): void;
 }) {
   const seen = lastSeen(c);
   const delivered = done.filter((d) => d.status === 'delivered').length;
   const failed = done.filter((d) => d.status === 'failed').length;
-  const wa = whatsappNumber(c.phone);
   const note =
     state === 'rua'
       ? `${runs.length === 1 ? '1 corrida' : `${runs.length} corridas`}: ${runs
@@ -1059,23 +1133,21 @@ function CourierCard({
           .reverse()
           .join(', ')} · saiu ${agoLabel(runs[runs.length - 1]!.dispatchedAt, now)}`
       : state === 'disponivel'
-        ? `App aberto ${agoLabel(seen, now)}, pronto para pegar pedido`
+        ? `App aberto ${agoLabel(seen, now)}`
         : state === 'offline'
           ? seen
-            ? `Visto pela última vez ${seenLabel(seen, now)}`
+            ? `Visto ${seenLabel(seen, now)}`
             : 'Ainda não abriu o app'
           : state === 'sem-acesso'
-            ? 'Não recebe os pedidos no celular: gere o link ou dê um login na Equipe'
-            : c.userId
-              ? 'Acesso desativado na Equipe: não recebe pedidos'
-              : 'Não recebe pedidos e o link não abre';
+            ? 'Mande o link para ele receber os pedidos'
+            : 'Não recebe pedidos';
   const link = !c.linkCreatedAt
-    ? 'Sem link'
+    ? 'Ainda não criado'
     : !c.active
-      ? 'Pausado (entregador desativado)'
+      ? 'Pausado'
       : c.linkSeenAt
-        ? `Ativo, aberto ${seenLabel(c.linkSeenAt, now)}`
-        : `Ativo desde ${dayLabel(c.linkCreatedAt)}, ainda não aberto`;
+        ? `Ativo · aberto ${seenLabel(c.linkSeenAt, now)}`
+        : 'Ativo · ainda não aberto';
   return (
     <article
       className="dl-cour"
@@ -1088,77 +1160,173 @@ function CourierCard({
           {initials(c.name)}
         </span>
         <span className="dl-cour__who">
-          <strong>{c.name}</strong>
-          {c.phone ? (
-            <span className="dl-cour__phone">{phoneLabel(c.phone)}</span>
-          ) : (
-            <span className="dl-cour__phone">sem celular</span>
-          )}
+          <strong title={c.name}>{c.name}</strong>
+          <span className="dl-cour__phone">{c.phone ? phoneLabel(c.phone) : 'sem celular'}</span>
         </span>
+      </header>
+      <p className="dl-cour__now">
         <span className="dl-cour__state">
           <i aria-hidden />
           {COURIER_STATE[state].label}
         </span>
-      </header>
-      <p className="dl-cour__note">{note}</p>
+        <span className="dl-cour__note">{note}</span>
+      </p>
       <dl className="dl-cour__facts">
         <div>
           <dt>Hoje</dt>
           <dd>
             {delivered === 1 ? '1 entregue' : `${delivered} entregues`}
             {failed > 0 && ` · ${failed} não ${failed === 1 ? 'entregue' : 'entregues'}`}
-            {runs.length > 0 && ` · ${runs.length} na rua`}
-          </dd>
-        </div>
-        <div>
-          <dt>Login</dt>
-          <dd>
-            {c.userId
-              ? `PIN em /entregas${c.userName && c.userName !== c.name ? ` (${c.userName})` : ''}`
-              : 'Sem login'}
           </dd>
         </div>
         <div>
           <dt>Link</dt>
           <dd>{link}</dd>
         </div>
+        <div>
+          <dt>Acesso</dt>
+          <dd>
+            {c.userId ? (
+              <>
+                Senha (PIN) em /entregas
+                {canUsers && (
+                  <>
+                    {' · '}
+                    <button type="button" className="link-btn" onClick={onPin}>
+                      Alterar senha
+                    </button>
+                  </>
+                )}
+              </>
+            ) : (
+              'Pelo link, sem senha'
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Cor</dt>
+          <dd className="dl-cour__colors" role="radiogroup" aria-label="Cor no calendário">
+            {COURIER_COLORS.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                role="radio"
+                aria-checked={hex === color.toLowerCase()}
+                aria-label={`Cor ${hex}`}
+                title="Cor no mapa e no calendário de pagamento"
+                className="dl-cour__swatch"
+                style={{ ['--sw' as string]: hex }}
+                onClick={() => hex !== color.toLowerCase() && onColor(hex)}
+              />
+            ))}
+          </dd>
+        </div>
       </dl>
       <footer className="dl-cour__actions">
-        {c.active && (
-          <Button size="sm" variant="secondary" icon={<Link2 size={14} />} onClick={onLink}>
-            {c.linkCreatedAt ? 'Novo link' : 'Gerar link'}
-          </Button>
-        )}
-        {c.linkCreatedAt && (
-          <Button size="sm" variant="ghost" icon={<Link2Off size={14} />} onClick={onRevoke}>
-            Desligar link
-          </Button>
-        )}
-        {wa && (
-          <a
-            className="cm-btn cm-btn--ghost cm-btn--sm"
-            href={`https://wa.me/${wa}`}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`Conversar com ${c.name} no WhatsApp`}
-            title="Conversar no WhatsApp"
-          >
-            <MessageCircle size={14} aria-hidden /> WhatsApp
-          </a>
-        )}
-        <span className="dl-cour__spacer" />
-        {c.userId ? (
-          // Entra com login: ativo ou não é o acesso dele na Equipe.
-          <span className="cm-hint">ativar e desativar em Equipe</span>
-        ) : (
-          <Button size="sm" variant="ghost" onClick={onToggle}>
-            {c.active ? 'Desativar' : 'Ativar'}
-          </Button>
-        )}
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={<Copy size={14} />}
+          onClick={onCopy}
+          disabled={!c.active}
+        >
+          Copiar link
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={<MessageCircle size={14} />}
+          onClick={onWhatsApp}
+          disabled={!c.active}
+        >
+          WhatsApp
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={c.active ? <UserX size={14} /> : <UserCheck size={14} />}
+          onClick={onToggle}
+          disabled={!!c.userId && !canUsers}
+          title={c.userId && !canUsers ? 'Quem entra com login é ativado em Equipe' : undefined}
+          data-danger={c.active || undefined}
+        >
+          {c.active ? 'Desativar' : 'Ativar'}
+        </Button>
       </footer>
     </article>
   );
 }
+
+/** Troca o PIN de 4 números de quem entra com login (o novo aparece só agora). */
+function CourierPin({ courier, onDone }: { courier: Courier; onDone(): void }) {
+  const toast = useToast();
+  const [pin, setPin] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+  async function save(chosen: string | null) {
+    setBusy(true);
+    try {
+      const r = await api<{ pin: string }>(`/users/${courier.userId}/pin`, {
+        method: 'POST',
+        json: chosen ? { pin: chosen } : {},
+      });
+      setDone(r.pin);
+      toast('Senha trocada', 'success');
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (done)
+    return (
+      <div className="dl-pin">
+        <p style={{ marginTop: 0 }}>
+          A senha nova de {courier.name.split(' ')[0]} é{' '}
+          <strong className="dl-pin__code">{done}</strong>. Ela aparece só agora. Quem estava
+          entrando com a antiga sai dos aparelhos.
+        </p>
+        <div className="actions-row">
+          <Button onClick={onDone}>Pronto</Button>
+        </div>
+      </div>
+    );
+  return (
+    <form
+      className="dl-pin"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save(pin);
+      }}
+    >
+      <p style={{ marginTop: 0 }}>
+        {courier.name.split(' ')[0]} entra em <strong>/entregas</strong> com esta senha de 4
+        números. Ao trocar, a antiga para de funcionar.
+      </p>
+      <TextField
+        label="Senha nova (4 números)"
+        value={pin}
+        inputMode="numeric"
+        autoComplete="off"
+        maxLength={4}
+        onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+      />
+      <div className="actions-row">
+        <Button type="button" variant="ghost" disabled={busy} onClick={() => void save(null)}>
+          Sortear uma
+        </Button>
+        <Button type="submit" variant="primary" disabled={busy || pin.length !== 4}>
+          Salvar senha
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+const whatsappHref = (c: Courier, url: string) =>
+  `https://wa.me/${whatsappNumber(c.phone)}?text=${encodeURIComponent(
+    `Olá, ${c.name.split(' ')[0]}! Este é o seu painel de entregas: ${url}`,
+  )}`;
 
 const initials = (name: string) =>
   name
@@ -1185,8 +1353,8 @@ function CourierLink({ courier, url }: { courier: Courier; url: string }) {
   return (
     <>
       <p style={{ marginTop: 0 }}>
-        Mande este link para o entregador. Ele aparece só agora: se perder, gere um novo (o antigo
-        para de funcionar).
+        Copie e mande este link para o entregador. Ele é o mesmo sempre: dá para copiar de novo pelo
+        cartão dele.
       </p>
       <TextField
         label="Link do entregador"

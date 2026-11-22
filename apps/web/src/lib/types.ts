@@ -770,6 +770,10 @@ export interface Courier {
   linkSeenAt?: string | null;
   /** Última vez que o entregador com login abriu o app. */
   appSeenAt?: string | null;
+  /** Cor escolhida (#RRGGBB) no mapa e no calendário de pagamento; null = automática. */
+  color?: string | null;
+  /** O link atual pode ser copiado de novo (sem gerar outro). */
+  linkCopyable?: boolean;
 }
 export interface Delivery {
   id: string;

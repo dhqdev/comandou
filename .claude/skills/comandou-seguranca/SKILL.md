@@ -85,7 +85,11 @@ cookie, CSRF, corpo gigante e Host estranho.
 - Senha nova: `newPassword()` (8; painel `newPassword(10)`) de `common/schemas.ts`; com e-mail,
   telefone ou nome no mesmo formulário, `.superRefine(notPersonal(...))`. Login aceita qualquer
   senha já cadastrada (não trave quem tem senha antiga).
-- Hash: `hashPassword` (scrypt). Token: aleatório, só o SHA-256 no banco.
+- Hash: `hashPassword` (scrypt). Token: aleatório, só o SHA-256 no banco. Exceção revisada: o
+  link do entregador (0.227) guarda também uma cópia cifrada (`couriers.access_token_enc`, `seal`
+  com contexto restaurante + entregador) para o Copiar link; a entrada continua pelo hash, a cópia
+  só sai por `GET /couriers/:id/link` (`delivery:manage`, auditado `courier.link_viewed`) e é
+  conferida contra o hash antes de mostrar.
 - Cookie: `httpOnly`, `secure: env.COOKIE_SECURE`, `sameSite`, sem `Domain` (host-only).
   Login sempre cria token novo (sem fixação); sair apaga no servidor.
 - Limite por IP **e** bloqueio por conta em todo login, PIN e código de verificação.
