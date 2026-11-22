@@ -162,14 +162,9 @@ export function PrintingPage() {
 
   return (
     <>
-      <div>
-        <div className="page-title-row">
-          <h1 className="page-title">Impressão</h1>
-          <TourButton tour="impressao" />
-        </div>
-        <p className="page-sub">
-          Comandas de cozinha e conferências saem sozinhas nas impressoras do restaurante.
-        </p>
+      <div className="page-tools">
+        <h1 className="page-title cm-sr-only">Impressão</h1>
+        <TourButton tour="impressao" />
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
 

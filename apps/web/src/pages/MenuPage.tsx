@@ -52,19 +52,14 @@ function MenuSections() {
   return (
     <>
       <div className="mn-head">
-        <div>
-          <div className="mn-head__title">
-            <h1 className="page-title">Cardápio</h1>
-            <TourButton tour="cardapio" />
-          </div>
-          <p className="page-sub">{current.sub}</p>
-        </div>
+        <h1 className="page-title cm-sr-only">Cardápio</h1>
         <SlideTabs<Section>
           label="Seções do cardápio"
-          tabs={SECTIONS.map(({ value, label }) => ({ value, label }))}
+          tabs={SECTIONS.map(({ value, label, sub }) => ({ value, label, title: sub }))}
           value={current.value}
           onChange={(v) => navigate(v === 'itens' ? '/cardapio' : `/cardapio/${v}`)}
         />
+        <TourButton tour="cardapio" />
       </div>
       {current.value === 'itens' && <ItemsTab />}
       {current.value === 'familias' && <FamiliesTab />}

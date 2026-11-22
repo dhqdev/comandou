@@ -92,13 +92,7 @@ function TicketList() {
   return (
     <div className="tk-page tk-page--wide">
       <div className="tk-page__head">
-        <div>
-          <h1 className="page-title">Chamados</h1>
-          <p className="page-sub">
-            Achou um problema ou quer uma melhoria? Conte para a gente, com foto ou vídeo, e
-            acompanhe aqui.
-          </p>
-        </div>
+        <h1 className="page-title cm-sr-only">Chamados</h1>
         <Button icon={<Plus size={16} />} onClick={() => setCreating(true)}>
           Abrir chamado
         </Button>

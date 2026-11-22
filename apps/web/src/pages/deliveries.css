@@ -73,15 +73,6 @@
   flex-wrap: wrap;
   gap: var(--cm-space-3) var(--cm-space-5);
 }
-.dl-head__title {
-  min-width: 0;
-  flex: 1 1 260px;
-}
-.dl-head__title .page-sub {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* Indicadores numa faixa só, ao lado do título. */
 .dl-kpis--bar {
   display: flex;
@@ -534,14 +525,9 @@
   .dl-page {
     gap: var(--cm-space-3);
   }
-  /* O nome da tela já está no topo. */
-  .dl-head__title {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+  /* No celular os indicadores ocupam a faixa toda; o tutorial fica fora. */
+  .dl-head__tour {
+    display: none;
   }
   .dl-kpis--bar {
     display: grid;

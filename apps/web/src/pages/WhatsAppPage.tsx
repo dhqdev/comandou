@@ -104,13 +104,7 @@ export function WhatsAppPage() {
   if (!s) return error ? <Alert tone="danger">{error}</Alert> : <Skeleton variant="detail" />;
   return (
     <>
-      <div>
-        <h1 className="page-title">WhatsApp</h1>
-        <p className="page-sub">
-          Avisos automáticos no WhatsApp do cliente a cada passo do pedido: aceito, pronto, saiu
-          para entrega, entregue ou cancelado.
-        </p>
-      </div>
+      <h1 className="page-title cm-sr-only">WhatsApp</h1>
       <Card
         searchId="secao-avisos"
         title="Avisos"

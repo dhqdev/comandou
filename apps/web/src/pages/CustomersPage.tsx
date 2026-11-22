@@ -451,14 +451,7 @@ export function CustomersPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Clientes</h1>
-          <p className="page-sub">
-            Quem criou conta no cardápio online: contato, endereços e histórico de pedidos.
-          </p>
-        </div>
-      </div>
+      <h1 className="page-title cm-sr-only">Clientes</h1>
       {data && (
         <dl className="cl-kpis cl-kpis--page">
           <div>

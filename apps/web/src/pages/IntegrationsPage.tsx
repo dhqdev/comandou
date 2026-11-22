@@ -178,13 +178,7 @@ export function IntegrationsPage() {
 
   return (
     <>
-      <div>
-        <h1 className="page-title">Aplicativos de delivery</h1>
-        <p className="page-sub">
-          Pedidos do iFood e dos outros aplicativos chegam sozinhos e seguem o caminho de sempre:
-          cozinha, impressão, entrega, caixa e estoque.
-        </p>
-      </div>
+      <h1 className="page-title cm-sr-only">Aplicativos de delivery</h1>
       {error && <Alert tone="danger">{error}</Alert>}
       {unlinked.length > 0 && (
         <Alert tone="warning">

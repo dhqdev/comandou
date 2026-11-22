@@ -161,15 +161,7 @@ export function DeliveriesPage() {
   return (
     <div className="dl-page" data-fit={(live && showMap) || undefined}>
       <header className="dl-head">
-        <div className="dl-head__title">
-          <div className="page-title-row">
-            <h1 className="page-title">Entregas</h1>
-            <TourButton tour="entregas" />
-          </div>
-          <p className="page-sub">
-            Despache os pedidos prontos e acompanhe cada entregador no mapa, ao vivo.
-          </p>
-        </div>
+        <h1 className="page-title cm-sr-only">Entregas</h1>
         <div className="dl-kpis dl-kpis--bar">
           <Kpi
             icon={<PackageCheck size={16} />}
@@ -199,6 +191,9 @@ export function DeliveriesPage() {
             value={avgMin === null ? '—' : `${avgMin} min`}
             tone="info"
           />
+        </div>
+        <div className="dl-head__tour">
+          <TourButton tour="entregas" />
         </div>
       </header>
       {error && <Alert tone="danger">{error}</Alert>}

@@ -330,16 +330,8 @@ export function TablesPage() {
   return (
     <div className="salon" data-view={view}>
       <div className="page-head">
-        <div>
-          <div className="page-title-row">
-            <h1 className="page-title">Salão</h1>
-            <TourButton tour="salao" />
-          </div>
-          <p className="page-sub">
-            {counts.busy + counts.paying} de {tables?.length ?? 0} mesas ocupadas · {tabs.length}{' '}
-            comanda(s) · {takeouts.length} para entregar ou levar
-          </p>
-        </div>
+        <h1 className="page-title cm-sr-only">Salão</h1>
+        <TourButton tour="salao" />
         <div className="actions-row" data-count={view === 'tables' && canSetup ? 4 : 1}>
           {view === 'tables' && canSetup && (
             <>

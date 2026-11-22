@@ -252,9 +252,7 @@ export function OrdersPage() {
   return (
     <>
       <section className="cm-card ord-board">
-        <header className="ord-head">
-          <h1 className="ord-title">Pedidos</h1>
-        </header>
+        <h1 className="cm-sr-only">Pedidos</h1>
         <ListToolbar
           lv={lv}
           searchLabel="Buscar pedido"

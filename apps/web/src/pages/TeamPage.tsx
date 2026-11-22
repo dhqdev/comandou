@@ -83,15 +83,8 @@ export function TeamPage() {
   return (
     <>
       <div className="page-head">
-        <div>
-          <div className="page-title-row">
-            <h1 className="page-title">Equipe</h1>
-            <TourButton tour="equipe" />
-          </div>
-          <p className="page-sub">
-            Quem acessa o sistema e o que cada um pode fazer. Desativar encerra o acesso na hora.
-          </p>
-        </div>
+        <h1 className="page-title cm-sr-only">Equipe</h1>
+        <TourButton tour="equipe" />
         <Button icon={<UserPlus size={18} />} onClick={() => setAdding(true)}>
           Adicionar pessoa
         </Button>

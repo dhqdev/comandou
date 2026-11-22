@@ -118,20 +118,7 @@ export function ReportsPage() {
   return (
     <>
       <div className="page-head">
-        <div>
-          <h1 className="page-title">Relatórios</h1>
-          <p className="page-sub">
-            {view === 'reports'
-              ? 'Escolha um relatório: cada um tem o seu painel e baixa em Excel.'
-              : view === 'insights'
-                ? 'O que mudou, o que vende, o que dá lucro e onde agir.'
-                : view === 'pixel'
-                  ? 'O que os clientes fazem no cardápio online: visitas, cliques, sacola e pedidos.'
-                  : view === 'calendar'
-                    ? 'O mês dia a dia: quanto vendeu, quanto custou e quanto sobrou.'
-                    : 'Faturamento (pedidos do dia) separado de recebimentos (caixa).'}
-          </p>
-        </div>
+        <h1 className="page-title cm-sr-only">Relatórios</h1>
         <Segmented
           label="Visão"
           value={view}

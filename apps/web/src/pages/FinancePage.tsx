@@ -112,13 +112,7 @@ export function FinancePage() {
   );
   return (
     <>
-      <div>
-        <h1 className="page-title">Financeiro</h1>
-        <p className="page-sub">
-          Como o dinheiro do restaurante entra e sai: gráficos do mês, contas, fechamentos de caixa,
-          conciliação com o banco, fluxo de caixa e o resultado (DRE).
-        </p>
-      </div>
+      <h1 className="page-title cm-sr-only">Financeiro</h1>
       {settings && period && (
         <MonthBar
           period={period}

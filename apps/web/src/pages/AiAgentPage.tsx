@@ -225,14 +225,7 @@ export function AiAgentPage() {
 
   return (
     <HelpScope dict={HELP}>
-      <div>
-        <h1 className="page-title">Assistente de IA</h1>
-        <p className="page-sub">
-          Escolha como a IA conversa com seus clientes no WhatsApp e quais itens do cardápio ela
-          pode oferecer. Ela tira dúvidas, sugere pratos e manda o link do cardápio para o cliente
-          pedir.
-        </p>
-      </div>
+      <h1 className="page-title cm-sr-only">Assistente de IA</h1>
 
       <Card
         searchId="secao-ia-ligar"

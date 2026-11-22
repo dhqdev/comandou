@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.226.1',
+    date: '2026-11-22',
+    title: 'Telas sem título repetido e lista de pedidos maior',
+    summary:
+      'Pedidos, Salão, Entregas, Cardápio, Loja online, Impressão, WhatsApp, Assistente de IA, Chamados, Clientes, Equipe, Financeiro, Relatórios e Aplicativos de delivery não repetem mais o nome da tela nem a frase de explicação no topo: o conteúdo começa logo embaixo da barra. Na aba Pedidos, o quadro desce até o pé da janela.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Saíram o título e a frase de explicação do topo das telas (o nome já aparece no menu). No Salão saiu também a linha "mesas ocupadas · comandas · para entregar ou levar": os números continuam nas abas Mesas, Comandas, Delivery e Para levar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O botão Tutorial continua em cada tela, agora à direita, junto das ações. No Cardápio, a explicação de cada seção aparece ao parar o mouse na aba.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pedidos: o quadro da lista vai até o pé da janela e começa direto nas abas Hoje, Em andamento, A receber…, cabendo mais pedidos na tela.',
+      },
+    ],
+  },
+  {
     version: '0.226.0',
     date: '2026-11-22',
     title: 'Impressão no estilo cupom, com logo, negrito e IA no editor',

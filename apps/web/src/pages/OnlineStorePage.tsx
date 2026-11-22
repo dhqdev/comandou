@@ -730,16 +730,8 @@ export function OnlineStorePage() {
   return (
     <>
       <div className="page-head">
-        <div>
-          <div className="page-title-row">
-            <h1 className="page-title">Loja online</h1>
-            <TourButton tour="loja" />
-          </div>
-          <p className="page-sub">
-            O cardápio em que o cliente pede pelo celular: aparência, banners, destaques,
-            fidelidade, funcionamento, Pix e pagamento pelo app.
-          </p>
-        </div>
+        <h1 className="page-title cm-sr-only">Loja online</h1>
+        <TourButton tour="loja" />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Button
             variant="secondary"
