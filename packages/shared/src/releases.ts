@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.231.3',
+    date: '2026-11-22',
+    title: 'A logo do restaurante no lugar do panda',
+    summary:
+      'Onde o restaurante já colocou a logo na Loja online, as telas mostram só ela: telas vazias, avisos, cardápio do cliente, rastreio e o aplicativo Comandou Impressão. O panda fica de reserva para quem ainda não tem logo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Telas vazias do sistema, do garçom e do entregador, Sem acesso, Restaurante suspenso, Mudamos de endereço e a apresentação do sistema mostram a logo do restaurante.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Para o cliente: rastreio do pedido, conversa com a loja, reservas, cardápio e site fora do ar mostram a logo do restaurante, não o panda.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Notificação de mensagem de cliente no computador sai com o ícone do restaurante.',
+      },
+      {
+        tag: 'correção',
+        text: 'Comandou Impressão (aplicativo 1.11.1): o ícone da barra de tarefas, dos atalhos e das notificações volta a ser o do restaurante, também depois de o aplicativo se atualizar.',
+      },
+    ],
+  },
+  {
     version: '0.231.2',
     date: '2026-11-22',
     title: 'Janela da mesa mais simples',

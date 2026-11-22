@@ -113,7 +113,10 @@ baixado, desenhado em PNG na janela escondida (`renderIcon` em `desktop/ble/ble.
 barra de tarefas, a bandeja (com a bolinha: verde conectado, amarela tentando, vermelha código
 recusado, cinza parado; no Windows também uma bolinha sobre o ícone da barra de tarefas) e os
 atalhos do Windows (área de trabalho e Iniciar). O instalador é o mesmo para todos: a cara muda
-quando o aplicativo conecta.
+quando o aplicativo conecta. **1.11.1:** no Windows o botão da barra de tarefas lê o ícone do atalho
+com o mesmo AppUserModelID; por isso a janela ganha `setAppDetails` com o `icone.ico` do restaurante
+(`applyTaskbar`) e os atalhos são conferidos também ao abrir (a atualização do aplicativo recria os
+atalhos com o panda). As notificações saem com o mesmo ícone. O panda só aparece sem ícone salvo.
 
 **Impressoras no sistema:** o heartbeat também manda as impressoras escolhidas (`printers`: setor,
 nome e tipo, nunca o endereço), que aparecem em **Impressão › Computadores conectados**; o sistema

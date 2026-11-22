@@ -9,6 +9,9 @@ import { join } from 'node:path';
 import { setPrintLogo } from '../printers.mjs';
 import { DOT, pngToIco } from './pure.mjs';
 
+/** Mesmo AppUserModelID do main.mjs (agrupa janela, atalhos e notificações). */
+const APP_ID = 'br.com.comandou.impressao';
+
 const fromDataUrl = (u) => Buffer.from(String(u).split(',')[1] ?? '', 'base64');
 
 export class Brand {
@@ -33,6 +36,9 @@ export class Brand {
     if (!key || !existsSync(file)) return;
     this.icon = `data:image/png;base64,${(await readFile(file)).toString('base64')}`;
     this.iconKey = key;
+    // Uma atualização do aplicativo recria os atalhos com o ícone do Comandou: volta o do
+    // restaurante já ao abrir (o Windows usa o do atalho na barra de tarefas).
+    this.updateShortcuts();
   }
 
   /** Baixa e prepara o ícone novo quando o restaurante troca o dele. */
@@ -42,6 +48,7 @@ export class Brand {
         this.icon = null;
         this.iconKey = null;
         this.tray.clear();
+        this.updateShortcuts();
         this.o.onChange();
       }
       return;
@@ -116,6 +123,26 @@ export class Brand {
       : nativeImage.createFromPath(this.o.defaultIcon);
   }
 
+  /**
+   * Windows: ícone do botão da janela na barra de tarefas (e de quem fixar o app nela). Sem isso,
+   * o Windows pega o do atalho com o mesmo AppUserModelID, que pode ainda ser o do Comandou.
+   */
+  applyTaskbar(win) {
+    if (process.platform !== 'win32' || !win || win.isDestroyed()) return;
+    const ico = join(this.dir, 'icone.ico');
+    try {
+      win.setAppDetails({
+        appId: APP_ID,
+        appIconPath: this.icon && existsSync(ico) ? ico : process.execPath,
+        appIconIndex: 0,
+        relaunchCommand: `"${process.execPath}"`,
+        relaunchDisplayName: 'Comandou Impressão',
+      });
+    } catch {
+      /* sem permissão: fica o ícone da janela */
+    }
+  }
+
   /** Ícone da bandeja com a bolinha da situação (cache por situação). */
   async trayImage(state) {
     const dot = DOT[state] ?? DOT.idle;
@@ -164,13 +191,15 @@ export class Brand {
         'Comandou Impressão.lnk',
       ),
     ];
+    const icon = this.icon && existsSync(ico) ? ico : process.execPath;
     for (const lnk of places) {
       if (!existsSync(lnk)) continue;
       try {
+        if (shell.readShortcutLink(lnk).icon === icon) continue; // já está certo
         shell.writeShortcutLink(lnk, 'update', {
-          icon: this.icon ? ico : process.execPath,
+          icon,
           iconIndex: 0,
-          appUserModelId: 'br.com.comandou.impressao',
+          appUserModelId: APP_ID,
         });
       } catch {
         /* atalho sem permissão: fica o ícone de antes */

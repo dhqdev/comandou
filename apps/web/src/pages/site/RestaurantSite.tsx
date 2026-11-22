@@ -1,6 +1,6 @@
 import { Clock, MapPin, MessageCircle, ShoppingBag } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Mascot, Skeleton } from '../../design-system';
+import { StoreMark, Skeleton } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
 import './restaurant-site.css';
@@ -65,7 +65,7 @@ export function RestaurantSite() {
   if (error)
     return (
       <main className="rs rs--empty">
-        <Mascot size={72} mood="sleep" />
+        <StoreMark size={72} mood="sleep" />
         <p>{error}</p>
       </main>
     );

@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router';
-import { Button, FrameItem, Mascot } from '../../design-system';
+import { Button, FrameItem, StoreMark } from '../../design-system';
 import '../welcome-tour.css';
 
 /**
@@ -32,7 +32,7 @@ export interface TourStop {
 }
 
 export interface TourEnds {
-  /** Primeiro cartão (com o panda). */
+  /** Primeiro cartão (com a logo do restaurante; sem logo, o panda). */
   intro: { title: string; text: ReactNode; label?: string; start?: string };
   /** Último cartão. `menuKey` enquadra um item do menu; `targets`, algo na tela. */
   outro: { title: string; text: ReactNode; menuKey?: string; targets?: TourTarget[] };
@@ -344,7 +344,7 @@ export function GuidedTour({
         <div key={index} className="tourx__body">
           {step.kind !== 'stop' && (
             <div className="tourx__hero">
-              <Mascot
+              <StoreMark
                 size={step.kind === 'intro' ? 76 : 64}
                 mood={step.kind === 'intro' ? 'joy' : 'wink'}
                 animated

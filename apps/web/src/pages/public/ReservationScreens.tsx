@@ -1,7 +1,7 @@
 import { CalendarDays, Clock, UserRound, Users } from 'lucide-react';
 import { CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Mascot, useToast } from '../../design-system';
+import { StoreMark, useToast } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { ReserveArt } from './art';
 import { useStore } from './context';
@@ -252,7 +252,7 @@ export function ReserveScreen() {
       <div className="sf-wrap sf-page">
         <ScreenHeader title="Reservar mesa" />
         <div className="empty-state">
-          <Mascot size={64} mood="sleep" />
+          <StoreMark size={64} src={menu.restaurant.logoUrl} mood="sleep" />
           <strong>Reservas indisponíveis</strong>
           <p>{menu.restaurant.name} não está aceitando reservas pelo cardápio no momento.</p>
           <Link className="cta cta--inline" to="/pedir">
@@ -521,7 +521,7 @@ export function ReservationStatusScreen() {
       <div className="sf-wrap sf-page">
         <ScreenHeader title="Reserva" />
         <div className="empty-state">
-          <Mascot size={64} mood="sleep" />
+          <StoreMark size={64} src={menu.restaurant.logoUrl} mood="sleep" />
           <strong>{error}</strong>
         </div>
       </div>
@@ -533,7 +533,7 @@ export function ReservationStatusScreen() {
       <ScreenHeader title="Sua reserva" />
       <div className="rsv-ticket" data-status={r.status}>
         <div className="rsv-ticket__top">
-          <Mascot
+          <StoreMark
             size={56}
             mood={r.status === 'cancelled' || r.status === 'no_show' ? 'sleep' : 'happy'}
           />

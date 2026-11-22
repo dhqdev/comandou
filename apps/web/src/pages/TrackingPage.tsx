@@ -1,7 +1,7 @@
 import { Bike, CheckCircle2, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
-import { Alert, Logo, ThemeToggle, Skeleton } from '../design-system';
+import { Alert, Logo, StoreMark, ThemeToggle, Skeleton } from '../design-system';
 import {
   CustomerLiveMap,
   customerEta,
@@ -105,7 +105,7 @@ export function TrackingPage() {
   return (
     <main className="trk">
       <header className="trk__bar">
-        <Logo size={26} />
+        <StoreMark size={26} fallback={<Logo size={26} wordmark={false} />} />
         <strong>{data?.restaurant ?? 'Rastreio do pedido'}</strong>
         <ThemeToggle />
       </header>

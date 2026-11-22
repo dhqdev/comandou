@@ -10,7 +10,8 @@ import {
   useState,
 } from 'react';
 import { X } from 'lucide-react';
-import { Mascot, type MascotMood } from './mascot';
+import { type MascotMood } from './mascot';
+import { StoreMark } from './store-mark';
 import { DateInput, DateTimeInput } from './date-picker';
 import { cachedBranding } from './brand';
 import { canAnimate, useLiquidDialog } from './liquid';
@@ -214,13 +215,16 @@ export function EmptyState({
   title: string;
   description?: string;
   action?: ReactNode;
-  /** Mostra o mascote no lugar do ícone (telas vazias "amigáveis"). */
+  /**
+   * Telas vazias "amigáveis": a logo do restaurante no lugar do ícone; sem logo, o panda com
+   * esse humor.
+   */
   mascot?: MascotMood | boolean;
 }) {
   return (
     <div className="cm-empty">
       {mascot ? (
-        <Mascot size={56} mood={mascot === true ? 'sleep' : mascot} />
+        <StoreMark size={56} mood={mascot === true ? 'sleep' : mascot} />
       ) : (
         icon && <div className="cm-empty__icon">{icon}</div>
       )}
