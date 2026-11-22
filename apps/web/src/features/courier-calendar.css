@@ -357,29 +357,6 @@ button.ccal-cell:focus-visible {
   display: grid;
   min-width: 0;
 }
-.ccal-person__total {
-  font-size: var(--cm-text-lg);
-  font-variant-numeric: tabular-nums;
-}
-.ccal-person__split {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 24px;
-  margin: 0;
-}
-.ccal-person__split div {
-  display: flex;
-  gap: 6px;
-  font-size: var(--cm-text-sm);
-}
-.ccal-person__split dt {
-  color: var(--cm-text-muted);
-}
-.ccal-person__split dd {
-  margin: 0;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
 .ccal-rides {
   margin: 0;
 }
@@ -405,5 +382,69 @@ button.ccal-cell:focus-visible {
 @container (max-width: 560px) {
   .ccal-kpi small {
     display: block;
+  }
+}
+
+/* Detalhe do dia: frase de resumo, conta de cada entregador e o dinheiro da porta */
+.ccal-detail__lead {
+  margin: 0;
+  color: var(--cm-text-muted);
+}
+.ccal-detail__lead strong {
+  color: var(--cm-text);
+}
+.ccal-bill {
+  display: grid;
+  margin: 0;
+  padding: 2px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+}
+.ccal-bill > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+.ccal-bill > div + div {
+  border-top: 1px solid var(--cm-border);
+}
+.ccal-bill dt {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  font-size: var(--cm-text-sm);
+}
+.ccal-bill dt small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.ccal-bill dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ccal-bill__total dt,
+.ccal-bill__total dd {
+  font-weight: 700;
+  font-size: var(--cm-text-md);
+}
+.ccal-door {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+}
+@container (max-width: 560px) {
+  .ccal-person {
+    padding: 10px;
+  }
+  .ccal-person__head .cm-badge {
+    align-self: start;
   }
 }

@@ -81,8 +81,16 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  * (corridas + diária), uma cor por entregador (a mesma do mapa), o total do dia e da semana.
  * Tocar num dia abre o detalhe com as corridas; tocar num nome destaca só ele.
  */
-export function CourierCalendar({ colorOf }: { colorOf(id: string): string }) {
-  const [month, setMonth] = useState(thisMonth);
+export function CourierCalendar({
+  colorOf,
+  month,
+  onMonth: setMonth,
+}: {
+  colorOf(id: string): string;
+  /** "AAAA-MM"; o mês fica com quem usa o calendário (os pagamentos feitos seguem o mesmo). */
+  month: string;
+  onMonth(m: string | ((m: string) => string)): void;
+}) {
   const [data, setData] = useState<CalendarData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [only, setOnly] = useState<string | null>(null);
@@ -244,9 +252,8 @@ export function CourierCalendar({ colorOf }: { colorOf(id: string): string }) {
             })}
           </div>
           <p className="cm-hint">
-            Ganho do dia = corridas encerradas no dia + a diária de quem entregou, pela regra de
-            cada entregador (Repasses). Toque num dia para ver as corridas e num nome para ver só
-            ele.
+            Ganho do dia = corridas encerradas no dia + a diária de quem entregou. Toque num dia
+            para ver o que é cada valor e num nome para ver só aquele entregador.
           </p>
         </div>
       )}
@@ -406,6 +413,10 @@ function DayCell({
   );
 }
 
+/**
+ * Detalhe de um dia (abre ao tocar no dia; no celular sobe de baixo). Diz com palavras o que é
+ * cada valor: ganho = corridas + diária; "cobrou na porta" é dinheiro do cliente, da loja.
+ */
 function DayDetail({
   day,
   cells,
@@ -433,18 +444,33 @@ function DayDetail({
   const sorted = [...cells].sort((a, b) => toCents(b.total) - toCents(a.total));
   const total = cells.reduce((a, c) => a + toCents(c.total), 0);
   const delivered = cells.reduce((a, c) => a + c.delivered, 0);
-  const collected = cells.reduce((a, c) => a + toCents(c.collected), 0);
+  /** O dia de um entregador é pago de uma vez (o pagamento vai até uma data). */
+  const paidOf = (id: string) => {
+    const mine = rides?.filter((r) => r.courierId === id) ?? [];
+    return mine.length > 0 && mine.every((r) => r.paid);
+  };
+  const paid = rides
+    ? cells.reduce((a, c) => a + (paidOf(c.courierId) ? toCents(c.total) : 0), 0)
+    : null;
 
   return (
     <div className="ccal-detail">
+      <p className="ccal-detail__lead">
+        {cells.length === 1
+          ? `1 entregador fez ${plural(delivered, 'entrega', 'entregas')} e ganhou `
+          : `${cells.length} entregadores fizeram ${plural(delivered, 'entrega', 'entregas')} e ganharam `}
+        <strong>{formatBRL(total)}</strong> neste dia.
+      </p>
       <div className="ccal-kpis">
-        <Kpi label="Total do dia">{formatBRL(total)}</Kpi>
+        <Kpi label="Ganhos do dia">{formatBRL(total)}</Kpi>
         <Kpi label="Entregas">{delivered}</Kpi>
-        <Kpi label="Entregadores">{cells.length}</Kpi>
-        <Kpi label="Recebido na porta">{formatBRL(collected)}</Kpi>
+        <Kpi label="Já pago">{paid === null ? '…' : formatBRL(paid)}</Kpi>
+        <Kpi label="Falta pagar">{paid === null ? '…' : formatBRL(total - paid)}</Kpi>
       </div>
+      {error && <Alert tone="danger">{error}</Alert>}
       {sorted.map((c) => {
         const mine = rides?.filter((r) => r.courierId === c.courierId) ?? [];
+        const isPaid = paidOf(c.courierId);
         return (
           <section
             key={c.courierId}
@@ -456,36 +482,49 @@ function DayDetail({
               <div>
                 <strong>{name(c.courierId)}</strong>
                 <span className="cm-hint">
-                  {plural(c.delivered, 'entrega', 'entregas')}
-                  {c.failed > 0 && ` · ${plural(c.failed, 'não entregue', 'não entregues')}`} ·{' '}
-                  {km(c.distanceM)} · {time(c.first)} às {time(c.last)}
+                  {km(c.distanceM)} · das {time(c.first)} às {time(c.last)}
                 </span>
               </div>
-              <strong className="ccal-person__total">{brl(c.total)}</strong>
+              {rides &&
+                (isPaid ? (
+                  <Badge tone="success">Pago</Badge>
+                ) : (
+                  <Badge tone="warning">A pagar</Badge>
+                ))}
             </header>
-            <dl className="ccal-person__split">
+            <dl className="ccal-bill">
               <div>
-                <dt>Corridas</dt>
+                <dt>
+                  Corridas
+                  <small>
+                    {plural(c.delivered, 'entrega', 'entregas')}
+                    {c.failed > 0 && ` + ${plural(c.failed, 'não entregue', 'não entregues')}`},
+                    pela regra de pagamento
+                  </small>
+                </dt>
                 <dd>{brl(c.rides)}</dd>
               </div>
               {toCents(c.daily) > 0 && (
                 <div>
-                  <dt>Diária</dt>
+                  <dt>
+                    Diária
+                    <small>valor fixo por dia trabalhado</small>
+                  </dt>
                   <dd>{brl(c.daily)}</dd>
                 </div>
               )}
-              {toCents(c.collected) > 0 && (
-                <div>
-                  <dt>Recebeu na porta</dt>
-                  <dd>{brl(c.collected)}</dd>
-                </div>
-              )}
+              <div className="ccal-bill__total">
+                <dt>Ganhou no dia</dt>
+                <dd>{brl(c.total)}</dd>
+              </div>
             </dl>
-            {error ? (
-              <Alert tone="danger">{error}</Alert>
-            ) : !rides ? (
-              <Skeleton rows={2} />
-            ) : (
+            {toCents(c.collected) > 0 && (
+              <p className="ccal-door">
+                Recebeu <strong>{brl(c.collected)}</strong> em dinheiro dos clientes na porta. Esse
+                valor é da loja (não é ganho dele) e volta para o caixa no acerto.
+              </p>
+            )}
+            {rides && mine.length > 0 && (
               <details className="ccal-rides" open={sorted.length === 1 || undefined}>
                 <summary>Ver {plural(mine.length, 'corrida', 'corridas')}</summary>
                 <ul className="od-rows">
@@ -505,13 +544,7 @@ function DayDetail({
                         </div>
                       </div>
                       <span className="od-rows__end">
-                        {r.status === 'failed' ? (
-                          <Badge tone="danger">Não entregue</Badge>
-                        ) : r.paid ? (
-                          <Badge tone="success">Pago</Badge>
-                        ) : (
-                          <Badge>A pagar</Badge>
-                        )}
+                        {r.status === 'failed' && <Badge tone="danger">Não entregue</Badge>}
                         <strong>{brl(r.pay)}</strong>
                       </span>
                     </li>
@@ -519,9 +552,15 @@ function DayDetail({
                 </ul>
               </details>
             )}
+            {!rides && !error && <Skeleton rows={2} />}
           </section>
         );
       })}
+      <p className="cm-hint">
+        <strong>Ganhou no dia</strong> = corridas + diária: é o que a loja deve ao entregador.{' '}
+        <strong>Pago</strong> = já entrou num pagamento com recibo (em A pagar agora).{' '}
+        <strong>Recebido na porta</strong> é dinheiro do cliente, da loja, e volta no acerto.
+      </p>
     </div>
   );
 }

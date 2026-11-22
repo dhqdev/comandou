@@ -53,7 +53,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/entregas',
     name: 'Entregas',
     perms: ['delivery:manage'],
-    text: 'abas Ao vivo (despacho para o entregador e mapa com quem está na rua), Entregadores, Área de entrega (taxa e pedido mínimo desenhados no mapa), Hoje, Acerto e Repasses (ganhos dos entregadores). O entregador conclui com o código de 4 dígitos do cliente; pelo painel dá para concluir sem o código. Quando o aplicativo de delivery leva o pedido, o despacho com motoboy da loja fica travado.',
+    text: 'abas Ao vivo (despacho para o entregador e mapa com quem está na rua), Entregadores, Área de entrega (taxa e pedido mínimo desenhados no mapa), Hoje e Acerto (tudo o que se acerta com os entregadores: A pagar agora com o botão Pagar e as Regras de pagamento, o Calendário de ganhos do mês, o dinheiro que receberam na porta e os pagamentos feitos com recibo). O entregador conclui com o código de 4 dígitos do cliente; pelo painel dá para concluir sem o código. Quando o aplicativo de delivery leva o pedido, o despacho com motoboy da loja fica travado.',
   },
   {
     path: '/cardapio',

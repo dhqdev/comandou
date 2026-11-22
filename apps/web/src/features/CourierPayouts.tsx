@@ -12,25 +12,8 @@ import {
   type CourierTaxRegime,
   type CourierTaxSettings,
 } from '@comandou/shared';
-import {
-  Bike,
-  ChevronLeft,
-  ChevronRight,
-  Printer,
-  Receipt,
-  Scale,
-  Settings2,
-  Wallet,
-} from 'lucide-react';
-import {
-  type FormEvent,
-  type ReactNode,
-  type Ref,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { Bike, Printer, Receipt, Settings2 } from 'lucide-react';
+import { type FormEvent, type Ref, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -49,7 +32,9 @@ import { escapeHtml, printDocument } from '../lib/print-doc';
 import { CheckField, SelectField } from './forms';
 import { dateTime } from './format';
 import { kmLabel } from './live-geo';
-import '../pages/reports.css';
+import { useRealtime } from '../lib/realtime';
+import { CourierCalendar } from './CourierCalendar';
+import { CourierCollections } from './CourierCollections';
 
 interface Settings {
   rule: CourierPayRule;
@@ -164,10 +149,6 @@ const METHOD_LABEL: Record<string, string> = {
   transfer: 'Transferência',
   other: 'Outro',
 };
-const shiftMonth = (m: string, n: number) => {
-  const d = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + n, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-};
 const monthLabel = (m: string) =>
   new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1).toLocaleDateString('pt-BR', {
     month: 'long',
@@ -184,14 +165,26 @@ const todayIso = () => {
 const br = (v: string) => v.replace('.', ',');
 const fmtDay = (d: string) => d.split('-').reverse().join('/');
 const nonZero = (v: string) => toCents(v) !== 0;
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /**
- * Repasses aos entregadores (Entregas › Repasses): no mês, quanto cada motoboy ganhou, quanto
- * já foi pago e retido, o que falta pagar e quanto custou para a loja, com o custo por dia e
- * a comparação com as taxas de entrega cobradas. Daqui o dono ajusta a regra de pagamento e
- * os impostos, define o regime de cada motoboy e paga (com recibo e lançamento no Financeiro).
+ * Entregas › Acerto: tudo o que a loja acerta com os entregadores, numa aba só.
+ * 1. A pagar agora: corridas ainda não pagas de cada um, com Pagar (recibo + Financeiro),
+ *    "ajustar" (regime, regra própria, Pix) e as Regras de pagamento.
+ * 2. Calendário de ganhos do mês (quanto cada um fez por dia).
+ * 3. Dinheiro que o entregador recebeu na porta e ainda não entregou no caixa.
+ * 4. Pagamentos feitos no mês do calendário, com o recibo.
+ * "A pagar" não depende do mês: são as corridas pendentes, de qualquer data.
  */
-export function CourierPayouts() {
+export function CourierSettlement({
+  colorOf,
+  canPay,
+  canSettle,
+}: {
+  colorOf(id: string): string;
+  canPay: boolean;
+  canSettle: boolean;
+}) {
   const canWrite = useCan('finance:write');
   const [month, setMonth] = useState(thisMonth);
   const [data, setData] = useState<Report | null>(null);
@@ -215,243 +208,37 @@ export function CourierPayouts() {
   }
 
   const load = useCallback(async () => {
+    if (!canPay) return;
     try {
       setData(await api<Report>(`/courier-pay/report?month=${month}`));
       setError(null);
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [month]);
+  }, [month, canPay]);
   useEffect(() => {
-    setData(null);
     void load();
   }, [load]);
-
-  const t = data?.totals;
-  const balance = t ? toCents(t.deliveryFees) - toCents(t.costEstimate) : 0;
-  const visible = data?.couriers.filter(
-    (c) => c.active || c.delivered + c.failed + c.paidCount + c.pendingRides > 0,
-  );
+  useRealtime((e) => {
+    if (e.type === 'delivery.changed') void load();
+  }, load);
 
   return (
-    <div className="rp">
-      <div className="rp-monthbar">
-        <Button
-          variant="ghost"
-          aria-label="Mês anterior"
-          icon={<ChevronLeft size={18} />}
-          onClick={() => setMonth((m) => shiftMonth(m, -1))}
+    <div className="dl-acerto">
+      {canPay && (
+        <PayNow
+          data={data}
+          error={error}
+          canWrite={canWrite}
+          onRules={() => setRules(true)}
+          onEdit={setEditing}
+          onPay={setPaying}
         />
-        <h2 className="rp-month">{monthLabel(month)}</h2>
-        <Button
-          variant="ghost"
-          aria-label="Próximo mês"
-          icon={<ChevronRight size={18} />}
-          onClick={() => setMonth((m) => shiftMonth(m, 1))}
-        />
-        {canWrite && (
-          <Button
-            variant="secondary"
-            icon={<Settings2 size={16} />}
-            onClick={() => setRules(true)}
-            style={{ marginLeft: 'auto' }}
-          >
-            Regras de pagamento
-          </Button>
-        )}
-      </div>
-      {error && <Alert tone="danger">{error}</Alert>}
-      {!data || !t ? (
-        !error && <Skeleton variant="table" />
-      ) : (
-        <>
-          <div className="dl-kpis">
-            <Kpi
-              icon={<Bike size={18} />}
-              tone="brand"
-              label="Ganhos dos entregadores"
-              value={brl(t.earned)}
-              hint={`${t.delivered} entregas · ${kmLabel(t.distanceM)}`}
-            />
-            <Kpi
-              icon={<Scale size={18} />}
-              tone="info"
-              label="Custo para a loja"
-              value={brl(t.costEstimate)}
-              hint={
-                balance >= 0
-                  ? `Taxas cobradas ${brl(t.deliveryFees)} · sobram ${formatBRL(balance)}`
-                  : `Taxas cobradas ${brl(t.deliveryFees)} · faltam ${formatBRL(-balance)}`
-              }
-            />
-            <Kpi
-              icon={<Receipt size={18} />}
-              tone="success"
-              label="Pago no mês"
-              value={brl(t.paidNet)}
-              hint={
-                nonZero(t.paidWithheld)
-                  ? `+ ${brl(t.paidWithheld)} retidos a recolher`
-                  : 'Sem retenções'
-              }
-            />
-            <Kpi
-              icon={<Wallet size={18} />}
-              tone="warning"
-              label="A pagar agora"
-              value={brl(t.pendingNet)}
-              hint={
-                nonZero(t.pendingGross)
-                  ? `Bruto ${brl(t.pendingGross)}, com as retenções estimadas`
-                  : 'Tudo acertado'
-              }
-            />
-          </div>
-
-          <Card title="Por entregador" bodyless>
-            {!visible?.length ? (
-              <EmptyState
-                icon={<Bike size={20} />}
-                title="Nenhum entregador cadastrado"
-                description="Cadastre na aba Entregadores. Os ganhos aparecem aqui conforme as corridas terminam."
-              />
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="cm-table cp-table">
-                  <thead>
-                    <tr>
-                      <th>Entregador</th>
-                      <th className="num">Entregas</th>
-                      <th className="num">Km</th>
-                      <th className="num">Ganhou no mês</th>
-                      <th className="num">Pago no mês</th>
-                      <th className="num">A pagar</th>
-                      <th aria-label="Ações" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visible.map((c) => (
-                      <tr key={c.courierId}>
-                        <td>
-                          <strong>{c.name}</strong>{' '}
-                          <Badge tone={c.taxRegime === 'autonomo' ? 'warning' : 'neutral'}>
-                            {COURIER_TAX_REGIME_LABELS[c.taxRegime].split(' (')[0]}
-                          </Badge>
-                          <div className="cm-hint">
-                            {c.ownRule ? 'Regra própria: ' : ''}
-                            {c.rule}
-                          </div>
-                        </td>
-                        <td className="num">
-                          {c.delivered}
-                          {c.failed > 0 && <span className="cm-hint"> +{c.failed} falhas</span>}
-                        </td>
-                        <td className="num">{c.distanceM ? kmLabel(c.distanceM) : '—'}</td>
-                        <td className="num">
-                          {brl(c.earned)}
-                          {nonZero(c.daily) && (
-                            <div className="cm-hint">diárias {brl(c.daily)}</div>
-                          )}
-                        </td>
-                        <td className="num">
-                          {brl(c.paidNet)}
-                          {nonZero(c.paidWithheld) && (
-                            <div className="cm-hint">retido {brl(c.paidWithheld)}</div>
-                          )}
-                        </td>
-                        <td className="num">
-                          <strong>{brl(c.pendingNet)}</strong>
-                          {c.pendingRides > 0 && (
-                            <div className="cm-hint">{c.pendingRides} corridas</div>
-                          )}
-                        </td>
-                        <td>
-                          {canWrite && (
-                            <span className="actions-row" style={{ justifyContent: 'flex-end' }}>
-                              <button className="link-btn" onClick={() => setEditing(c)}>
-                                ajustar
-                              </button>
-                              <Button
-                                size="sm"
-                                disabled={!nonZero(c.pendingGross)}
-                                onClick={() => setPaying(c)}
-                              >
-                                Pagar
-                              </Button>
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-
-          <Card title="Custo com entregadores por dia">
-            <DailyCost month={month} days={data.days} />
-          </Card>
-
-          <Card title="Pagamentos do mês" bodyless>
-            {data.payouts.length === 0 ? (
-              <EmptyState
-                icon={<Receipt size={20} />}
-                title="Nenhum pagamento neste mês"
-                description='Use "Pagar" ao lado do entregador para acertar as corridas pendentes.'
-              />
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="cm-table cp-table">
-                  <thead>
-                    <tr>
-                      <th>Data</th>
-                      <th>Entregador</th>
-                      <th>Período</th>
-                      <th className="num">Bruto</th>
-                      <th className="num">Retido</th>
-                      <th className="num">Líquido</th>
-                      <th aria-label="Recibo" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.payouts.map((p) => (
-                      <tr key={p.id}>
-                        <td>{dateTime(p.paidAt)}</td>
-                        <td>
-                          {p.courierName}{' '}
-                          <span className="cm-hint">· {METHOD_LABEL[p.method] ?? p.method}</span>
-                        </td>
-                        <td>
-                          {p.periodFrom ? `${fmtDay(p.periodFrom)} a ` : 'até '}
-                          {fmtDay(p.periodTo)} · {p.deliveries} entregas
-                        </td>
-                        <td className="num">{brl(p.gross)}</td>
-                        <td className="num">
-                          {formatBRL(toCents(p.inss) + toCents(p.irrf) + toCents(p.iss))}
-                        </td>
-                        <td className="num">
-                          <strong>{brl(p.net)}</strong>
-                        </td>
-                        <td>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            icon={<Printer size={14} />}
-                            onClick={() => setReceipt(p)}
-                          >
-                            Recibo
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-          <TaxNotes settings={data.settings} />
-        </>
+      )}
+      {canPay && <CourierCalendar colorOf={colorOf} month={month} onMonth={setMonth} />}
+      {canSettle && <CourierCollections />}
+      {canPay && data && data.month === month && (
+        <PaidList month={month} payouts={data.payouts} onReceipt={setReceipt} />
       )}
 
       {data && (
@@ -509,55 +296,174 @@ export function CourierPayouts() {
   );
 }
 
-function Kpi({
-  icon,
-  label,
-  value,
-  hint,
-  tone,
+/** O que falta pagar a cada entregador agora (corridas pendentes de qualquer data). */
+function PayNow({
+  data,
+  error,
+  canWrite,
+  onRules,
+  onEdit,
+  onPay,
 }: {
-  icon: ReactNode;
-  label: string;
-  value: ReactNode;
-  hint: string;
-  tone: 'brand' | 'success' | 'warning' | 'info';
+  data: Report | null;
+  error: string | null;
+  canWrite: boolean;
+  onRules(): void;
+  onEdit(l: Line): void;
+  onPay(l: Line): void;
 }) {
+  const t = data?.totals;
+  const visible = data?.couriers
+    .filter((c) => c.active || c.pendingRides > 0)
+    .sort((a, b) => toCents(b.pendingGross) - toCents(a.pendingGross));
   return (
-    <div className="dl-kpi" data-tone={tone}>
-      <span className="dl-kpi__icon">{icon}</span>
-      <span className="dl-kpi__label">{label}</span>
-      <strong className="dl-kpi__value">{value}</strong>
-      <span className="cm-hint cp-kpi__hint">{hint}</span>
-    </div>
+    <Card
+      title={
+        <span className="cp-paynow__title">
+          A pagar agora
+          {t && <strong>{brl(t.pendingNet)}</strong>}
+        </span>
+      }
+      actions={
+        canWrite && data ? (
+          <Button size="sm" variant="secondary" icon={<Settings2 size={16} />} onClick={onRules}>
+            Regras de pagamento
+          </Button>
+        ) : undefined
+      }
+      bodyless
+    >
+      {error ? (
+        <div className="cp-paynow__pad">
+          <Alert tone="danger">{error}</Alert>
+        </div>
+      ) : !data ? (
+        <div className="cp-paynow__pad">
+          <Skeleton variant="table" />
+        </div>
+      ) : !visible?.length ? (
+        <EmptyState
+          icon={<Bike size={20} />}
+          title="Nenhum entregador cadastrado"
+          description="Cadastre na aba Entregadores. O que falta pagar aparece aqui conforme as corridas terminam."
+        />
+      ) : (
+        <ul className="cp-paynow">
+          {visible.map((c) => {
+            const owes = nonZero(c.pendingGross);
+            return (
+              <li key={c.courierId} className="cp-paynow__row" data-done={!owes || undefined}>
+                <div className="cp-paynow__who">
+                  <strong>{c.name}</strong>{' '}
+                  <Badge tone={c.taxRegime === 'autonomo' ? 'warning' : 'neutral'}>
+                    {COURIER_TAX_REGIME_LABELS[c.taxRegime].split(' (')[0]}
+                  </Badge>
+                  <div className="cm-hint">
+                    {c.ownRule ? 'Regra própria: ' : ''}
+                    {c.rule}
+                  </div>
+                </div>
+                <div className="cp-paynow__value">
+                  {owes ? (
+                    <>
+                      <strong>{brl(c.pendingNet)}</strong>
+                      <span className="cm-hint">
+                        {plural(c.pendingRides, 'corrida', 'corridas')}
+                        {nonZero(c.pendingWithheld) &&
+                          ` · bruto ${brl(c.pendingGross)}, retido ${brl(c.pendingWithheld)}`}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="cm-hint">Tudo pago</span>
+                  )}
+                </div>
+                {canWrite && (
+                  <span className="actions-row cp-paynow__actions">
+                    <button className="link-btn" onClick={() => onEdit(c)}>
+                      ajustar
+                    </button>
+                    <Button size="sm" disabled={!owes} onClick={() => onPay(c)}>
+                      Pagar
+                    </Button>
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
   );
 }
 
-/** Barras do custo de cada dia do mês (corridas encerradas no dia). */
-function DailyCost({ month, days }: { month: string; days: Report['days'] }) {
-  const last = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
-  const max = Math.max(1, ...days.map((d) => toCents(d.cost)));
-  if (!days.length) return <p className="cm-hint">Nenhuma corrida encerrada neste mês ainda.</p>;
+/** Pagamentos feitos no mês escolhido no calendário, cada um com o recibo. */
+function PaidList({
+  month,
+  payouts,
+  onReceipt,
+}: {
+  month: string;
+  payouts: Payout[];
+  onReceipt(p: Payout): void;
+}) {
   return (
-    <div className="rp-hours">
-      <div className="rp-hours__cols">
-        {Array.from({ length: last }, (_, i) => {
-          const key = `${month}-${String(i + 1).padStart(2, '0')}`;
-          const d = days.find((x) => x.day === key);
-          const v = d ? toCents(d.cost) : 0;
-          return (
-            <span
-              key={key}
-              className="rp-hours__col"
-              data-top={(v === max && v > 0) || undefined}
-              title={`${fmtDay(key)}: ${formatBRL(v)}${d ? ` · ${d.deliveries} entregas` : ''}`}
-            >
-              <span style={{ height: v ? `${Math.max(4, (v / max) * 100)}%` : '0' }} />
-              <small>{(i + 1) % 5 === 1 ? i + 1 : ''}</small>
-            </span>
-          );
-        })}
-      </div>
-    </div>
+    <Card title={`Pagamentos feitos em ${monthLabel(month)}`} bodyless>
+      {payouts.length === 0 ? (
+        <EmptyState
+          icon={<Receipt size={20} />}
+          title="Nenhum pagamento neste mês"
+          description='Use "Pagar" em A pagar agora para acertar as corridas pendentes.'
+        />
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="cm-table cp-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Entregador</th>
+                <th>Corridas de</th>
+                <th className="num">Bruto</th>
+                <th className="num">Retido</th>
+                <th className="num">Pago</th>
+                <th aria-label="Recibo" />
+              </tr>
+            </thead>
+            <tbody>
+              {payouts.map((p) => (
+                <tr key={p.id}>
+                  <td>{dateTime(p.paidAt)}</td>
+                  <td>
+                    {p.courierName}{' '}
+                    <span className="cm-hint">· {METHOD_LABEL[p.method] ?? p.method}</span>
+                  </td>
+                  <td>
+                    {p.periodFrom ? `${fmtDay(p.periodFrom)} a ` : 'até '}
+                    {fmtDay(p.periodTo)} · {p.deliveries} entregas
+                  </td>
+                  <td className="num">{brl(p.gross)}</td>
+                  <td className="num">
+                    {formatBRL(toCents(p.inss) + toCents(p.irrf) + toCents(p.iss))}
+                  </td>
+                  <td className="num">
+                    <strong>{brl(p.net)}</strong>
+                  </td>
+                  <td>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={<Printer size={14} />}
+                      onClick={() => onReceipt(p)}
+                    >
+                      Recibo
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -826,6 +732,7 @@ function RulesModal({
             onChange={setRecalc}
           />
         )}
+        <TaxNotes settings={settings} />
       </form>
     </Modal>
   );

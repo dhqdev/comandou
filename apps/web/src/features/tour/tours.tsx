@@ -1189,12 +1189,13 @@ export const DELIVERY_STOPS: TourStop[] = [
   {
     path: '/entregas',
     click: { button: 'Hoje' },
-    title: 'Hoje, acerto e repasses',
+    title: 'Hoje e acerto',
     text: 'O resumo do dia e o acerto de contas com cada entregador.',
     steps: [
       <>
-        Em <b>Acerto</b>, confira o dinheiro que cada entregador recebeu na rua.
+        Em <b>Acerto</b>, veja quanto falta pagar a cada entregador e toque em <b>Pagar</b>.
       </>,
+      <>No calendário, toque num dia para ver o que cada um ganhou.</>,
     ],
     targets: [{ css: '[aria-label="Seções de entregas"]' }],
   },

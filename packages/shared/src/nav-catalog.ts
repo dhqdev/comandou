@@ -365,11 +365,12 @@ const SECTIONS: StaticEntry[] = [
   {
     id: 'c-repasses',
     group: 'Seções',
-    title: 'Repasses dos entregadores',
+    title: 'Pagar os entregadores',
     hint: 'Entregas',
-    words: 'motoboy pagamento ganhos comissao diaria km inss irrf rpa mei pagar entregador',
+    words:
+      'motoboy pagamento ganhos repasses acerto calendario comissao diaria km inss irrf rpa mei pagar entregador recibo',
     icon: 'delivery',
-    to: '/entregas?aba=repasses',
+    to: '/entregas?aba=acerto',
     perms: ['finance:read'],
   },
   // Loja online

@@ -622,19 +622,74 @@
   }
 }
 
-/* Repasses aos entregadores (Entregas › Repasses). */
+/* Acerto com os entregadores: A pagar agora, pagamentos feitos e regras (Entregas › Acerto). */
 .cp-table .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.cp-kpi__hint {
-  grid-column: 2;
-  font-size: var(--cm-text-xs);
-}
 .cp-notes {
+  grid-column: 1 / -1;
   margin: 0;
   line-height: 1.5;
+}
+.cp-paynow__title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.cp-paynow__title strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-brand-600);
+}
+.cp-paynow__pad {
+  padding: var(--cm-space-4);
+}
+.cp-paynow {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cp-paynow__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px 20px;
+  padding: 12px var(--cm-space-4);
+}
+.cp-paynow__row + .cp-paynow__row {
+  border-top: 1px solid var(--cm-border);
+}
+.cp-paynow__who {
+  min-width: 0;
+}
+.cp-paynow__value {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cp-paynow__value strong {
+  font-size: var(--cm-text-lg);
+}
+.cp-paynow__row[data-done] .cp-paynow__value {
+  align-self: center;
+}
+.cp-paynow__actions {
+  justify-content: flex-end;
+}
+/* Celular: nome em cima; valor à esquerda e os botões à direita, embaixo. */
+@media (max-width: 640px) {
+  .cp-paynow__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .cp-paynow__who {
+    grid-column: 1 / -1;
+  }
+  .cp-paynow__value {
+    justify-items: start;
+    text-align: left;
+  }
 }
 .cp-example {
   grid-column: 1 / -1;

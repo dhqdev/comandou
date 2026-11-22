@@ -29,9 +29,7 @@ import {
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { minutesSince, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE, time } from '../features/format';
-import { CourierCalendar } from '../features/CourierCalendar';
-import { CourierCollections } from '../features/CourierCollections';
-import { CourierPayouts } from '../features/CourierPayouts';
+import { CourierSettlement } from '../features/CourierPayouts';
 import { DeliveryAreas } from '../features/DeliveryAreas';
 import { routeUrl } from '../features/DriverPanel';
 import { LiveMap, RIDER_COLORS, type MapRider } from '../features/LiveMap';
@@ -72,7 +70,7 @@ const trackingUrl = (path: string) => `${window.location.origin}${path}`;
  * O entregador não passa por aqui: tem o app próprio (driver/DriverApp), só com as corridas dele.
  * Pelo painel, a entrega conclui sem o código do cliente (cliente sem o código, por exemplo).
  */
-type Aba = 'despacho' | 'entregadores' | 'area' | 'hoje' | 'acerto' | 'repasses';
+type Aba = 'despacho' | 'entregadores' | 'area' | 'hoje' | 'acerto';
 
 export function DeliveriesPage() {
   const canManage = useCan('delivery:manage');
@@ -91,7 +89,8 @@ export function DeliveriesPage() {
   /** Celular: a aba Ao vivo mostra a lista ou o mapa (um de cada vez, sem rolar entre os dois). */
   const [view, setView] = useState<'lista' | 'mapa'>('lista');
   const phone = useMedia('(max-width: 860px)');
-  useLinkParam('aba', (a) => setAba(a as Aba));
+  // Links antigos da aba Repasses (que entrou no Acerto) caem no Acerto.
+  useLinkParam('aba', (a) => setAba((a === 'repasses' ? 'acerto' : a) as Aba));
 
   const load = useCallback(async () => {
     try {
@@ -212,8 +211,7 @@ export function DeliveriesPage() {
           { value: 'entregadores', label: 'Entregadores', count: activeCouriers.length },
           { value: 'area', label: 'Área de entrega' },
           { value: 'hoje', label: 'Hoje', count: today.length },
-          ...(canSettle ? [{ value: 'acerto' as const, label: 'Acerto' }] : []),
-          ...(canPay ? [{ value: 'repasses' as const, label: 'Repasses' }] : []),
+          ...(canSettle || canPay ? [{ value: 'acerto' as const, label: 'Acerto' }] : []),
         ]}
       />
       {live && phone && (
@@ -408,13 +406,9 @@ export function DeliveriesPage() {
         />
       )}
       {aba === 'area' && <DeliveryAreas canEdit={canSetup} />}
-      {aba === 'acerto' && canSettle && (
-        <div className="dl-acerto">
-          {canPay && <CourierCalendar colorOf={colorOf} />}
-          <CourierCollections />
-        </div>
+      {aba === 'acerto' && (canSettle || canPay) && (
+        <CourierSettlement colorOf={colorOf} canPay={canPay} canSettle={canSettle} />
       )}
-      {aba === 'repasses' && canPay && <CourierPayouts />}
       <Modal open={!!link} title={link?.title ?? ''} onClose={() => setLink(null)}>
         {link && <TrackingLink path={link.path} />}
       </Modal>

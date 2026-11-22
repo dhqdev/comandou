@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.225.0',
+    date: '2026-11-22',
+    title: 'Entregas: pagar os entregadores ficou todo no Acerto',
+    summary:
+      'A aba Repasses saiu e o que importava dela foi para o Acerto: quanto falta pagar a cada entregador, com o botão Pagar, o calendário de ganhos, o dinheiro recebido na porta e os pagamentos feitos com recibo. Tocar num dia explica cada valor.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Entregas › Acerto agora tem, nesta ordem: A pagar agora (valor de cada entregador, corridas, Pagar, ajustar e Regras de pagamento), Calendário de ganhos, Acerto do dinheiro da porta e Pagamentos feitos no mês do calendário, com o recibo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Saíram os números que pareciam não bater ("Pago no mês" maior que os ganhos, porque contava pagamentos de corridas de outro mês), o "Custo para a loja" repetido e o gráfico por dia, que o calendário já mostra.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Detalhe do dia (no celular sobe de baixo): frase de resumo, quanto já foi pago e quanto falta, a conta de cada entregador (corridas + diária = ganhou no dia) e o aviso de que o dinheiro cobrado na porta é da loja.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A explicação dos impostos (MEI, autônomo, CLT) foi para dentro de Regras de pagamento. Links antigos da aba Repasses abrem o Acerto.',
+      },
+    ],
+  },
+  {
     version: '0.224.1',
     date: '2026-11-22',
     title: 'Botões com a cor da loja de letra branca no modo escuro',
