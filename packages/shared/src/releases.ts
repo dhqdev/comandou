@@ -45,6 +45,23 @@ export const RELEASES: readonly Release[] = [
     ],
   },
   {
+    version: '0.228.5',
+    date: '2026-11-22',
+    title: 'Rolagem elástica no celular',
+    summary:
+      'No navegador do celular, as telas do sistema, o site e os apps da equipe passam um pouco do fim ao rolar e voltam sozinhos, com o efeito do próprio celular, sem pesar a página.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Rolagem no celular: ao chegar no começo ou no fim da tela, o conteúdo estica um pouco e volta, como nos aplicativos. O topo e o menu de baixo ficam parados, e com uma janela aberta a tela de trás não se mexe.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No app instalado, o elástico e o puxar para atualizar continuam como antes.',
+      },
+    ],
+  },
+  {
     version: '0.228.4',
     date: '2026-11-22',
     title: 'Pedido do cliente sem esmaecer',

@@ -1438,7 +1438,8 @@
     grid-column: 1;
     border-radius: 0;
     border-left: 0;
-    /* Rola só o conteúdo: sem "puxar demais" para cima ou para baixo (efeito elástico). */
+    /* App instalado: o elástico e o puxar para atualizar são do pull-refresh.ts (o nativo
+       brigaria com a bolinha do topo). No navegador, o painel estica sozinho (abaixo). */
     overscroll-behavior-y: none;
   }
   .cm-frame__content {
@@ -1554,5 +1555,16 @@
   }
   .cm-sheet__body {
     padding-bottom: calc(var(--cm-space-5) + env(safe-area-inset-bottom));
+  }
+}
+
+/* Celular no navegador: o painel passa um pouco das pontas e volta (o elástico do próprio
+   navegador, sem script). `contain` não deixa o gesto escapar para a página, e a moldura
+   (topo e abas) fica no lugar. Tela cheia e app instalado seguem com o pull-refresh.ts. */
+@media (max-width: 860px) {
+  @media not all and (display-mode: standalone) {
+    html:not(:fullscreen) .cm-frame__panel {
+      overscroll-behavior-y: contain;
+    }
   }
 }
