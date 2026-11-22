@@ -6,6 +6,7 @@ import {
   applyTheme,
   cachedBranding,
   installDecimalEntry,
+  installModalScrollLock,
   installPullToRefresh,
   trackViewport,
 } from './design-system';
@@ -38,6 +39,8 @@ trackViewport();
 installPullToRefresh();
 // Campos de valor ("0,00"): digitar começa antes da vírgula; a vírgula pula para os centavos.
 installDecimalEntry();
+// Janela ou folha aberta: arrastar dentro dela não rola a página de trás (iPhone).
+installModalScrollLock();
 // Maquininha (Smart POS): botões maiores para o dedo, antes do primeiro desenho.
 applyPosMode();
 

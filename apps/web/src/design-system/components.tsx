@@ -314,6 +314,7 @@ export function Modal({
   children,
   footer,
   size = 'md',
+  className,
 }: {
   open: boolean;
   title: ReactNode;
@@ -321,6 +322,8 @@ export function Modal({
   children: ReactNode;
   footer?: ReactNode;
   size?: 'md' | 'lg' | 'xl';
+  /** Classe a mais na janela (janela com miolo próprio, ex.: edição do item no garçom). */
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -341,7 +344,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className={`cm-modal cm-modal--${size}`}
+      className={`cm-modal cm-modal--${size}${className ? ` ${className}` : ''}`}
       onCancel={(e) => {
         // Esc: fecha pelo mesmo caminho do X, com a animação de volta.
         if (e.target !== e.currentTarget || !canAnimate(e.currentTarget)) return;

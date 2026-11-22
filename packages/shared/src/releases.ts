@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.229.0',
+    date: '2026-11-22',
+    title: 'Edição do item no app do garçom',
+    summary:
+      'No app do garçom, tocar num produto abre a tela do item: escolhas obrigatórias, adicionais, o que retirar, observação e quantidade, com atalhos na lateral e o total no botão.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Tela de edição do item no garçom: nome e preço no topo, uma seção por grupo (escolha única, adicionais com +, Retirar) e a observação com contador. O botão de baixo mostra quantidade e total; enquanto falta uma escolha obrigatória, ele diz qual e leva até ela.',
+      },
+      {
+        tag: 'novo',
+        text: 'Atalhos na lateral para cada seção, com visto verde quando a escolha está feita e um ponto laranja no que ainda é obrigatório.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tocar num item do pedido reabre a mesma tela para mudar as escolhas, a quantidade e a observação. As escolhas aparecem embaixo do nome, como "Ao ponto, + Bacon extra, sem Cebola".',
+      },
+      {
+        tag: 'correção',
+        text: 'Janelas e folhas que sobem no celular: rolar dentro delas não rola mais a página de trás, nem quando a lista chega ao fim ou o dedo começa no topo ou no rodapé da folha.',
+      },
+    ],
+  },
+  {
     version: '0.228.3',
     date: '2026-11-22',
     title: 'Equipe no celular em cartões',

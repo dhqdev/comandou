@@ -20,5 +20,6 @@ export * from './transition';
 export * from './fix-guide';
 export * from './help-tip';
 export * from './pull-refresh';
+export * from './modal-scroll-lock';
 export * from './date-picker';
 export * from './save-note';

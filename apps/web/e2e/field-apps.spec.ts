@@ -63,6 +63,12 @@ test('garçom no celular: PIN, pedido na mesa e comanda', async ({ page, browser
     await w
       .getByRole('button', { name: `Adicionar Suco de laranja natural com hortelã ${tag}` })
       .click();
+    // Tocar no produto abre a edição do item; o + do contador repete direto.
+    await w
+      .getByRole('dialog')
+      .getByRole('button', { name: /^Adicionar/ })
+      .click();
+    await expect(w.getByRole('dialog')).toBeHidden();
     await w
       .getByRole('button', { name: `Mais um Suco de laranja natural com hortelã ${tag}` })
       .click();
@@ -77,6 +83,121 @@ test('garçom no celular: PIN, pedido na mesa e comanda', async ({ page, browser
     await expectNoHorizontalScroll(w, ['/garcom/mesas', tabPath, '/garcom/pedidos']);
     await ctx.close();
   }
+});
+
+test('garçom: tela de edição do item (opções, adicionais, retirar e observação)', async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120_000);
+  const tag = Date.now().toString(36).slice(-5);
+  await enterPanel(page, EMAIL, PASSWORD);
+  const table = await apiPost<{ id: string }>(page, '/tables', { label: `E${tag}` });
+  const cats = await (await page.request.get('/api/v1/categories')).json();
+  const product = await apiPost<{ id: string }>(page, '/products', {
+    categoryId: cats[0].id,
+    name: `Cheddar Bacon ${tag}`,
+    description: 'Pão brioche, blend 160 g, cheddar e bacon',
+    price: '34.90',
+  });
+  const groups = [
+    await apiPost<{ id: string }>(page, '/option-groups', {
+      name: 'Ponto da carne',
+      kind: 'variation',
+      minSelect: 1,
+      maxSelect: 1,
+      options: [{ name: 'Mal passado' }, { name: 'Ao ponto' }, { name: 'Bem passado' }],
+    }),
+    await apiPost<{ id: string }>(page, '/option-groups', {
+      name: 'Adicionais',
+      kind: 'additional',
+      minSelect: 0,
+      maxSelect: 4,
+      options: [
+        { name: 'Bacon extra', priceDelta: '5.00' },
+        { name: 'Cheddar extra', priceDelta: '4.00' },
+        { name: 'Ovo', priceDelta: '3.00' },
+        { name: 'Cebola caramelizada', priceDelta: '3.50' },
+      ],
+    }),
+    await apiPost<{ id: string }>(page, '/option-groups', {
+      name: 'Retirar',
+      kind: 'remove',
+      minSelect: 0,
+      maxSelect: 10,
+      options: [{ name: 'Cebola' }, { name: 'Tomate' }, { name: 'Picles' }, { name: 'Molho' }],
+    }),
+  ];
+  const r = await page.request.put(`/api/v1/products/${product.id}/option-groups`, {
+    data: { groupIds: groups.map((g) => g.id) },
+    headers: { 'X-Comandou-Request': '1' },
+  });
+  expect(r.ok(), await r.text()).toBeTruthy();
+  const waiter = await apiPost<{ pin: string }>(page, '/users', {
+    name: `Garçom Item ${tag}`,
+    role: 'waiter',
+  });
+
+  for (const dark of [false, true]) {
+    const ctx = await browser.newContext({
+      ...devices['iPhone 13'],
+      baseURL,
+      colorScheme: dark ? 'dark' : 'light',
+    });
+    const w = await ctx.newPage();
+    const theme = dark ? '-escuro' : '';
+    await typePin(w, '/garcom', waiter.pin);
+    await expect(w.getByLabel('Buscar mesa ou comanda')).toBeVisible();
+    await w.goto(`/garcom/pedido?mesa=${table.id}`);
+    await w.getByRole('button', { name: `Adicionar Cheddar Bacon ${tag}` }).click();
+    const dialog = w.getByRole('dialog');
+    // Sem o ponto da carne, o botão leva até a escolha que falta.
+    await expect(dialog.getByRole('button', { name: 'Escolha ponto da carne' })).toBeVisible();
+    await w.waitForTimeout(400);
+    await w.screenshot({ path: shot(`garcom-item-aberto${theme}`) });
+    await dialog.getByRole('radio', { name: 'Ao ponto' }).click();
+    await dialog.getByRole('checkbox', { name: /Bacon extra/ }).click();
+    await dialog.getByRole('checkbox', { name: /Ovo/ }).click();
+    await w.waitForTimeout(500);
+    await w.screenshot({ path: shot(`garcom-item-escolhas${theme}`) });
+    await dialog.getByRole('button', { name: /^Retirar/ }).click();
+    await dialog.getByRole('checkbox', { name: 'Cebola', exact: true }).click();
+    await dialog.getByRole('textbox', { name: 'Observação' }).fill('Molho à parte');
+    await dialog.getByLabel('Aumentar quantidade').click();
+    await w.waitForTimeout(500);
+    await w.screenshot({ path: shot(`garcom-item-retirar${theme}`) });
+    // 34,90 + 5,00 + 3,00 = 42,90; duas unidades = 85,80.
+    await dialog.getByRole('button', { name: /Adicionar.*R\$ 85,80/ }).click();
+    await expect(dialog).toBeHidden();
+    await w.getByRole('button', { name: /Ver pedido/ }).click();
+    await expect(w.getByText('Ao ponto, + Bacon extra, + Ovo, sem Cebola')).toBeVisible();
+    await w.screenshot({ path: shot(`garcom-item-no-pedido${theme}`) });
+    await ctx.close();
+  }
+
+  // Tablet deitado: pedido ao lado e a edição numa janela; tocar na linha reabre para mudar.
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, baseURL });
+  const w = await ctx.newPage();
+  await typePin(w, '/garcom', waiter.pin);
+  await expect(w.getByLabel('Buscar mesa ou comanda')).toBeVisible();
+  await w.goto(`/garcom/pedido?mesa=${table.id}`);
+  await w.getByRole('button', { name: `Adicionar Cheddar Bacon ${tag}` }).click();
+  const dialog = w.getByRole('dialog');
+  await dialog.getByRole('radio', { name: 'Bem passado' }).click();
+  await dialog.getByRole('checkbox', { name: /Cheddar extra/ }).click();
+  await dialog.getByRole('button', { name: /Adicionar ao pedido.*R\$ 38,90/ }).click();
+  await expect(dialog).toBeHidden();
+  await w.getByRole('button', { name: `Editar Cheddar Bacon ${tag}` }).click();
+  await expect(dialog.getByRole('radio', { name: 'Bem passado' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await w.waitForTimeout(400);
+  await w.screenshot({ path: shot('garcom-item-tablet') });
+  await dialog.getByRole('button', { name: /^Salvar · R\$ 38,90/ }).click();
+  await expect(dialog).toBeHidden();
+  await ctx.close();
 });
 
 test('entregador no celular: PIN, corridas, não entregue, entregue e ganhos', async ({

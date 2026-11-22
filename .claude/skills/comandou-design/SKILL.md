@@ -20,7 +20,7 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
 - **Tipografia:** Inter, títulos de seção pequenos e discretos, números tabulares; sem caixa alta em rótulos.
 - **Menu lateral (computador):** uma barra só, com o mesmo desenho aberta e recolhida. Aberta: 252px, itens de 38px com letra de 15px e ícone de 20px, subitens de 14px; o painel encosta reto no menu e no topo (sem canto arredondado no encontro, pedido do David). Recolhida (0.178): 66px, **só os ícones, sem nome** (o ícone fica parado no mesmo lugar; recolher só estreita a barra e apaga os nomes), o painel mantém o canto de 18px. Abrir/fechar fixo anima a coluna do conteúdo (`grid-template-columns`, 360 ms, `--rail-ease`); recolhida, **encostar o mouse abre por cima do conteúdo** (`data-peek`, sombra de camada solta) e sair fecha. Grupos abrem embaixo deslizando (`.cm-rail__subwrap`, 0fr ↔ 1fr). Não troque o desenho entre aberta e recolhida (a animação depende de os itens serem os mesmos).
 - **Carregamento é esqueleto** (pedido do David, 0.206): conteúdo que está chegando usa `Skeleton` (`design-system/skeleton.tsx`) no formato do que vem: `list` (padrão), `table`, `cards`, `grid` (produtos), `form`, `detail` (janela/gaveta), `board` (cozinha, chamados), `chat`, `page` e `qr`; formato próprio se monta com `Bone` (ex.: `MenuSkeleton` do cardápio). App inteiro abrindo: `AppSkeleton` (igual ao `#cm-boot` do `index.html`; mudou um, mude o outro). `Spinner` fica só para ação em andamento (entrar, salvar, enviar, buscar, abrir um link) e dentro de botão. Nunca "Carregando…" solto nem ícone girando no lugar de uma lista.
-- **Celular e PWA:** um campo por linha, alvo de toque 44px, folha que sobe de baixo (padrão Planejai: alça, rodapé fixo, botão principal ocupa o espaço que sobra).
+- **Celular e PWA:** um campo por linha, alvo de toque 44px, folha que sobe de baixo (padrão Planejai: alça, rodapé fixo, botão principal ocupa o espaço que sobra). Com janela ou folha aberta (`dialog` modal) a página de trás não rola: `html:has(dialog[open]:modal)` em `base.css` e `installModalScrollLock` (`design-system/modal-scroll-lock.ts`) barram o arrasto que não tem o que rolar dentro da janela (pedido do David, 0.229). Folha nova feita sem `<dialog>` precisa do mesmo cuidado.
 
 ## App do entregador (celular)
 
@@ -62,6 +62,23 @@ avatar com a inicial em `--cm-brand-100`, nome e e-mail (ou "Entra só com o PIN
 escolha na largura toda, uma linha "PIN criado/Senha · visto …" com Novo PIN/Nova senha em
 `link-btn` à direita e o rodapé cinza com **Abrir, Link e Desativar** (vermelho). Desativado:
 cartão apagado e só Reativar. No computador continua a tabela.
+
+## Edição do item no garçom
+
+`waiter/ItemEditor.tsx` (regras puras em `waiter/item-editor.ts`, testadas; classes `wt-ie*` em
+`waiter.css`; 0.229, pedido do David com prints de outro sistema como ideia). Tocar no produto
+abre a janela `Modal` (`className="wt-ie-modal"`, folha alta no celular) com o miolo próprio:
+nome e preço (+ descrição) no título, **trilho de atalhos** à esquerda (`wt-ie__jump`: ícone e
+nome em até 2 linhas, ativo com contorno laranja, visto verde quando feito, ponto laranja no
+obrigatório que falta), seções que rolam com o cabeçalho preso (título semibold, frase cinza,
+"Obrigatório" em pílula laranja suave que vira visto verde, contador 2/4) e o rodapé fixo com a
+quantidade e o botão principal com o total. Jeito de cada grupo (`groupMode`): escolha única =
+bolinha; adicional = + num círculo cinza que vira visto laranja; várias (sabores) = quadradinho;
+retirar = "Retirar" em vermelho que vira a pílula "× Retirado" e a linha em vermelho suave.
+Faltando escolha obrigatória, o botão diz qual ("Escolha ponto da carne") e leva até ela, sem
+ficar cinza. Primeira escolha de um grupo obrigatório de uma opção segue sozinha para a próxima
+seção. Item do pedido tocado reabre a mesma tela ("Salvar"); o + do contador do produto repete
+direto só quando não há opções.
 
 ## Modais e formulários
 

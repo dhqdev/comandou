@@ -56,6 +56,10 @@ body {
   overflow-x: clip;
   overscroll-behavior: none;
 }
+/* Janela ou folha aberta: a página de trás não rola (o toque fica na janela; modal-scroll-lock.ts). */
+html:has(dialog[open]:modal) {
+  overflow: hidden;
+}
 body {
   touch-action: manipulation;
 }

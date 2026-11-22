@@ -1,13 +1,5 @@
-import {
-  defaultOptionIds,
-  fromCents,
-  multiplyCents,
-  optionsTotalCents,
-  qtyLabel,
-  toCents,
-  type OrderChannel,
-} from '@comandou/shared';
-import { Minus, Plus, Scale, Search, ShoppingBag, Trash2, X } from 'lucide-react';
+import { fromCents, multiplyCents, qtyLabel, toCents, type OrderChannel } from '@comandou/shared';
+import { Minus, Pencil, Plus, Scale, Search, ShoppingBag, Trash2, X } from 'lucide-react';
 import {
   useEffect,
   useMemo,
@@ -38,6 +30,8 @@ import type { DiningTable, MenuCategory, MenuProduct, Order, Tab } from '../lib/
 import { useWaiterStats, useWide, WaiterHead } from './common';
 import { AddressQuick } from '../features/AddressQuick';
 import { WeighForm } from '../features/WeighForm';
+import { ItemEditor, type ItemDraft } from './ItemEditor';
+import { unitCents } from './item-editor';
 
 interface Line {
   /** Identidade estável da linha (a observação muda enquanto se digita). */
@@ -54,16 +48,23 @@ let nextLineId = 1;
 interface Weighing {
   product: MenuProduct;
   optionIds: string[];
+  notes?: string;
   line?: Line;
 }
 
+/** Item aberto na tela de edição: produto novo ou uma linha do pedido para mudar. */
+interface Editing {
+  product: MenuProduct;
+  line?: Line;
+  /** Veio da folha do pedido (celular): volta para ela ao terminar. */
+  fromCart?: boolean;
+}
+
+const lineKey = (productId: string, optionIds: string[]) =>
+  `${productId}:${[...optionIds].sort().join(',')}`;
+
 /** Itens da linha para os contadores: item por peso conta como 1 (uma pesagem). */
 const lineCount = (l: Line) => (l.product.soldByWeight ? 1 : l.quantity);
-
-/** Preço de exibição; o servidor recalcula e é a fonte oficial. */
-function unitCents(p: MenuProduct, optionIds: string[]) {
-  return toCents(p.price) + optionsTotalCents(p.optionGroups, optionIds);
-}
 
 /**
  * Lançar pedido (como a lista de produtos do Anota AI): categorias no topo, produtos com foto,
@@ -91,7 +92,7 @@ export function WaiterOrder() {
   const [search, setSearch] = useState('');
   const [active, setActive] = useState<string | null>(null);
   const [cart, setCart] = useState<Line[]>([]);
-  const [picking, setPicking] = useState<MenuProduct | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
   /** Item por peso esperando o peso da balança (ou a linha cujo peso vai mudar). */
   const [weighing, setWeighing] = useState<Weighing | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
@@ -165,27 +166,64 @@ export function WaiterOrder() {
     document.getElementById(`wt-cat-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function add(p: MenuProduct, optionIds: string[] = [], kg?: number) {
-    const key = `${p.id}:${[...optionIds].sort().join(',')}`;
+  function add(p: MenuProduct, optionIds: string[] = [], kg?: number, qty = 1, notes = '') {
+    const key = lineKey(p.id, optionIds);
     if (p.soldByWeight) {
       // Cada pesagem vira uma linha: dois pratos são duas linhas com pesos diferentes.
-      if (kg === undefined) return setWeighing({ product: p, optionIds });
+      if (kg === undefined) return setWeighing({ product: p, optionIds, notes });
       setCart((c) => [
         ...c,
-        { uid: nextLineId++, key, product: p, optionIds, quantity: kg, notes: '' },
+        { uid: nextLineId++, key, product: p, optionIds, quantity: kg, notes },
       ]);
       return;
     }
     setCart((c) => {
-      const found = c.find((l) => l.key === key && !l.notes);
-      if (found) return c.map((l) => (l === found ? { ...l, quantity: l.quantity + 1 } : l));
-      return [...c, { uid: nextLineId++, key, product: p, optionIds, quantity: 1, notes: '' }];
+      // Mesma escolha e sem observação soma na linha que já existe.
+      const found = !notes && c.find((l) => l.key === key && !l.notes);
+      if (found) return c.map((l) => (l === found ? { ...l, quantity: l.quantity + qty } : l));
+      return [...c, { uid: nextLineId++, key, product: p, optionIds, quantity: qty, notes }];
     });
   }
+  /** Tocar no produto abre a tela de edição do item (opções, retirar, observação, quantidade). */
   function choose(p: MenuProduct) {
     if (p.soldOut) return;
-    if (p.optionGroups.length) setPicking(p);
+    setEditing({ product: p });
+  }
+  /** O + do contador repete o item direto quando não há o que escolher. */
+  function more(p: MenuProduct) {
+    if (p.soldOut) return;
+    if (p.optionGroups.length || p.soldByWeight) setEditing({ product: p });
     else add(p);
+  }
+  function editLine(l: Line, fromCart = false) {
+    if (fromCart) setCartOpen(false);
+    setEditing({ product: l.product, line: l, fromCart });
+  }
+  function closeEditor() {
+    if (editing?.fromCart) setCartOpen(true);
+    setEditing(null);
+  }
+  function saveItem(d: ItemDraft) {
+    const e = editing;
+    if (!e) return;
+    const notes = d.notes.trim();
+    if (e.line) {
+      const uid = e.line.uid;
+      setCart((c) =>
+        c.map((x) =>
+          x.uid === uid
+            ? {
+                ...x,
+                key: lineKey(x.product.id, d.optionIds),
+                optionIds: d.optionIds,
+                quantity: x.product.soldByWeight ? x.quantity : d.quantity,
+                notes,
+              }
+            : x,
+        ),
+      );
+    } else add(e.product, d.optionIds, undefined, d.quantity, notes);
+    closeEditor();
   }
   /** Quantidade do produto no carrinho (todas as variações; item por peso conta as pesagens). */
   const inCart = (id: string) =>
@@ -267,6 +305,7 @@ export function WaiterOrder() {
       cart={cart}
       setCart={setCart}
       onWeigh={setWeighing}
+      onEdit={(l) => editLine(l, !wide)}
       channel={channel}
       customer={customer}
       setCustomer={setCustomer}
@@ -399,7 +438,7 @@ export function WaiterOrder() {
                           <button
                             type="button"
                             aria-label={`Mais um ${p.name}`}
-                            onClick={() => choose(p)}
+                            onClick={() => more(p)}
                           >
                             <Plus size={16} />
                           </button>
@@ -459,13 +498,19 @@ export function WaiterOrder() {
         </Modal>
       )}
 
-      <OptionsModal
-        product={picking}
-        onClose={() => setPicking(null)}
-        onConfirm={(ids) => {
-          if (picking) add(picking, ids);
-          setPicking(null);
-        }}
+      <ItemEditor
+        product={editing?.product ?? null}
+        initial={
+          editing?.line
+            ? {
+                optionIds: editing.line.optionIds,
+                quantity: editing.line.quantity,
+                notes: editing.line.notes,
+              }
+            : null
+        }
+        onClose={closeEditor}
+        onConfirm={saveItem}
       />
       <Modal
         open={!!weighing}
@@ -483,7 +528,7 @@ export function WaiterOrder() {
               const line = weighing.line;
               if (line)
                 setCart((c) => c.map((x) => (x.uid === line.uid ? { ...x, quantity: kg } : x)));
-              else add(weighing.product, weighing.optionIds, kg);
+              else add(weighing.product, weighing.optionIds, kg, 1, weighing.notes ?? '');
               setWeighing(null);
             }}
           />
@@ -497,6 +542,7 @@ function CartContent({
   cart,
   setCart,
   onWeigh,
+  onEdit,
   channel,
   customer,
   setCustomer,
@@ -508,6 +554,7 @@ function CartContent({
   cart: Line[];
   setCart: Dispatch<SetStateAction<Line[]>>;
   onWeigh(w: Weighing): void;
+  onEdit(l: Line): void;
   channel: OrderChannel;
   customer: { name: string; phone: string; address: string; fee: string };
   setCustomer: Dispatch<
@@ -588,11 +635,20 @@ function CartContent({
                     </button>
                   </span>
                 )}
-                <ItemThumb src={mediaUrl(l.product.imageId)} name={l.product.name} size={36} />
-                <span className="wt-cart__name">
-                  <strong>{l.product.name}</strong>
-                  {opts.length > 0 && <span>{opts.map((o) => o.name).join(', ')}</span>}
-                </span>
+                <button
+                  type="button"
+                  className="wt-cart__edit"
+                  aria-label={`Editar ${l.product.name}`}
+                  onClick={() => onEdit(l)}
+                >
+                  <ItemThumb src={mediaUrl(l.product.imageId)} name={l.product.name} size={36} />
+                  <span className="wt-cart__name">
+                    <strong>
+                      {l.product.name} <Pencil size={12} aria-hidden />
+                    </strong>
+                    {opts.length > 0 && <span>{optionsText(l.product, l.optionIds)}</span>}
+                  </span>
+                </button>
                 <span className="wt-cart__price">
                   {brl(fromCents(multiplyCents(unitCents(l.product, l.optionIds), l.quantity)))}
                 </span>
@@ -666,92 +722,21 @@ function CartContent({
   );
 }
 
-/** Escolha de opções (tamanho, adicionais) em folha que sobe, no padrão das demais. */
-function OptionsModal({
-  product,
-  onClose,
-  onConfirm,
-}: {
-  product: MenuProduct | null;
-  onClose(): void;
-  onConfirm(ids: string[]): void;
-}) {
-  const [sel, setSel] = useState<Record<string, string[]>>({});
-  // Abre com as opções padrão do grupo já marcadas.
-  useEffect(() => {
-    const defaults = product ? defaultOptionIds(product.optionGroups) : [];
-    setSel(
-      Object.fromEntries(
-        (product?.optionGroups ?? []).map((g) => [
-          g.id,
-          g.options.filter((o) => defaults.includes(o.id)).map((o) => o.id),
-        ]),
-      ),
-    );
-  }, [product]);
-  if (!product) return null;
-  const valid = product.optionGroups.every((g) => {
-    const n = sel[g.id]?.length ?? 0;
-    return n >= g.minSelect && n <= g.maxSelect;
-  });
-  const ids = Object.values(sel).flat();
-  function toggle(gid: string, oid: string, single: boolean) {
-    setSel((s) => {
-      const cur = s[gid] ?? [];
-      if (single) return { ...s, [gid]: [oid] };
-      const g = product!.optionGroups.find((x) => x.id === gid)!;
-      if (cur.includes(oid)) return { ...s, [gid]: cur.filter((x) => x !== oid) };
-      if (cur.length >= g.maxSelect) return s;
-      return { ...s, [gid]: [...cur, oid] };
-    });
-  }
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={product.name}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button disabled={!valid} onClick={() => onConfirm(ids)}>
-            Adicionar · {brl(fromCents(unitCents(product, ids)))}
-          </Button>
-        </>
-      }
-    >
-      <div className="wt-options">
-        {product.optionGroups.map((g) => {
-          const single = g.minSelect === 1 && g.maxSelect === 1;
-          return (
-            <fieldset key={g.id} className="wt-options__group">
-              <legend>
-                {g.name}{' '}
-                <span>
-                  {single
-                    ? 'escolha 1'
-                    : g.minSelect > 0
-                      ? `escolha de ${g.minSelect} a ${g.maxSelect}`
-                      : `até ${g.maxSelect}`}
-                </span>
-              </legend>
-              {g.options.map((o) => (
-                <label key={o.id} className="wt-options__opt">
-                  <input
-                    type={single ? 'radio' : 'checkbox'}
-                    name={g.id}
-                    checked={sel[g.id]?.includes(o.id) ?? false}
-                    onChange={() => toggle(g.id, o.id, single)}
-                  />
-                  <span>{o.name}</span>
-                  {toCents(o.priceDelta) > 0 && <em>+ {brl(o.priceDelta)}</em>}
-                </label>
-              ))}
-            </fieldset>
-          );
-        })}
-      </div>
-    </Modal>
-  );
+/** Opções escolhidas em texto curto: "Ao ponto, + Bacon extra, sem Cebola". */
+function optionsText(p: MenuProduct, optionIds: string[]) {
+  return p.optionGroups
+    .flatMap((g) =>
+      g.options
+        .filter((o) => optionIds.includes(o.id))
+        .map((o) =>
+          g.kind === 'remove'
+            ? /^sem\b/i.test(o.name)
+              ? o.name
+              : `sem ${o.name}`
+            : g.kind === 'additional' && g.maxSelect > 1
+              ? `+ ${o.name}`
+              : o.name,
+        ),
+    )
+    .join(', ');
 }
