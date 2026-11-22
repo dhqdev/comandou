@@ -13,6 +13,25 @@ const CODE_PREFIX = 'CMD1-';
 export const PRINT_TIMEOUT = 60_000;
 /** Trabalhos por volta do laço; pega um de cada vez (tirar da fila no painel vale na hora). */
 const JOBS_PER_TICK = 5;
+/** De quanto em quanto tempo olha a fila do Windows: com documentos lá, mais rápido. */
+const SPOOL_BUSY_MS = 5_000;
+const SPOOL_IDLE_MS = 20_000;
+
+const KIND_LABEL = {
+  kitchen_ticket: 'Comanda',
+  receipt: 'Conferência',
+  delivery_slip: 'Via de entrega',
+  test: 'Teste',
+  fiscal_receipt: 'Cupom fiscal',
+  kitchen_cancel: 'Item cancelado',
+};
+/** Nome do documento na fila do sistema: traz o id para o Comandou seguir até sair. */
+export function jobDocName(job) {
+  const label = [KIND_LABEL[job.kind] ?? 'Impressão', job.target].filter(Boolean).join(' ');
+  return `Comandou - ${String(label)
+    .replace(/[\r\n\t]/g, ' ')
+    .slice(0, 40)} - ${job.id}`;
+}
 
 /** Erro de quem já mandou o texto para a impressora ou para a fila do sistema. */
 export function sentError(err) {
@@ -81,6 +100,10 @@ export class PrintAgent extends EventEmitter {
    * @param {() => Promise<unknown>} [o.purge]  apaga os documentos do Comandou da fila do sistema
    * @param {(targets: (string|null)[]) => Promise<unknown>} [o.removePrinters]  tira impressoras
    *   escolhidas (null = principal), a pedido da tela Impressão
+   * @param {(maxAgeMinutes: number) => Promise<{ jobs: object[], removed: object[] } | null>} [o.spool]
+   *   o que está na fila do sistema agora (null = não sabe ler); apaga o que venceu
+   * @param {() => { mainOn: boolean, on: string[], off: string[] }} [o.hold]  impressoras
+   *   desligadas: o que vai para elas espera no Comandou
    */
   constructor(o) {
     super();
@@ -92,6 +115,13 @@ export class PrintAgent extends EventEmitter {
     this.wake = undefined;
     /** Confirmações para o próximo heartbeat (pedidos da tela Impressão já atendidos). */
     this.acks = {};
+    /** Fila do sistema: última leitura mandada, quando leu e se ainda tinha documentos. */
+    this.spoolKey = '';
+    this.spoolAt = 0;
+    this.spoolBusy = false;
+    this.spoolOff = false;
+    /** Validade (minutos) que vem no heartbeat; 0 = sem validade. */
+    this.maxAge = 30;
   }
 
   async api(path, body) {
@@ -134,6 +164,7 @@ export class PrintAgent extends EventEmitter {
         throw e;
       });
       this.lastBeat = Date.now();
+      if (Number.isInteger(hb.maxAgeMinutes)) this.maxAge = hb.maxAgeMinutes;
       await this.commands(hb);
       this.setState({
         state: 'online',
@@ -144,10 +175,15 @@ export class PrintAgent extends EventEmitter {
         brand: hb.brand && typeof hb.brand === 'object' ? hb.brand : this.state.brand,
       });
     }
+    await this.syncSpool();
     if (this.o.canPrint && !this.o.canPrint()) return this.setState({ state: 'online' });
+    const hold = this.o.hold?.();
+    // Impressora desligada: as comandas esperam no Comandou (e aparecem "Na fila" no painel),
+    // em vez de acumular na fila do Windows e sair todas quando ela ligar.
+    if (hold && !hold.mainOn && !hold.on.length) return this.setState({ state: 'online' });
     // Um trabalho por vez: o que for tirado da fila no painel enquanto este imprime não sai.
     for (let n = 0; n < JOBS_PER_TICK && this.running; n++) {
-      const { jobs } = await this.api('/claim', { limit: 1 });
+      const { jobs } = await this.api('/claim', { limit: 1, ...(hold ? { hold } : {}) });
       this.setState({ state: 'online' });
       if (!jobs.length) return;
       for (const job of jobs) await this.printJob(job);
@@ -161,12 +197,16 @@ export class PrintAgent extends EventEmitter {
     const ev = { id: job.id, kind: job.kind, target: job.target, printer, at: Date.now() };
     let outcome;
     try {
-      await withTimeout(
-        Promise.resolve().then(() => this.o.print(printer, job.payload)),
+      const r = await withTimeout(
+        Promise.resolve().then(() => this.o.print(printer, job.payload, { doc: jobDocName(job) })),
         this.o.printTimeout ?? PRINT_TIMEOUT,
         'A impressora demorou demais para responder. Confira se saiu antes de mandar de novo.',
       );
-      outcome = { ok: true };
+      // Foi para a fila do sistema: "Enviado" no painel até sair de lá (só quem lê a fila).
+      outcome = {
+        ok: true,
+        ...(r?.spooled && this.o.spool && !this.spoolOff ? { spooled: true } : {}),
+      };
     } catch (err) {
       outcome = {
         ok: false,
@@ -175,6 +215,8 @@ export class PrintAgent extends EventEmitter {
         ...(err?.sent ? { sent: true } : {}),
       };
     }
+    // Olha a fila do sistema logo depois: o painel vê na hora se ficou parado lá.
+    this.spoolAt = 0;
     try {
       await this.api(`/jobs/${job.id}/result`, {
         ...outcome,
@@ -188,6 +230,40 @@ export class PrintAgent extends EventEmitter {
         this.emit('job', { ...ev, ...outcome });
         throw err;
       }
+    }
+  }
+
+  /**
+   * Conta ao Comandou o que está na fila do sistema (Windows) quando muda: o painel mostra o
+   * mesmo que o computador, e a comanda "Enviada" vira "Impressa" quando sai de lá.
+   */
+  async syncSpool(force = false) {
+    if (!this.o.spool || this.spoolOff) return;
+    const every = this.spoolBusy ? SPOOL_BUSY_MS : SPOOL_IDLE_MS;
+    if (!force && this.spoolAt && Date.now() - this.spoolAt < every) return;
+    this.spoolAt = Date.now();
+    let snap;
+    try {
+      snap = await this.o.spool(this.maxAge);
+    } catch {
+      return;
+    }
+    if (!snap) {
+      this.spoolOff = true;
+      return;
+    }
+    this.spoolBusy = snap.jobs.length > 0;
+    const key = JSON.stringify(snap.jobs);
+    if (key === this.spoolKey && !snap.removed.length) return;
+    try {
+      await this.api('/spool', snap);
+      this.spoolKey = key;
+    } catch (err) {
+      // Servidor antigo (sem a rota): para de mandar.
+      if (err.status === 404) this.spoolOff = true;
+      else this.spoolAt = Date.now() - every + 2_000;
+      // O que foi apagado da fila volta a ir na próxima.
+      this.o.spoolFailed?.(snap.removed);
     }
   }
 
@@ -227,6 +303,7 @@ export class PrintAgent extends EventEmitter {
   /** Força uma volta agora (ex.: computador saiu da suspensão, rede voltou). */
   poke() {
     this.lastBeat = 0;
+    this.spoolAt = 0;
     clearTimeout(this.timer);
     this.wake?.();
   }

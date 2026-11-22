@@ -884,6 +884,20 @@ export interface PrintAgent {
   version: string | null;
   /** Impressoras escolhidas no aplicativo (null = versão antiga, que não conta). */
   printers: PrintAgentPrinter[] | null;
+  /** O que está na fila do Windows desse computador agora (aplicativo 1.12 em diante). */
+  spool?: PrintSpoolDoc[] | null;
+  spoolAt?: string | null;
+}
+/** Documento na fila do Windows do computador (do Comandou ou de outro programa). */
+export interface PrintSpoolDoc {
+  printer: string;
+  name: string;
+  /** Trabalho do Comandou que esse documento é. */
+  jobId?: string | null;
+  status: string;
+  at?: string | null;
+  pages?: number | null;
+  ours: boolean;
 }
 export interface PrintAgentPrinter {
   /** null = principal */
@@ -912,6 +926,8 @@ export interface PrintJob {
   printerLabel: string | null;
   /** Falha que volta sozinha para a fila só a partir desta hora. */
   retryAt: string | null;
+  /** Entregue à fila do Windows e ainda lá (impressora desligada, sem papel...): "Enviado". */
+  spooled?: boolean;
 }
 
 /** Uma impressão do pedido (histórico dentro do pedido), com o texto que foi para o papel. */
@@ -927,6 +943,8 @@ export interface OrderPrint {
   agentName: string | null;
   byName: string | null;
   text: string;
+  /** Parado na fila do Windows do computador: "Enviado". */
+  spooled?: boolean;
 }
 
 export interface FinanceEntry {

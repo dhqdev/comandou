@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.232.0',
+    date: '2026-11-22',
+    title: 'Fila de impressão igual à do computador',
+    summary:
+      'A fila da tela Impressão passou a mostrar o que está parado na fila do Windows do computador da impressora, na hora. Impressora desligada não acumula mais comandas para despejar quando volta, e o que espera demais vence. O aplicativo Comandou Impressão (1.12.0) cabe na tela sem rolar.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Impressora desligada: o aplicativo não manda mais comandas para a fila do Windows. Elas esperam na fila do Comandou (aparecem em Na fila) e saem quando ela liga. Antes, o Windows guardava tudo e, ao ligar, saía um monte de papel de uma vez.',
+      },
+      {
+        tag: 'novo',
+        text: 'Impressão: a fila mostra "Na fila do Windows de <computador>", com cada documento parado lá (do Comandou e dos outros programas), a situação (sem papel, desligada, com erro) e o botão Apagar as do Comandou.',
+      },
+      {
+        tag: 'novo',
+        text: 'Nova situação Enviado: a comanda que o Windows recebeu e ainda não saiu. Vira Impresso quando sai da fila do Windows; se for apagada de lá, vira Tirado da fila com o motivo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Validade da fila (padrão 30 min, dá para mudar ou desligar): o que espera mais que isso não sai sozinho quando a impressora volta, nem no Comandou nem na fila do Windows. Fica em Tirados, com Voltar para a fila.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Comandou Impressão 1.12.0: tela principal sem rolar (linhas mais baixas, impressoras virtuais como PDF, XPS, OneNote e Fax escondidas numa linha, setores numa linha só) e o quadro Fila do Windows. Testar com a impressora desligada avisa em vez de deixar a folha parada para sair depois.',
+      },
+    ],
+  },
+  {
     version: '0.231.4',
     date: '2026-11-22',
     title: 'Aplicativos de delivery com o logo de cada um',

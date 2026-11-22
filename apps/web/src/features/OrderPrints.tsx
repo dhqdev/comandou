@@ -65,7 +65,8 @@ export function OrderPrints({ orderId, open }: { orderId: string; open?: boolean
       ) : (
         <ul className="od-prints__list">
           {rows.map((p) => {
-            const [label, tone] = STATUS[p.status];
+            const [label, tone] =
+              p.status === 'done' && p.spooled ? (['Enviado', 'info'] as const) : STATUS[p.status];
             const isOpen = shown === p.id;
             const where = p.printerLabel ?? p.target;
             return (
@@ -82,7 +83,7 @@ export function OrderPrints({ orderId, open }: { orderId: string; open?: boolean
                     <span className="od-item__sub">
                       {[dateTime(p.createdAt), where, p.byName].filter(Boolean).join(' · ')}
                     </span>
-                    {p.status === 'failed' && p.lastError && (
+                    {(p.status === 'failed' || p.status === 'cancelled') && p.lastError && (
                       <span className="od-item__sub od-prints__error">{p.lastError}</span>
                     )}
                   </span>

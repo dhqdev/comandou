@@ -35,10 +35,11 @@ import {
 import {
   describePrinter,
   installedTwinOf,
+  listSpool,
   parseSpec,
   parseTcp,
-  purgeSpool,
   registerTransport,
+  removeSpool,
   testPageText,
   validBleId,
   validDirectDevice,
@@ -174,8 +175,9 @@ async function replacePrinter(from, to) {
 }
 
 /** Imprime; impressora de rede que mudou de IP é achada pelo MAC e salva no IP novo. */
-function print(spec, text) {
+function print(spec, text, meta) {
   return printResilient(spec, text, {
+    meta,
     onMoved: async (from, to) => {
       await replacePrinter(from, to);
       notify(
@@ -210,6 +212,62 @@ function report() {
 }
 
 const printerFor = (target) => config.printers.routes[target] || config.printers.default || 'none';
+
+/**
+ * Impressoras desligadas (conferidas sem imprimir): o que vai para elas espera no Comandou.
+ * Antes, o Windows aceitava a folha com a impressora desligada e, quando ela ligava, saía tudo.
+ */
+function hold() {
+  const off = (spec) => !!(spec && spec !== 'none' && health[spec]?.off);
+  const on = [];
+  const offTargets = [];
+  for (const [t, spec] of Object.entries(config.printers.routes))
+    if (spec) (off(spec) ? offTargets : on).push(String(t).slice(0, 60));
+  return {
+    mainOn: !off(config.printers.default),
+    on: on.slice(0, 40),
+    off: offTargets.slice(0, 40),
+  };
+}
+
+// ------------------------------------------------------------------ fila do Windows
+/** O que está na fila do Windows agora (para a tela daqui e para o painel). */
+let spool = { jobs: [], at: 0 };
+/** Documentos do Comandou que este computador apagou da fila e o Comandou ainda não sabe. */
+let spoolRemoved = [];
+
+/**
+ * Lê a fila do Windows das impressoras escolhidas, apaga as comandas que passaram da validade
+ * (não saem atrasadas quando a impressora volta) e devolve o que mandar ao Comandou.
+ * Fora do Windows: null (o aplicativo não sabe ler a fila do sistema).
+ */
+async function readSpool(maxAge) {
+  const list = await listSpool(chosenSystemPrinters());
+  if (!list) return null;
+  const old = (d) =>
+    maxAge > 0 && d.ours && d.at && Date.now() - Date.parse(d.at) > maxAge * 60_000;
+  const expired = list.filter(old);
+  let jobs = list;
+  if (expired.length) {
+    await removeSpool(expired).catch(() => 0);
+    const gone = new Set(expired);
+    jobs = list.filter((d) => !gone.has(d));
+    for (const d of expired) if (d.jobId) spoolRemoved.push({ id: d.jobId, reason: 'expired' });
+    notify(
+      'Comandas velhas apagadas',
+      `${expired.length} comanda${expired.length === 1 ? '' : 's'} esperava${expired.length === 1 ? '' : 'm'} na fila do Windows há mais de ${maxAge} min e não ${expired.length === 1 ? 'vai' : 'vão'} sair atrasada${expired.length === 1 ? '' : 's'}.`,
+    );
+  }
+  const before = JSON.stringify(spool.jobs);
+  spool = { jobs, at: Date.now() };
+  if (JSON.stringify(jobs) !== before) push();
+  const removed = spoolRemoved.slice(0, 200);
+  spoolRemoved = spoolRemoved.slice(200);
+  return {
+    jobs: jobs.slice(0, 100).map(({ spoolId: _id, ...d }) => d),
+    removed,
+  };
+}
 // Sem impressora principal escolhida, não pega trabalhos: eles esperam na fila em vez de sumir.
 const canPrint = () => !!config.printers.default;
 
@@ -232,6 +290,11 @@ function startAgent() {
     label: (spec) => printerName(spec),
     purge: purgeChosen,
     removePrinters,
+    hold,
+    spool: readSpool,
+    spoolFailed: (removed) => {
+      spoolRemoved = [...removed, ...spoolRemoved];
+    },
   });
   agent.on('status', async (s) => {
     status = s;
@@ -296,13 +359,20 @@ function chosenSystemPrinters() {
     .map((b) => b.slice(8));
 }
 
-/** Pedido da tela Impressão: apaga as comandas paradas na fila do Windows. */
+/**
+ * Pedido da tela Impressão (ou o botão daqui): apaga as comandas do Comandou paradas na fila do
+ * Windows. Os documentos dos outros programas ficam. O Comandou fica sabendo quais eram.
+ */
 async function purgeChosen() {
-  const n = await purgeSpool(chosenSystemPrinters());
+  const list = (await listSpool(chosenSystemPrinters())) ?? [];
+  const ours = list.filter((d) => d.ours);
+  const n = ours.length ? await removeSpool(ours) : 0;
+  for (const d of ours) if (d.jobId) spoolRemoved.push({ id: d.jobId, reason: 'purged' });
+  if (agent) agent.spoolAt = 0;
   if (n)
     notify(
       'Fila do Windows limpa',
-      `${n} comanda${n === 1 ? '' : 's'} parada${n === 1 ? '' : 's'} foi apagada${n === 1 ? '' : 's'} a pedido da tela Impressão.`,
+      `${n === 1 ? '1 comanda parada foi apagada' : `${n} comandas paradas foram apagadas`} da fila do Windows. Os documentos dos outros programas ficaram.`,
     );
   return n;
 }
@@ -385,6 +455,7 @@ function publicState() {
     brand: { ...(config.brand ?? {}), icon: brand.icon },
     discovery,
     update: updater.state,
+    spool,
   };
 }
 
@@ -584,6 +655,11 @@ async function connect(code) {
 
 async function testPrint(spec) {
   if (!spec || spec === 'none') throw new Error('Escolha uma impressora primeiro.');
+  // Desligada: o Windows guardaria a folha e ela sairia depois, junto com as outras.
+  if (health[spec]?.off)
+    throw new Error(
+      `${printerName(spec)} está desligada ou não responde. Ligue a impressora e teste de novo.`,
+    );
   const ev = {
     id: `teste-${Date.now()}`,
     kind: 'test',
@@ -592,7 +668,8 @@ async function testPrint(spec) {
     at: Date.now(),
   };
   try {
-    await print(spec, testPageText(printerName(spec), spec));
+    await print(spec, testPageText(printerName(spec), spec), { doc: 'Comandou - Teste' });
+    if (agent) agent.spoolAt = 0;
     health[spec] = { ok: true, text: 'Teste impresso.', at: Date.now() };
     jobs = [{ ...ev, ok: true, printerLabel: printerName(spec) }, ...jobs].slice(0, MAX_LOG);
     push();
@@ -998,6 +1075,12 @@ function registerIpc() {
   });
   ipcMain.handle('ble-choose', (_e, id) => ble.choose(String(id ?? '')));
   ipcMain.handle('ble-cancel', () => ble.cancel());
+  ipcMain.handle('spool-clear', async () => {
+    const n = await purgeChosen();
+    await readSpool(agent?.maxAge ?? 0).catch(() => null);
+    agent?.poke();
+    return { cleared: n, state: publicState() };
+  });
   ipcMain.handle('test-print', (_e, spec) => {
     spec = String(spec ?? '');
     if (!validSpec(spec)) throw new Error('Impressora inválida.');

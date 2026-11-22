@@ -74,6 +74,7 @@ const PUBLIC_TENANT_ROUTES = [
   'POST /api/v1/print-agent/claim',
   'POST /api/v1/print-agent/heartbeat',
   'POST /api/v1/print-agent/jobs/:id/result',
+  'POST /api/v1/print-agent/spool',
   // Cardápio online: visitante e conta do cliente (cookie próprio, conferido em cada rota).
   'GET /api/v1/store',
   'GET /api/v1/store/account',

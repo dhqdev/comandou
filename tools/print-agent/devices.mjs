@@ -423,10 +423,10 @@ const NETWORK_DOWN = /fora do ar|não respondeu|IP errado/;
 export async function printResilient(
   spec,
   text,
-  { onMoved, find = findByMac, print = printText } = {},
+  { onMoved, find = findByMac, print = printText, meta } = {},
 ) {
   try {
-    return await print(spec, text);
+    return await print(spec, text, meta);
   } catch (e) {
     const { base, opts } = parseSpec(spec);
     const t = base.startsWith('tcp://') ? parseTcp(base) : null;
@@ -434,7 +434,8 @@ export async function printResilient(
     const ip = await find(opts.mac, t.port).catch(() => null);
     if (!ip || ip === t.host) throw e;
     const moved = withOptions(`tcp://${ip}:${t.port}`, opts);
-    await print(moved, text);
+    const r = await print(moved, text, meta);
     await onMoved?.(spec, moved);
+    return r;
   }
 }

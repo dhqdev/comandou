@@ -243,12 +243,12 @@ public static class ComandouRaw {
   [DllImport("winspool.drv", SetLastError = true)] public static extern bool EndPagePrinter(IntPtr h);
   [DllImport("winspool.drv", SetLastError = true)]
   public static extern bool WritePrinter(IntPtr h, byte[] buf, int count, out int written);
-  public static void Send(string printer, byte[] data) {
+  public static void Send(string printer, byte[] data, string doc) {
     IntPtr h;
     if (!OpenPrinter(printer, out h, IntPtr.Zero)) throw new Exception("PRINTER_NOT_FOUND");
     try {
       DOCINFO di = new DOCINFO();
-      di.pDocName = "Comandou";
+      di.pDocName = String.IsNullOrEmpty(doc) ? "Comandou" : doc;
       di.pDataType = "RAW";
       if (StartDocPrinter(h, 1, di) == 0) throw new Win32Exception();
       try {
@@ -261,7 +261,7 @@ public static class ComandouRaw {
   }
 }
 "@
-[ComandouRaw]::Send($env:COMANDOU_PRINTER, [IO.File]::ReadAllBytes($env:COMANDOU_FILE))
+[ComandouRaw]::Send($env:COMANDOU_PRINTER, [IO.File]::ReadAllBytes($env:COMANDOU_FILE), $env:COMANDOU_DOC)
 `;
 
 // Porta serial no Windows (Bluetooth pareado, RS-232, USB-serial) pelo .NET do próprio sistema.
@@ -310,6 +310,103 @@ foreach ($p in ($env:COMANDOU_PRINTERS -split "\n" | Where-Object { $_ })) {
 }
 Write-Output $n
 `;
+
+// Tudo o que está na fila do Windows das impressoras escolhidas (do Comandou e dos outros
+// programas), em JSON. A hora sai em ISO (o PowerShell 5 escreveria "/Date(...)/").
+const WIN_SPOOL_LIST_PS1 = `$ErrorActionPreference = 'Continue'
+$out = New-Object System.Collections.ArrayList
+foreach ($p in ($env:COMANDOU_PRINTERS -split "\n" | Where-Object { $_ })) {
+  try {
+    foreach ($j in @(Get-PrintJob -PrinterName $p -ErrorAction Stop)) {
+      $t = $null
+      if ($j.SubmittedTime) { $t = $j.SubmittedTime.ToUniversalTime().ToString('o') }
+      [void]$out.Add([pscustomobject]@{ printer = $p; id = [int]$j.Id; name = [string]$j.DocumentName; status = [string]$j.JobStatus; at = $t; pages = [int]$j.TotalPages })
+    }
+  } catch { [Console]::Error.WriteLine("$($p) - $($_.Exception.Message)") }
+}
+ConvertTo-Json -InputObject @($out) -Compress -Depth 3
+`;
+
+// Apaga documentos pelo número na fila do Windows ("impressora<TAB>número" por linha).
+const WIN_SPOOL_REMOVE_PS1 = `$ErrorActionPreference = 'Continue'
+$n = 0
+foreach ($l in ($env:COMANDOU_JOBS -split "\n" | Where-Object { $_ })) {
+  $p, $id = $l -split "\t"
+  try { Remove-PrintJob -PrinterName $p -ID ([int]$id) -ErrorAction Stop; $n++ }
+  catch { [Console]::Error.WriteLine("$($p) $($id) - $($_.Exception.Message)") }
+}
+Write-Output $n
+`;
+
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const SPOOL_STATUS = [
+  [/Error/i, 'Com erro'],
+  [/PaperOut/i, 'Sem papel'],
+  [/Offline/i, 'Impressora desligada'],
+  [/UserIntervention|Blocked/i, 'Precisa de alguém na impressora'],
+  [/Paused/i, 'Pausado'],
+  [/Deleting|Deleted/i, 'Apagando'],
+  [/Printing/i, 'Imprimindo'],
+  [/Spooling/i, 'Preparando'],
+  [/Printed|Complete/i, 'Impresso'],
+];
+/** Situação do documento na fila do Windows em português (JobStatus vem em inglês). */
+export function spoolStatus(raw) {
+  const s = String(raw ?? '');
+  for (const [re, label] of SPOOL_STATUS) if (re.test(s)) return label;
+  return 'Na fila';
+}
+
+/**
+ * Lê a saída do WIN_SPOOL_LIST_PS1 (testada à parte). O documento do Comandou traz o id do
+ * trabalho no nome; os dos outros programas vão só com nome, situação e hora.
+ */
+export function parseSpoolList(out) {
+  let rows;
+  try {
+    rows = JSON.parse(String(out ?? '').trim() || '[]');
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(rows)) rows = rows && typeof rows === 'object' ? [rows] : [];
+  return rows
+    .filter((r) => r && typeof r === 'object' && r.printer)
+    .map((r) => {
+      const name = String(r.name ?? '').slice(0, 120);
+      const ours = new RegExp(OURS.slice(1, -1)).test(name);
+      const at =
+        typeof r.at === 'string' && !Number.isNaN(Date.parse(r.at))
+          ? new Date(r.at).toISOString()
+          : null;
+      return {
+        printer: String(r.printer).slice(0, 120),
+        spoolId: Number(r.id) || 0,
+        name: name || 'Documento',
+        jobId: ours ? (UUID.exec(name)?.[0]?.toLowerCase() ?? null) : null,
+        status: spoolStatus(r.status),
+        at,
+        pages: Number.isFinite(Number(r.pages)) && Number(r.pages) > 0 ? Number(r.pages) : null,
+        ours,
+      };
+    });
+}
+
+/** Tudo o que está na fila do Windows das impressoras `names`. Fora do Windows: null. */
+export async function listSpool(names, platform = process.platform) {
+  const list = [...new Set(names.filter(Boolean))];
+  if (platform !== 'win32') return null;
+  if (!list.length) return [];
+  const out = await powershell(WIN_SPOOL_LIST_PS1, { COMANDOU_PRINTERS: list.join('\n') }, 30_000);
+  return parseSpoolList(out);
+}
+
+/** Apaga documentos da fila do Windows ({ printer, spoolId }). Devolve quantos apagou. */
+export async function removeSpool(docs, platform = process.platform) {
+  if (platform !== 'win32' || !docs.length) return 0;
+  const lines = docs.map((d) => `${d.printer}\t${d.spoolId}`).join('\n');
+  const out = await powershell(WIN_SPOOL_REMOVE_PS1, { COMANDOU_JOBS: lines }, 60_000);
+  return Number(String(out).trim().split(/\s+/).pop()) || 0;
+}
 
 /**
  * Comandas do Comandou paradas na fila do sistema de uma impressora: { count, error }.
@@ -363,10 +460,14 @@ async function withTempFile(data, fn) {
   }
 }
 
-async function sendSystemPrinter(name, data) {
+async function sendSystemPrinter(name, data, doc = 'Comandou') {
   await withTempFile(data, async (file) => {
     if (process.platform === 'win32') {
-      await powershell(WIN_RAW_PS1, { COMANDOU_PRINTER: name, COMANDOU_FILE: file }).catch((e) => {
+      await powershell(WIN_RAW_PS1, {
+        COMANDOU_PRINTER: name,
+        COMANDOU_FILE: file,
+        COMANDOU_DOC: doc,
+      }).catch((e) => {
         throw /PRINTER_NOT_FOUND/.test(e.message)
           ? new Error(
               `Impressora "${name}" não encontrada no Windows. Ela foi removida ou mudou de nome: escolha de novo.`,
@@ -374,7 +475,7 @@ async function sendSystemPrinter(name, data) {
           : e;
       });
     } else {
-      await run('lp', ['-d', name, '-o', 'raw', file]).catch((e) => {
+      await run('lp', ['-d', name, '-t', doc, '-o', 'raw', file]).catch((e) => {
         throw /does not exist|não existe|Unknown destination/i.test(e.message)
           ? new Error(`Impressora "${name}" não encontrada no sistema. Escolha de novo.`)
           : e;
@@ -468,8 +569,12 @@ export function setPrintLogo(img) {
   printLogo = img ?? null;
 }
 
-/** Imprime `text` (já formatado em colunas) na impressora descrita por `spec`. */
-export async function printText(spec, text) {
+/**
+ * Imprime `text` (já formatado em colunas) na impressora descrita por `spec`. `meta.doc` é o nome
+ * do documento na fila do sistema. Devolve { spooled: true } quando entregou à fila do sistema
+ * (Windows, CUPS): a folha pode ainda estar lá, esperando a impressora.
+ */
+export async function printText(spec, text, meta = {}) {
   if (!spec || spec === 'none') return;
   if (spec === 'stdout') {
     process.stdout.write(`\n----- impressão -----\n${text}\n---------------------\n`);
@@ -480,7 +585,8 @@ export async function printText(spec, text) {
     const doc = transports.get('doc');
     if (!doc)
       throw new Error('Impressora comum (folha) só funciona no aplicativo Comandou Impressão.');
-    return doc(base, text, opts);
+    await doc(base, text, { ...opts, title: meta.doc });
+    return { spooled: true };
   }
   const data = toEscPos(text, { ...opts, logo: printLogo });
   if (base.startsWith('tcp://')) {
@@ -488,7 +594,10 @@ export async function printText(spec, text) {
     if (!t) throw new Error(`Endereço de impressora inválido: ${base}`);
     return sendTcp(t.host, t.port, data);
   }
-  if (base.startsWith('printer:')) return sendSystemPrinter(base.slice(8), data);
+  if (base.startsWith('printer:')) {
+    await sendSystemPrinter(base.slice(8), data, meta.doc || 'Comandou');
+    return { spooled: true };
+  }
   if (base.startsWith('serial:')) return sendSerial(base.slice(7), opts.baud, data);
   if (base.startsWith('file:')) return sendFile(base.slice(5), data);
   for (const [prefix, send] of transports)

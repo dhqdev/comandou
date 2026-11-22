@@ -12,7 +12,7 @@ const esc = (s) =>
  * HTML da folha (testado à parte). O QR Code da NFC-e vira o endereço por escrito; negrito e letra
  * grande saem iguais à bobina; a logo fica de fora (a folha não baixa imagens).
  */
-export function documentHtml(text, { paper = 80 } = {}) {
+export function documentHtml(text, { paper = 80, title = 'Comandou' } = {}) {
   const lines = String(text)
     .split('\n')
     .filter((l) => !l.startsWith(LOGO_MARK))
@@ -26,7 +26,7 @@ export function documentHtml(text, { paper = 80 } = {}) {
             : esc(l),
     );
   const size = paper === 58 ? '9.5pt' : '10.5pt';
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Comandou</title>
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(title || 'Comandou')}</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
 <style>
 @page { margin: 10mm; }

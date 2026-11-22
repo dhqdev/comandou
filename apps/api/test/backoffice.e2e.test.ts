@@ -1636,6 +1636,110 @@ describe('Impressão (agente local e fila)', () => {
     await post('adminA', '/printing/jobs/discard', { ids: [t.id] }).expect(200);
   });
 
+  it('fila do Windows: enviado até sair de lá, apagado vira tirado da fila', async () => {
+    const sendOne = async () => {
+      const t = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body as {
+        id: string;
+      };
+      await claimUntil(agentToken, t.id);
+      await agentPost(agentToken, `/jobs/${t.id}/result`, { ok: true, spooled: true }).expect(200);
+      return t;
+    };
+    const a = await sendOne();
+    const b = await sendOne();
+    const doc = (jobId: string) => ({
+      printer: 'EPSON L4260',
+      name: `Comandou - Teste - ${jobId}`,
+      jobId,
+      status: 'Impressora desligada',
+      at: new Date().toISOString(),
+      ours: true,
+    });
+    await agentPost(agentToken, '/spool', {
+      jobs: [
+        doc(a.id),
+        doc(b.id),
+        { printer: 'EPSON L4260', name: 'Relatorio.pdf', status: 'Na fila', ours: false },
+      ],
+    }).expect(200);
+    // Parado na fila do Windows conta como "Na fila" (enviado, ainda não saiu).
+    const sent = (await get('adminA', '/printing/jobs?status=pending').expect(200)).body as {
+      id: string;
+      spooled: boolean;
+    }[];
+    expect(sent.find((j) => j.id === a.id)?.spooled).toBe(true);
+    const sum = (await get('adminA', '/printing/jobs/summary').expect(200)).body;
+    expect(sum.counts.spooled).toBeGreaterThanOrEqual(2);
+    const agents = (await get('adminA', '/printing/agents').expect(200)).body as {
+      name: string;
+      spool: { name: string }[] | null;
+    }[];
+    expect(agents.find((x) => x.name === 'PC do caixa')?.spool).toHaveLength(3);
+    // A saiu da fila do Windows (imprimiu); B foi apagada pela limpeza.
+    await agentPost(agentToken, '/spool', {
+      jobs: [],
+      removed: [{ id: b.id, reason: 'purged' }],
+    }).expect(200);
+    const rows = await ownerQuery<{ id: string; status: string; spooled: boolean }>(
+      `SELECT id, status, spooled FROM print_jobs WHERE id = ANY($1::uuid[])`,
+      [[a.id, b.id]],
+    );
+    expect(rows.find((r) => r.id === a.id)).toMatchObject({ status: 'done', spooled: false });
+    expect(rows.find((r) => r.id === b.id)).toMatchObject({ status: 'cancelled', spooled: false });
+    // Outro restaurante não mexe (token de outro restaurante não vale aqui).
+    await agentPost(agentToken, '/spool', { jobs: [] }, HOST_B).expect(401);
+  });
+
+  it('impressora desligada segura a fila e o que vence não sai sozinho', async () => {
+    await put('cashierA', '/printing/settings', { maxAgeMinutes: 10 }).expect(403);
+    expect(
+      (await put('adminA', '/printing/settings', { maxAgeMinutes: 10 }).expect(200)).body,
+    ).toEqual({ maxAgeMinutes: 10 });
+    expect((await get('adminA', '/printing/settings').expect(200)).body.maxAgeMinutes).toBe(10);
+    expect((await agentPost(agentToken, '/heartbeat', {}).expect(200)).body.maxAgeMinutes).toBe(10);
+    const t = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body as {
+      id: string;
+    };
+    // Principal desligada e nenhum setor com impressora própria ligada: não pega nada.
+    const held = (
+      await agentPost(agentToken, '/claim', {
+        limit: 20,
+        hold: { mainOn: false, on: [], off: [] },
+      }).expect(200)
+    ).body.jobs as { id: string }[];
+    expect(held).toHaveLength(0);
+    // Caixa com impressora própria desligada: também espera.
+    const held2 = (
+      await agentPost(agentToken, '/claim', {
+        limit: 20,
+        hold: { mainOn: true, on: [], off: ['Caixa'] },
+      }).expect(200)
+    ).body.jobs as { id: string }[];
+    expect(held2.map((j) => j.id)).not.toContain(t.id);
+    for (const j of held2) await agentPost(agentToken, `/jobs/${j.id}/result`, { ok: true });
+    // Esperou mais que a validade: vira "Tirado da fila" com o motivo, e não sai.
+    await ownerQuery(
+      `UPDATE print_jobs SET queued_at = now() - interval '11 minutes' WHERE id = $1`,
+      [t.id],
+    );
+    const after = (await agentPost(agentToken, '/claim', { limit: 20 }).expect(200)).body.jobs as {
+      id: string;
+    }[];
+    expect(after.map((j) => j.id)).not.toContain(t.id);
+    for (const j of after) await agentPost(agentToken, `/jobs/${j.id}/result`, { ok: true });
+    const [row] = await ownerQuery<{ status: string; last_error: string }>(
+      `SELECT status, last_error FROM print_jobs WHERE id = $1`,
+      [t.id],
+    );
+    expect(row.status).toBe('cancelled');
+    expect(row.last_error).toMatch(/Venceu/);
+    // Voltar para a fila dá prazo novo.
+    await post('adminA', '/printing/jobs/requeue', { ids: [t.id] }).expect(200);
+    expect((await claimUntil(agentToken, t.id)).id).toBe(t.id);
+    await agentPost(agentToken, `/jobs/${t.id}/result`, { ok: true }).expect(200);
+    await put('adminA', '/printing/settings', { maxAgeMinutes: 30 }).expect(200);
+  });
+
   it('tira uma impressora do computador e mostra os trabalhos dela', async () => {
     const list = (await get('adminA', '/printing/agents').expect(200)).body as {
       id: string;

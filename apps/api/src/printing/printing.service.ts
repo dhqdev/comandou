@@ -67,6 +67,30 @@ const TPAG_LABELS: Record<string, string> = {
  */
 export const PRINT_LEASE_SECONDS = 150;
 export const PRINT_MAX_ATTEMPTS = 5;
+/** Validade padrão do que espera para imprimir (minutos). */
+export const DEFAULT_PRINT_MAX_AGE = 30;
+
+/**
+ * Impressoras do computador que estão desligadas (o aplicativo confere sem imprimir): `off` são
+ * os setores com impressora própria desligada, `on` os com impressora própria ligada e `mainOn`
+ * diz se a principal (que recebe o resto) responde.
+ */
+export type PrintHold = { mainOn: boolean; on: string[]; off: string[] };
+
+/** Documento na fila do Windows do computador (o do Comandou traz o id do trabalho). */
+export type SpoolDoc = {
+  printer: string;
+  name: string;
+  jobId?: string | null;
+  status: string;
+  at?: string | null;
+  pages?: number | null;
+  ours: boolean;
+};
+export type SpoolSnapshot = {
+  jobs: SpoolDoc[];
+  removed: { id: string; reason: 'expired' | 'purged' }[];
+};
 const WIDTH = 42;
 const num = (v: string | null | undefined) => Number(v ?? 0) || 0;
 
@@ -74,7 +98,7 @@ export const JOB_SELECT = `
   SELECT j.id, j.kind, j.target, j.status, j.attempts, j.order_id AS "orderId", o.number AS "orderNumber",
          j.last_error AS "lastError", j.created_at AS "createdAt", j.done_at AS "doneAt",
          j.claimed_by AS "agentId", j.printer_label AS "printerLabel", j.retry_at AS "retryAt",
-         a.name AS "agentName"
+         j.spooled, a.name AS "agentName"
     FROM print_jobs j
     LEFT JOIN orders o ON o.id = j.order_id
     LEFT JOIN print_agents a ON a.id = j.claimed_by`;
@@ -1254,7 +1278,7 @@ export class PrintingService {
         tx,
         `SELECT j.id, j.kind, j.target, j.status, j.created_at AS "createdAt", j.done_at AS "doneAt",
                 j.last_error AS "lastError", j.printer_label AS "printerLabel", a.name AS "agentName",
-                u.name AS "byName", j.payload AS text
+                j.spooled, u.name AS "byName", j.payload AS text
            FROM print_jobs j
            LEFT JOIN print_agents a ON a.id = j.claimed_by
            LEFT JOIN users u ON u.id = j.created_by
@@ -1370,9 +1394,25 @@ export class PrintingService {
    * Trabalho reservado e não confirmado em PRINT_LEASE_SECONDS volta a ficar disponível.
    * Falha que ainda pode ser tentada espera `retry_at` (não volta a cada 3 segundos).
    */
-  async claim(tenantId: string, agentId: string, limit: number) {
-    return this.db.withTenant({ tenantId }, async (tx) => {
+  async claim(tenantId: string, agentId: string, limit: number, hold?: PrintHold) {
+    let expired = 0;
+    const out = await this.db.withTenant({ tenantId }, async (tx) => {
       await q(tx, `UPDATE print_agents SET last_seen_at = now() WHERE id = $1`, [agentId]);
+      // Validade: o que esperou demais (impressora desligada, computador fora) não sai mais
+      // sozinho. Quando a impressora volta, não despeja comandas velhas; quem precisar toca em
+      // "Voltar para a fila".
+      const max = await this.maxAgeMinutes(tx);
+      if (max > 0)
+        expired = (
+          await q(
+            tx,
+            `UPDATE print_jobs SET status = 'cancelled', retry_at = NULL,
+                    last_error = 'Venceu: esperou mais de ' || $1 || ' min para imprimir e não saiu sozinho.'
+              WHERE status = 'queued' AND queued_at < now() - make_interval(mins => $1)
+              RETURNING id`,
+            [max],
+          )
+        ).length;
       await q(
         tx,
         `UPDATE print_jobs SET status = 'failed',
@@ -1389,9 +1429,21 @@ export class PrintingService {
              WHERE attempts < $3
                AND ((status = 'queued' AND (retry_at IS NULL OR retry_at <= now()))
                     OR (status = 'printing' AND claimed_at < now() - make_interval(secs => $4)))
+               -- Impressora desligada no computador: o que vai para ela espera aqui, no
+               -- Comandou (aparece "Na fila"), em vez de parar na fila do Windows.
+               AND NOT (target = ANY($5::text[]))
+               AND ($6::boolean OR target = ANY($7::text[]))
              ORDER BY created_at, id LIMIT $2 FOR UPDATE SKIP LOCKED)
           RETURNING id, kind, target, payload, attempts`,
-        [agentId, limit, PRINT_MAX_ATTEMPTS, PRINT_LEASE_SECONDS],
+        [
+          agentId,
+          limit,
+          PRINT_MAX_ATTEMPTS,
+          PRINT_LEASE_SECONDS,
+          hold?.off ?? [],
+          hold?.mainOn ?? true,
+          hold?.on ?? [],
+        ],
       );
       if (!jobs.length) return jobs;
       // Aplicativo antigo não entende negrito, letra grande nem logo: recebe o papel sem as
@@ -1405,6 +1457,81 @@ export class PrintingService {
         ? jobs
         : jobs.map((j) => ({ ...j, payload: plainPrintText(j.payload) }));
     });
+    if (expired) this.realtime.publish(tenantId, { type: 'print.changed' });
+    return out;
+  }
+
+  maxAgeFor(tenantId: string) {
+    return this.db.withTenant({ tenantId }, (tx) => this.maxAgeMinutes(tx));
+  }
+
+  /** Validade do que espera para imprimir, em minutos (0 = sem validade). */
+  async maxAgeMinutes(tx: Tx) {
+    const r = await one<{ m: number }>(
+      tx,
+      `SELECT print_max_age_minutes AS m FROM tenant_store_settings`,
+    );
+    return r?.m ?? DEFAULT_PRINT_MAX_AGE;
+  }
+
+  /**
+   * O que está na fila do Windows do computador agora (o aplicativo manda quando muda). Comanda
+   * que saiu da fila do Windows vira "Impresso"; a que o aplicativo apagou de lá (venceu ou
+   * "Limpar fila do Windows") vira "Tirado da fila", com o motivo.
+   */
+  async spool(tenantId: string, agentId: string, snap: SpoolSnapshot) {
+    const ids = [...new Set(snap.jobs.map((j) => j.jobId).filter((v): v is string => !!v))];
+    const changed = await this.db.withTenant({ tenantId }, async (tx) => {
+      const before = await one<{ spool: unknown }>(
+        tx,
+        `SELECT spool FROM print_agents WHERE id = $1`,
+        [agentId],
+      );
+      await q(tx, `UPDATE print_agents SET spool = $2::jsonb, spool_at = now() WHERE id = $1`, [
+        agentId,
+        JSON.stringify(snap.jobs),
+      ]);
+      let n = 0;
+      for (const reason of ['expired', 'purged'] as const) {
+        const gone = snap.removed.filter((r) => r.reason === reason).map((r) => r.id);
+        if (!gone.length) continue;
+        n += (
+          await q(
+            tx,
+            `UPDATE print_jobs SET status = 'cancelled', spooled = false, last_error = $3
+              WHERE id = ANY($1::uuid[]) AND claimed_by = $2 AND status IN ('done','printing')
+              RETURNING id`,
+            [
+              gone,
+              agentId,
+              reason === 'expired'
+                ? 'Venceu: ficou parado na fila do Windows e o computador apagou sem imprimir.'
+                : 'Apagado da fila do Windows sem imprimir.',
+            ],
+          )
+        ).length;
+      }
+      n += (
+        await q(
+          tx,
+          `UPDATE print_jobs SET spooled = true
+            WHERE id = ANY($1::uuid[]) AND claimed_by = $2 AND status = 'done' AND NOT spooled
+            RETURNING id`,
+          [ids, agentId],
+        )
+      ).length;
+      n += (
+        await q(
+          tx,
+          `UPDATE print_jobs SET spooled = false, done_at = now()
+            WHERE claimed_by = $2 AND spooled AND NOT (id = ANY($1::uuid[]))
+            RETURNING id`,
+          [ids, agentId],
+        )
+      ).length;
+      return n > 0 || JSON.stringify(before?.spool ?? null) !== JSON.stringify(snap.jobs);
+    });
+    if (changed) this.realtime.publish(tenantId, { type: 'print.changed' });
   }
 
   /**
@@ -1421,6 +1548,7 @@ export class PrintingService {
     error?: string,
     sent = false,
     printer?: string,
+    spooled = false,
   ) {
     const r = await this.db.withTenant({ tenantId }, (tx) =>
       one(
@@ -1432,7 +1560,9 @@ export class PrintingService {
                 -- Espera antes de tentar de novo: 10 s, 20 s, 40 s, 80 s (até 5 min).
                 retry_at = CASE WHEN $3 OR $6 OR attempts >= $5 THEN NULL
                                 ELSE now() + make_interval(secs => LEAST(300, 10 * power(2, GREATEST(attempts - 1, 0)))) END,
-                printer_label = COALESCE($7, printer_label)
+                printer_label = COALESCE($7, printer_label),
+                -- Entregue à fila do Windows: "Enviado" até sair de lá (o aplicativo conta).
+                spooled = $3 AND $8
           WHERE id = $1 AND claimed_by = $2 AND status = 'printing'
           RETURNING id, status`,
         [
@@ -1443,6 +1573,7 @@ export class PrintingService {
           PRINT_MAX_ATTEMPTS,
           !ok && sent,
           printer?.slice(0, 80) ?? null,
+          spooled,
         ],
       ),
     );

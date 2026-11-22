@@ -435,6 +435,7 @@ function render() {
   );
 
   renderUpdate();
+  renderSpool();
   $('care-card').hidden = state.platform !== 'win32';
 }
 
@@ -2096,9 +2097,13 @@ function foundRow(f) {
       el(
         'div',
         { class: 'found__body' },
-        el('strong', { class: 'found__name', text: f.name }),
+        el(
+          'div',
+          { class: 'found__line' },
+          el('strong', { class: 'found__name', text: f.name }),
+          tags.length ? el('span', { class: 'found__tags' }, ...tags) : null,
+        ),
         el('span', { class: 'muted found__detail', text: f.detail }),
-        tags.length ? el('div', { class: 'found__tags' }, ...tags) : null,
       ),
       el('div', { class: 'found__actions' }, ...actions),
     ),
@@ -2262,8 +2267,102 @@ function renderFound() {
     );
     return;
   }
-  $('found').replaceChildren(...list.map(foundRow));
+  // Virtuais (PDF, XPS, OneNote, Fax) não imprimem no papel: ficam escondidas numa linha.
+  const virtual = list.filter((f) => f.type === 'virtual' && !usedIn(f.spec ?? '').length);
+  const real = list.filter((f) => !virtual.includes(f));
+  const rows = (showVirtual ? list : real).map(foundRow);
+  if (virtual.length)
+    rows.push(
+      el(
+        'button',
+        {
+          type: 'button',
+          class: 'found__virtual',
+          'aria-expanded': String(showVirtual),
+          onclick: () => {
+            showVirtual = !showVirtual;
+            renderFound();
+          },
+        },
+        showVirtual
+          ? 'Esconder as virtuais'
+          : `${virtual.length} ${virtual.length === 1 ? 'impressora virtual escondida' : 'impressoras virtuais escondidas'} (${virtual.map((f) => f.name).join(', ')}): não imprimem no papel`,
+      ),
+    );
+  $('found').replaceChildren(...rows);
 }
+/** Mostra as impressoras virtuais (salvam arquivo) na lista. */
+let showVirtual = false;
+
+// ---------------------------------------------------------------- fila do Windows
+const hhmm = (iso) =>
+  iso ? new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+/** "Comandou - Comanda Cozinha - <id>" vira "Comanda Cozinha". */
+const spoolLabel = (d) =>
+  d.ours
+    ? d.name
+        .replace(/^Comandou(\s*-\s*)?/i, '')
+        .replace(/\s*-?\s*[0-9a-f]{8}-[0-9a-f-]{27}$/i, '')
+        .trim() || 'Comanda do Comandou'
+    : d.name;
+
+/** O que está na fila do Windows agora (o mesmo que o painel do Comandou mostra). */
+function renderSpool() {
+  const card = document.querySelector('.card--spool');
+  const win = state.platform === 'win32';
+  card.hidden = !win;
+  if (!win) return;
+  const docs = state.spool?.jobs ?? [];
+  const ours = docs.filter((d) => d.ours).length;
+  $('spool-clear').hidden = ours === 0;
+  $('spool-sub').textContent = docs.length
+    ? `${docs.length === 1 ? '1 documento esperando' : `${docs.length} documentos esperando`} a impressora (o painel vê o mesmo).`
+    : 'Nada parado. O que ficar aqui aparece também no painel do Comandou.';
+  const MAX = 4;
+  $('spool').replaceChildren(
+    ...docs.slice(0, MAX).map((d) =>
+      el(
+        'div',
+        { class: 'spool__doc' },
+        el('span', { class: 'spool__when muted', text: hhmm(d.at) }),
+        el(
+          'div',
+          { class: 'spool__name' },
+          el('strong', { text: spoolLabel(d) }),
+          el('span', {
+            class: 'muted',
+            text: `${d.ours ? 'Comandou' : 'Outro programa'} · ${d.printer}`,
+          }),
+        ),
+        el('span', {
+          class: `tag ${/erro|papel|desligada|alguém/i.test(d.status) ? 'tag--warn' : ''}`,
+          text: d.status,
+        }),
+      ),
+    ),
+    ...(docs.length > MAX
+      ? [el('p', { class: 'muted spool__more', text: `e mais ${docs.length - MAX} na fila` })]
+      : []),
+  );
+}
+
+$('spool-clear').addEventListener('click', async (e) => {
+  const b = e.currentTarget;
+  b.disabled = true;
+  try {
+    const r = await api.spoolClear();
+    apply(r.state);
+    toast(
+      r.cleared
+        ? `${r.cleared === 1 ? '1 comanda apagada' : `${r.cleared} comandas apagadas`} da fila do Windows.`
+        : 'Nada do Comandou para apagar.',
+    );
+  } catch (err) {
+    toast(errMsg(err), 'danger');
+  } finally {
+    b.disabled = false;
+  }
+});
 
 /** Menu "Usar em…": principal ou um setor. */
 function openUseMenu(f, button) {

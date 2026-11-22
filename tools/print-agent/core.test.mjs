@@ -7,10 +7,13 @@ import { PrintAgent, makeConnectionCode, parseConnectionCode } from './core.mjs'
 import {
   describePrinter,
   installedTwinOf,
+  parseSpoolList,
   parseTcp,
   printText,
+  spoolStatus,
   targetEnvName,
 } from './printers.mjs';
+import { documentHtml } from './desktop/pure.mjs';
 
 const TOKEN = 'pma_' + 'a'.repeat(43);
 
@@ -327,4 +330,131 @@ test('impressora de rede que aceita e não responde: erro diz que pode ter saíd
   );
   srv.close();
   if (err) assert.equal(err.sent, true);
+});
+
+test('agente: fila do Windows vai ao Comandou e o impresso pela fila sai como enviado', async () => {
+  const calls = [];
+  let served = false;
+  const srv = http.createServer(async (req, res) => {
+    let body = '';
+    for await (const c of req) body += c;
+    calls.push({ url: req.url, body: JSON.parse(body || '{}') });
+    res.setHeader('Content-Type', 'application/json');
+    if (req.url.endsWith('/heartbeat'))
+      return res.end(JSON.stringify({ restaurant: 'B', agent: 'PC', maxAgeMinutes: 15 }));
+    if (req.url.endsWith('/claim')) {
+      const jobs = served
+        ? []
+        : [{ id: 'j9', kind: 'kitchen_ticket', target: 'Cozinha', payload: 'X', attempts: 1 }];
+      served = true;
+      return res.end(JSON.stringify({ jobs }));
+    }
+    res.end('{}');
+  });
+  srv.listen(0, '127.0.0.1');
+  await once(srv, 'listening');
+  const docs = [];
+  const ages = [];
+  const agent = new PrintAgent({
+    url: `http://127.0.0.1:${srv.address().port}`,
+    token: TOKEN,
+    version: 't',
+    pollMs: 1000,
+    printerFor: () => 'printer:EPSON',
+    print: async (_spec, _text, meta) => {
+      docs.push(meta.doc);
+      return { spooled: true };
+    },
+    hold: () => ({ mainOn: true, on: [], off: ['Bar'] }),
+    spool: async (maxAge) => {
+      ages.push(maxAge);
+      return {
+        jobs: [{ printer: 'EPSON', name: 'Relatorio.pdf', status: 'Na fila', ours: false }],
+        removed: [],
+      };
+    },
+  });
+  const job = once(agent, 'job');
+  agent.start();
+  await job;
+  await new Promise((r) => setTimeout(r, 50));
+  agent.stop();
+  srv.close();
+  assert.equal(ages[0], 15);
+  assert.match(docs[0], /^Comandou - Comanda Cozinha - j9$/);
+  const spoolCalls = calls.filter((c) => c.url.endsWith('/spool'));
+  assert.equal(spoolCalls.length, 1);
+  assert.equal(spoolCalls[0].body.jobs[0].name, 'Relatorio.pdf');
+  assert.deepEqual(calls.find((c) => c.url.endsWith('/claim')).body.hold, {
+    mainOn: true,
+    on: [],
+    off: ['Bar'],
+  });
+  assert.deepEqual(calls.find((c) => c.url.endsWith('/result')).body, { ok: true, spooled: true });
+});
+
+test('agente: principal desligada e nenhum setor ligado, não pega trabalhos', async () => {
+  const urls = [];
+  const srv = http.createServer(async (req, res) => {
+    for await (const _ of req);
+    urls.push(req.url);
+    res.setHeader('Content-Type', 'application/json');
+    res.end(req.url.endsWith('/heartbeat') ? '{"restaurant":"B"}' : '{"jobs":[]}');
+  });
+  srv.listen(0, '127.0.0.1');
+  await once(srv, 'listening');
+  const agent = new PrintAgent({
+    url: `http://127.0.0.1:${srv.address().port}`,
+    token: TOKEN,
+    version: 't',
+    printerFor: () => 'printer:EPSON',
+    print: async () => undefined,
+    hold: () => ({ mainOn: false, on: [], off: [] }),
+  });
+  const online = new Promise((r) => agent.on('status', (s) => s.state === 'online' && r()));
+  agent.start();
+  await online;
+  await new Promise((r) => setTimeout(r, 50));
+  agent.stop();
+  srv.close();
+  assert.ok(urls.some((u) => u.endsWith('/heartbeat')));
+  assert.ok(!urls.some((u) => u.endsWith('/claim')));
+});
+
+test('fila do Windows: lê a saída do PowerShell e acha a comanda pelo nome', () => {
+  const id = '1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed';
+  const one = parseSpoolList(
+    JSON.stringify({
+      printer: 'EPSON',
+      id: 7,
+      name: `Comandou - Comanda Cozinha - ${id}`,
+      status: 'Offline, Printing',
+      at: '2026-11-22T19:00:00.1234567Z',
+      pages: 1,
+    }),
+  );
+  assert.equal(one.length, 1);
+  assert.equal(one[0].jobId, id);
+  assert.equal(one[0].ours, true);
+  assert.equal(one[0].status, 'Impressora desligada');
+  assert.equal(one[0].at, '2026-11-22T19:00:00.123Z');
+  const other = parseSpoolList(
+    '[{"printer":"EPSON","id":8,"name":"Relatorio.pdf","status":"Normal"}]',
+  );
+  assert.deepEqual(
+    { ours: other[0].ours, jobId: other[0].jobId, status: other[0].status },
+    { ours: false, jobId: null, status: 'Na fila' },
+  );
+  assert.deepEqual(parseSpoolList(''), []);
+  assert.deepEqual(parseSpoolList('lixo'), []);
+  assert.equal(spoolStatus('PaperOut'), 'Sem papel');
+  assert.equal(spoolStatus('Error, Printing'), 'Com erro');
+});
+
+test('folha: o nome do documento vai no título, escapado', () => {
+  assert.match(
+    documentHtml('x', { title: 'Comandou - <Teste>' }),
+    /<title>Comandou - &lt;Teste&gt;<\/title>/,
+  );
+  assert.match(documentHtml('x'), /<title>Comandou<\/title>/);
 });

@@ -89,10 +89,7 @@
             <div class="card__head">
               <div>
                 <h2 id="found-title">Impressoras deste computador</h2>
-                <p class="muted">
-                  Procuramos sozinhos no cabo USB, na rede, no Wi-Fi e no Bluetooth. Escolha uma e
-                  clique em <strong>Usar</strong>.
-                </p>
+                <p class="muted">Achadas no USB, na rede, no Wi-Fi e no Bluetooth.</p>
               </div>
               <button type="button" class="btn btn--ghost btn--sm" id="rescan">
                 Procurar de novo
@@ -110,38 +107,49 @@
             </p>
           </section>
 
-          <section class="card care-card" id="care-card" aria-labelledby="care-title" hidden>
+          <section class="card card--spool" aria-labelledby="spool-title">
             <div class="card__head">
               <div>
-                <h2 id="care-title">Saúde do computador</h2>
-                <p class="muted">
-                  Faz uma checagem completa, limpa o que pesa e conserta arquivos do Windows. Seus
-                  documentos não são tocados.
+                <h2 id="spool-title">Fila do Windows</h2>
+                <p class="muted" id="spool-sub">
+                  O que está esperando para sair nas impressoras daqui.
                 </p>
               </div>
-              <button type="button" class="btn btn--primary btn--sm" id="care-open">
-                Verificar e limpar
+              <button type="button" class="btn btn--ghost btn--sm" id="spool-clear" hidden>
+                Apagar as do Comandou
               </button>
             </div>
+            <div id="spool" class="spool"></div>
           </section>
         </div>
 
-        <section class="card card--routes" aria-labelledby="routes-title">
-          <div class="card__head">
-            <div>
-              <h2 id="routes-title">Onde cada coisa imprime</h2>
-              <p class="muted">
-                A principal recebe tudo. Se quiser, cada setor sai na sua.
-                <button type="button" class="link" data-guide="setores">Como funciona?</button>
-              </p>
+        <div class="col">
+          <section class="card card--routes" aria-labelledby="routes-title">
+            <div class="card__head">
+              <div>
+                <h2 id="routes-title">Onde cada coisa imprime</h2>
+                <p class="muted">
+                  A principal recebe tudo. Se quiser, cada setor sai na sua.
+                  <button type="button" class="link" data-guide="setores">Como funciona?</button>
+                </p>
+              </div>
             </div>
-          </div>
-          <div id="main-printer"></div>
-          <div id="routes" class="routes"></div>
-          <p class="muted routes__hint">
-            O histórico do que saiu fica no painel do Comandou, em Impressão.
-          </p>
-        </section>
+            <div id="main-printer"></div>
+            <div id="routes" class="routes"></div>
+          </section>
+
+          <section class="card care-card" id="care-card" aria-labelledby="care-title" hidden>
+            <div class="care-card__row">
+              <div>
+                <h2 id="care-title">Saúde do computador</h2>
+                <p class="muted">
+                  Limpa o que pesa e conserta o Windows. Não mexe nos seus arquivos.
+                </p>
+              </div>
+              <button type="button" class="btn btn--sm" id="care-open">Verificar e limpar</button>
+            </div>
+          </section>
+        </div>
       </main>
 
       <footer class="foot">

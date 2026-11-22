@@ -1622,3 +1622,231 @@ textarea {
   flex: none;
   white-space: nowrap;
 }
+
+/* ------------------------------------------------------------ tela principal sem rolar (1.12)
+ * Tudo cabe numa tela de notebook (1366 x 768, também com o Windows em 125%): linhas mais
+ * baixas, virtuais escondidas, setores numa linha e a fila do Windows no lugar do texto de
+ * rodapé. Em janela menor ainda, só a lista de impressoras rola por dentro. */
+.app {
+  height: 100vh;
+  min-height: 0;
+}
+.top {
+  padding: 8px 20px;
+}
+.top__logo {
+  width: 32px;
+  height: 32px;
+}
+.grid {
+  min-height: 0;
+  gap: 12px;
+  padding: 12px 20px;
+  overflow: auto;
+}
+.col {
+  gap: 12px;
+}
+.card {
+  padding: 14px 16px;
+}
+.card__head {
+  margin-bottom: 10px;
+}
+.card__head h2 {
+  font-size: 15px;
+}
+.card__head p {
+  margin-top: 0;
+  font-size: 12.5px;
+}
+.steps-row {
+  margin: -4px 0 10px;
+}
+.chip {
+  padding: 2px 9px 2px 7px;
+  font-size: 11.5px;
+}
+.found {
+  gap: 6px;
+}
+.found__row {
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+.found__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+.found__icon svg {
+  width: 18px;
+  height: 18px;
+}
+.found__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.found__line .found__name {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.found__tags {
+  flex: none;
+  margin-top: 0;
+  flex-wrap: nowrap;
+}
+.tag {
+  font-size: 11px;
+  padding: 1px 7px;
+}
+.found__actions .btn--sm {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.found__virtual {
+  appearance: none;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.found__virtual:hover,
+.found__virtual:focus-visible {
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  outline: none;
+}
+.found__more {
+  margin-top: 10px;
+}
+.care-card {
+  padding: 10px 16px;
+}
+.care-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.care-card__row h2 {
+  font-size: 14px;
+}
+.care-card__row p {
+  font-size: 12.5px;
+}
+.tile {
+  padding: 8px 10px;
+}
+.empty-printer__icon,
+.tile__icon {
+  width: 38px;
+  height: 38px;
+}
+.tile__icon svg {
+  width: 20px;
+  height: 20px;
+}
+.tile__actions .btn {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+#main-printer {
+  margin-bottom: 8px;
+}
+.routes {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.route {
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 0;
+}
+.route + .route {
+  border-top: 1px solid var(--border);
+}
+.route__info {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
+}
+.route__name {
+  flex: none;
+  max-width: 50%;
+}
+.route__printer {
+  font-size: 13px;
+  min-width: 0;
+}
+.route__actions .btn--sm {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.card--spool[hidden] {
+  display: none;
+}
+.spool {
+  display: grid;
+}
+.spool:empty {
+  display: none;
+}
+.spool__doc {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px;
+  border-top: 1px solid var(--border);
+}
+.spool__when {
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+}
+.spool__name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+.spool__name strong,
+.spool__name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spool__name span {
+  font-size: 12px;
+}
+.spool__more {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+}
+.foot {
+  padding: 8px 20px;
+}
+@media (max-width: 880px) {
+  .app {
+    height: auto;
+    min-height: 100%;
+  }
+  .grid {
+    overflow: visible;
+  }
+}

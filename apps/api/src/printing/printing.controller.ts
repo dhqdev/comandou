@@ -63,7 +63,42 @@ const DeleteJobs = z
   .refine((b) => !!b.ids !== !!b.statuses, { message: 'Informe ids ou statuses' });
 const Target = z.object({ target: z.string().trim().min(1).max(60) });
 const PrintOrder = z.object({ kind: z.enum(['kitchen', 'receipt', 'delivery']) });
-const Claim = z.object({ limit: z.number().int().min(1).max(20).default(5) });
+const Claim = z.object({
+  limit: z.number().int().min(1).max(20).default(5),
+  /** Impressoras desligadas no computador: o que vai para elas espera no Comandou (1.12+). */
+  hold: z
+    .object({
+      mainOn: z.boolean(),
+      on: z.array(z.string().trim().max(60)).max(40),
+      off: z.array(z.string().trim().max(60)).max(40),
+    })
+    .optional(),
+});
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** O que está na fila do Windows do computador (aplicativo 1.12 em diante). */
+const Spool = z.object({
+  jobs: z
+    .array(
+      z.object({
+        printer: z.string().trim().max(120),
+        name: z.string().trim().max(120),
+        jobId: z.string().regex(UUID_RE).nullable().optional(),
+        status: z.string().trim().max(60),
+        at: z.string().datetime({ offset: true }).nullable().optional(),
+        pages: z.number().int().min(0).max(100_000).nullable().optional(),
+        ours: z.boolean(),
+      }),
+    )
+    .max(100),
+  removed: z
+    .array(z.object({ id: z.string().regex(UUID_RE), reason: z.enum(['expired', 'purged']) }))
+    .max(200)
+    .default([]),
+});
+const PrintSettings = z.object({
+  /** Validade do que espera para imprimir, em minutos (0 = sem validade). */
+  maxAgeMinutes: z.number().int().min(0).max(1440),
+});
 const Heartbeat = z.object({
   version: z.string().trim().max(40).optional(),
   /** Impressoras escolhidas no aplicativo: destino (null = principal) e o nome para mostrar. */
@@ -89,6 +124,8 @@ const Result = z.object({
   /** A falha veio depois de mandar para a impressora (pode ter saído): não tenta de novo sozinho. */
   sent: z.boolean().optional(),
   printer: z.string().trim().max(80).optional(),
+  /** Entregue à fila do Windows (o aplicativo conta quando sai de lá). */
+  spooled: z.boolean().optional(),
 });
 /** Impressora de um computador: destino (null ou vazio = principal) e o nome mostrado. */
 const PrinterRef = z.object({
@@ -124,7 +161,8 @@ const Preview = TemplateBody.extend({
 });
 
 const AGENT_COLS = `id, name, active, last_seen_at AS "lastSeenAt", version, created_at AS "createdAt",
-  (last_seen_at > now() - interval '2 minutes') AS online, printers`;
+  (last_seen_at > now() - interval '2 minutes') AS online, printers, spool,
+  spool_at AS "spoolAt"`;
 
 /** Configuração de impressão (agentes e fila) para a equipe do restaurante. */
 /** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
@@ -496,8 +534,10 @@ export class PrintingController {
       q(
         tx,
         `${JOB_SELECT}
-          WHERE ($1::text IS NULL OR j.status = $1
-                 OR ($1 = 'pending' AND j.status IN ('queued','printing')))
+          WHERE ($1::text IS NULL OR (j.status = $1 AND NOT ($1 = 'done' AND j.spooled))
+                 -- "Na fila" inclui o que está parado na fila do Windows (enviado, não saiu).
+                 OR ($1 = 'pending' AND (j.status IN ('queued','printing')
+                                         OR (j.status = 'done' AND j.spooled))))
             AND ($3::text IS NULL OR j.target = $3)
             AND ($4::text IS NULL OR ($5::int IS NOT NULL AND o.number = $5)
                  OR j.target ILIKE '%' || $4 || '%' OR a.name ILIKE '%' || $4 || '%')
@@ -522,19 +562,63 @@ export class PrintingController {
     return this.db.withTenant(ctxOf(t, u), async (tx) => {
       const rows = await q<{ status: string; n: number }>(
         tx,
-        `SELECT status, count(*)::int AS n FROM print_jobs GROUP BY status`,
+        `SELECT CASE WHEN status = 'done' AND spooled THEN 'spooled' ELSE status END AS status,
+                count(*)::int AS n
+           FROM print_jobs GROUP BY 1`,
       );
       const targets = await q<{ target: string }>(
         tx,
         `SELECT DISTINCT target FROM print_jobs ORDER BY target LIMIT 60`,
       );
-      const counts = { queued: 0, printing: 0, done: 0, failed: 0, cancelled: 0 } as Record<
-        string,
-        number
-      >;
+      const counts = {
+        queued: 0,
+        printing: 0,
+        spooled: 0,
+        done: 0,
+        failed: 0,
+        cancelled: 0,
+      } as Record<string, number>;
       for (const r of rows) counts[r.status] = r.n;
       return { counts, targets: targets.map((r) => r.target) };
     });
+  }
+
+  /** Ajustes da fila: validade do que espera para imprimir. */
+  @Get('printing/settings')
+  @RequirePermission('printing:manage')
+  settings(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.db.withTenant(ctxOf(t, u), async (tx) => ({
+      maxAgeMinutes: await this.printing.maxAgeMinutes(tx),
+    }));
+  }
+
+  @Put('printing/settings')
+  @RequirePermission('printing:manage')
+  async saveSettings(
+    @Body(new ZodPipe(PrintSettings)) b: z.infer<typeof PrintSettings>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    await this.db.withTenant(ctxOf(t, u), async (tx) => {
+      await q(
+        tx,
+        `INSERT INTO tenant_store_settings (tenant_id, print_max_age_minutes) VALUES ($1, $2)
+         ON CONFLICT (tenant_id) DO UPDATE SET print_max_age_minutes = EXCLUDED.print_max_age_minutes`,
+        [t.id, b.maxAgeMinutes],
+      );
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'printing.settings_updated',
+        entity: 'tenant',
+        entityId: t.id,
+        data: { maxAgeMinutes: b.maxAgeMinutes },
+        ip: req.ip,
+      });
+    });
+    this.realtime.publish(t.id, { type: 'print.changed' });
+    return { maxAgeMinutes: b.maxAgeMinutes };
   }
 
   /** Recoloca na fila vários trabalhos (falharam ou foram tirados da fila). */
@@ -550,7 +634,7 @@ export class PrintingController {
       q(
         tx,
         `UPDATE print_jobs SET status = 'queued', attempts = 0, claimed_by = NULL, claimed_at = NULL,
-                retry_at = NULL
+                retry_at = NULL, queued_at = now(), spooled = false
           WHERE id = ANY($1::uuid[]) AND status IN ('failed','cancelled') RETURNING id`,
         [b.ids],
       ),
@@ -578,7 +662,7 @@ export class PrintingController {
         tx,
         `DELETE FROM print_jobs
           WHERE ($1::uuid[] IS NOT NULL AND id = ANY($1::uuid[]))
-             OR ($2::text[] IS NOT NULL AND status = ANY($2::text[]))
+             OR ($2::text[] IS NOT NULL AND status = ANY($2::text[]) AND NOT spooled)
           RETURNING status, claimed_by`,
         [b.ids ?? null, b.statuses ?? null],
       );
@@ -621,7 +705,7 @@ export class PrintingController {
       const j = await one(
         tx,
         `UPDATE print_jobs SET status = 'queued', attempts = 0, claimed_by = NULL, claimed_at = NULL,
-                retry_at = NULL
+                retry_at = NULL, queued_at = now(), spooled = false
           WHERE id = $1 AND status IN ('failed','cancelled') RETURNING id`,
         [id],
       );
@@ -787,12 +871,26 @@ export class PrintAgentController {
   ) {
     const a = await this.agent(req, t);
     await this.printing.heartbeat(t.id, a.id, req.ip, b.version, b.printers);
-    const [targets, brand, commands] = await Promise.all([
+    const [targets, brand, commands, maxAgeMinutes] = await Promise.all([
       this.printing.targets(t.id),
       this.printing.branding(t.id),
       this.printing.agentCommands(t.id, a.id, { purgedAt: b.purgedAt, removed: b.removed }),
+      this.printing.maxAgeFor(t.id),
     ]);
-    return { agent: a.name, restaurant: t.name, targets, brand, ...commands };
+    return { agent: a.name, restaurant: t.name, targets, brand, maxAgeMinutes, ...commands };
+  }
+
+  /** O aplicativo conta o que está na fila do Windows (quando muda). */
+  @Post('spool')
+  @HttpCode(200)
+  async spool(
+    @Body(new ZodPipe(Spool)) b: z.infer<typeof Spool>,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    const a = await this.agent(req, t);
+    await this.printing.spool(t.id, a.id, b);
+    return { ok: true };
   }
 
   @Post('claim')
@@ -803,7 +901,7 @@ export class PrintAgentController {
     @Req() req: Request,
   ) {
     const a = await this.agent(req, t);
-    return { jobs: await this.printing.claim(t.id, a.id, b.limit) };
+    return { jobs: await this.printing.claim(t.id, a.id, b.limit, b.hold) };
   }
 
   @Post('jobs/:id/result')
@@ -815,6 +913,6 @@ export class PrintAgentController {
     @Req() req: Request,
   ) {
     const a = await this.agent(req, t);
-    return this.printing.result(t.id, a.id, id, b.ok, b.error, b.sent, b.printer);
+    return this.printing.result(t.id, a.id, id, b.ok, b.error, b.sent, b.printer, b.spooled);
   }
 }

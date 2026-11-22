@@ -43,7 +43,7 @@ import {
 import { PrintTemplatesCard } from '../features/PrintTemplates';
 import { api } from '../lib/api';
 import { useDebounced, useRealtime } from '../lib/realtime';
-import type { PrintAgent, PrintAgentPrinter, PrintJob } from '../lib/types';
+import type { PrintAgent, PrintAgentPrinter, PrintJob, PrintSpoolDoc } from '../lib/types';
 import './printing.css';
 import { TourButton } from '../features/tour/PageTour';
 
@@ -64,6 +64,26 @@ const STATUS: Record<PrintJob['status'], [string, 'neutral' | 'info' | 'success'
 };
 /** Ainda vai sair (esperando ou com um computador agora). */
 const pending = (j: PrintJob) => j.status === 'queued' || j.status === 'printing';
+/** Situação na tela: o impresso que ainda está na fila do Windows aparece como "Enviado". */
+const statusOf = (j: PrintJob) =>
+  j.status === 'done' && j.spooled ? (['Enviado', 'info'] as const) : STATUS[j.status];
+/** Opções de validade do que espera para imprimir (minutos; 0 = sem validade). */
+const MAX_AGE_OPTIONS: [number, string][] = [
+  [10, '10 min'],
+  [15, '15 min'],
+  [30, '30 min'],
+  [60, '1 hora'],
+  [120, '2 horas'],
+  [0, 'Sem validade'],
+];
+/** "Comandou - Comanda Cozinha - <id>" vira "Comanda Cozinha". */
+const spoolDocLabel = (d: PrintSpoolDoc) =>
+  d.ours
+    ? d.name
+        .replace(/^Comandou(\s*-\s*)?/i, '')
+        .replace(/\s*-?\s*[0-9a-f]{8}-[0-9a-f-]{27}$/i, '')
+        .trim() || 'Comanda do Comandou'
+    : d.name;
 const PRINTER_ICON: Record<PrintAgentPrinter['kind'], ReactNode> = {
   usb: <Usb size={14} />,
   network: <Network size={14} />,
@@ -83,7 +103,11 @@ function ago(iso: string) {
 
 type JobFilter = 'all' | 'pending' | 'done' | 'failed' | 'cancelled';
 /** Quantos trabalhos há em cada situação e os destinos já usados. */
-type JobsSummary = { counts: Record<PrintJob['status'], number>; targets: string[] };
+type JobsSummary = {
+  /** spooled: impressos que ainda estão parados na fila do Windows (fora de done). */
+  counts: Record<PrintJob['status'] | 'spooled', number>;
+  targets: string[];
+};
 const PAGE = 50;
 /** Impressora aberta na janela de trabalhos: computador + destino (null = principal). */
 type OpenPrinter = { agent: PrintAgent; printer: PrintAgentPrinter };
@@ -146,7 +170,9 @@ export function PrintingPage() {
   }
 
   const health = printHealth(agents);
-  const queuedCount = summary ? summary.counts.queued + summary.counts.printing : 0;
+  const queuedCount = summary
+    ? summary.counts.queued + summary.counts.printing + (summary.counts.spooled ?? 0)
+    : 0;
   // Sem computador nenhum, o aplicativo vem primeiro; com computador, fica no fim da tela.
   const needsApp = agents !== null && health.state === 'none';
 
@@ -251,6 +277,18 @@ export function PrintingPage() {
 
       <PrintQueueCard
         summary={summary}
+        agents={agents ?? []}
+        onPurge={(a) =>
+          void (async () => {
+            if (await call(`/printing/agents/${a.id}/purge`))
+              toast(
+                a.online
+                  ? `"${a.name}" apaga as comandas paradas na fila do Windows em instantes`
+                  : `"${a.name}" apaga as comandas paradas na fila do Windows quando voltar`,
+                'success',
+              );
+          })()
+        }
         waitReason={WAIT_REASON[health.state]}
         healthState={health.state}
         onTest={() => void testPrint()}
@@ -331,7 +369,7 @@ function StatusPanel({
     },
     'printer-off': {
       title: off.length === 1 ? 'Impressora desligada' : 'Impressoras desligadas',
-      text: `${off.join(', ')} não ${off.length === 1 ? 'responde' : 'respondem'}. Ligue e confira o cabo ou a rede. O que não sair fica em Falharam, com o botão Imprimir de novo.`,
+      text: `${off.join(', ')} não ${off.length === 1 ? 'responde' : 'respondem'}. Ligue e confira o cabo ou a rede. As comandas esperam aqui na fila e saem quando ela ligar; as que passarem da validade não saem sozinhas.`,
     },
     'no-printer': {
       title: 'Falta escolher a impressora',
@@ -639,7 +677,7 @@ function JobRow({
   selected?: boolean;
   onSelect?: (on: boolean) => void;
 }) {
-  const [label, tone] = STATUS[j.status];
+  const [label, tone] = statusOf(j);
   const today = new Date(j.createdAt).toDateString() === new Date().toDateString();
   const name = `${KIND[j.kind]}${j.orderNumber ? ` #${j.orderNumber}` : ''}`;
   return (
@@ -681,9 +719,17 @@ function JobRow({
             </span>
           )
         )}
-        {j.status === 'failed' && j.lastError && <span className="cm-hint">{j.lastError}</span>}
-        {(j.status === 'done' || j.status === 'failed') && j.printerLabel && (
-          <span className="cm-hint">Em {j.printerLabel}</span>
+        {(j.status === 'failed' || j.status === 'cancelled') && j.lastError && (
+          <span className="cm-hint">{j.lastError}</span>
+        )}
+        {j.status === 'done' && j.spooled ? (
+          <span className="cm-hint">
+            Parado na fila do Windows{j.agentName && ` de ${j.agentName}`}, esperando a impressora
+            {j.doneAt && ` · ${ago(j.doneAt)}`}
+          </span>
+        ) : (
+          (j.status === 'done' || j.status === 'failed') &&
+          j.printerLabel && <span className="cm-hint">Em {j.printerLabel}</span>
         )}
       </div>
       <div className="print-job__actions">
@@ -713,17 +759,88 @@ function JobRow({
 }
 
 /**
+ * O que está agora na fila do Windows de cada computador (o aplicativo conta quando muda): as
+ * comandas que o Windows guardou e os documentos dos outros programas na mesma impressora.
+ */
+function WindowsQueue({
+  agents,
+  onPurge,
+}: {
+  agents: PrintAgent[];
+  onPurge: (a: PrintAgent) => void;
+}) {
+  const withDocs = agents.filter((a) => a.active && a.spool?.length);
+  if (!withDocs.length) return null;
+  return (
+    <div className="print-spool" data-search-id="fila-do-windows">
+      {withDocs.map((a) => {
+        const docs = a.spool ?? [];
+        const ours = docs.filter((d) => d.ours).length;
+        return (
+          <section
+            key={a.id}
+            className="print-spool__agent"
+            aria-label={`Fila do Windows de ${a.name}`}
+          >
+            <header className="print-spool__head">
+              <div>
+                <strong>Na fila do Windows de {a.name}</strong>
+                <span className="cm-hint">
+                  {docs.length === 1 ? '1 documento' : `${docs.length} documentos`} esperando a
+                  impressora{!a.online && a.spoolAt ? ` · visto ${ago(a.spoolAt)}` : ''}
+                </span>
+              </div>
+              {ours > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => onPurge(a)}>
+                  Apagar as do Comandou
+                </Button>
+              )}
+            </header>
+            <ul className="print-spool__list">
+              {docs.slice(0, 8).map((d, i) => (
+                <li key={`${d.printer}-${d.jobId ?? d.name}-${i}`} className="print-spool__doc">
+                  <span className="print-spool__when">{d.at ? time(d.at) : '—'}</span>
+                  <span className="print-spool__name">
+                    <strong>{spoolDocLabel(d)}</strong>
+                    <span className="cm-hint">
+                      {d.ours ? 'Comandou' : 'Outro programa'} · {d.printer}
+                      {d.pages ? ` · ${d.pages === 1 ? '1 página' : `${d.pages} páginas`}` : ''}
+                    </span>
+                  </span>
+                  <Badge
+                    tone={/erro|papel|desligada|alguém/i.test(d.status) ? 'danger' : 'neutral'}
+                  >
+                    {d.status}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+            {docs.length > 8 && (
+              <p className="cm-hint print-spool__more">e mais {docs.length - 8} na fila</p>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
  * Fila de impressão: filtros por situação, destino e busca, seleção com ações em lote
  * (tirar da fila, imprimir de novo, apagar) e "Apagar histórico" por situação.
  */
 function PrintQueueCard({
   summary,
+  agents,
+  onPurge,
   waitReason,
   healthState,
   onTest,
   onChanged,
 }: {
   summary: JobsSummary | null;
+  agents: PrintAgent[];
+  onPurge: (a: PrintAgent) => void;
   waitReason: string;
   healthState: PrintHealthState;
   onTest: () => void;
@@ -740,6 +857,28 @@ function PrintQueueCard({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const shownRef = useRef(PAGE);
+  const [maxAge, setMaxAge] = useState<number | null>(null);
+  useEffect(() => {
+    api<{ maxAgeMinutes: number }>('/printing/settings')
+      .then((r) => setMaxAge(r.maxAgeMinutes))
+      .catch(() => undefined);
+  }, []);
+  async function saveMaxAge(v: number) {
+    const was = maxAge;
+    setMaxAge(v);
+    try {
+      await api('/printing/settings', { method: 'PUT', json: { maxAgeMinutes: v } });
+      toast(
+        v
+          ? `Pronto: o que esperar mais de ${MAX_AGE_OPTIONS.find(([m]) => m === v)?.[1]} não sai sozinho`
+          : 'Pronto: a fila não tem mais validade',
+        'success',
+      );
+    } catch (e) {
+      setMaxAge(was);
+      toast((e as Error).message, 'danger');
+    }
+  }
 
   useEffect(() => {
     const t = window.setTimeout(() => setQ(search.trim()), 300);
@@ -847,7 +986,7 @@ function PrintQueueCard({
   };
 
   const counts = summary?.counts;
-  const pendingCount = counts ? counts.queued + counts.printing : 0;
+  const pendingCount = counts ? counts.queued + counts.printing + (counts.spooled ?? 0) : 0;
   const total = counts ? Object.values(counts).reduce((a, b) => a + b, 0) : 0;
   const historyCount = counts ? counts.done + counts.failed + counts.cancelled : 0;
   const chosen = (items ?? []).filter((j) => selected.has(j.id));
@@ -890,6 +1029,29 @@ function PrintQueueCard({
       }
       bodyless
     >
+      <WindowsQueue agents={agents} onPurge={onPurge} />
+      <div className="print-queue__age">
+        <label>
+          <span>Validade</span>
+          <Select
+            aria-label="Validade da fila"
+            value={maxAge ?? ''}
+            disabled={maxAge === null}
+            onChange={(e) => void saveMaxAge(Number(e.target.value))}
+          >
+            {MAX_AGE_OPTIONS.map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <span className="cm-hint">
+          {maxAge === 0
+            ? 'Sem validade: quando a impressora voltar, sai tudo o que esperou, mesmo atrasado.'
+            : 'O que esperar mais que isso (impressora desligada, computador fora) não sai sozinho quando ela voltar. Fica em Tirados, com o botão Voltar para a fila.'}
+        </span>
+      </div>
       {total === 0 && summary ? (
         <div className="cm-card__body">
           <EmptyState
