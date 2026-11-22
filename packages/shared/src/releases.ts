@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.223.0',
+    date: '2026-11-22',
+    title: 'Entregadores em cartões, com a situação de cada um',
+    summary:
+      'Em Entregas › Entregadores, cada entregador ganhou um cartão com a situação dele agora (na rua, disponível, offline, sem acesso ao app ou desativado), o que fez hoje, como entra no app e se o link já foi aberto.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Um cartão por entregador com a situação em bolinha: na rua (com os pedidos), disponível (app aberto agora), offline (com quando foi visto), sem acesso ao app ou desativado. Em cima, quantos estão em cada situação.',
+      },
+      {
+        tag: 'novo',
+        text: 'O cartão mostra as entregas de hoje, se a pessoa entra com PIN e como está o link: ativo e aberto há quanto tempo, ainda não aberto, ou pausado.',
+      },
+      {
+        tag: 'correção',
+        text: 'Entregador desativado aparecia com "link ativo", mas o link não abria: agora aparece como pausado.',
+      },
+      {
+        tag: 'correção',
+        text: 'O campo Login do cadastro oferecia quem já estava na lista e dava erro de registro duplicado; agora só mostra quem falta.',
+      },
+    ],
+  },
+  {
     version: '0.222.0',
     date: '2026-11-21',
     title: 'App do entregador de cara nova',

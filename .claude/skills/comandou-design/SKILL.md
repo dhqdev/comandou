@@ -39,6 +39,16 @@ principal na largura toda e Não consegui (ghost) + Entreguei. Corrida encerrada
 `RideRow` (bolinha, pedido, cliente, hora, valor) dentro de `dlist`; Histórico agrupa por dia
 (`dday`). Perfil: avatar `--cm-brand-100`, score no anel `dring`.
 
+## Entregas › Entregadores
+
+`CouriersCard`/`CourierCard` em `pages/DeliveriesPage.tsx` (classes `dl-cour*` em
+`deliveries.css`, 0.223, pedido do David): um cartão por entregador em grade (`minmax(320px)`),
+avatar com as iniciais na cor do motoboy no mapa (`--rider`), situação em pílula com bolinha
+(`data-state`: na rua laranja, disponível verde, offline cinza, sem acesso âmbar, desativado
+cinza com o cartão apagado), frase do agora, quadro Hoje/Login/Link com linha fina e as ações
+pequenas embaixo. A situação sai de `features/courier-status.ts` (`courierState`, testado):
+disponível = app ou link aberto há até 2 min (`couriers.link_seen_at`/`app_seen_at`, migração 0109).
+
 ## Modais e formulários
 
 - Janela abre **perto de quem abriu** (`liquid.ts`): no computador e no tablet sai de dentro do botão e fica ao lado dele (botão à direita, janela à direita; embaixo se couber) e volta para ele ao fechar; no celular a folha cresce do botão. Use sempre `Modal`/`Sheet`/`useLiquidDialog`: não posicione janela na mão nem com `margin: auto` fixo.

@@ -432,6 +432,14 @@ describe('Link do entregador (sem login)', () => {
       linkCreatedAt: string;
     }[];
     expect(couriers.find((c) => c.id === c1.id)!.linkCreatedAt).toBeTruthy();
+    const seenOf = async (id: string) =>
+      (
+        (await get('adminA', '/couriers').expect(200)).body as {
+          id: string;
+          linkSeenAt: string | null;
+        }[]
+      ).find((c) => c.id === id)!.linkSeenAt;
+    expect(await seenOf(c1.id)).toBeNull();
 
     const mk = async (courierId: string) => {
       const o = (
@@ -452,6 +460,9 @@ describe('Link do entregador (sem login)', () => {
     expect(home.courier.name).toBe('Zé Moto');
     expect(home.deliveries.map((d: { id: string }) => d.id)).toEqual([d1.id]);
     expect(home.deliveries[0]).toMatchObject({ deliveryAddress: 'Rua B, 2', status: 'out' });
+    // Abrir o link marca o entregador como visto (situação "disponível" em Entregas).
+    expect(await seenOf(c1.id)).toBeTruthy();
+    expect(await seenOf(c2.id)).toBeNull();
     await pub.get(`/courier-app/${t1}`, HOST_B).expect(404);
     await pub.get('/courier-app/link-que-nao-existe-123456').expect(404);
 
@@ -512,6 +523,7 @@ describe('Link do entregador (sem login)', () => {
     // Trocar o link invalida o anterior; revogar e desativar bloqueiam.
     const l1b = (await post('adminA', `/couriers/${c1.id}/link`).expect(201)).body;
     await pub.get(`/courier-app/${t1}`).expect(404);
+    expect(await seenOf(c1.id)).toBeNull(); // link novo: ainda não aberto
     const t1b = l1b.path.split('/').pop();
     await pub.get(`/courier-app/${t1b}`).expect(200);
     await patch('adminA', `/couriers/${c1.id}`, { active: false }).expect(200);
@@ -598,6 +610,14 @@ describe('Link do entregador (sem login)', () => {
     const c = await courier();
     expect(c.active).toBe(true);
     await get('moto', '/deliveries/available').expect(200);
+    // Abrir o app marca o entregador como visto; cadastrar a mesma pessoa de novo é recusado.
+    expect((await courier()) as unknown as { appSeenAt: string | null }).toMatchObject({
+      appSeenAt: null,
+    });
+    await get('moto', '/deliveries?scope=active').expect(200);
+    expect(((await courier()) as unknown as { appSeenAt: string | null }).appSeenAt).toBeTruthy();
+    const dup = await post('adminA', '/couriers', { name: 'De novo', userId }).expect(409);
+    expect(dup.body.message).toMatch(/já está na lista/);
     // Em Entregas não dá para desligar só o cadastro: o acesso é da Equipe.
     await patch('adminA', `/couriers/${c.id}`, { active: false }).expect(409);
     await patch('adminA', `/couriers/${c.id}`, { phone: '11999990000' }).expect(200);

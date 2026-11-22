@@ -142,6 +142,14 @@ export class DeliveryService {
   list(ctx: Ctx, scope: 'active' | 'today') {
     return this.db.withTenant(ctx, async (tx) => {
       const mine = !this.canManage(ctx);
+      // Entregador com login abriu o app: situação "disponível" em Entregas (no máximo a cada 30 s).
+      if (mine && ctx.userId)
+        await q(
+          tx,
+          `UPDATE couriers SET app_seen_at = now()
+            WHERE user_id = $1 AND (app_seen_at IS NULL OR app_seen_at < now() - interval '30 seconds')`,
+          [ctx.userId],
+        );
       const rows = await q<{ id: string; courierId: string; status: string }>(
         tx,
         `${DELIVERY_SELECT} CROSS JOIN tenants tz
@@ -695,7 +703,8 @@ export class DeliveryService {
     await this.db.withTenant(ctx, async (tx) => {
       const r = await one(
         tx,
-        `UPDATE couriers SET access_token_hash = $2, access_created_at = now() WHERE id = $1 RETURNING id`,
+        `UPDATE couriers SET access_token_hash = $2, access_created_at = now(), link_seen_at = NULL
+          WHERE id = $1 RETURNING id`,
         [courierId, trackingHash(token)],
       );
       if (!r) throw new NotFoundException('Entregador não encontrado');
@@ -715,7 +724,8 @@ export class DeliveryService {
     await this.db.withTenant(ctx, async (tx) => {
       const r = await one(
         tx,
-        `UPDATE couriers SET access_token_hash = NULL, access_created_at = NULL WHERE id = $1 RETURNING id`,
+        `UPDATE couriers SET access_token_hash = NULL, access_created_at = NULL, link_seen_at = NULL
+          WHERE id = $1 RETURNING id`,
         [courierId],
       );
       if (!r) throw new NotFoundException('Entregador não encontrado');
@@ -735,9 +745,15 @@ export class DeliveryService {
   async courierCtx(tenantId: string, token: string, ip?: string) {
     if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) throw new NotFoundException('Link inválido');
     const c = await this.db.withTenant({ tenantId }, (tx) =>
+      // Marca quando o link foi usado (situação "disponível" em Entregas), no máximo a cada 30 s.
       one<{ id: string; name: string; active: boolean }>(
         tx,
-        `SELECT id, name, active FROM couriers WHERE access_token_hash = $1`,
+        `WITH c AS (SELECT id, name, active, link_seen_at FROM couriers WHERE access_token_hash = $1),
+              seen AS (UPDATE couriers k SET link_seen_at = now() FROM c
+                        WHERE k.id = c.id AND c.active
+                          AND (c.link_seen_at IS NULL OR c.link_seen_at < now() - interval '30 seconds')
+                        RETURNING k.id)
+         SELECT id, name, active FROM c`,
         [trackingHash(token)],
       ),
     );

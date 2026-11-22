@@ -766,6 +766,10 @@ export interface Courier {
   active: boolean;
   /** Quando o link do entregador (sem login) foi gerado; null = sem link. */
   linkCreatedAt: string | null;
+  /** Última vez que o link foi usado (volta a null quando o link é trocado ou desligado). */
+  linkSeenAt?: string | null;
+  /** Última vez que o entregador com login abriu o app. */
+  appSeenAt?: string | null;
 }
 export interface Delivery {
   id: string;

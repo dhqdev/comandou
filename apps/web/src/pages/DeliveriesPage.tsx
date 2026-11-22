@@ -3,6 +3,8 @@ import {
   CheckCircle2,
   Copy,
   Link2,
+  Link2Off,
+  MessageCircle,
   MapPin,
   Navigation,
   PackageCheck,
@@ -41,6 +43,14 @@ import {
   toPoint,
   type LatLng,
 } from '../features/live-geo';
+import {
+  COURIER_STATE,
+  courierState,
+  type CourierState,
+  lastSeen,
+  phoneLabel,
+  whatsappNumber,
+} from '../features/courier-status';
 import { SelectField } from '../features/forms';
 import { SlideTabs } from '../features/SlideTabs';
 import { useLinkParam } from '../lib/deep-link';
@@ -388,7 +398,13 @@ export function DeliveriesPage() {
         </Card>
       )}
       {aba === 'entregadores' && (
-        <CouriersCard couriers={couriers} out={out ?? []} colorOf={colorOf} onChanged={load} />
+        <CouriersCard
+          couriers={couriers}
+          out={out ?? []}
+          today={today}
+          colorOf={colorOf}
+          onChanged={load}
+        />
       )}
       {aba === 'area' && <DeliveryAreas canEdit={canSetup} />}
       {aba === 'acerto' && canSettle && <CourierCollections />}
@@ -826,11 +842,13 @@ function DeliveryCard({
 function CouriersCard({
   couriers,
   out,
+  today,
   colorOf,
   onChanged,
 }: {
   couriers: Courier[];
   out: Delivery[];
+  today: Delivery[];
   colorOf(id: string): string;
   onChanged(): void;
 }) {
@@ -849,6 +867,14 @@ function CouriersCard({
         .then((u) => setDrivers(u.filter((x) => x.role === 'driver' && x.status === 'active')))
         .catch(() => undefined);
   }, [canUsers]);
+  // "Disponível" e "visto há X" vêm de quando o app foi aberto: confere de novo a cada 30 s.
+  useEffect(() => {
+    const id = window.setInterval(onChanged, 30_000);
+    return () => window.clearInterval(id);
+  }, [onChanged]);
+  // Quem entra com login já ganha o cadastro aqui sozinho: o seletor só oferece quem falta.
+  const linked = new Set(couriers.map((c) => c.userId).filter(Boolean));
+  const freeDrivers = drivers.filter((u) => !linked.has(u.id));
 
   async function call(url: string, method: 'POST' | 'PATCH' | 'DELETE', json: object, ok: string) {
     try {
@@ -863,12 +889,29 @@ function CouriersCard({
   }
 
   async function makeLink(c: Courier) {
-    if (c.linkCreatedAt && !window.confirm('Gerar um link novo? O link antigo para de funcionar.'))
+    if (
+      c.linkCreatedAt &&
+      !window.confirm(`Gerar um link novo para ${c.name}? O link antigo para de funcionar.`)
+    )
       return;
     const r = await call(`/couriers/${c.id}/link`, 'POST', {}, '');
     if (r && typeof r === 'object' && r.path)
       setShared({ courier: c, url: `${window.location.origin}${r.path}` });
   }
+
+  const now = Date.now();
+  const rows = couriers
+    .map((c) => {
+      const runs = out.filter((d) => d.courierId === c.id);
+      const done = today.filter((d) => d.courierId === c.id);
+      return { c, runs, done, state: courierState(c, runs.length, now) };
+    })
+    .sort(
+      (a, b) =>
+        COURIER_STATE[a.state].order - COURIER_STATE[b.state].order ||
+        a.c.name.localeCompare(b.c.name, 'pt-BR'),
+    );
+  const count = (st: CourierState) => rows.filter((r) => r.state === st).length;
 
   return (
     <>
@@ -905,14 +948,14 @@ function CouriersCard({
             inputMode="tel"
             onChange={(e) => setPhone(e.target.value)}
           />
-          {canUsers && (
+          {canUsers && freeDrivers.length > 0 && (
             <SelectField
               label="Login (opcional)"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
             >
               <option value="">Sem login</option>
-              {drivers.map((u) => (
+              {freeDrivers.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
                 </option>
@@ -930,69 +973,52 @@ function CouriersCard({
           papel Entregador: ela entra em <strong>/entregas</strong> só com o PIN de 4 números e já
           aparece aqui.
         </p>
-        <ul className="plain-list courier-list">
-          {couriers.map((c) => {
-            const running = out.filter((d) => d.courierId === c.id).length;
-            return (
-              <li key={c.id} data-search-id={`entregador-${c.id}`}>
-                <span className="courier-list__who">
-                  <span
-                    className="courier-list__dot"
-                    style={{ ['--rider' as string]: colorOf(c.id) }}
-                    aria-hidden
-                  />
-                  <strong>{c.name}</strong>{' '}
-                  {c.phone && <span className="cm-hint">· {c.phone}</span>}{' '}
-                  {running > 0 && <Badge tone="brand">{running} na rua</Badge>}{' '}
-                  {c.userName && <Badge tone="info">login: {c.userName}</Badge>}{' '}
-                  {c.linkCreatedAt && <Badge tone="success">link ativo</Badge>}{' '}
-                  {!c.active && <Badge>inativo</Badge>}
+        {rows.length > 0 && (
+          <p className="dl-cour-sum" aria-live="polite">
+            {(['rua', 'disponivel', 'offline', 'sem-acesso', 'desligado'] as const)
+              .filter((st) => count(st) > 0 || st === 'rua' || st === 'disponivel')
+              .map((st) => (
+                <span key={st} data-state={st}>
+                  <i aria-hidden /> {count(st)} {COURIER_STATE[st].label.toLowerCase()}
                 </span>
-                <span className="actions-row">
-                  {c.active && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      icon={<Link2 size={14} />}
-                      onClick={() => makeLink(c)}
-                    >
-                      {c.linkCreatedAt ? 'Novo link' : 'Link do entregador'}
-                    </Button>
-                  )}
-                  {c.linkCreatedAt && (
-                    <button
-                      className="link-btn"
-                      onClick={() =>
-                        window.confirm(`Desligar o link de ${c.name}?`) &&
-                        void call(`/couriers/${c.id}/link`, 'DELETE', {}, 'Link desligado')
-                      }
-                    >
-                      desligar link
-                    </button>
-                  )}
-                  {c.userId ? (
-                    // Entra com login: ativo ou não é o acesso dele na Equipe.
-                    <span className="cm-hint">ativar e desativar em Equipe</span>
-                  ) : (
-                    <button
-                      className="link-btn"
-                      onClick={() =>
-                        call(
-                          `/couriers/${c.id}`,
-                          'PATCH',
-                          { active: !c.active },
-                          'Entregador atualizado',
-                        )
-                      }
-                    >
-                      {c.active ? 'desativar' : 'ativar'}
-                    </button>
-                  )}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+              ))}
+          </p>
+        )}
+        {rows.length === 0 ? (
+          <EmptyState
+            icon={<Bike size={28} />}
+            title="Nenhum entregador ainda"
+            description="Cadastre o primeiro acima e mande o link dele no WhatsApp."
+          />
+        ) : (
+          <div className="dl-cour-grid">
+            {rows.map(({ c, runs, done, state }) => (
+              <CourierCard
+                key={c.id}
+                courier={c}
+                color={colorOf(c.id)}
+                state={state}
+                runs={runs}
+                done={done}
+                now={now}
+                onLink={() => makeLink(c)}
+                onRevoke={() =>
+                  window.confirm(
+                    `Desligar o link de ${c.name}? Ele deixa de ver as corridas pelo link na hora.`,
+                  ) && void call(`/couriers/${c.id}/link`, 'DELETE', {}, 'Link desligado')
+                }
+                onToggle={() =>
+                  void call(
+                    `/couriers/${c.id}`,
+                    'PATCH',
+                    { active: !c.active },
+                    c.active ? 'Entregador desativado' : 'Entregador ativado',
+                  )
+                }
+              />
+            ))}
+          </div>
+        )}
       </Card>
       <Modal
         open={!!shared}
@@ -1005,10 +1031,161 @@ function CouriersCard({
   );
 }
 
+/** Um cartão por entregador: situação, o dia dele, como entra no app e as ações do link. */
+function CourierCard({
+  courier: c,
+  color,
+  state,
+  runs,
+  done,
+  now,
+  onLink,
+  onRevoke,
+  onToggle,
+}: {
+  courier: Courier;
+  color: string;
+  state: CourierState;
+  runs: Delivery[];
+  done: Delivery[];
+  now: number;
+  onLink(): void;
+  onRevoke(): void;
+  onToggle(): void;
+}) {
+  const seen = lastSeen(c);
+  const delivered = done.filter((d) => d.status === 'delivered').length;
+  const failed = done.filter((d) => d.status === 'failed').length;
+  const wa = whatsappNumber(c.phone);
+  const note =
+    state === 'rua'
+      ? `${runs.length === 1 ? '1 corrida' : `${runs.length} corridas`}: ${runs
+          .map((d) => `#${d.orderNumber}`)
+          .reverse()
+          .join(', ')} · saiu ${agoLabel(runs[runs.length - 1]!.dispatchedAt, now)}`
+      : state === 'disponivel'
+        ? `App aberto ${agoLabel(seen, now)}, pronto para pegar pedido`
+        : state === 'offline'
+          ? seen
+            ? `Visto pela última vez ${seenLabel(seen, now)}`
+            : 'Ainda não abriu o app'
+          : state === 'sem-acesso'
+            ? 'Não recebe os pedidos no celular: gere o link ou dê um login na Equipe'
+            : c.userId
+              ? 'Acesso desativado na Equipe: não recebe pedidos'
+              : 'Não recebe pedidos e o link não abre';
+  const link = !c.linkCreatedAt
+    ? 'Sem link'
+    : !c.active
+      ? 'Pausado (entregador desativado)'
+      : c.linkSeenAt
+        ? `Ativo, aberto ${seenLabel(c.linkSeenAt, now)}`
+        : `Ativo desde ${dayLabel(c.linkCreatedAt)}, ainda não aberto`;
+  return (
+    <article
+      className="dl-cour"
+      data-state={state}
+      data-search-id={`entregador-${c.id}`}
+      style={{ ['--rider' as string]: color }}
+    >
+      <header className="dl-cour__head">
+        <span className="dl-cour__avatar" aria-hidden>
+          {initials(c.name)}
+        </span>
+        <span className="dl-cour__who">
+          <strong>{c.name}</strong>
+          {c.phone ? (
+            <span className="dl-cour__phone">{phoneLabel(c.phone)}</span>
+          ) : (
+            <span className="dl-cour__phone">sem celular</span>
+          )}
+        </span>
+        <span className="dl-cour__state">
+          <i aria-hidden />
+          {COURIER_STATE[state].label}
+        </span>
+      </header>
+      <p className="dl-cour__note">{note}</p>
+      <dl className="dl-cour__facts">
+        <div>
+          <dt>Hoje</dt>
+          <dd>
+            {delivered === 1 ? '1 entregue' : `${delivered} entregues`}
+            {failed > 0 && ` · ${failed} não ${failed === 1 ? 'entregue' : 'entregues'}`}
+            {runs.length > 0 && ` · ${runs.length} na rua`}
+          </dd>
+        </div>
+        <div>
+          <dt>Login</dt>
+          <dd>
+            {c.userId
+              ? `PIN em /entregas${c.userName && c.userName !== c.name ? ` (${c.userName})` : ''}`
+              : 'Sem login'}
+          </dd>
+        </div>
+        <div>
+          <dt>Link</dt>
+          <dd>{link}</dd>
+        </div>
+      </dl>
+      <footer className="dl-cour__actions">
+        {c.active && (
+          <Button size="sm" variant="secondary" icon={<Link2 size={14} />} onClick={onLink}>
+            {c.linkCreatedAt ? 'Novo link' : 'Gerar link'}
+          </Button>
+        )}
+        {c.linkCreatedAt && (
+          <Button size="sm" variant="ghost" icon={<Link2Off size={14} />} onClick={onRevoke}>
+            Desligar link
+          </Button>
+        )}
+        {wa && (
+          <a
+            className="cm-btn cm-btn--ghost cm-btn--sm"
+            href={`https://wa.me/${wa}`}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Conversar com ${c.name} no WhatsApp`}
+            title="Conversar no WhatsApp"
+          >
+            <MessageCircle size={14} aria-hidden /> WhatsApp
+          </a>
+        )}
+        <span className="dl-cour__spacer" />
+        {c.userId ? (
+          // Entra com login: ativo ou não é o acesso dele na Equipe.
+          <span className="cm-hint">ativar e desativar em Equipe</span>
+        ) : (
+          <Button size="sm" variant="ghost" onClick={onToggle}>
+            {c.active ? 'Desativar' : 'Ativar'}
+          </Button>
+        )}
+      </footer>
+    </article>
+  );
+}
+
+const initials = (name: string) =>
+  name
+    .replace(/\(.*?\)/g, '')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('');
+
+const dayLabel = (iso: string) =>
+  new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+/** "há 5 min", "há 3 h" e, de outro dia, "em 19/11 às 21:10". */
+function seenLabel(iso: string, now: number) {
+  if (now - new Date(iso).getTime() < 12 * 3_600_000) return agoLabel(iso, now);
+  return `em ${dayLabel(iso)} às ${time(iso)}`;
+}
+
 function CourierLink({ courier, url }: { courier: Courier; url: string }) {
   const toast = useToast();
-  const phone = (courier.phone ?? '').replace(/\D/g, '');
-  const wa = phone ? (phone.length >= 12 ? phone : `55${phone}`) : '';
+  const wa = whatsappNumber(courier.phone);
   const text = `Olá, ${courier.name.split(' ')[0]}! Este é o seu painel de entregas: ${url}`;
   return (
     <>

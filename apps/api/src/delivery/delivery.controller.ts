@@ -62,7 +62,7 @@ const Complete = z.object({
 const HistoryQuery = z.object({ before: z.coerce.date().optional() });
 const Settle = z.object({ cashSessionId: uuid, method: z.enum(PAYMENT_METHODS).optional() });
 const COURIER_COLS = `c.id, c.name, c.phone, c.user_id AS "userId", u.name AS "userName", c.active,
-  c.access_created_at AS "linkCreatedAt"`;
+  c.access_created_at AS "linkCreatedAt", c.link_seen_at AS "linkSeenAt", c.app_seen_at AS "appSeenAt"`;
 
 /** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
 @AllowWhenBlocked()
@@ -94,6 +94,8 @@ export class DeliveryController {
     @Req() req: Request,
   ) {
     return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      if (b.userId && (await one(tx, `SELECT 1 FROM couriers WHERE user_id = $1`, [b.userId])))
+        throw new ConflictException('Esta pessoa já está na lista de entregadores.');
       const c = await one<{ id: string }>(
         tx,
         `INSERT INTO couriers (tenant_id, name, phone, user_id, active) VALUES ($1,$2,$3,$4,$5) RETURNING id`,

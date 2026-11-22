@@ -677,3 +677,149 @@
   width: min(320px, 100%);
   font-size: var(--cm-text-sm);
 }
+
+/* Entregadores: um cartão por pessoa, com a situação em bolinha + texto (0.223). */
+.dl-cour-sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 18px 0 12px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.dl-cour-sum span,
+.dl-cour__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.dl-cour-sum i,
+.dl-cour__state i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--st);
+}
+.dl-cour[data-state],
+.dl-cour-sum [data-state] {
+  --st: var(--cm-text-subtle);
+}
+.dl-cour[data-state='rua'],
+.dl-cour-sum [data-state='rua'] {
+  --st: var(--cm-brand-500);
+}
+.dl-cour[data-state='disponivel'],
+.dl-cour-sum [data-state='disponivel'] {
+  --st: var(--cm-success);
+}
+.dl-cour[data-state='sem-acesso'],
+.dl-cour-sum [data-state='sem-acesso'] {
+  --st: var(--cm-warning);
+}
+.dl-cour-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+}
+.dl-cour {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+}
+.dl-cour[data-state='desligado'] {
+  background: var(--cm-surface-muted);
+}
+.dl-cour[data-state='desligado'] .dl-cour__head,
+.dl-cour[data-state='desligado'] .dl-cour__facts {
+  opacity: 0.7;
+}
+.dl-cour__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.dl-cour__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--rider) 16%, var(--cm-surface));
+  color: var(--cm-text);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--rider) 40%, transparent);
+  font-size: var(--cm-text-xs);
+  font-weight: 700;
+}
+.dl-cour__who {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.dl-cour__who strong {
+  overflow: hidden;
+  font-size: var(--cm-text-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dl-cour__phone {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.dl-cour__state {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in oklab, var(--st) 12%, transparent);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dl-cour__note {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.dl-cour__facts {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--cm-border);
+  font-size: var(--cm-text-sm);
+}
+.dl-cour__facts div {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 8px;
+}
+.dl-cour__facts dt {
+  color: var(--cm-text-muted);
+}
+.dl-cour__facts dd {
+  margin: 0;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.dl-cour__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+}
+.dl-cour__spacer {
+  flex: 1;
+}
+.dl-cour__actions .cm-hint {
+  font-size: var(--cm-text-xs);
+}
