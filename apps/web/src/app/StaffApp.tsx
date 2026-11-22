@@ -1,6 +1,6 @@
 import { useEffect, type ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
-import { Alert, AppSkeleton, Mascot } from '../design-system';
+import { Alert, AppSkeleton, StoreMark } from '../design-system';
 import { ComingSoonPage } from '../pages/ComingSoonPage';
 import { LoginPage } from '../pages/LoginPage';
 import { AppShell } from './AppShell';
@@ -220,7 +220,7 @@ function Gate() {
   if (status === 'suspended') {
     return (
       <main className="cm-suspended" role="alert">
-        <Mascot size={88} mood="sleep" />
+        <StoreMark size={88} mood="sleep" />
         <h1>Restaurante suspenso</h1>
         <p>
           O acesso a este sistema está pausado. Nenhum dado foi apagado: assim que for reativado,
@@ -235,7 +235,7 @@ function Gate() {
   if (status === 'moved') {
     return (
       <main className="cm-suspended" role="alert">
-        <Mascot size={88} mood="happy" />
+        <StoreMark size={88} mood="happy" />
         <h1>Mudamos de endereço</h1>
         <p>
           Este restaurante agora funciona num servidor novo, com tudo o que já estava aqui.

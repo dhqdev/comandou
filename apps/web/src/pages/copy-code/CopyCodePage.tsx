@@ -1,6 +1,6 @@
 import { Check, Copy } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button, Mascot } from '../../design-system';
+import { Button, StoreMark } from '../../design-system';
 import './copy-code.css';
 
 /** Só aceita o código de 6 números que o e-mail manda (nada de texto solto do endereço). */
@@ -57,7 +57,7 @@ export function CopyCodePage() {
   return (
     <main className="copy-code">
       <div className="copy-code__card">
-        <Mascot size={56} mood={copied ? 'joy' : 'wink'} badge />
+        <StoreMark size={56} mood={copied ? 'joy' : 'wink'} badge />
         {code ? (
           <>
             <h1>Seu código</h1>

@@ -31,7 +31,7 @@ import {
   useNavigate,
   useNavigationType,
 } from 'react-router';
-import { applyTheme, Mascot, setPullRefreshHandler, Skeleton } from '../../design-system';
+import { applyTheme, StoreMark, setPullRefreshHandler, Skeleton } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { lazyPage, preloadPages } from '../../lib/lazy-page';
 import { brl } from '../../lib/money';
@@ -498,7 +498,7 @@ export function StoreApp() {
   if (error)
     return (
       <main className="sf sf--center">
-        <Mascot size={72} mood="sleep" />
+        <StoreMark size={72} mood="sleep" />
         <p>{error}</p>
       </main>
     );

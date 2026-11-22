@@ -157,7 +157,10 @@ const brand = new Brand({
   helper: ble,
   defaultIcon: join(here, 'assets', 'icon.png'),
   onChange: () => {
-    if (win && !win.isDestroyed()) win.setIcon(brand.windowImage());
+    if (win && !win.isDestroyed()) {
+      win.setIcon(brand.windowImage());
+      brand.applyTaskbar(win);
+    }
     trayKey = '';
     push();
   },
@@ -429,7 +432,9 @@ async function fixRawToInkjet() {
 
 function notify(title, body) {
   if (config.notifications === false) return;
-  if (Notification.isSupported()) new Notification({ title, body, silent: false }).show();
+  // Com o ícone do restaurante (sem ele, o Windows mostra o do Comandou).
+  if (Notification.isSupported())
+    new Notification({ title, body, silent: false, icon: brand.windowImage() }).show();
 }
 
 function publicState() {
@@ -518,6 +523,7 @@ function showWindow() {
       nodeIntegration: false,
     },
   });
+  brand.applyTaskbar(win);
   win.loadFile(join(here, 'ui', 'index.html'));
   win.once('ready-to-show', () => win.show());
   win.on('show', () => {

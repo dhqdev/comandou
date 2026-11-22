@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useCan } from '../../app/auth';
-import { useToast, Skeleton } from '../../design-system';
+import { cachedBranding, useToast, Skeleton } from '../../design-system';
 import { api } from '../../lib/api';
 import { useRealtime } from '../../lib/realtime';
 import { playSound } from '../../lib/sounds';
@@ -509,7 +509,8 @@ export function SupportChatHost() {
             const n = new Notification(`Mensagem de ${fresh.name}`, {
               body: fresh.preview ?? '',
               tag: `cm-support-${fresh.id}`,
-              icon: '/favicon.svg',
+              // Ícone do restaurante (o mesmo da aba); sem nenhum, o do Comandou.
+              icon: cachedBranding()?.faviconUrl || cachedBranding()?.logoUrl || '/favicon.svg',
             });
             n.onclick = () => {
               window.focus();

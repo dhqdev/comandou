@@ -22,6 +22,13 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
 - **Carregamento é esqueleto** (pedido do David, 0.206): conteúdo que está chegando usa `Skeleton` (`design-system/skeleton.tsx`) no formato do que vem: `list` (padrão), `table`, `cards`, `grid` (produtos), `form`, `detail` (janela/gaveta), `board` (cozinha, chamados), `chat`, `page` e `qr`; formato próprio se monta com `Bone` (ex.: `MenuSkeleton` do cardápio). App inteiro abrindo: `AppSkeleton` (igual ao `#cm-boot` do `index.html`; mudou um, mude o outro). `Spinner` fica só para ação em andamento (entrar, salvar, enviar, buscar, abrir um link) e dentro de botão. Nunca "Carregando…" solto nem ícone girando no lugar de uma lista.
 - **Celular e PWA:** um campo por linha, alvo de toque 44px, folha que sobe de baixo (padrão Planejai: alça, rodapé fixo, botão principal ocupa o espaço que sobra). Com janela ou folha aberta (`dialog` modal) a página de trás não rola: `html:has(dialog[open]:modal)` em `base.css` e `installModalScrollLock` (`design-system/modal-scroll-lock.ts`) barram o arrasto que não tem o que rolar dentro da janela (pedido do David, 0.229). Folha nova feita sem `<dialog>` precisa do mesmo cuidado.
 
+- **Panda só de reserva** (pedido do David, 0.231.3): nas telas do restaurante e do cliente dele,
+  onde ia o panda vai a logo do restaurante: `StoreMark` (`design-system/store-mark.tsx`, favicon da
+  Loja online, senão a logo, senão o panda) e `EmptyState mascot` já usa ele. O panda segue de
+  propósito só onde quem fala é o Comandou: Super Admin, site e preços, contrato, aba Suporte,
+  assistente de IA da equipe, Primeiros passos em conversa e o crédito "Pedidos online por Comandou".
+  `<Mascot>` novo em tela de restaurante é erro.
+
 ## App do entregador (celular)
 
 `driver/DriverShell.tsx` + `features/DriverPanel.tsx` + `features/DriverTabs.tsx`, estilos em

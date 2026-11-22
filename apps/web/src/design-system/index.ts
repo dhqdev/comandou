@@ -7,6 +7,7 @@ export * from './components';
 export * from './skeleton';
 export * from './toast';
 export * from './mascot';
+export * from './store-mark';
 export * from './glider';
 export * from './theme';
 export * from './app-frame';

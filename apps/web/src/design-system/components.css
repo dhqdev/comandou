@@ -1703,6 +1703,19 @@ input[type='radio'] {
   }
 }
 
+/* =============================================================== Marca do restaurante
+   (logo da Loja online onde antes ia o panda; o panda fica só de reserva). */
+.cm-store-mark {
+  display: inline-block;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 2px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  object-fit: contain;
+  background: #fff;
+}
+
 /* =============================================================== Mascote */
 .cm-mascot {
   display: inline-block;

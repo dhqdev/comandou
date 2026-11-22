@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Mascot, useToast, Skeleton } from '../../design-system';
+import { StoreMark, useToast, Skeleton } from '../../design-system';
 import { dateTime } from '../../features/format';
 import { ChatMessage, ChatPane, mergeMessages } from '../../features/store-chat/ChatKit';
 import { api, ApiError } from '../../lib/api';
@@ -69,7 +69,7 @@ function GuestStart({ onStarted }: { onStarted(s: ChatState): void }) {
   }
   return (
     <form className="sfchat__start" onSubmit={submit}>
-      <Mascot size={56} mood="happy" />
+      <StoreMark size={56} src={menu.restaurant.logoUrl} mood="happy" />
       <h2>Fale com {menu.restaurant.name}</h2>
       <p>Tire dúvidas, combine detalhes do pedido e mande fotos ou vídeos, tudo por aqui.</p>
       <Field label="Seu nome">
