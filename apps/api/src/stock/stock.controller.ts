@@ -93,6 +93,7 @@ const Recipe = z.object({
     .max(50)
     .refine((l) => new Set(l.map((x) => x.stockItemId)).size === l.length, 'insumo repetido'),
 });
+const ProductQuantity = z.object({ quantity: qty });
 const CostUpdate = z.object({
   unitCost,
   note: z.string().trim().min(3).max(300).optional(),
@@ -616,6 +617,22 @@ export class StockController {
   @RequirePermission('catalog:read')
   availability(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
     return this.db.withTenant(ctxOf(t, u), (tx) => q(tx, AVAILABILITY_SQL));
+  }
+
+  /**
+   * Quantidade em estoque de um item do cardápio (coluna Estoque da lista e campo do cadastro).
+   * Sem ficha, cria o controle simples; com ficha "1 por venda", conta o insumo.
+   */
+  @Put('products/:id/quantity')
+  @RequirePermission('stock:write')
+  productQuantity(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(ProductQuantity)) b: z.infer<typeof ProductQuantity>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.stock.setProductQuantity(ctxOf(t, u, req), id, b.quantity);
   }
 
   @Get('recipes')

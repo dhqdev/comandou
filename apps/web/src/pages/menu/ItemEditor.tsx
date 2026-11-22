@@ -231,19 +231,9 @@ export function ItemEditor() {
           setInitialGroups(mine);
         }
         if (canStock) {
-          const [items, rec] = await Promise.all([
-            api<StockItem[]>('/stock/items'),
-            api<{ products: (RecipeLine & { productId: string })[] }>('/stock/recipes'),
-          ]);
+          const st = await loadStock(isNew ? null : id);
           if (!live) return;
-          setStockItems(items);
-          const mine = isNew
-            ? []
-            : rec.products
-                .filter((r) => r.productId === id)
-                .map((r) => ({ stockItemId: r.stockItemId, quantity: fmtQty(r.quantity) }));
-          setLines(mine);
-          setInitialLines(JSON.stringify(mine));
+          applyStock(st);
         }
         setError(null);
       } catch (e) {
@@ -254,6 +244,32 @@ export function ItemEditor() {
       live = false;
     };
   }, [id]);
+
+  // Quantidade em estoque (campo da aba Principal): o saldo do insumo do controle simples.
+  const [stockQty, setStockQty] = useState('');
+  const [initialStockQty, setInitialStockQty] = useState('');
+  async function loadStock(productId: string | null) {
+    const [items, rec] = await Promise.all([
+      api<StockItem[]>('/stock/items'),
+      api<{ products: (RecipeLine & { productId: string })[] }>('/stock/recipes'),
+    ]);
+    const mine = productId
+      ? rec.products
+          .filter((r) => r.productId === productId)
+          .map((r) => ({ stockItemId: r.stockItemId, quantity: fmtQty(r.quantity) }))
+      : [];
+    return { items, mine };
+  }
+  function applyStock({ items, mine }: { items: StockItem[]; mine: Line[] }) {
+    setStockItems(items);
+    setLines(mine);
+    setInitialLines(JSON.stringify(mine));
+    const own = mine.length === 1 && mine[0]!.quantity === '1' ? mine[0]!.stockItemId : null;
+    const have = own ? items.find((i) => i.id === own)?.quantity : undefined;
+    const v = have === undefined ? '' : have.startsWith('-') ? '0' : fmtQty(have);
+    setStockQty(v);
+    setInitialStockQty(v);
+  }
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) =>
     setForm((f) => (f ? { ...f, [k]: v } : f));
@@ -307,6 +323,13 @@ export function ItemEditor() {
   // Com o estoque de hoje: quantas unidades dá para vender e qual insumo falta.
   const stockNow = recipeStock(parsedLines, itemById, !!form?.soldByWeight);
   const stockOut = canStock && stockNow.missing.length > 0;
+  // Dá para digitar a quantidade quando o item não tem ficha ou a ficha é "1 por venda" de um
+  // insumo só, e a ficha não foi mexida nesta edição (ela é gravada junto, no Salvar).
+  const stockDirect =
+    JSON.stringify(lines) === initialLines &&
+    (lines.length === 0 || (lines.length === 1 && lines[0]!.quantity === '1'));
+  const stockQtyParsed = stockQty.trim() ? parseQtyInput(stockQty) : null;
+  const stockQtyChanged = stockDirect && stockQty.trim() !== initialStockQty;
   const priceParsed = form ? parseBrlInput(form.price) : null;
   const priceCents = priceParsed ? toCents(priceParsed) : 0;
   const costParsed = form?.cost ? parseBrlInput(form.cost) : null;
@@ -334,6 +357,15 @@ export function ItemEditor() {
         menus: Object.values(menuSel).some((m) => m.on && m.price && !parseBrlInput(m.price))
           ? 'Preço inválido'
           : undefined,
+        stockQty: !stockQtyChanged
+          ? undefined
+          : !stockQty.trim()
+            ? 'Informe quanto tem'
+            : !stockQtyParsed
+              ? 'Use um número, como 24'
+              : !form.soldByWeight && !/^\d+(\.0+)?$/.test(stockQtyParsed)
+                ? 'Item vendido por unidade: use um número inteiro'
+                : undefined,
         recipe:
           hasRecipe &&
           (!parsedLines.every((l) => l.stockItemId && l.quantity && Number(l.quantity) > 0) ||
@@ -410,6 +442,14 @@ export function ItemEditor() {
         });
       setInitialGroups(groupIds);
       setInitialLines(JSON.stringify(lines));
+      if (canStockWrite && stockQtyChanged && stockQtyParsed) {
+        await api(`/stock/products/${saved.id}/quantity`, {
+          method: 'PUT',
+          json: { quantity: stockQtyParsed },
+        });
+        // Sem ficha, o servidor criou o controle simples: traz o insumo e a ficha nova.
+        applyStock(await loadStock(saved.id));
+      }
       setProduct(saved);
       setForm(formOf(saved));
       toast(isNew ? 'Item criado' : 'Item salvo', 'success');
@@ -604,6 +644,40 @@ export function ItemEditor() {
                   value={form.badge}
                   onChange={(e) => set('badge', e.target.value)}
                 />
+                {canStock &&
+                  (stockDirect ? (
+                    <TextField
+                      label={`Quantidade em estoque${form.soldByWeight ? ' (kg)' : ''}`}
+                      inputMode={form.soldByWeight ? 'decimal' : 'numeric'}
+                      placeholder="Não controla"
+                      value={stockQty}
+                      disabled={!canStockWrite}
+                      error={errs.stockQty}
+                      hint={
+                        initialStockQty || stockQty.trim()
+                          ? `Cada venda baixa ${form.soldByWeight ? 'o peso vendido' : '1'}; em zero, o item sai do cardápio sozinho.`
+                          : 'Vazio = não controla. Informe quanto tem e cada venda baixa sozinha.'
+                      }
+                      onChange={(e) => setStockQty(e.target.value)}
+                    />
+                  ) : (
+                    <div className="cm-field">
+                      <span className="cm-label">Quantidade em estoque</span>
+                      <span className="mn-stock-ficha">
+                        {lines.length === 0
+                          ? 'Não controla'
+                          : stockNow.portions === null
+                            ? 'Sem limite'
+                            : stockNow.portions}
+                      </span>
+                      <span className="cm-hint">
+                        Sai da ficha técnica.{' '}
+                        <button type="button" className="link-btn" onClick={() => setTab('ficha')}>
+                          Ver ficha
+                        </button>
+                      </span>
+                    </div>
+                  ))}
                 <div className="cm-form__wide mn-checks">
                   <CheckField
                     label="Vendido por peso"

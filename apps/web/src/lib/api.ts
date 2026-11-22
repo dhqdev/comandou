@@ -310,6 +310,8 @@ export interface ProductAvailability {
   out: boolean;
   /** Unidades que ainda dá para vender; null = sem limite (por peso ou negativo liberado). */
   portions: number | null;
+  /** Ficha de um insumo só, 1 por venda (controle simples): a quantidade se digita no cardápio. */
+  direct: boolean;
   missing: string[];
   lines: {
     stockItemId: string;

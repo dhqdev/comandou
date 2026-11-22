@@ -234,6 +234,21 @@ solto: aberto por cima do chat ou da ficha do cliente, o pedido mora dentro da g
 ela era alargada e medida no lugar dele (0.202.1, pedido espremido no chat). Aberto pelo chat
 (`variant="modal"`) o pedido vem numa janela `lg`, com as mesmas duas colunas no notebook.
 
+## Janela da mesa (Salão e PDV)
+
+`features/salon/TabModal.tsx` (classes `tabm*` em `pages/salon.css`; 0.231.2, pedido do David:
+"mais entendível e minimalista"). Título "Mesa X · comanda N · aberta às HH:MM" (no celular sem a
+hora). Com o contêiner `tabm` ≥ 720px, duas partes: **Pedidos** à esquerda (lista com linha fina,
+um pedido por bloco: número, hora e total na primeira linha, situação e pagamento com bolinha,
+e um item por linha com a quantidade em cinza) e a **Conta** à direita, separada por linha fina:
+"Falta receber" grande (vira "Conta paga" em verde), as linhas Consumo, Taxa de serviço (com a
+porcentagem, a frase "Opcional…" e o Tirar taxa/Cobrar como `link-btn`), Total da conta e Já
+pago, e **Mais opções** em blocos de linha fina com ícone solto, nome e o que faz (Pediu a conta,
+em âmbar suave quando marcado; Transferir mesa, que troca o bloco pela escolha da mesa livre;
+Comprovante). No celular uma coluna só: falta receber, a conta, os pedidos e Mais opções. O
+rodapé tem só Adicionar pedido e Receber R$ X (ou Fechar conta): a divisão por pessoa fica na
+tela de receber, nunca um segundo botão "Receber / dividir".
+
 ## Personalizar salão (editor de mesas)
 
 `features/TableEditor.tsx` (`table-editor.css`, prefixo `te-`; refeito na 0.211.5 porque o David
@@ -475,6 +490,10 @@ linha de ações, entra nas ações do primeiro cartão, como na Impressão). Ab
 mesma linha das ações (Salão, Loja online, Cardápio); no celular descem para baixo delas. Explicação curta de aba vira `title` da aba. Exceções que mantêm título:
 Estoque e Fiscal (subtelas com trilha e voltar), Ajustes, Assinatura e Novidades. A lista de
 Pedidos estica o cartão até o pé da janela (`.cm-frame__content:has(> .ord-board)`).
+**Cozinha (0.231.1):** as abas por tipo de pedido (`.kds-tabs`) moram dentro da barra `.kds-bar`,
+entre o nome e os contadores, tudo numa linha. A decisão é pela largura da própria tela da cozinha
+(`container: kds` no `.kds-root`, com ou sem o menu do lado): até 1399px as abas descem para a
+segunda linha; até 759px os contadores também descem e as abas ficam na terceira.
 
 ## Teclado do celular nas conversas (0.228.2)
 

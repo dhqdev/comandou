@@ -475,6 +475,27 @@ export function KitchenPage({
             />
           )}
         </div>
+        {display.channelTabs && channels.length > 1 && (
+          <nav className="kds-tabs" aria-label="Tipo de pedido">
+            <TabButton
+              active={activeChannel === 'all'}
+              onClick={() => setChannel('all')}
+              icon={<LayoutGrid size={15} />}
+              label="Todos"
+              count={counts.get('all') ?? 0}
+            />
+            {channels.map((c) => (
+              <TabButton
+                key={c}
+                active={activeChannel === c}
+                onClick={() => setChannel(c)}
+                icon={CHANNEL_ICON[c]}
+                label={CHANNEL_LABELS[c]}
+                count={counts.get(c) ?? 0}
+              />
+            ))}
+          </nav>
+        )}
         <div className="kds-bar__stats">
           <span className="kds-stat">
             <Timer size={15} aria-hidden /> Tempo médio <strong>{avgMin} min</strong>
@@ -519,28 +540,6 @@ export function KitchenPage({
           )}
         </div>
       </header>
-
-      {display.channelTabs && channels.length > 1 && (
-        <nav className="kds-tabs" aria-label="Tipo de pedido">
-          <TabButton
-            active={activeChannel === 'all'}
-            onClick={() => setChannel('all')}
-            icon={<LayoutGrid size={15} />}
-            label="Todos"
-            count={counts.get('all') ?? 0}
-          />
-          {channels.map((c) => (
-            <TabButton
-              key={c}
-              active={activeChannel === c}
-              onClick={() => setChannel(c)}
-              icon={CHANNEL_ICON[c]}
-              label={CHANNEL_LABELS[c]}
-              count={counts.get(c) ?? 0}
-            />
-          ))}
-        </nav>
-      )}
 
       {error && <Alert tone="danger">{error}</Alert>}
       {!board ? (

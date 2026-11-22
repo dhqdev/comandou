@@ -9,6 +9,7 @@ import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { AVAILABILITY_SQL } from './availability-sql';
 import { StockCostsService, type CostChange } from './stock-costs.service';
 
 /**
@@ -309,6 +310,79 @@ export class StockService {
         ? await this.costs.after(tx, ctx, snap, 'purchase', b.note ?? 'Entrada')
         : null;
       return { ...(await this.item(tx, itemId)), costChange };
+    });
+    this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
+    return res;
+  }
+
+  /**
+   * Quantidade em estoque do item do cardápio, informada na lista ou no cadastro do item.
+   * Reaproveita o estoque: item sem ficha ganha um insumo com o nome dele e a ficha "1 por
+   * venda" (o controle simples); item com ficha de um insumo só, 1 por venda, tem esse insumo
+   * contado (ajuste com motivo). Ficha com vários insumos não tem um número para digitar: a
+   * quantidade sai da ficha. Cada venda baixa o insumo e, quando zera, o item sai do cardápio.
+   */
+  async setProductQuantity(ctx: Ctx, productId: string, quantity: string) {
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      const p = await one<{ name: string; sold_by_weight: boolean }>(
+        tx,
+        `SELECT name, sold_by_weight FROM products WHERE id = $1 FOR UPDATE`,
+        [productId],
+      );
+      if (!p) throw new NotFoundException('Item não encontrado');
+      if (!p.sold_by_weight && !/^\d+(\.0+)?$/.test(quantity))
+        throw new UnprocessableEntityException('Item vendido por unidade: use um número inteiro');
+      const lines = await q<{ stock_item_id: string; direct: boolean }>(
+        tx,
+        `SELECT stock_item_id, quantity = 1 AS direct FROM product_recipes WHERE product_id = $1`,
+        [productId],
+      );
+      if (lines.length > 1 || (lines.length === 1 && !lines[0]!.direct))
+        throw new ConflictException(
+          'Este item usa uma ficha técnica: a quantidade sai dos insumos. Ajuste-os no Estoque.',
+        );
+      let itemId = lines[0]?.stock_item_id;
+      let created = false;
+      if (!itemId) {
+        const r = await one<{ id: string }>(
+          tx,
+          `INSERT INTO stock_items (tenant_id, name, unit) VALUES ($1, $2, $3) RETURNING id`,
+          [ctx.tenantId, p.name.slice(0, 80), p.sold_by_weight ? 'kg' : 'un'],
+        );
+        itemId = r!.id;
+        created = true;
+        await q(
+          tx,
+          `INSERT INTO product_recipes (tenant_id, product_id, stock_item_id, quantity) VALUES ($1,$2,$3,1)`,
+          [ctx.tenantId, productId, itemId],
+        );
+      }
+      const it = await one<{ quantity: string }>(
+        tx,
+        `UPDATE stock_items SET counted_at = now() WHERE id = $1 RETURNING quantity::text`,
+        [itemId],
+      );
+      const d = await one<{ d: string }>(tx, `SELECT ($1::numeric - $2::numeric)::text AS d`, [
+        quantity,
+        it!.quantity,
+      ]);
+      if (Number(d!.d) !== 0)
+        await this.move(tx, ctx, itemId, 'adjustment', d!.d, {
+          note: created ? 'Saldo inicial (cardápio)' : 'Quantidade ajustada no cardápio',
+        });
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'stock.product_quantity',
+        entity: 'product',
+        entityId: productId,
+        data: { name: p.name, quantity, delta: d!.d, stockItemId: itemId, created },
+        ip: ctx.ip,
+      });
+      const av = await one(tx, `SELECT * FROM (${AVAILABILITY_SQL}) a WHERE "productId" = $1`, [
+        productId,
+      ]);
+      return av!;
     });
     this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
     return res;

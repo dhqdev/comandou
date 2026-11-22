@@ -4,6 +4,7 @@
  * destaque do aparelho (ou da cozinha) chega pelos tokens --cm-brand-* no .kds-root.
  */
 .kds-root {
+  container: kds / inline-size;
   --kds-fs: 1;
   --kds-kitchen: var(--cm-brand-600);
   display: grid;
@@ -25,11 +26,8 @@
   gap: 0;
   background: var(--cm-bg);
 }
-.kds-root[data-standalone] > :is(.kds-tabs, .kds, .cm-alert) {
+.kds-root[data-standalone] > :is(.kds, .cm-alert) {
   margin: 0 16px;
-}
-.kds-root[data-standalone] > .kds-tabs {
-  margin-top: var(--cm-space-3);
 }
 .kds-root[data-standalone] > .kds {
   flex: 1;
@@ -41,10 +39,11 @@
   flex: 1;
 }
 
-/* Barra de cima */
+/* Barra de cima: nome, abas, contadores e ferramentas numa linha só no computador, para
+ * sobrar altura para os pedidos. Quando não cabe, as abas descem para a linha de baixo. */
 .kds-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--cm-space-3);
   min-width: 0;
@@ -55,6 +54,7 @@
   border-bottom: 1px solid var(--cm-border);
 }
 .kds-bar__id {
+  flex: 0 1 auto;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -94,9 +94,9 @@
   text-overflow: ellipsis;
 }
 .kds-bar__stats {
+  flex: none;
   display: flex;
   gap: var(--cm-space-2);
-  justify-content: center;
 }
 .kds-stat {
   display: inline-flex;
@@ -135,6 +135,8 @@
   background: var(--cm-danger);
 }
 .kds-bar__tools {
+  flex: none;
+  margin-left: auto;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -156,8 +158,7 @@
   display: inline-grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(max-content, 1fr);
-  justify-self: start;
-  align-self: start;
+  flex: none;
   width: fit-content;
   max-width: 100%;
   gap: 4px;
@@ -853,7 +854,23 @@
 }
 
 /* Tablet e celular */
-@media (max-width: 1100px) {
+/* Quando a tela não comporta tudo numa linha (medido pela largura da própria tela da cozinha,
+ * com ou sem o menu do lado): nome, contadores e ferramentas em cima, abas embaixo. */
+@container kds (max-width: 1399px) {
+  .kds-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+  .kds-bar > .kds-tabs {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .kds-bar__stats {
+    justify-content: center;
+  }
+}
+@container kds (max-width: 759px) {
   .kds-bar {
     grid-template-columns: minmax(0, 1fr) auto;
   }
@@ -861,6 +878,9 @@
     grid-row: 2;
     grid-column: 1 / -1;
     justify-content: flex-start;
+  }
+  .kds-bar > .kds-tabs {
+    grid-row: 3;
   }
 }
 @media (max-width: 860px) {

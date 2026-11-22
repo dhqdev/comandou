@@ -31,6 +31,7 @@ import { brl } from '../../lib/money';
 import type { Family, GroupLink, OptionGroup } from './menu-data';
 import type { Sector } from '../../lib/types';
 import { CategoryModal, categoryIcon } from './CategoryModal';
+import { StockCell, StockQtyModal } from './ItemStock';
 
 const ITEM_TABS: ListTab[] = [
   { id: 'todos', label: 'Todos', filters: {} },
@@ -42,6 +43,7 @@ const ITEM_TABS: ListTab[] = [
 /** Categorias à esquerda, itens da categoria (ou da busca) à direita. */
 export function ItemsTab() {
   const canWrite = useCan('catalog:write');
+  const canStockWrite = useCan('stock:write');
   const toast = useToast();
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[] | null>(null);
@@ -55,6 +57,7 @@ export function ItemsTab() {
   const [sectors, setSectors] = useState<Sector[]>([]);
   // Estoque pela ficha técnica: item com insumo acabado não vende (mesmo sem marcar esgotado).
   const [stock, setStock] = useState<Map<string, ProductAvailability>>(new Map());
+  const [qtyFor, setQtyFor] = useState<Product | null>(null);
   const stockOut = useCallback((id: string) => !!stock.get(id)?.out, [stock]);
   const newItem = (categoryId?: string | null) =>
     navigate(`/cardapio/itens/novo${categoryId ? `?categoria=${categoryId}` : ''}`);
@@ -359,6 +362,7 @@ export function ItemsTab() {
                     <th style={{ width: 72 }}>Foto</th>
                     <th>Item</th>
                     <th>Situação</th>
+                    <th className="cm-num">Estoque</th>
                     <th className="cm-num">Preço</th>
                     {canWrite && <th />}
                   </tr>
@@ -405,6 +409,14 @@ export function ItemsTab() {
                         <td className="mn-items__state">
                           <SaleState p={p} stock={stock.get(p.id)} />
                         </td>
+                        <td className="cm-num mn-items__stock">
+                          <StockCell
+                            p={p}
+                            stock={stock.get(p.id)}
+                            canEdit={canStockWrite}
+                            onEdit={() => setQtyFor(p)}
+                          />
+                        </td>
                         <td className="cm-num mn-items__price">{brl(p.price)}</td>
                         {canWrite && (
                           <td className="cm-num mn-items__acts" style={{ whiteSpace: 'nowrap' }}>
@@ -442,6 +454,12 @@ export function ItemsTab() {
           <MenuImport onSaved={() => void load()} onFinish={() => setImporting(false)} />
         )}
       </Modal>
+      <StockQtyModal
+        product={qtyFor}
+        stock={qtyFor ? stock.get(qtyFor.id) : undefined}
+        onClose={() => setQtyFor(null)}
+        onSaved={(a) => setStock((m) => new Map(m).set(a.productId, a))}
+      />
       <CategoryModal
         open={catModal !== null}
         category={catModal === 'new' ? null : catModal}
