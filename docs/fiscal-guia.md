@@ -115,8 +115,11 @@ e total grande):
   tem o `@@` desfeito antes de montar o papel, para ninguém imprimir QR Code pela observação.
 - **Ver prévia** monta o papel com o último pedido de verdade antes de salvar, já com negrito,
   letra grande e logo. **Voltar ao padrão** desfaz.
-- **Conversa com a IA** ao lado do editor (`printing/template-ai.service.ts`, instruções em
-  `template-ai-prompt.ts`): a pessoa pede a mudança em palavras, a IA devolve o modelo inteiro
+- **Conversa com a IA** no canto da tela (botão "Montar o papel com IA" e "Montar com IA" no
+  cartão; uma conversa por papel; `printing/template-ai.service.ts`, instruções em
+  `template-ai-prompt.ts` e a "skill" de pedidos comuns em `template-ai-skill.ts`, com cada trecho
+  conferido no teste). Com a IA desligada, a conversa abre dizendo o porquê (sem chave no painel,
+  desligada para o restaurante ou limite do mês), em vez de sumir. A pessoa pede a mudança em palavras, a IA devolve o modelo inteiro
   alterado, o servidor confere sintaxe e largura (uma segunda chance para a IA corrigir) e a tela
   põe no editor com a prévia e o botão Desfazer. Nada é salvo pela IA. Usa a chave, o modelo e o
   limite do assistente do restaurante (uso gravado como `print_template`).

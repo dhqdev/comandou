@@ -67,13 +67,15 @@ describe('Modelos de impressão', () => {
       </ToastProvider>,
     );
     const area = (await screen.findByLabelText('Modelo')) as HTMLTextAreaElement;
+    fireEvent.click(await screen.findByRole('button', { name: /Montar o papel com IA/ }));
+    expect(await screen.findByText(/Mexendo em: Conferência de conta/)).toBeInTheDocument();
     const ask = await screen.findByLabelText('O que mudar no papel');
     fireEvent.change(ask, { target: { value: 'nome maior' } });
     fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
     expect(await screen.findByText(/Deixei o nome grande/)).toBeInTheDocument();
     expect(area.value).toBe('{{ loja.nome | grande }}');
-    const big = await screen.findByText('LOJA GRANDE');
-    expect(big.className).toContain('paper-text__big');
+    const [big] = await screen.findAllByText('LOJA GRANDE');
+    expect(big!.className).toContain('paper-text__big');
     const call = apiMock.mock.calls.find(
       ([u, o]) => u === '/printing/templates/ai' && (o as { method?: string })?.method,
     )!;
@@ -84,5 +86,23 @@ describe('Modelos de impressão', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /Desfazer/ }));
     expect(area.value).toBe('{{ "CONTA" | centro }}');
+  });
+
+  it('a IA desligada aparece no canto e diz o porquê, em vez de sumir', async () => {
+    apiMock.mockImplementation((url: string) => {
+      if (url === '/printing/templates') return Promise.resolve(LIST);
+      if (url === '/printing/templates/ai')
+        return Promise.resolve({ enabled: false, reason: 'tenant', name: 'Bia' });
+      if (url === '/printing/templates/preview') return Promise.resolve({ text: 'CONTA' });
+      return Promise.reject(new Error(`inesperado ${url}`));
+    });
+    render(
+      <ToastProvider>
+        <PrintTemplatesCard />
+      </ToastProvider>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Montar com IA' }));
+    expect(await screen.findByText(/desligada para este restaurante/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('O que mudar no papel')).toBeNull();
   });
 });

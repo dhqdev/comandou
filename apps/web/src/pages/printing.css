@@ -209,17 +209,110 @@
   }
 }
 
-/* Conversa com a IA ao lado do editor de modelos */
+/* IA do layout de impressão: botão e conversa no canto da tela (0.233, pedido do David).
+   Fica no body (portal) para nunca herdar transform da moldura; acima do conteúdo e abaixo das
+   janelas (z 1000). No celular sobe acima da barra de abas. */
+.tpl-ai-fab,
+.tpl-ai-dock {
+  position: fixed;
+  z-index: 50;
+  right: 20px;
+  bottom: 20px;
+}
+.tpl-ai-fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px 0 14px;
+  border: 0;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  box-shadow: var(--cm-shadow-lg);
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.tpl-ai-fab:active {
+  transform: scale(0.97);
+}
+.tpl-ai-fab:focus-visible {
+  outline: 2px solid var(--cm-brand-600);
+  outline-offset: 3px;
+}
+.tpl-ai-dock {
+  display: flex;
+  flex-direction: column;
+  width: min(400px, calc(100vw - 40px));
+  height: min(640px, calc(100dvh - 120px));
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-lg);
+  overflow: hidden;
+  transform-origin: bottom right;
+  animation: tpl-ai-in var(--cm-spring-dur) var(--cm-spring);
+}
+@keyframes tpl-ai-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tpl-ai-dock {
+    animation: none;
+  }
+}
+.tpl-ai-dock__head {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-3) var(--cm-space-3) var(--cm-space-3) var(--cm-space-4);
+  border-bottom: 1px solid var(--cm-border);
+}
+.tpl-ai-dock__icon {
+  color: var(--cm-brand-600);
+  flex: none;
+}
+.tpl-ai-dock__title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.tpl-ai-dock__title strong,
+.tpl-ai-dock__title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tpl-ai-dock__off {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-4);
+}
+@media (max-width: 860px) {
+  .tpl-ai-fab,
+  .tpl-ai-dock {
+    right: 12px;
+    bottom: calc(64px + 10px + env(safe-area-inset-bottom) * 0.3 + 12px);
+  }
+  .tpl-ai-dock {
+    width: calc(100vw - 24px);
+    height: min(560px, calc(100dvh - 180px));
+  }
+}
 .tpl-ai {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   gap: var(--cm-space-2);
-  min-height: 420px;
-  max-height: 640px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-md);
-  padding: var(--cm-space-3);
-  background: var(--cm-surface);
+  flex: 1;
+  min-height: 0;
+  padding: var(--cm-space-3) var(--cm-space-4) var(--cm-space-4);
 }
 .tpl-ai__scroll {
   display: flex;

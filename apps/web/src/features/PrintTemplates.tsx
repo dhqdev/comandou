@@ -5,8 +5,17 @@ import {
   PRINT_TEMPLATE_VARS,
   type PrintTemplateKind,
 } from '@comandou/shared';
-import { Eye, RotateCcw, Save, Send, Sparkles, Undo2 } from 'lucide-react';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Eye, RotateCcw, Save, Send, Sparkles, Undo2, X } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
+import { createPortal } from 'react-dom';
 import {
   Alert,
   Badge,
@@ -34,12 +43,13 @@ const HELP = PRINT_TEMPLATE_HELP;
 const VARS = PRINT_TEMPLATE_VARS;
 const FILTERS = PRINT_TEMPLATE_FILTERS;
 
-type Side = 'ai' | 'preview' | 'help';
+type Side = 'preview' | 'help';
 
 /**
  * Modelos de impressão em Liquid (a mesma ideia do Jinja): o restaurante muda o que sai na
  * conferência, na via de entrega, na comanda da cozinha e no rodapé do cupom fiscal, com prévia
- * antes de salvar. Ao lado do editor, a conversa com a IA muda o código pelo restaurante.
+ * antes de salvar. No canto da tela fica a conversa com a IA, que muda o código pelo restaurante
+ * (pedido do David, 0.233): ela aparece sempre, e quando a IA está desligada diz o porquê.
  */
 export function PrintTemplatesCard() {
   const toast = useToast();
@@ -56,7 +66,15 @@ export function PrintTemplatesCard() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'preview' | 'save' | 'reset' | null>(null);
   const [ai, setAi] = useState<AiStatus | null>(null);
-  const [side, setSide] = useState<Side>('help');
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [chats, setChats] = useState<Record<Kind, ChatMsg[]>>({
+    receipt: [],
+    delivery_slip: [],
+    kitchen_ticket: [],
+    fiscal_footer: [],
+  });
+  const [side, setSide] = useState<Side>('preview');
 
   const load = useCallback(async () => {
     const r = await api<Template[]>('/printing/templates');
@@ -67,13 +85,26 @@ export function PrintTemplatesCard() {
   }, []);
   useEffect(() => {
     load().catch((e: Error) => setError(e.message));
-    api<AiStatus>('/printing/templates/ai')
-      .then((s) => {
-        setAi(s);
-        if (s.enabled) setSide('ai');
-      })
-      .catch(() => setAi(null));
   }, [load]);
+
+  const loadAi = useCallback(() => {
+    setAiError(null);
+    api<AiStatus>('/printing/templates/ai')
+      .then(setAi)
+      .catch((e: Error) => {
+        setAi(null);
+        setAiError(e.message);
+      });
+  }, []);
+  useEffect(loadAi, [loadAi]);
+
+  function openAi() {
+    setAiOpen(true);
+    if (!ai) loadAi();
+    document
+      .querySelector('[data-search-id="secao-modelos"]')
+      ?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+  }
 
   const cur = list?.find((t) => t.kind === kind);
   const body = draft[kind];
@@ -114,17 +145,39 @@ export function PrintTemplatesCard() {
   function applyFromAi(next: string) {
     setDraft((d) => ({ ...d, [kind]: next }));
     setError(null);
+    setSide('preview');
     showPreview(kind, next).catch((e: Error) => setError(e.message));
   }
 
+  // Abre já com a prévia do papel do lado do editor.
+  useEffect(() => {
+    if (list && side === 'preview' && !preview && body.trim())
+      showPreview(kind, body).catch((e: Error) => setError(e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list, kind]);
+
   const sides: [Side, string][] = [
-    ...(ai?.enabled ? ([['ai', `Conversar com ${ai.name || 'a IA'}`]] as [Side, string][]) : []),
     ['preview', 'Prévia'],
     ['help', 'O que dá para usar'],
   ];
+  const aiName = ai?.name || 'IA';
 
   return (
-    <Card searchId="secao-modelos" title="Modelos de impressão">
+    <Card
+      searchId="secao-modelos"
+      title="Modelos de impressão"
+      actions={
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Sparkles size={15} />}
+          onClick={openAi}
+          aria-expanded={aiOpen}
+        >
+          Montar com IA
+        </Button>
+      }
+    >
       {list === null ? (
         error ? (
           <Alert tone="danger">{error}</Alert>
@@ -176,16 +229,7 @@ export function PrintTemplatesCard() {
                 }}
                 options={sides.map(([value, label]) => ({ value, label }))}
               />
-              {side === 'ai' && ai?.enabled ? (
-                <TemplateAiChat
-                  key={kind}
-                  kind={kind}
-                  body={body}
-                  name={ai.name || 'IA'}
-                  preview={preview}
-                  onApply={applyFromAi}
-                />
-              ) : side === 'preview' ? (
+              {side === 'preview' ? (
                 preview ? (
                   <PaperText
                     text={preview.text}
@@ -194,7 +238,10 @@ export function PrintTemplatesCard() {
                     label="Prévia do modelo"
                   />
                 ) : (
-                  <p className="cm-hint">Clique em Ver prévia para ver como sai no papel.</p>
+                  <p className="cm-hint">
+                    Clique em Ver prévia para ver como sai no papel, ou peça uma mudança para a IA
+                    no canto da tela.
+                  </p>
                 )
               ) : (
                 <>
@@ -250,9 +297,82 @@ export function PrintTemplatesCard() {
           </div>
         </div>
       )}
+      {list !== null &&
+        createPortal(
+          aiOpen ? (
+            <section
+              className="tpl-ai-dock"
+              role="dialog"
+              aria-label={`Montar o papel com ${aiName}`}
+            >
+              <header className="tpl-ai-dock__head">
+                <Sparkles size={18} aria-hidden className="tpl-ai-dock__icon" />
+                <div className="tpl-ai-dock__title">
+                  <strong>Montar o papel com {aiName}</strong>
+                  <span className="cm-hint">Mexendo em: {LABEL[kind]}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<X size={16} />}
+                  aria-label="Fechar a conversa"
+                  onClick={() => setAiOpen(false)}
+                />
+              </header>
+              {ai?.enabled ? (
+                <TemplateAiChat
+                  key={kind}
+                  kind={kind}
+                  body={body}
+                  name={aiName}
+                  preview={preview}
+                  msgs={chats[kind]}
+                  setMsgs={(up) =>
+                    setChats((c) => ({
+                      ...c,
+                      [kind]: typeof up === 'function' ? up(c[kind]) : up,
+                    }))
+                  }
+                  onApply={applyFromAi}
+                />
+              ) : (
+                <div className="tpl-ai-dock__off">
+                  {ai ? (
+                    <Alert tone="warning">
+                      {AI_OFF[ai.reason ?? 'platform'] ?? AI_OFF.platform}
+                    </Alert>
+                  ) : aiError ? (
+                    <>
+                      <Alert tone="danger">Não deu para abrir a IA agora: {aiError}</Alert>
+                      <Button variant="secondary" size="sm" onClick={loadAi}>
+                        Tentar de novo
+                      </Button>
+                    </>
+                  ) : (
+                    <Skeleton variant="chat" />
+                  )}
+                </div>
+              )}
+            </section>
+          ) : (
+            <button type="button" className="tpl-ai-fab" onClick={openAi}>
+              <Sparkles size={18} aria-hidden />
+              <span>Montar o papel com IA</span>
+            </button>
+          ),
+          document.body,
+        )}
     </Card>
   );
 }
+
+/** Por que a IA não abre, em palavras do dono do restaurante. */
+const AI_OFF: Record<string, string> = {
+  platform:
+    'A IA ainda não está ligada no Comandou (falta a chave do OpenRouter dos restaurantes no painel). Fale com o suporte do Comandou.',
+  tenant: 'A IA está desligada para este restaurante. Peça ao suporte do Comandou para ligar.',
+  limit: 'O limite de uso da IA neste mês acabou. Fale com o suporte do Comandou.',
+};
 
 interface AiStatus {
   enabled: boolean;
@@ -292,7 +412,7 @@ const SUGGESTIONS: Record<Kind, string[]> = {
 };
 
 /**
- * Conversa com a IA ao lado do editor. Cada pedido vai com o modelo que está no editor; a
+ * Conversa com a IA no canto da tela (uma por papel). Cada pedido vai com o modelo que está no editor; a
  * resposta com modelo novo entra no editor (dá para desfazer) e a prévia atualiza. Salvar continua
  * sendo da pessoa.
  */
@@ -301,15 +421,18 @@ function TemplateAiChat({
   body,
   name,
   preview,
+  msgs,
+  setMsgs,
   onApply,
 }: {
   kind: Kind;
   body: string;
   name: string;
   preview: { text: string; logoUrl: string | null } | null;
+  msgs: ChatMsg[];
+  setMsgs: Dispatch<SetStateAction<ChatMsg[]>>;
   onApply(next: string): void;
 }) {
-  const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

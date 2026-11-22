@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.233.0',
+    date: '2026-11-22',
+    title: 'IA que monta o papel da impressora',
+    summary:
+      'Na tela Impressão, a conversa com a IA agora fica no canto da tela: você diz como quer a conferência, a via de entrega, a comanda da cozinha ou o rodapé do cupom, e ela muda o modelo, com a prévia ao lado antes de salvar.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Impressão: botão "Montar o papel com IA" no canto da tela (e "Montar com IA" nos Modelos de impressão). A conversa segue o papel aberto no editor, guarda uma conversa por papel e a mudança entra no editor com a prévia e o Desfazer. Salvar continua com você.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A IA conhece os pedidos mais comuns dos restaurantes (nome, número e total em letra grande, observação em destaque, itens grandes na cozinha, tirar os preços, Wi-Fi, Instagram, valor a cobrar na entrega, sugestão de 10% e mais), cada um já testado na bobina de 42 colunas.',
+      },
+      {
+        tag: 'correção',
+        text: 'Quando a IA está desligada, a conversa não some mais da tela: ela abre e diz o porquê (chave do OpenRouter não cadastrada, IA desligada para o restaurante ou limite do mês).',
+      },
+    ],
+  },
+  {
     version: '0.232.0',
     date: '2026-11-22',
     title: 'Fila de impressão igual à do computador',

@@ -528,3 +528,13 @@ quem faz o elástico e o puxar para atualizar é o `pull-refresh.ts` (o nativo b
 bolinha do topo). Caixa nova que rola por dentro: `overscroll-behavior: contain` (estica e não
 leva a página), nunca `none`, a não ser que a tela precise ficar parada (conversa aberta).
 Tela que trava a página: regra com `html.<classe>` já ganha da de base.css (ela vai em `:where`).
+
+## IA do layout de impressão (0.233)
+
+Conversa no canto da tela, pedido do David (`features/PrintTemplates.tsx`, classes `tpl-ai-fab` e
+`tpl-ai-dock` em `pages/printing.css`). Fechada é uma pílula laranja "Montar o papel com IA" presa
+no canto de baixo à direita (no celular, acima da barra de abas); aberta é uma janela solta de
+400px com cabeçalho (ícone, nome da IA, "Mexendo em: <papel>" e fechar), a conversa e o campo
+embaixo. Vai pelo `createPortal` no `body` (z 50: acima do conteúdo, abaixo das janelas). Nunca
+esconda a conversa quando a IA está desligada: ela abre dizendo o porquê. A prévia do papel fica
+ao lado do editor (aba Prévia, que já abre selecionada) e também na conversa depois de uma mudança.

@@ -4,6 +4,7 @@ import {
   PRINT_TEMPLATE_LABELS,
   PRINT_TEMPLATE_VARS,
 } from '@comandou/shared';
+import { templateAiSkill } from './template-ai-skill';
 import { DEFAULT_TEMPLATES, TEMPLATE_MAX, TemplateKind, WIDTH } from './templates';
 
 /**
@@ -55,6 +56,15 @@ Detalhes:
 
 # Modelo padrão do Comandou para este papel (referência de estilo cupom)
 ${DEFAULT_TEMPLATES[kind]}
+
+# Pedidos comuns e como resolver (siga estas receitas)
+Quando o pedido se parece com um destes, use a receita. Os trechos já foram testados nesta impressora: copie como estão e encaixe no lugar certo do modelo (troque só os textos de exemplo, como o nome do Wi-Fi ou o @, pelo que a pessoa disse).
+${templateAiSkill(kind)}
+
+# Pedido vago
+- "Maior", "destaque": letra grande na parte que a pessoa citou; se não citou, pergunte qual parte (modelo null), oferecendo 2 ou 3 opções.
+- A pessoa falou de outro papel (ex.: está na Conferência e pede algo da cozinha): diga para abrir a aba daquele papel no editor e pedir de novo lá. Modelo null.
+- Pedido com várias mudanças: faça todas de uma vez e liste em "resposta".
 
 # Antes de responder, confira
 1. O modelo é Liquid válido: todo if/for/unless fecha, aspas e chaves fecham.
