@@ -475,6 +475,10 @@ linha de ações, entra nas ações do primeiro cartão, como na Impressão). Ab
 mesma linha das ações (Salão, Loja online, Cardápio); no celular descem para baixo delas. Explicação curta de aba vira `title` da aba. Exceções que mantêm título:
 Estoque e Fiscal (subtelas com trilha e voltar), Ajustes, Assinatura e Novidades. A lista de
 Pedidos estica o cartão até o pé da janela (`.cm-frame__content:has(> .ord-board)`).
+**Cozinha (0.230.2):** as abas por tipo de pedido (`.kds-tabs`) moram dentro da barra `.kds-bar`,
+entre o nome e os contadores, tudo numa linha. A decisão é pela largura da própria tela da cozinha
+(`container: kds` no `.kds-root`, com ou sem o menu do lado): até 1399px as abas descem para a
+segunda linha; até 759px os contadores também descem e as abas ficam na terceira.
 
 ## Teclado do celular nas conversas (0.228.2)
 

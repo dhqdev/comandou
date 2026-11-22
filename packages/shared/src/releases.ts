@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.230.2',
+    date: '2026-11-22',
+    title: 'Topo da Cozinha numa linha só',
+    summary:
+      'Na tela da Cozinha, as abas Todos, Delivery, Mesa, Balcão e Retirada subiram para a mesma linha do nome da cozinha, do tempo médio e dos botões. Sobra mais espaço para os pedidos.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cozinha no computador: nome, abas por tipo de pedido, tempo médio e botões numa linha só. Em tela mais estreita as abas descem para a linha de baixo, e no celular continuam embaixo dos contadores.',
+      },
+    ],
+  },
+  {
     version: '0.230.1',
     date: '2026-11-22',
     title: 'Cardápio do cliente sem piscar',
