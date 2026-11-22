@@ -56,7 +56,7 @@ const SKIP =
 /** Elementos que rolam na vertical, do mais perto do dedo até a página. */
 export function scrollChain(target: Element | null): HTMLElement[] {
   const chain: HTMLElement[] = [];
-  for (let el = target; el && el !== document.body && el !== document.documentElement; ) {
+  for (let el = target; el && el !== document.body && el !== document.documentElement;) {
     if (el instanceof HTMLElement) {
       const oy = getComputedStyle(el).overflowY;
       if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1)
