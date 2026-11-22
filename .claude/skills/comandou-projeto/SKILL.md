@@ -97,6 +97,12 @@ copie custo para o produto. Preparos são recalculados pelo gatilho `stock_items
 `StockCostsService.before()` / `.after()` na mesma transação, para gravar o histórico
 (`stock_cost_changes`) e avisar os gerentes. Guia: `docs/decisions/0014-custo-automatico-fichas.md`.
 
+**Quantidade do item no cardápio (0.231):** coluna Estoque da lista de itens e campo do cadastro
+(`pages/menu/ItemStock.tsx`) gravam por `PUT /stock/products/:id/quantity`
+(`StockService.setProductQuantity`): sem ficha cria o controle simples (insumo com o nome do item,
+ficha 1 por venda); ficha "1 por venda" de um insumo só (`direct` do `AVAILABILITY_SQL`) é contada
+(ajuste); ficha de vários insumos não aceita número. Nunca crie quantidade solta no `products`.
+
 ## Mexer no financeiro
 
 - Recebível do caixa (`finance_settlements`) **não é** conta (`finance_entries`): a venda já entra

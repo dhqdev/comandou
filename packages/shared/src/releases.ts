@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.231.0',
+    date: '2026-11-22',
+    title: 'Quantidade em estoque na lista de itens',
+    summary:
+      'A lista de itens do cardápio ganhou a coluna Estoque, com quanto ainda tem de cada item. Dá para informar a quantidade ali mesmo ou no cadastro do item: cada venda baixa sozinha e, quando chega a zero, o item sai do cardápio até você informar mais.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápio › Itens: coluna Estoque com a quantidade de cada item. Toque no número (ou em Informar) para mudar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cadastro do item: campo Quantidade em estoque. Vazio, o item não controla estoque; com número, cada venda baixa 1 (ou o peso vendido).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A quantidade usa o Estoque: item sem ficha ganha o controle simples com o nome dele, e item com ficha de vários insumos mostra quanto dá para vender pela ficha.',
+      },
+    ],
+  },
+  {
     version: '0.230.1',
     date: '2026-11-22',
     title: 'Cardápio do cliente sem piscar',

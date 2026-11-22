@@ -20,13 +20,16 @@ export const PRODUCT_STOCK_MISSING = `ARRAY(
 
 /**
  * Por produto com ficha: quantas unidades ainda dá para vender (null = sem limite: por peso ou
- * só insumos que podem ficar negativos), o que falta e a ficha com o saldo de cada insumo.
+ * só insumos que podem ficar negativos), se a quantidade é digitável (`direct`), o que falta e a
+ * ficha com o saldo de cada insumo.
  */
 export const AVAILABILITY_SQL = `
   SELECT r.product_id AS "productId",
          bool_or(${RECIPE_LINE_SHORT}) AS "out",
          min(CASE WHEN s.allow_negative OR p.sold_by_weight THEN NULL
                   ELSE least(greatest(floor(s.quantity / r.quantity), 0), 999999) END)::int AS portions,
+         -- Ficha de um insumo só, 1 por venda (controle simples): dá para digitar a quantidade.
+         (count(*) = 1 AND bool_and(r.quantity = 1)) AS direct,
          coalesce(array_agg(s.name ORDER BY s.name) FILTER (WHERE ${RECIPE_LINE_SHORT}), '{}') AS missing,
          json_agg(json_build_object(
            'stockItemId', s.id, 'name', s.name, 'unit', s.unit,
