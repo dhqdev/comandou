@@ -431,7 +431,7 @@ lojas, pausadas, falhas), grupo **Ligados** com um cartão largo por aplicativo 
 cabeçalho `ChannelHead` = logo oficial `AppLogo` + nome + situação com bolinha embaixo, cada loja em `intg-store` com situação,
 último pedido, pausa e, ao lado a partir de 760px de cartão, os ajustes em interruptores
 `intg-toggle` + `.switch` num quadro afundado), grupo **Ligar mais um aplicativo** (`intg-new`,
-enxuto desde a 0.231.3: `ChannelHead`, uma frase curta e o botão só quando há o que fazer, "O que
+enxuto desde a 0.231.4: `ChannelHead`, uma frase curta e o botão só quando há o que fazer, "O que
 funciona" no pé com linha fina; sem liberação não tem frase, e "Para liberar um aplicativo, fale
 com o suporte do Comandou." aparece uma vez, à direita do título do grupo) e **Em breve** numa linha
 com `AppLogo` de 20px + nome. **Logos dos aplicativos**: `features/channels/AppLogo.tsx`, arquivos

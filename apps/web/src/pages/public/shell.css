@@ -230,7 +230,6 @@
 .sf[data-layout='phone'] .sf-head__logo {
   width: 92px;
   margin-top: -58px;
-  animation: sf-logo-in var(--cm-spring-dur) var(--cm-spring) both;
 }
 .sf[data-layout='phone'] .sf-head__text {
   justify-items: center;
@@ -255,12 +254,6 @@
 /* A bolinha de "Aberto agora" pulsa de leve. */
 .sf-head__meta .status.is-open::before {
   animation: sf-ping 2.4s ease-out infinite;
-}
-@keyframes sf-logo-in {
-  from {
-    transform: scale(0.82);
-    opacity: 0;
-  }
 }
 @keyframes sf-ping {
   0%,
@@ -386,8 +379,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .sf-road,
-  .sf-head__meta .status.is-open::before,
-  .sf[data-layout='phone'] .sf-head__logo {
+  .sf-head__meta .status.is-open::before {
     animation: none;
   }
 }
