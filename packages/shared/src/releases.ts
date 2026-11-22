@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.229.1',
+    date: '2026-11-22',
+    title: 'Foto do item parada ao rolar',
+    summary:
+      'No cardápio pelo celular, a foto do item fica parada no topo e a folha com os detalhes sobe por cima dela enquanto o cliente rola.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Tela do item no celular: a foto não sobe mais junto com a página. A folha branca vai cobrindo a foto, que escurece de leve conforme some.',
+      },
+    ],
+  },
+  {
     version: '0.229.0',
     date: '2026-11-22',
     title: 'Edição do item no app do garçom',
