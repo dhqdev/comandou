@@ -428,10 +428,17 @@ feito, abre o como fazer e a observação; o próximo passo já vem aberto).
 No restaurante (Aplicativos de delivery, `pages/IntegrationsPage.tsx`, `integrations.css`, refeita
 na 0.198.5 porque o David achou feia): números do topo num quadro só (`intg-overview`: recebendo,
 lojas, pausadas, falhas), grupo **Ligados** com um cartão largo por aplicativo com loja (`intg-ch`:
-nome no bloco da marca `ChannelMark`, situação com bolinha, cada loja em `intg-store` com situação,
+cabeçalho `ChannelHead` = logo oficial `AppLogo` + nome + situação com bolinha embaixo, cada loja em `intg-store` com situação,
 último pedido, pausa e, ao lado a partir de 760px de cartão, os ajustes em interruptores
 `intg-toggle` + `.switch` num quadro afundado), grupo **Ligar mais um aplicativo** (`intg-new`,
-frase do que fazer e o botão) e **Em breve** numa linha com `ChannelBadge`. "O que funciona" é um
+enxuto desde a 0.231.3: `ChannelHead`, uma frase curta e o botão só quando há o que fazer, "O que
+funciona" no pé com linha fina; sem liberação não tem frase, e "Para liberar um aplicativo, fale
+com o suporte do Comandou." aparece uma vez, à direita do título do grupo) e **Em breve** numa linha
+com `AppLogo` de 20px + nome. **Logos dos aplicativos**: `features/channels/AppLogo.tsx`, arquivos
+oficiais em `features/channels/logos/` (SVG/PNG no formato do ícone do app, quadrado com cantos
+`0.26 × tamanho`, fundo da marca, igual no claro e no escuro); aplicativo sem logo (Open Delivery
+cadastrado) mostra a inicial na cor dele. Aplicativo novo: logo oficial na pasta + linha em `LOGOS`.
+Nas listas (pedidos, falhas, vínculos) segue o selo `ChannelBadge`. "O que funciona" é um
 `<details>` com contador, pílulas com visto e uma frase com o que o aplicativo não oferece. A
 situação nunca fala de Super Admin para o restaurante ("Ainda não liberado"). O aplicativo em que a
 própria loja liga o cadastro (Keeta, 99Food, Open Delivery: `CONNECT_HERE` em
