@@ -23,7 +23,6 @@ import {
   Flame,
   PackageCheck,
   RotateCcw,
-  HandCoins,
   Pencil,
   CreditCard,
   MapPin,
@@ -169,7 +168,6 @@ export function OrderDetailModal({
     | 'reject'
     | 'adjust'
     | 'dispatch'
-    | 'receivable'
     | 'fiado'
     | 'edit'
     | { refund: Payment }
@@ -282,18 +280,11 @@ export function OrderDetailModal({
     order.channel === 'table' &&
     order.status === 'ready' &&
     !order.servedAt;
-  // Vender fiado: o mesmo poder do "a receber" (gerente), em qualquer pedido com saldo.
+  // Vender fiado: só o gerente, em qualquer pedido com saldo (substitui o antigo "a receber").
   // Pedido de aplicativo: itens, valores e cobrança mandam no aplicativo (sem fiado, desconto ou
   // troca de itens aqui; a observação interna continua).
   const isApp = order?.source === 'app';
   const canFiado = !!order && !isApp && canCancel && hasBalance && order.status !== 'cancelled';
-  const canReceivable =
-    !!order &&
-    canCancel &&
-    hasBalance &&
-    !order.fiadoAt &&
-    order.status !== 'dispatched' &&
-    canTransition(order.status, 'completed', order.channel);
   // Quem lançou: o primeiro passo do histórico (sem situação anterior).
   const launchedBy = order?.history?.find((h) => h.from === null)?.actorName ?? null;
   const activeItems = order ? order.items.filter((i) => i.status !== 'cancelled').length : 0;
@@ -379,16 +370,6 @@ export function OrderDetailModal({
               },
             ]
           : []),
-        ...(canReceivable
-          ? [
-              {
-                label: 'Concluir a receber',
-                icon: <HandCoins size={20} />,
-                hue: 'rose' as const,
-                run: () => setMode('receivable'),
-              },
-            ]
-          : []),
         ...(canPrint && order.status !== 'cancelled'
           ? [
               {
@@ -435,7 +416,6 @@ export function OrderDetailModal({
   const SHORT: Record<string, string> = {
     'Reimprimir na cozinha': 'Imprimir cozinha',
     'Desconto ou acréscimo': 'Desconto / Acréscimo',
-    'Concluir a receber': 'A receber',
   };
   const printTools: MenuAction[] =
     order && canPrintSlip
@@ -617,7 +597,6 @@ export function OrderDetailModal({
     reject: 'Recusar pedido',
     adjust: 'Desconto ou acréscimo',
     dispatch: 'Despachar entregador',
-    receivable: 'Concluir a receber',
     fiado: order?.fiadoAt ? 'Editar fiado' : 'Vender fiado',
   };
   const formTitle = !mode
@@ -707,15 +686,6 @@ export function OrderDetailModal({
                 setOrder(o);
                 setMode(null);
               }}
-            />
-          )}
-          {mode === 'receivable' && (
-            <ReasonForm
-              label={`Por que concluir com ${brl(order.balance)} em aberto? (fica em "Concluídos em aberto")`}
-              confirm="Concluir a receber"
-              busy={busy}
-              onCancel={() => setMode(null)}
-              onConfirm={(r) => go('completed', r, true)}
             />
           )}
           {mode && typeof mode === 'object' && 'refund' in mode && (

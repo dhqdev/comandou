@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.233.3',
+    date: '2026-11-22',
+    title: 'Pedido sem o botão "A receber"',
+    summary:
+      'O botão "A receber" saiu das ações do pedido: ele fazia praticamente o mesmo que o "Vender fiado", que continua lá.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Saiu a ação "A receber" (Concluir a receber) do detalhe do pedido. Para deixar a conta para depois, use "Vender fiado". Pedidos que já foram concluídos a receber continuam aparecendo como antes.',
+      },
+    ],
+  },
+  {
     version: '0.233.2',
     date: '2026-11-22',
     title: 'Fechar conta sem aviso por cima dos botões',
