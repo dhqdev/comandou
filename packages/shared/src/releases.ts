@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.240.1',
+    date: '2026-11-23',
+    title: 'Acompanhar o pedido sem piscar',
+    summary:
+      'A tela em que o cliente acompanha o pedido (Pedido pronto, Na mesa, Em preparo…) ficou parada: no iPhone ela não fica mais apagando e acendendo, com as letras ora mais fortes, ora mais fracas.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Acompanhamento do pedido no celular do cliente (pedido da mesa e pedido online): os desenhos de cada etapa ficaram parados e nada na tela se mexe sozinho. O movimento do desenho (o vapor subindo e sumindo) fazia o Safari do iPhone esmaecer a tela inteira sem parar. A bolinha verde de "Esta página se atualiza sozinha" continua, e a tela segue se atualizando a cada poucos segundos.',
+      },
+    ],
+  },
+  {
     version: '0.240.0',
     date: '2026-11-23',
     title: 'Atalhos nos cartões do Salão no PDV',

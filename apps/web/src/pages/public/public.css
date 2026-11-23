@@ -368,7 +368,6 @@
   font: inherit;
   font-weight: 750;
   cursor: pointer;
-  animation: track-in 180ms ease-out both;
   transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
 .track__picked:active:not(:disabled) {
@@ -377,10 +376,20 @@
 .track__picked:disabled {
   opacity: 0.6;
 }
-@keyframes track-in {
-  from {
-    opacity: 0;
-  }
+/*
+ * Acompanhamento parado: nada aqui se mexe sozinho. Animação contínua nesta tela (vapor do desenho,
+ * pulso do motoboy no mapa, bolinha pulsando, entrada da tela) fazia a tela inteira ficar mais
+ * fraca e mais forte no Safari do iPhone (pedido do David, 2026-11-23). A bolinha verde de "Esta
+ * página se atualiza sozinha" fica acesa, sem pulsar. Só o toque (afundar o botão) anima.
+ */
+.store--track .art,
+.store--track .art *,
+.store--track .live-rider__pulse {
+  animation: none !important;
+}
+.store--track .live-rider[data-signal='live'] .live-rider__pulse {
+  opacity: 0.25;
+  transform: scale(1.5);
 }
 .track__live {
   display: flex;

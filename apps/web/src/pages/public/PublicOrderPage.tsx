@@ -318,23 +318,32 @@ export function PublicOrderPage() {
             className="track__card track__status"
             style={{ ['--tone' as string]: hero.tone }}
           >
+            {/*
+              Desenhos parados (sem `live`/`ride`), de propósito. Esta tela fica aberta muito tempo
+              e a única coisa que se mexia nela era a animação do desenho (vapor subindo e sumindo,
+              motoboy, alfinete). No Safari do iPhone isso fazia a TELA INTEIRA ficar mais fraca e
+              mais forte sem parar (o texto do topo e o Resumo junto, ~50% de opacidade): pedido do
+              David, 2026-11-23. Atualizar os dados a cada 8 s não mexe em nada na tela; quem
+              piscava era o movimento. Não volte a ligar animação contínua aqui
+              (PublicOrderPage.test.tsx confere).
+            */}
             <div className="track__hero" aria-live="polite">
               {o.step === 'awaiting' ? (
-                <OrdersArt live className="track__art" />
+                <OrdersArt className="track__art" />
               ) : o.step === 'accepted' ? (
-                <CookingArt live className="track__art" />
+                <CookingArt className="track__art" />
               ) : o.step === 'ready' ? (
                 o.channel === 'pickup' ? (
-                  <PickupArt live className="track__art" />
+                  <PickupArt className="track__art" />
                 ) : (
-                  <BagArt live className="track__art" />
+                  <BagArt className="track__art" />
                 )
               ) : o.step === 'dispatched' ? (
-                <MotoboyArt ride className="track__art" />
+                <MotoboyArt className="track__art" />
               ) : o.step === 'completed' ? (
-                <BagArt done live className="track__art" />
+                <BagArt done className="track__art" />
               ) : (
-                <span className="track__badge" data-live={live ? '' : undefined}>
+                <span className="track__badge">
                   <Icon size={28} />
                 </span>
               )}
