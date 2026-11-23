@@ -646,13 +646,7 @@
   font-weight: 600;
 }
 
-/* Folha de QR das mesas */
-.qr-sheet {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--cm-space-3);
-  margin-bottom: var(--cm-space-4);
-}
+/* Quadro de QR solto (link do app do garçom) */
 .qr-card {
   margin: 0;
   padding: var(--cm-space-3);
@@ -670,6 +664,28 @@
 .qr-card figcaption {
   font-weight: 750;
   font-size: var(--cm-text-lg);
+}
+
+/* Folha de QR das mesas (cartão em features/table-qr/table-qr-css.ts) */
+.tqr-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+  margin-bottom: var(--cm-space-3);
+}
+.tqr-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+  justify-items: center;
+  gap: var(--cm-space-3);
+  margin-bottom: var(--cm-space-4);
+  font-size: 7.5px;
+}
+.tqr-wait {
+  width: 30em;
+  height: 46em;
+  display: grid;
+  place-items: center;
 }
 
 @media (max-width: 860px) {

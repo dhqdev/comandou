@@ -113,6 +113,18 @@ comprovante grande à esquerda e, à direita, o que ele cobre, o saldo de agora,
 Aprovar (primário) / Recusar com motivo. No cardápio da mesa, a aba Garçom tem dois cartões
 grandes (bolinha da cor da loja com o ícone, título e uma linha), no jeito do resto do cardápio.
 
+## QR Code das mesas (0.237)
+
+Cartão impresso para o cliente (`features/table-qr/`, pedido do David: "mais bonito, com algum
+desenho"). É **exceção** à regra "sem enfeites": vai para a mesa, não para a tela de trabalho.
+Desenho do código puro em `qr-art.ts` (bolinhas, olhos arredondados, logo no meio com correção
+H, buraco ≤ 6% da área e margem de 4 módulos; o teste `qr-art.test.ts` lê a grade com o jsQR).
+Cartão em `em` (`table-qr-css.ts`, o mesmo CSS na prévia e na folha do `printDocument`), cores
+de `cardColors` (código no `--cm-brand-700` da marca, sempre ≥ 4,5:1 sobre o branco). Estilos
+Moderno (desenhos de comida lucide a 16%), Colorido (cartão na cor da casa, código num quadro
+branco) e Clássico (preto, quadrado, sem desenho). Mudou o cartão? Confira que ainda lê
+(desenho de fundo nunca entra no quadro branco do código).
+
 ## Modais e formulários
 
 - Janela abre **perto de quem abriu** (`liquid.ts`): no computador e no tablet sai de dentro do botão e fica ao lado dele (botão à direita, janela à direita; embaixo se couber) e volta para ele ao fechar; no celular a folha cresce do botão. Use sempre `Modal`/`Sheet`/`useLiquidDialog`: não posicione janela na mão nem com `margin: auto` fixo.
