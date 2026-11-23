@@ -197,3 +197,65 @@
   gap: 8px;
   margin-left: auto;
 }
+
+/* Comprovantes já conferidos (pedido e comanda): uma linha por comprovante, toque abre grande. */
+.tpix-hist {
+  display: grid;
+  gap: 8px;
+}
+.tpix-hist__title {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.tpix-hist ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tpix-hist__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.tpix-hist__row:hover {
+  background: var(--cm-surface-muted);
+}
+.tpix-hist__row:active {
+  transform: scale(0.98);
+}
+.tpix-hist__row:disabled {
+  cursor: default;
+}
+.tpix__thumb--sm {
+  width: 36px;
+  height: 48px;
+}
+.tpix-hist__text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.tpix-hist__text strong {
+  font-size: var(--cm-text-sm);
+}
+.tpix-hist__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.tabm__orders .tpix-hist {
+  margin-top: var(--cm-space-4);
+}

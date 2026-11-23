@@ -7,7 +7,7 @@ import { NewSaleModal } from '../NewSaleModal';
 import { OrderDetailModal } from '../OrderDetailModal';
 import { PaymentModal } from '../PaymentModal';
 import { PixReceiptChip } from '../PixReceipt';
-import { TabPixPanel, TabReceiptModal, useTabReceipts } from '../TableCalls';
+import { TabPixHistory, TabPixPanel, TabReceiptModal, useTabReceipts } from '../TableCalls';
 import { ReceiptPreview } from '../ReceiptPreview';
 import {
   ORDER_STATUS_LABELS,
@@ -322,6 +322,7 @@ export function TabModal({
                   ))}
                 </ul>
               )}
+              {!pixWaiting && <TabPixHistory tabId={tab.id} />}
             </section>
 
             {/* Conta: quanto falta (o número que importa), de onde ele vem e o que dá para fazer. */}
@@ -543,11 +544,13 @@ export function TabModal({
               receipt={pix}
               startRejecting={reviewPix.reject}
               onClose={() => setReviewPix(null)}
-              onDone={() => {
+              onDone={(closed) => {
                 setReviewPix(null);
+                onChanged();
+                // Pix aprovado e a conta fechou: a mesa está livre, a janela sai junto.
+                if (closed) return onClose();
                 void reloadPix();
                 void load();
-                onChanged();
               }}
             />
           )}

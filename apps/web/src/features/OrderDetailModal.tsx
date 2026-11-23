@@ -99,6 +99,7 @@ import { AppDriverCard, appDriverTakes } from './channels/AppDriver';
 import { AppOrderFinance } from './channels/AppOrderFinance';
 import { OrderReviewNote } from './channels/AppReviews';
 import { ChannelBadge } from './channels/ChannelBadge';
+import { TabPixHistory } from './TableCalls';
 
 // Ícone de cada passo do rodapé (0.211.1, pedido do David: todo botão do pedido com símbolo).
 const STEP_ICON: Partial<Record<OrderStatus, ReactNode>> = {
@@ -893,6 +894,12 @@ export function OrderDetailModal({
 
             {(order.payOnline || !!order.onlineCharges?.length) && (
               <OnlineCharges order={order} onDone={(o) => setOrder(o)} />
+            )}
+
+            {order.tabId && (
+              <section className="od-block od-card">
+                <TabPixHistory tabId={order.tabId} />
+              </section>
             )}
 
             {order.pixStatus && (

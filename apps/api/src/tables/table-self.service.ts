@@ -459,6 +459,27 @@ export class TableSelfService {
     );
   }
 
+  /**
+   * Todos os comprovantes do Pix da conta de uma comanda (o mais novo primeiro), para rever
+   * depois de aprovado ou recusado: no detalhe do pedido e na comanda, aberta ou fechada.
+   */
+  tabReceipts(ctx: Ctx, tabId: string) {
+    return this.db.withTenant(ctx, (tx) =>
+      q(
+        tx,
+        `SELECT r.id, r.status, r.content_type AS "contentType", r.amount::text,
+                r.applied::text, r.created_at AS "createdAt", r.reviewed_at AS "reviewedAt",
+                u.name AS "reviewedByName", r.reject_reason AS "rejectReason",
+                r.bytes IS NOT NULL AS "hasFile"
+           FROM tab_pix_receipts r LEFT JOIN users u ON u.id = r.reviewed_by
+          WHERE r.tab_id = $1
+          ORDER BY r.created_at DESC
+          LIMIT 50`,
+        [tabId],
+      ),
+    );
+  }
+
   /** Arquivo do comprovante (privado, só para a equipe). */
   async receiptFile(ctx: Ctx, id: string) {
     const f = await this.db.withTenant(ctx, (tx) =>
@@ -493,7 +514,7 @@ export class TableSelfService {
 
   /**
    * Comprovante conferido: o valor (até o saldo de agora) entra como Pix no caixa, nos pedidos
-   * da comanda do mais antigo ao mais novo. Sem saldo e sem nada em preparo, a mesa fica livre.
+   * da comanda do mais antigo ao mais novo. Sem saldo, a mesa fecha na hora (o cliente já pagou).
    * Exige `Idempotency-Key`: reenviar não lança duas vezes.
    */
   async approve(ctx: Ctx, id: string, cashSessionId: string, idemKey: string) {
@@ -564,7 +585,15 @@ export class TableSelfService {
             const st = await this.orders.settleServedIn(tx, ctx, oid);
             reservations.push(...(st.reservationIds ?? []));
           }
-          const closed = await closeTabIfDoneIn(tx, this.audit, ctx, tabId, 'tab_pix_paid');
+          const closed = await closeTabIfDoneIn(
+            tx,
+            this.audit,
+            ctx,
+            tabId,
+            'tab_pix_paid',
+            this.orders,
+          );
+          touched.push(...closed.completed.filter((x) => !touched.includes(x)));
           return {
             tabId,
             closed,

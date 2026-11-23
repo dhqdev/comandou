@@ -232,10 +232,11 @@ describe('Mesa pelo celular: CPF, chamar o garçom e fechar a conta pelo Pix', (
     pending = (await get('cashierA', '/table-service/receipts').expect(200)).body;
     const url = `/table-service/receipts/${pending[0].id}/approve`;
     await post('cashierA', url, { cashSessionId: sessionId }).expect(422);
-    // Pedidos ainda em preparo: o Pix entra, mas a mesa só fica livre quando tudo sair.
+    // Conta paga inteira: a mesa fecha na hora, mesmo com pedido ainda na cozinha (ele segue).
     const k = key();
     const ok = (await post('cashierA', url, { cashSessionId: sessionId }, k).expect(200)).body;
-    expect(ok).toMatchObject({ applied: '77.70', short: '0.00', tabClosed: false });
+    expect(ok).toMatchObject({ applied: '77.70', short: '0.00', tabClosed: true });
+    expect((await get('adminA', `/tabs/${tab.id}`).expect(200)).body.status).toBe('closed');
     // Reenvio com a mesma chave não lança duas vezes.
     await post('cashierA', url, { cashSessionId: sessionId }, k).expect(200);
     const payments = await ownerQuery<{ n: number; sum: string }>(
@@ -244,8 +245,27 @@ describe('Mesa pelo celular: CPF, chamar o garçom e fechar a conta pelo Pix', (
       [tab.id],
     );
     expect(payments[0]).toEqual({ n: 2, sum: '77.70' });
+    // Para o cliente, a mesa já está livre (a tela dele agradece).
     bill = (await pub.get(`/store/table/${table.id}/bill`).expect(200)).body;
-    expect(bill).toMatchObject({ due: '0.00', receipt: { status: 'approved' } });
-    await pub.upload(`/store/table/${table.id}/pix-receipt`, PNG, 'image/png').expect(409);
+    expect(bill).toMatchObject({ open: false, due: '0.00' });
+    expect(
+      (await pub.upload(`/store/table/${table.id}/pix-receipt`, PNG, 'image/png')).status,
+    ).toBeGreaterThanOrEqual(400);
+    // O pedido que estava pronto concluiu; o que ainda estava na cozinha segue nela, pago.
+    const left = await ownerQuery<{ status: string; payment_status: string }>(
+      `SELECT status, payment_status FROM orders WHERE tab_id = $1 ORDER BY created_at`,
+      [tab.id],
+    );
+    expect(left.every((o) => o.payment_status === 'paid')).toBe(true);
+    // Depois de conferido, o comprovante continua na comanda (aprovado e o recusado).
+    const history = (await get('cashierA', `/table-service/tabs/${tab.id}/receipts`).expect(200))
+      .body;
+    expect(history.map((r: { status: string }) => r.status)).toEqual(['approved', 'rejected']);
+    expect(history[0]).toMatchObject({ hasFile: true, applied: '77.70' });
+    expect(history[1]).toMatchObject({ rejectReason: 'Valor diferente' });
+    await get('waiterA', `/table-service/tabs/${tab.id}/receipts`).expect(403);
+    expect(
+      (await get('adminB', `/table-service/tabs/${tab.id}/receipts`).expect(200)).body,
+    ).toEqual([]);
   });
 });

@@ -180,6 +180,17 @@ export class TableServiceController {
     return this.svc.pendingReceipts(ctxOf(t, u));
   }
 
+  /** Comprovantes do Pix da conta de uma comanda (todos, para rever depois de conferido). */
+  @Get('tabs/:tabId/receipts')
+  @RequirePermission('payments:create')
+  tabReceipts(
+    @Param('tabId', new ParseUUIDPipe()) tabId: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.svc.tabReceipts(ctxOf(t, u), tabId);
+  }
+
   @Throttle({ default: { ttl: 60_000, limit: 600 } })
   @Get('receipts/:id/file')
   @RequirePermission('payments:create')

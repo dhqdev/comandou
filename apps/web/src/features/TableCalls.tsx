@@ -10,6 +10,7 @@ import { useRealtime } from '../lib/realtime';
 import { playSound } from '../lib/sounds';
 import { SelectField } from './forms';
 import { useOpenSessions } from './PaymentModal';
+import { dateTime } from './format';
 import './table-calls.css';
 
 /** Chamado de uma mesa pelo cardápio do QR Code (GET /table-service/calls). */
@@ -204,7 +205,8 @@ export function TabReceiptModal({
 }: {
   receipt: TabReceipt;
   onClose(): void;
-  onDone(): void;
+  /** `tabClosed`: aprovado e a conta da mesa fechou (a mesa ficou livre). */
+  onDone(tabClosed?: boolean): void;
   /** Abre já no motivo da recusa (botão Recusar da janela da mesa). */
   startRejecting?: boolean;
 }) {
@@ -236,11 +238,11 @@ export function TabReceiptModal({
         toCents(r.short) > 0
           ? `Pix de ${brl(r.applied)} lançado. Ainda faltam ${brl(r.short)} na ${who}.`
           : r.tabClosed
-            ? `Pix aprovado. A ${who} está paga e livre.`
+            ? `Pix aprovado. A conta da ${who} foi fechada e a mesa está livre.`
             : `Pix aprovado. A conta da ${who} está paga.`,
         'success',
       );
-      onDone();
+      onDone(r.tabClosed);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -430,6 +432,113 @@ export function TabPixPanel({
             Conferir e aprovar
           </Button>
         </div>
+      )}
+    </section>
+  );
+}
+
+/** Comprovante do Pix da conta já mandado (GET /table-service/tabs/:tabId/receipts). */
+interface TabReceiptRow {
+  id: string;
+  status: 'submitted' | 'approved' | 'rejected' | 'replaced';
+  contentType: string;
+  amount: string;
+  applied: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+  reviewedByName: string | null;
+  rejectReason: string | null;
+  hasFile: boolean;
+}
+
+const RECEIPT_STATUS: Record<TabReceiptRow['status'], string> = {
+  submitted: 'Esperando conferir',
+  approved: 'Aprovado',
+  rejected: 'Recusado',
+  replaced: 'Trocado pelo cliente',
+};
+
+/**
+ * Comprovantes do Pix da conta da mesa, para rever depois de conferidos (no pedido e na comanda,
+ * aberta ou fechada). Tocar abre o arquivo grande. Só aparece para quem recebe pagamento.
+ */
+export function TabPixHistory({ tabId }: { tabId: string }) {
+  const canPay = useCan('payments:create');
+  const [rows, setRows] = useState<TabReceiptRow[] | null>(null);
+  const [open, setOpen] = useState<TabReceiptRow | null>(null);
+  const load = useCallback(async () => {
+    if (!canPay) return;
+    try {
+      setRows(await api<TabReceiptRow[]>(`/table-service/tabs/${tabId}/receipts`));
+    } catch {
+      /* sem rede: fica o que já estava */
+    }
+  }, [tabId, canPay]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useRealtime((e) => {
+    if (e.type === 'tab.changed' && e.tabId === tabId) void load();
+  }, load);
+  const shown = (rows ?? []).filter((r) => r.status !== 'replaced');
+  if (!canPay || !shown.length) return null;
+  const fileUrl = (r: TabReceiptRow) => `/api/v1/table-service/receipts/${r.id}/file`;
+  return (
+    <section className="tpix-hist" aria-label="Comprovantes do Pix da conta da mesa">
+      <h3 className="tpix-hist__title">Comprovante do Pix da conta</h3>
+      <ul>
+        {shown.map((r) => (
+          <li key={r.id}>
+            <button
+              type="button"
+              className="tpix-hist__row"
+              disabled={!r.hasFile}
+              onClick={() => setOpen(r)}
+              aria-label={`Ver o comprovante de ${brl(r.amount)}`}
+            >
+              <span className="tpix__thumb tpix__thumb--sm" aria-hidden>
+                {!r.hasFile || r.contentType === 'application/pdf' ? (
+                  <FileText size={18} />
+                ) : (
+                  <img src={fileUrl(r)} alt="" loading="lazy" />
+                )}
+              </span>
+              <span className="tpix-hist__text">
+                <strong>
+                  {brl(r.applied ?? r.amount)} · {RECEIPT_STATUS[r.status]}
+                </strong>
+                <small>
+                  Enviado {dateTime(r.createdAt)}
+                  {r.reviewedAt &&
+                    ` · ${r.status === 'approved' ? 'aprovado' : 'conferido'} ${dateTime(r.reviewedAt)}${
+                      r.reviewedByName ? ` por ${r.reviewedByName}` : ''
+                    }`}
+                  {r.rejectReason ? ` · motivo: ${r.rejectReason}` : ''}
+                  {!r.hasFile ? ' · arquivo apagado' : ''}
+                </small>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {open && (
+        <Modal
+          open
+          size="lg"
+          title={`Comprovante do Pix · ${brl(open.amount)}`}
+          onClose={() => setOpen(null)}
+        >
+          <div className="tcall-review__file">
+            {open.contentType === 'application/pdf' ? (
+              <iframe src={fileUrl(open)} title="Comprovante do Pix (PDF)" />
+            ) : (
+              <img src={fileUrl(open)} alt="Comprovante do Pix" />
+            )}
+            <a className="cm-btn cm-btn--ghost cm-btn--sm" href={fileUrl(open)} download>
+              <Download size={15} aria-hidden /> Baixar
+            </a>
+          </div>
+        </Modal>
       )}
     </section>
   );

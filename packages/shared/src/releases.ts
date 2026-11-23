@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.239.0',
+    date: '2026-11-23',
+    title: 'Aprovar o Pix da mesa fecha a conta',
+    summary:
+      'Aprovou o comprovante do Pix da conta da mesa, a conta fecha na hora e a mesa fica livre: o cliente já pagou e pode ir embora. O Pix entra no caixa aberto e vai para o Financeiro junto com o fechamento do caixa. E o comprovante continua guardado no pedido e na comanda para rever depois.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Aprovar o comprovante do Pix da conta inteira fecha a conta da mesa na hora. Pedidos prontos são concluídos; o que ainda está na cozinha segue até sair, já pago, sem prender a mesa.',
+      },
+      {
+        tag: 'novo',
+        text: 'No detalhe do pedido e na comanda, a parte Comprovante do Pix da conta mostra cada comprovante que a mesa mandou (aprovado ou recusado, quem conferiu e quando). Tocar abre o comprovante grande, com Baixar.',
+      },
+    ],
+  },
+  {
     version: '0.238.0',
     date: '2026-11-23',
     title: 'Comprovante do Pix aparece na mesa',
