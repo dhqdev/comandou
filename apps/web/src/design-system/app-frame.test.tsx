@@ -32,21 +32,25 @@ const root = (c: HTMLElement) => c.querySelector('.cm-frame') as HTMLElement;
 const rail = (c: HTMLElement) => c.querySelector('.cm-rail') as HTMLElement;
 const wait = (ms: number) => act(() => new Promise((r) => setTimeout(r, ms)));
 
-/** Escolhe um jeito pelo botão do topo da barra (o único lugar onde ele é escolhido). */
-function choose(name: RegExp) {
-  fireEvent.click(screen.getByRole('button', { name: /^Menu lateral:/ }));
-  fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitemradio', { name }));
+/** Botão do topo da barra: cada clique passa para o próximo jeito (sem janela). */
+const toggle = () => screen.getByRole('button', { name: /^Menu lateral:/ });
+/** Clica até chegar no jeito pedido. */
+function goTo(c: HTMLElement, mode: string) {
+  for (let i = 0; i < 3 && root(c).getAttribute('data-rail-mode') !== mode; i++)
+    fireEvent.click(toggle());
 }
 
 describe('menu lateral: três jeitos', () => {
   beforeEach(() => localStorage.clear());
   afterEach(cleanup);
 
-  it('abre aberto por padrão e o botão do topo diz o jeito atual', () => {
+  it('abre aberto por padrão e o botão do topo diz o jeito atual e o próximo', () => {
     const { container } = frame();
     expect(root(container)).toHaveAttribute('data-rail-mode', 'aberto');
     expect(root(container)).toHaveAttribute('data-pinned');
-    expect(screen.getByRole('button', { name: 'Menu lateral: Aberto. Mudar' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Menu lateral: Aberto. Clique para: Abre com o mouse' }),
+    ).toBeInTheDocument();
   });
 
   it('quem tinha recolhido (chave antiga) entra no "abre com o mouse"', () => {
@@ -55,23 +59,24 @@ describe('menu lateral: três jeitos', () => {
     expect(root(container)).toHaveAttribute('data-rail-mode', 'mouse');
   });
 
-  it('o botão do topo mostra os três jeitos e guarda a escolha no aparelho', () => {
+  it('cada clique passa para o próximo jeito, sem abrir janela, e guarda no aparelho', () => {
     const { container } = frame();
-    fireEvent.click(screen.getByRole('button', { name: /^Menu lateral:/ }));
-    const options = within(screen.getByRole('menu')).getAllByRole('menuitemradio');
-    expect(options.map((o) => o.textContent)).toEqual([
-      expect.stringContaining('Aberto'),
-      expect.stringContaining('Abre com o mouse'),
-      expect.stringContaining('Fechado'),
-    ]);
-    expect(options[0]).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(options[2]);
-    expect(root(container)).toHaveAttribute('data-rail-mode', 'fechado');
-    expect(root(container)).not.toHaveAttribute('data-pinned');
+    const icon = () => container.querySelector('.cm-rail__toggle-ic')!;
+    // Abrir a tela não anima o ícone.
+    expect(icon()).not.toHaveAttribute('data-spin');
+    const seen: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      fireEvent.click(toggle());
+      expect(screen.queryByRole('menu')).toBeNull();
+      seen.push(root(container).getAttribute('data-rail-mode')!);
+    }
+    expect(seen).toEqual(['mouse', 'fechado', 'aberto']);
+    // Só o ícone anima, no lugar.
+    expect(icon()).toHaveAttribute('data-spin');
+    fireEvent.click(toggle());
+    fireEvent.click(toggle());
     expect(localStorage.getItem('cm-rail-mode')).toBe('fechado');
-    expect(
-      screen.getByRole('button', { name: 'Menu lateral: Fechado. Mudar' }),
-    ).toBeInTheDocument();
+    expect(root(container)).not.toHaveAttribute('data-pinned');
   });
 
   it('abre com o mouse: encostar o mouse abre a barra por cima', async () => {
@@ -85,7 +90,7 @@ describe('menu lateral: três jeitos', () => {
 
   it('fechado: o mouse em cima não abre e o grupo abre o submenu ao lado', async () => {
     const { container } = frame();
-    choose(/^Fechado/);
+    goTo(container, 'fechado');
     fireEvent.pointerOver(rail(container), { pointerType: 'mouse' });
     await wait(150);
     expect(root(container)).not.toHaveAttribute('data-peek');

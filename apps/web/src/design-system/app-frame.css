@@ -494,8 +494,7 @@
       background: color-mix(in oklab, var(--cm-text) 10%, var(--cm-frame));
     }
     .cm-frame[data-rail-mode='fechado'][data-rail='narrow'] .cm-rail__brand:hover .cm-rail__toggle,
-    .cm-frame[data-rail='narrow'] .cm-rail__toggle:focus-visible,
-    .cm-frame[data-rail='narrow'] .cm-rail__toggle[aria-expanded='true'] {
+    .cm-frame[data-rail='narrow'] .cm-rail__toggle:focus-visible {
       opacity: 1;
       pointer-events: auto;
     }
@@ -575,9 +574,23 @@
     width: 20px;
     height: 20px;
   }
-  .cm-frame .cm-rail__toggle[aria-expanded='true'] {
-    background: color-mix(in oklab, var(--cm-text) 6%, transparent);
-    color: var(--cm-sidebar-text-strong);
+  /* Trocou o jeito: só o ícone gira e cresce no lugar, com a mola rápida (sem janela). */
+  .cm-rail__toggle-ic {
+    display: grid;
+    place-items: center;
+  }
+  .cm-rail__toggle-ic[data-spin] {
+    animation: cm-railmode-in var(--cm-spring-snappy-dur) var(--cm-spring-snappy) both;
+  }
+  @keyframes cm-railmode-in {
+    from {
+      transform: rotate(-90deg) scale(0.6);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cm-rail__toggle-ic[data-spin] {
+      animation: none;
+    }
   }
   .cm-frame :is(.cm-rail__nav, .cm-rail__foot) {
     justify-items: stretch;
@@ -929,39 +942,6 @@
 }
 .cm-flyout__link .cm-badge {
   margin-left: auto;
-}
-/* "Menu lateral": os três jeitos da barra (aberto, abre com o mouse, fechado), o escolhido com
-   o visto laranja. */
-.cm-railmode__opt {
-  width: 100%;
-  min-height: 48px;
-  padding-block: 6px;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: var(--cm-text-sm);
-  font-weight: 550;
-  text-align: left;
-  cursor: pointer;
-}
-.cm-railmode__opt:focus-visible {
-  outline: 2px solid var(--cm-brand-500);
-  outline-offset: -2px;
-}
-.cm-railmode__text {
-  display: grid;
-  flex: 1 1 auto;
-  gap: 2px;
-  min-width: 0;
-}
-.cm-railmode__hint {
-  color: var(--cm-text-subtle);
-  font-size: var(--cm-text-xs);
-  font-weight: 500;
-}
-.cm-flyout__link svg.cm-railmode__check {
-  flex: none;
-  color: var(--cm-brand-700);
 }
 @keyframes cm-fly-row {
   from {

@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.244.1',
+    date: '2026-11-23',
+    title: 'Menu lateral muda num clique',
+    summary:
+      'O botão ao lado do nome do restaurante não abre mais uma janela: cada clique passa para o próximo jeito do menu (Aberto, Abre com o mouse, Fechado) e só o ícone gira no lugar.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Menu lateral: cada clique no botão do topo troca o jeito, na ordem Aberto → Abre com o mouse → Fechado → Aberto. O ícone mostra o jeito atual e, ao parar o mouse em cima, diz qual vem no próximo clique.',
+      },
+    ],
+  },
+  {
     version: '0.244.0',
     date: '2026-11-23',
     title: 'Troco no pedido e acompanhamento sem piscar no iPhone',

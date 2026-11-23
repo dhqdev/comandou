@@ -1,5 +1,4 @@
 import {
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -30,9 +29,9 @@ import './app-frame.css';
  * Moldura padrão de todos os apps do Comandou (restaurante e painel admin):
  *
  * - Computador/tablet: barra lateral e topo formam uma peça só; o conteúdo fica num painel com o
- *   canto arredondado. A barra tem três jeitos (`RailMode`), escolhidos no botão do topo dela (ao
- *   lado do nome; fechada, ele aparece no lugar da logo ao encostar o mouse), cujo ícone mostra o
- *   jeito atual: aberta (ícone + nome, grupos que abrem embaixo; o conteúdo encolhe junto),
+ *   canto arredondado. A barra tem três jeitos (`RailMode`): cada clique no botão do topo dela (ao
+ *   lado do nome; fechada, ele aparece no lugar da logo ao encostar o mouse) passa para o próximo,
+ *   sem janela, e o ícone dele mostra o jeito atual: aberta (ícone + nome, grupos que abrem embaixo; o conteúdo encolhe junto),
  *   recolhida que abre ao encostar o mouse (por cima do conteúdo, fecha ao sair) e fechada (só os
  *   ícones, o mouse não abre; grupo abre o submenu ao lado).
  * - Celular/PWA: barra de abas embaixo com alvos grandes. A última aba ("Mais") abre uma tela
@@ -115,7 +114,6 @@ const RAIL_MODES: { mode: RailMode; label: string; hint: string; icon: ReactNode
   },
   { mode: 'fechado', label: 'Fechado', hint: 'Só ícones, sempre', icon: <PanelLeftClose /> },
 ];
-const RAIL_MODE_KEY = 'menu-lateral';
 const MODE_KEY = 'cm-rail-mode';
 /** Chave antiga (aberto/recolhido): quem tinha recolhido entra no "abre com o mouse". */
 const WIDE_KEY = 'cm-rail-wide';
@@ -212,7 +210,15 @@ export function AppFrame({
   const wide = mode === 'aberto';
   /** Recolhida que abre ao encostar o mouse (no `fechado`, o mouse não abre). */
   const hoverOpens = mode === 'mouse';
-  const modeInfo = RAIL_MODES.find((o) => o.mode === mode) ?? RAIL_MODES[0];
+  const modeIdx = Math.max(
+    0,
+    RAIL_MODES.findIndex((o) => o.mode === mode),
+  );
+  const modeInfo = RAIL_MODES[modeIdx];
+  /** Próximo jeito no clique: aberto → abre com o mouse → fechado → aberto. */
+  const nextMode = RAIL_MODES[(modeIdx + 1) % RAIL_MODES.length];
+  // O ícone só gira depois de um clique (abrir a tela não anima).
+  const [modeSpun, setModeSpun] = useState(false);
   // Recolhido: encostar o mouse abre a barra por cima do conteúdo (sem empurrar a tela) e sair
   // fecha. Pequena espera nas duas pontas para não piscar ao passar o mouse de raspão.
   const [peek, setPeek] = useState(false);
@@ -246,6 +252,7 @@ export function AppFrame({
     window.clearTimeout(peekTimer.current);
     setPeek(false);
     setModeState(m);
+    setModeSpun(true);
     try {
       localStorage.setItem(MODE_KEY, m);
     } catch {
@@ -532,14 +539,7 @@ export function AppFrame({
     );
   };
 
-  // Os três jeitos da barra, no submenu do botão do topo dela (ao lado do nome).
-  const modeItem: FrameItem = {
-    key: RAIL_MODE_KEY,
-    label: 'Menu lateral',
-    icon: modeInfo.icon,
-    panel: <RailModePicker mode={mode} onPick={setMode} />,
-  };
-  const flyItem = fly ? [...all, modeItem].find((i) => i.key === fly.key) : undefined;
+  const flyItem = fly ? all.find((i) => i.key === fly.key) : undefined;
 
   // Painel ao lado do botão: começa na altura dele; se não couber embaixo (ex.: Conta, no pé
   // da barra), termina na altura do botão, subindo a partir dele.
@@ -582,26 +582,18 @@ export function AppFrame({
       >
         <div className="cm-rail__brand">
           {brand}
-          {/* Jeito do menu: o ícone mostra o atual e o toque abre os três para escolher. */}
+          {/* Jeito do menu: cada clique passa para o próximo, sem janela (pedido do David); só o
+              ícone gira no lugar e passa a mostrar o jeito novo. */}
           <button
             type="button"
             className="cm-rail__toggle"
-            data-rail-key={RAIL_MODE_KEY}
-            aria-label={`Menu lateral: ${modeInfo.label}. Mudar`}
-            title={`Menu lateral: ${modeInfo.label}`}
-            aria-haspopup="menu"
-            aria-expanded={open === RAIL_MODE_KEY}
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setAnchor({
-                top: r.top,
-                bottom: r.bottom,
-                right: railEl.current?.getBoundingClientRect().right ?? 0,
-              });
-              setOpen(open === RAIL_MODE_KEY ? null : RAIL_MODE_KEY);
-            }}
+            aria-label={`Menu lateral: ${modeInfo.label}. Clique para: ${nextMode.label}`}
+            title={`Menu lateral: ${modeInfo.label} (${modeInfo.hint}). Clique para: ${nextMode.label}`}
+            onClick={() => setMode(nextMode.mode)}
           >
-            {modeInfo.icon}
+            <span key={mode} className="cm-rail__toggle-ic" data-spin={modeSpun || undefined}>
+              {modeInfo.icon}
+            </span>
           </button>
         </div>
         <nav
@@ -868,31 +860,6 @@ function useTableLabels(root: RefObject<HTMLElement | null>) {
       cancelAnimationFrame(raf);
     };
   }, [root]);
-}
-
-/** Os três jeitos do menu lateral, no submenu do "Menu lateral" (o escolhido com o visto). */
-function RailModePicker({ mode, onPick }: { mode: RailMode; onPick: (m: RailMode) => void }) {
-  return (
-    <div className="cm-flyout__links cm-railmode">
-      {RAIL_MODES.map((o) => (
-        <button
-          key={o.mode}
-          type="button"
-          role="menuitemradio"
-          aria-checked={mode === o.mode}
-          className={`cm-flyout__link cm-railmode__opt ${mode === o.mode ? 'active' : ''}`}
-          onClick={() => onPick(o.mode)}
-        >
-          {o.icon}
-          <span className="cm-railmode__text">
-            <span>{o.label}</span>
-            <span className="cm-railmode__hint">{o.hint}</span>
-          </span>
-          {mode === o.mode && <Check className="cm-railmode__check" aria-hidden />}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 function FlyLinks({ links }: { links: FrameLink[] }) {
