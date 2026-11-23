@@ -12,6 +12,7 @@ const money = (v: string) => v.replace('.', ',');
 /** Funcionamento da loja online: link, aberta/fechada, taxa, pedido mínimo, tempo e aceite automático. */
 export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
   const toast = useToast();
+  const uid = useId();
   const [s, setS] = useState<StoreSettings | null>(null);
   const [form, setForm] = useState({
     deliveryFee: '',
@@ -116,12 +117,42 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
         <p className="cm-hint os-link">
           Link para divulgar no Instagram e no WhatsApp: <strong>{link}</strong>
         </p>
-        <div className="os-toggles os-toggles--cols">
-          {toggle('enabled', 'Cardápio online ligado')}
-          {toggle('isOpen', s.hoursEnabled ? 'Loja aberta (no horário)' : 'Loja aberta agora')}
-          {toggle('autoAccept', 'Aceitar pedidos automaticamente')}
-          {toggle('acceptsDelivery', 'Faz entrega')}
-          {toggle('acceptsPickup', 'Aceita retirada')}
+        <div className="os-flags">
+          <div className="os-flags__grid">
+            <section className="os-flags__group" aria-labelledby={`${uid}-loja`}>
+              <h3 id={`${uid}-loja`} className="os-flags__title">
+                Loja
+              </h3>
+              <div className="os-toggles os-toggles--lead">
+                {toggle(
+                  'enabled',
+                  'Cardápio online ligado',
+                  'Desligado, ninguém faz pedido pelo link.',
+                )}
+                {toggle(
+                  'isOpen',
+                  s.hoursEnabled ? 'Loja aberta (no horário)' : 'Loja aberta agora',
+                  s.hoursEnabled
+                    ? 'Abre e fecha sozinha pelo horário de funcionamento.'
+                    : 'Fechada, o cliente vê o cardápio mas não consegue pedir.',
+                )}
+                {toggle(
+                  'autoAccept',
+                  'Aceitar pedidos automaticamente',
+                  'O pedido entra direto na cozinha, sem esperar alguém aceitar.',
+                )}
+              </div>
+            </section>
+            <section className="os-flags__group" aria-labelledby={`${uid}-receber`}>
+              <h3 id={`${uid}-receber`} className="os-flags__title">
+                Como o cliente recebe
+              </h3>
+              <div className="os-toggles os-toggles--lead">
+                {toggle('acceptsDelivery', 'Faz entrega', 'Leva o pedido no endereço do cliente.')}
+                {toggle('acceptsPickup', 'Aceita retirada', 'O cliente busca o pedido no balcão.')}
+              </div>
+            </section>
+          </div>
         </div>
       </Card>
 
@@ -214,19 +245,21 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
       </Card>
 
       <Card title="Pedido pela mesa (QR Code)">
-        <div className="os-toggles">
-          {toggle(
-            'tableCheckLocation',
-            'Conferir se o cliente está no restaurante',
-            s.storeLat && s.storeLng
-              ? 'Antes de pedir, o celular confirma a localização perto do ponto da loja no mapa.'
-              : 'Marque o ponto da loja no mapa (Entregas › Áreas de entrega) para a conferência valer.',
-          )}
-          {toggle(
-            'tableSelfPickup',
-            'Cliente busca o pedido pronto no balcão',
-            'Sem garçom levando: o cliente vê "Pronto" no celular, busca e toca em "Já peguei".',
-          )}
+        <div className="os-flags">
+          <div className="os-toggles os-toggles--lead os-flags__grid">
+            {toggle(
+              'tableCheckLocation',
+              'Conferir se o cliente está no restaurante',
+              s.storeLat && s.storeLng
+                ? 'Antes de pedir, o celular confirma a localização perto do ponto da loja no mapa.'
+                : 'Marque o ponto da loja no mapa (Entregas › Áreas de entrega) para a conferência valer.',
+            )}
+            {toggle(
+              'tableSelfPickup',
+              'Cliente busca o pedido pronto no balcão',
+              'Sem garçom levando: o cliente vê "Pronto" no celular, busca e toca em "Já peguei".',
+            )}
+          </div>
         </div>
       </Card>
     </div>
@@ -272,7 +305,7 @@ function HoursEditor({
   const order = [1, 2, 3, 4, 5, 6, 0];
   return (
     <div className="os-hours">
-      <label className="os-toggle">
+      <label className="os-toggle os-toggle--lead">
         <span>
           <strong>Abrir e fechar sozinha no horário</strong>
           <small>

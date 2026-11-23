@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.236.1',
+    date: '2026-11-23',
+    title: 'Funcionamento mais organizado no notebook',
+    summary:
+      'Na Loja online › Funcionamento, os liga/desliga ficaram agrupados por assunto, com o botão colado no nome e uma frase dizendo o que cada um faz. Fica mais fácil de ler no notebook, mesmo com a prévia do celular ao lado.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Pedidos pelo cardápio em dois grupos: Loja (cardápio ligado, loja aberta, aceitar pedidos automaticamente) e Como o cliente recebe (entrega e retirada), cada um com uma linha explicando.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O liga/desliga agora fica do lado esquerdo do nome, e não lá no fim da linha. Vale também no horário de funcionamento e no Pedido pela mesa, que ficou em duas colunas.',
+      },
+    ],
+  },
+  {
     version: '0.236.0',
     date: '2026-11-23',
     title: 'Conta da mesa paga pelo PagBank',
