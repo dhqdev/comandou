@@ -399,12 +399,17 @@ function useTableId() {
     rememberTable(null);
     setId(null);
   }, []);
-  return [id, leave] as const;
+  // "Estou no restaurante" (cardápio online): leu o QR Code da mesa pela câmera do app.
+  const enter = useCallback((tableId: string) => {
+    rememberTable(tableId);
+    setId(tableId);
+  }, []);
+  return [id, leave, enter] as const;
 }
 
 /** Cardápio online do restaurante (/pedir/*): um app de pedidos para o cliente final. */
 export function StoreApp() {
-  const [tableId, leaveTable] = useTableId();
+  const [tableId, leaveTable, enterTable] = useTableId();
   const menuPath = tableId ? `/store?mesa=${encodeURIComponent(tableId)}` : '/store';
   // Recarregou a página: o último cardápio guardado aparece na hora, sem esqueleto; o do servidor
   // chega em seguida e toma o lugar (preços e loja aberta/fechada sempre do servidor).
@@ -519,6 +524,7 @@ export function StoreApp() {
       refreshStatus={refreshStatus}
       refreshMenu={refreshMenu}
       leaveTable={leaveTable}
+      enterTable={enterTable}
     >
       <StoreChatProvider>
         <Chrome />

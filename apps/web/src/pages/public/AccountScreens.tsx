@@ -3,6 +3,7 @@ import {
   Eye,
   EyeOff,
   Gift,
+  HandPlatter,
   Loader2,
   LockKeyhole,
   Smartphone,
@@ -95,7 +96,7 @@ function useAfterLogin() {
 
 /** Entrar ou criar conta (telefone + senha). */
 function AuthForms() {
-  const { menu, setAccount, customer } = useStore();
+  const { menu, setAccount, customer, rules, table } = useStore();
   const navigate = useNavigate();
   const after = useAfterLogin();
   const toast = useToast();
@@ -155,6 +156,10 @@ function AuthForms() {
         <p>
           {after.back === 'checkout' ? (
             'Entre para continuar o seu pedido.'
+          ) : table ? (
+            <>
+              e peça para a <strong>Mesa {table.label}</strong>
+            </>
           ) : (
             <>
               em <strong>{r.name}</strong>
@@ -276,18 +281,30 @@ function AuthForms() {
           </span>
           Acompanhe os pedidos
         </li>
-        <li>
-          <span className="auth__perk-icon">
-            <MapPin size={17} aria-hidden />
-          </span>
-          Endereços salvos
-        </li>
-        <li>
-          <span className="auth__perk-icon">
-            {loyaltyOn ? <Gift size={17} aria-hidden /> : <Heart size={17} aria-hidden />}
-          </span>
-          {loyaltyOn ? 'Junte pontos' : 'Seus favoritos'}
-        </li>
+        {rules.delivery ? (
+          <li>
+            <span className="auth__perk-icon">
+              <MapPin size={17} aria-hidden />
+            </span>
+            Endereços salvos
+          </li>
+        ) : (
+          <li>
+            <span className="auth__perk-icon">
+              <HandPlatter size={17} aria-hidden />
+            </span>
+            Pedidos da mesa no seu nome
+          </li>
+        )}
+        {/* Na mesa não há favoritos nem fidelidade (store-rules.ts). */}
+        {(loyaltyOn || rules.favorites) && (
+          <li>
+            <span className="auth__perk-icon">
+              {loyaltyOn ? <Gift size={17} aria-hidden /> : <Heart size={17} aria-hidden />}
+            </span>
+            {loyaltyOn ? 'Junte pontos' : 'Seus favoritos'}
+          </li>
+        )}
       </ul>
     </div>
   );
@@ -458,7 +475,7 @@ function LoyaltyTile({ l, i }: { l: LoyaltyOn; i: number }) {
  * senha numa lista curta; Sair no fim.
  */
 export function AccountScreen() {
-  const { account, logout, menu } = useStore();
+  const { account, logout, menu, rules } = useStore();
   const chat = useStoreChat();
   const loyalty = useLoyalty();
   const [theme] = useTheme();
@@ -507,13 +524,16 @@ export function AccountScreen() {
           )}
           <nav className="acct__grid" aria-label="Minha conta">
             {loyalty && <LoyaltyTile l={loyalty} i={n++} />}
-            <Tile
-              i={n++}
-              to="/pedir/conta/enderecos"
-              icon={<MapPin />}
-              label="Endereços"
-              hint={home ? `${home.street}, ${home.number}` : 'Nenhum ainda'}
-            />
+            {/* Na mesa não há entrega: endereços ficam para o cardápio online. */}
+            {rules.delivery && (
+              <Tile
+                i={n++}
+                to="/pedir/conta/enderecos"
+                icon={<MapPin />}
+                label="Endereços"
+                hint={home ? `${home.street}, ${home.number}` : 'Nenhum ainda'}
+              />
+            )}
             <Tile
               i={n++}
               to="/pedir/conta/dados"

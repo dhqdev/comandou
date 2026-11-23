@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.243.0',
+    date: '2026-11-23',
+    title: 'Conta paga sai do celular e pedido com a conta na mesa',
+    summary:
+      'Depois que a conta da mesa é paga, o celular do cliente não mostra mais o que foi pedido. E quem está no restaurante pode entrar na própria conta e pedir para a mesa, sem entrega nem retirada, também pelo app instalado, lendo o QR Code da mesa.',
+    notes: [
+      {
+        tag: 'segurança',
+        text: 'Conta da mesa paga (Pix aprovado, PagBank ou fechada no caixa): o link do acompanhamento e a aba Minha mesa deixam de mostrar os pedidos assim que cada um termina. Quem pegar o celular depois não vê o que foi pedido. O que ainda está na cozinha segue no acompanhamento até sair.',
+      },
+      {
+        tag: 'novo',
+        text: 'Entrar na conta no cardápio da mesa: botão no topo e "Tem conta? Entrar" na finalização. O pedido vai para a mesa no nome do cliente e fica no histórico da conta dele, mesmo depois que a conta da mesa é paga. Na mesa não aparecem entrega, retirada nem endereços.',
+      },
+      {
+        tag: 'novo',
+        text: '"Está no restaurante?" no cardápio online (lojas com mesas cadastradas): o cliente lê o QR Code da mesa pela câmera, dentro do próprio app, e o cardápio vira o da mesa. Serve para quem instalou o app, que não abre pelo QR lido na câmera do celular. QR de outro restaurante não vale.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A lista de pedidos do cardápio online não mistura mais os pedidos feitos na mesa: eles ficam na aba Minha mesa.',
+      },
+    ],
+  },
+  {
     version: '0.242.0',
     date: '2026-11-23',
     title: 'Menu lateral do seu jeito e topo mais limpo',

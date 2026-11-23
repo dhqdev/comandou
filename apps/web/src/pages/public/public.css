@@ -834,3 +834,22 @@
   align-items: center;
   gap: 6px;
 }
+/* Conta da mesa paga: o pedido saiu do celular (PublicOrderPage › TableBillEnded). */
+.order-ended h1 {
+  margin: 4px 0 0;
+  font-size: 1.25rem;
+  color: var(--cm-text);
+}
+.order-ended p {
+  margin: 0;
+  max-width: 34ch;
+}
+.order-ended__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: var(--cm-success);
+  background: var(--cm-success-bg);
+}

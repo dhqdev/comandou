@@ -59,6 +59,7 @@ import { track } from './pixel';
 import { LoopRail } from './LoopRail';
 import { LoyaltyStrip } from './LoyaltyScreens';
 import { ReserveCard } from './ReservationScreens';
+import { AtTableTile } from './AtTableTile';
 import { TableWelcome } from './TableWelcome';
 import { HeartButton, Photo } from './ui';
 
@@ -423,7 +424,7 @@ function StoreHeader({ onInfo }: { onInfo(): void }) {
           <div className="sf-cover__art" />
         )}
         <div className="sf-cover__bar">
-          {rules.accountTab ? (
+          {rules.accountLogin ? (
             <Link className="sf-glass" to="/pedir/conta" aria-label="Minha conta">
               {first ? first[0]!.toUpperCase() : <UserRound size={19} />}
             </Link>
@@ -780,7 +781,8 @@ export function HomeScreen() {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Filters>(kept.filters);
   const [sheet, setSheet] = useState<'info' | 'filter' | null>(null);
-  const recent = useMemo(recentOrders, []);
+  // Pedidos da mesa ficam no bloco da mesa (e saem do celular quando a conta é paga).
+  const recent = useMemo(() => recentOrders().filter((o) => !o.tableId), []);
   const r = menu.restaurant;
   const term = search.trim().toLowerCase();
   const { bar, under, stuck, past } = useStickySearch(term);
@@ -966,6 +968,8 @@ export function HomeScreen() {
               <LoyaltyStrip />
               {/* Quem já está sentado na mesa não precisa reservar (store-rules.ts). */}
               {rules.reservations && <ReserveCard />}
+              {/* Já no restaurante: lê o QR Code da mesa e pede para ela (sem entrega). */}
+              <AtTableTile />
             </div>
             <Banners banners={menu.banners} onPick={pickBanner} />
 

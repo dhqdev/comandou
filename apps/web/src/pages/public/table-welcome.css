@@ -262,3 +262,7 @@
 .tw-total__hint {
   margin: 12px 0;
 }
+/* Segundo aviso da Minha mesa (pedidos saem do celular depois da conta paga). */
+.form-hint.tw-total__hint + .tw-total__hint {
+  margin-top: 14px;
+}

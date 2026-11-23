@@ -1,6 +1,7 @@
 import {
   ConflictException,
   ForbiddenException,
+  GoneException,
   HttpException,
   Injectable,
   NotFoundException,
@@ -35,6 +36,24 @@ import { LinkPreview, oneLine, PRODUCT_PATH_RE } from './link-preview';
 import { SiteCopy } from '../chat/site-page';
 
 export const mediaUrl = (id: string | null | undefined) => (id ? `/api/v1/media/${id}` : null);
+/** O pedido da mesa saiu do acompanhamento: a conta foi fechada e ele terminou. */
+export const TABLE_CLOSED_CODE = 'table_closed';
+
+/**
+ * Pedido da mesa (QR Code) cuja conta já foi fechada e que terminou (entregue ou cancelado). O
+ * que ainda está na cozinha segue no acompanhamento até sair (o Pix aprovado fecha a comanda com
+ * pedido em preparo, e o cliente pode estar esperando para buscar no balcão).
+ */
+export async function tableBillEndedIn(tx: Tx, orderId: string): Promise<boolean> {
+  return !!(await one(
+    tx,
+    `SELECT 1 FROM orders o JOIN tabs tb ON tb.id = o.tab_id
+      WHERE o.id = $1 AND o.channel = 'table' AND tb.status <> 'open'
+        AND o.status IN ('completed', 'cancelled')`,
+    [orderId],
+  ));
+}
+
 export const publicTokenHash = (token: string) => createHash('sha256').update(token).digest();
 export const PUBLIC_TOKEN_RE = /^[A-Za-z0-9_-]{32,64}$/;
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -794,6 +813,8 @@ export class StoreService {
           etaMax: s.etaMax,
           /** Taxa por área no mapa: o cardápio pede a localização do endereço antes do pedido. */
           deliveryZones: (zoneCount?.n ?? 0) > 0,
+          /** Tem mesas: o cardápio online oferece "Estou no restaurante" (lê o QR da mesa). */
+          tables: !table && !!(await one(tx, `SELECT 1 FROM dining_tables WHERE active LIMIT 1`)),
         },
         // Na mesa: se o cliente confirma a localização antes de pedir e se busca o pedido pronto.
         table: table
@@ -1040,11 +1061,22 @@ export class StoreService {
     return o.id;
   }
 
-  /** Acompanhamento do pedido pelo cliente (quem tem o link). */
+  /**
+   * Acompanhamento do pedido pelo cliente (quem tem o link). Pedido da mesa pelo QR Code: depois
+   * que a conta da mesa é paga (comanda fechada) e o pedido terminou, o link deixa de mostrar o
+   * pedido (410 `table_closed`). O celular fica na mesa para o próximo cliente; quem quer guardar
+   * o histórico pede com a conta aberta (`accountOrder` continua mostrando).
+   */
   publicOrder(tenantId: string, tenantName: string, token: string) {
-    return this.db.withTenant({ tenantId }, async (tx) =>
-      this.orderView(tx, await this.byToken(tx, token), tenantName),
-    );
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const id = await this.byToken(tx, token);
+      if (await tableBillEndedIn(tx, id))
+        throw new GoneException({
+          message: 'A conta desta mesa já foi fechada. Obrigado pela visita!',
+          code: TABLE_CLOSED_CODE,
+        });
+      return this.orderView(tx, id, tenantName);
+    });
   }
 
   /** Mesmo acompanhamento, pelo histórico da conta do cliente (id já conferido como dele). */

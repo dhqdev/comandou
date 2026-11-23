@@ -30,6 +30,7 @@ import { time } from '../../features/format';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
 import { BagArt, CookingArt, MotoboyArt, OrdersArt, PickupArt } from './art';
+import { forgetOrders, isTableClosed } from './store';
 import { InstallHint } from './InstallHint';
 import { PixPay, ReceiptPicker, sendReceipt, type ReceiptFile } from './PixPay';
 import { OnlineTrack, type OnlinePayView } from './OnlinePay';
@@ -174,6 +175,8 @@ export function PublicOrderPage() {
     : `/store/orders/${encodeURIComponent(token)}`;
   const [o, setO] = useState<PublicOrder | null>(() => warm.get(base) ?? null);
   const [error, setError] = useState<string | null>(null);
+  // Pedido da mesa cuja conta já foi paga: sai deste celular (não mostra mais o que foi pedido).
+  const [ended, setEnded] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [picking, setPicking] = useState(false);
 
@@ -182,6 +185,13 @@ export function PublicOrderPage() {
       setO(await api<PublicOrder>(base));
       setError(null);
     } catch (e) {
+      if (isTableClosed(e)) {
+        warm.delete(base);
+        forgetOrders([token]);
+        setO(null);
+        setEnded(true);
+        return;
+      }
       const err = e as ApiError;
       setError(
         err.status === 404
@@ -192,6 +202,7 @@ export function PublicOrderPage() {
   }, [base]);
 
   useEffect(() => {
+    if (ended) return;
     void load();
     // Atualiza a cada 8 s e na hora em que o cliente volta para a aba.
     const id = window.setInterval(() => document.visibilityState === 'visible' && load(), 8_000);
@@ -201,7 +212,7 @@ export function PublicOrderPage() {
       window.clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [load]);
+  }, [load, ended]);
 
   useEffect(() => {
     if (o) document.title = `Pedido #${o.number} · ${o.restaurant.name}`;
@@ -242,6 +253,8 @@ export function PublicOrderPage() {
       setCancelling(false);
     }
   }
+
+  if (ended) return <TableBillEnded />;
 
   if (!o)
     return (
@@ -677,5 +690,22 @@ function PixTrack({
         </button>
       )}
     </section>
+  );
+}
+
+/**
+ * A conta da mesa foi paga: o pedido sai do celular (quem pega o aparelho depois não vê o que foi
+ * pedido). Quem quer guardar o histórico pede com a conta aberta.
+ */
+export function TableBillEnded() {
+  return (
+    <main className="store store--center order-ended" role="status">
+      <span className="order-ended__icon" aria-hidden>
+        <CircleCheckBig size={34} />
+      </span>
+      <h1>Conta paga. Obrigado pela visita!</h1>
+      <p>O que foi pedido nesta conta da mesa não fica mais neste celular.</p>
+      <Link to="/pedir">Ver o cardápio</Link>
+    </main>
   );
 }

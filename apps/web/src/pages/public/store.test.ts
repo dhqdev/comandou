@@ -7,6 +7,7 @@ import {
   storedPresence,
   storedTableId,
   syncCart,
+  tableIdFromQr,
   tableServiceFee,
   type CartLine,
   type PublicProduct,
@@ -132,5 +133,22 @@ describe('localização confirmada na mesa', () => {
     expect(storedPresence(ID, now + 5 * 3_600_000)).toBeNull();
     rememberPresence(ID, null);
     expect(storedPresence(ID, now)).toBeNull();
+  });
+});
+
+describe('QR Code da mesa lido pela câmera do cardápio', () => {
+  const id = '3f0c2a5e-8b1d-4c6e-9a7f-0123456789ab';
+  it('aceita o link da mesa deste restaurante', () => {
+    expect(tableIdFromQr(`https://loja.comandou.app/mesa/${id}`, 'loja.comandou.app')).toBe(id);
+    expect(tableIdFromQr(`https://loja.comandou.app/pedir?mesa=${id}`, 'loja.comandou.app')).toBe(
+      id,
+    );
+    expect(tableIdFromQr(`/mesa/${id.toUpperCase()}`, 'loja.comandou.app')).toBe(id);
+  });
+  it('recusa outro restaurante e texto que não é mesa', () => {
+    expect(tableIdFromQr(`https://outra.comandou.app/mesa/${id}`, 'loja.comandou.app')).toBeNull();
+    expect(tableIdFromQr('https://loja.comandou.app/pedir', 'loja.comandou.app')).toBeNull();
+    expect(tableIdFromQr('Mesa 4', 'loja.comandou.app')).toBeNull();
+    expect(tableIdFromQr(`/mesa/${id}x`, 'loja.comandou.app')).toBeNull();
   });
 });

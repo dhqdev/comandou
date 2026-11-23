@@ -60,6 +60,8 @@ export interface PublicMenu {
     etaMax: number;
     /** A loja desenhou áreas de entrega: o endereço precisa ser confirmado no mapa. */
     deliveryZones?: boolean;
+    /** A loja tem mesas cadastradas (o cardápio online oferece "Estou no restaurante"). */
+    tables?: boolean;
   };
   /** Mesa do QR Code (cardápio aberto com ?mesa=); null fora dela ou mesa que não existe mais. */
   table?: PublicTable | null;
@@ -326,6 +328,19 @@ export const tableOrders = (tableId: string) => recentOrders().filter((o) => o.t
 export function rememberOrder(o: RecentOrder) {
   write(RECENT, [o, ...recentOrders().filter((x) => x.token !== o.token)].slice(0, 10));
 }
+/** Tira pedidos deste aparelho (ex.: a conta da mesa foi paga e eles saem do celular). */
+export function forgetOrders(tokens: string[]) {
+  if (!tokens.length) return;
+  write(
+    RECENT,
+    recentOrders().filter((x) => !tokens.includes(x.token)),
+  );
+}
+/** A API respondeu que a conta da mesa deste pedido já foi fechada (o pedido saiu do celular). */
+export const TABLE_CLOSED = 'table_closed';
+export const isTableClosed = (e: unknown) =>
+  (e as { status?: number; body?: { code?: string } } | null)?.status === 410 &&
+  (e as { body?: { code?: string } }).body?.code === TABLE_CLOSED;
 
 /**
  * Mesa do QR Code lembrada nesta aba do navegador (sessionStorage): o cliente vai e volta entre o
@@ -336,6 +351,26 @@ const TABLE_KEY = 'cm-store-table';
 const TABLE_TTL_MS = 6 * 3_600_000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isTableId = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
+
+/**
+ * Mesa do QR Code lido pela câmera do cardápio ("Estou no restaurante"): o link `/mesa/<id>` ou
+ * `?mesa=<id>` deste mesmo restaurante. QR de outro endereço (outro restaurante) não vale.
+ */
+export function tableIdFromQr(text: string, host: string): string | null {
+  const raw = text.trim();
+  let path = raw;
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const u = new URL(raw);
+      if (u.host.toLowerCase() !== host.toLowerCase()) return null;
+      path = u.pathname + u.search;
+    } catch {
+      return null;
+    }
+  }
+  const m = path.match(/(?:^\/mesa\/|[?&]mesa=)([0-9a-f-]{36})(?:[/?&#]|$)/i);
+  return m && isTableId(m[1]) ? m[1]!.toLowerCase() : null;
+}
 
 export function storedTableId(now = Date.now()): string | null {
   try {
