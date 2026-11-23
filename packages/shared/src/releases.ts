@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.237.0',
+    version: '0.238.0',
     date: '2026-11-23',
     title: 'Comprovante do Pix aparece na mesa',
     summary:
@@ -37,6 +37,27 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'No PDV, o botão de fechar a conta de uma mesa com comprovante esperando abre direto a conferência do Pix.',
+      },
+    ],
+  },
+  {
+    version: '0.237.0',
+    date: '2026-11-23',
+    title: 'QR Code das mesas com a cara do restaurante',
+    summary:
+      'Os QR Codes das mesas viraram cartões prontos para imprimir: com a logo, o nome e a cor do restaurante, o número da mesa em destaque, desenhos de comida no fundo e o convite para o cliente apontar a câmera. São três estilos e dois tamanhos, e o código continua lendo de primeira.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Salão › QR das mesas: três estilos de cartão. Moderno (branco, código na cor da casa e desenhos clarinhos de comida), Colorido (cartão inteiro na cor da casa) e Clássico (preto no branco, gasta pouca tinta).',
+      },
+      {
+        tag: 'novo',
+        text: 'O código tem bolinhas e cantos arredondados na cor do restaurante e a logo da Loja online no meio, que pode ser tirada. Com a logo, o código usa a correção de erro mais alta, então lê mesmo com o meio coberto.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Escolha 4 cartões grandes ou 9 pequenos por folha A4. O estilo e o tamanho escolhidos ficam lembrados neste aparelho.',
       },
     ],
   },

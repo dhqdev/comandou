@@ -49,6 +49,9 @@ import { useDebounced, useRealtime } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
 import type { DiningTable, Order, Tab } from '../lib/types';
 import { TourButton } from '../features/tour/PageTour';
+import { TableQrModal } from '../features/table-qr/TableQrModal';
+
+export { tableLink } from '../features/table-qr/TableQrModal';
 
 type View = 'tables' | 'tabs' | 'delivery' | 'pickup';
 type TableFilter = 'all' | TableState;
@@ -721,84 +724,6 @@ function TabTicket({ tab: t, onOpen }: { tab: Tab; onOpen(): void }) {
       </span>
     </button>
   );
-}
-
-/** Folha para imprimir: um QR por mesa. Cliente que lê abre o cardápio; a equipe abre a mesa. */
-function TableQrModal({
-  open,
-  onClose,
-  tables,
-}: {
-  open: boolean;
-  onClose(): void;
-  tables: DiningTable[];
-}) {
-  const [codes, setCodes] = useState<Record<string, string>>({});
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    void (async () => {
-      const QRCode = (await import('qrcode')).default;
-      const out: Record<string, string> = {};
-      for (const t of tables)
-        out[t.id] = await QRCode.toDataURL(tableLink(t.id), { margin: 1, width: 360 });
-      if (alive) setCodes(out);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [open, tables]);
-  return (
-    <Modal open={open} onClose={onClose} title="QR Code das mesas" size="xl">
-      <p className="cm-hint" style={{ marginTop: 0 }}>
-        Imprima e cole um em cada mesa. O cliente aponta a câmera e o cardápio já abre nessa mesa: o
-        pedido dele cai na comanda dela (precisa da loja online ligada). O garçom usa Escanear mesa
-        no app, ou a câmera do celular em que está logado, e abre a comanda.
-      </p>
-      <div className="qr-sheet">
-        {tables.map((t) => (
-          <figure key={t.id} className="qr-card">
-            {codes[t.id] ? (
-              <img src={codes[t.id]} alt={`QR Code da mesa ${t.label}`} />
-            ) : (
-              <Skeleton variant="qr" />
-            )}
-            <figcaption>Mesa {t.label}</figcaption>
-          </figure>
-        ))}
-      </div>
-      <div className="actions-row">
-        <Button icon={<Printer size={16} />} onClick={() => printQrSheet()}>
-          Imprimir
-        </Button>
-      </div>
-    </Modal>
-  );
-}
-
-export const tableLink = (id: string) => `${window.location.origin}/mesa/${id}`;
-
-/** Imprime só a folha de QR (abre uma janela limpa, sem o restante do sistema). */
-function printQrSheet() {
-  const sheet = document.querySelector('.qr-sheet');
-  const w = window.open('', '_blank', 'width=900,height=700');
-  if (!sheet || !w) return;
-  w.document
-    .write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>QR das mesas</title>
-<style>body{font-family:system-ui,sans-serif;margin:16px}.qr-sheet{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.qr-card{border:1px dashed #999;border-radius:12px;padding:12px;text-align:center;break-inside:avoid;margin:0}
-.qr-card img{width:100%;max-width:220px}figcaption{font-size:22px;font-weight:700;margin-top:6px}</style></head>
-<body>${sheet.outerHTML}</body></html>`);
-  w.document.close();
-  // Espera as imagens carregarem; imprime uma vez só.
-  let printed = false;
-  const print = () => {
-    if (printed) return;
-    printed = true;
-    w.print();
-  };
-  w.onload = print;
-  setTimeout(print, 600);
 }
 
 function LooseTabModal({

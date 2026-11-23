@@ -113,7 +113,19 @@ comprovante grande à esquerda e, à direita, o que ele cobre, o saldo de agora,
 Aprovar (primário) / Recusar com motivo. No cardápio da mesa, a aba Garçom tem dois cartões
 grandes (bolinha da cor da loja com o ícone, título e uma linha), no jeito do resto do cardápio.
 
-Comprovante esperando (0.237) também marca a própria mesa: no Salão a mesa fica verde com o selo **Pix** no lugar do tempo; no PDV o cartão ganha contorno verde, bolinha verde e a linha "Pix para conferir". Dentro da mesa, o quadro verde suave `.tpix` fica no alto (antes dos pedidos) com a miniatura do comprovante, Recusar (ghost) e Conferir e aprovar (secondary); o primário é o Conferir Pix do rodapé.
+Comprovante esperando (0.238) também marca a própria mesa: no Salão a mesa fica verde com o selo **Pix** no lugar do tempo; no PDV o cartão ganha contorno verde, bolinha verde e a linha "Pix para conferir". Dentro da mesa, o quadro verde suave `.tpix` fica no alto (antes dos pedidos) com a miniatura do comprovante, Recusar (ghost) e Conferir e aprovar (secondary); o primário é o Conferir Pix do rodapé.
+
+## QR Code das mesas (0.237)
+
+Cartão impresso para o cliente (`features/table-qr/`, pedido do David: "mais bonito, com algum
+desenho"). É **exceção** à regra "sem enfeites": vai para a mesa, não para a tela de trabalho.
+Desenho do código puro em `qr-art.ts` (bolinhas, olhos arredondados, logo no meio com correção
+H, buraco ≤ 6% da área e margem de 4 módulos; o teste `qr-art.test.ts` lê a grade com o jsQR).
+Cartão em `em` (`table-qr-css.ts`, o mesmo CSS na prévia e na folha do `printDocument`), cores
+de `cardColors` (código no `--cm-brand-700` da marca, sempre ≥ 4,5:1 sobre o branco). Estilos
+Moderno (desenhos de comida lucide a 16%), Colorido (cartão na cor da casa, código num quadro
+branco) e Clássico (preto, quadrado, sem desenho). Mudou o cartão? Confira que ainda lê
+(desenho de fundo nunca entra no quadro branco do código).
 
 ## Modais e formulários
 
