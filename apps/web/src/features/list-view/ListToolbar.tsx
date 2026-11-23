@@ -668,7 +668,7 @@ export function ListToolbar<T>({
   lv: ListView<T>;
   searchLabel: string;
   /** O que a busca acha (ex.: "nº, cliente, telefone, mesa ou item"): vira a dica ao passar o mouse.
-   * No campo fica só "Pesquisar" (pedido do David, 0.243: mais limpo). */
+   * No campo fica só "Pesquisar" (pedido do David, 0.244: mais limpo). */
   searchHint?: string;
   /** Botões à direita das abas (ex.: atualizar). */
   actions?: ReactNode;

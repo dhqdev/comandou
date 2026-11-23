@@ -3,8 +3,9 @@
  *
  * - **Mesa** (`table`): o cliente leu o QR Code da mesa e já está sentado. Ele só escolhe, envia e
  *   acompanha; a conversa com a loja, a entrega, a retirada, a reserva, os favoritos, a fidelidade
- *   e o aviso de instalar o app ficam de fora (quem resolve qualquer coisa é o garçom). A conta do
- *   cliente só aparece quando ele escolhe pagar pelo Pix no app, que pede login.
+ *   e o aviso de instalar o app ficam de fora (quem resolve qualquer coisa é o garçom). Sem aba de
+ *   conta, mas o cliente pode entrar na conta dele (`accountLogin`): o pedido da mesa vai no nome
+ *   dele e fica no histórico. Sem conta, o celular só vê os pedidos até a conta da mesa ser paga.
  * - **Online** (`online`): entrega e retirada pelo link da loja, com tudo o que a loja ligou.
  *
  * A API (cardápio e acompanhamento do pedido) e o cardápio leem daqui, para as duas pontas nunca
@@ -16,8 +17,13 @@ export interface StoreRules {
   mode: StoreMode;
   /** Conversa com a loja (aba Conversa e "Falar com a loja" no acompanhamento). */
   chat: boolean;
-  /** Aba e botão da conta do cliente (o login do Pix na mesa continua, só pelo pagamento). */
+  /** Aba da conta do cliente nas abas do cardápio. */
   accountTab: boolean;
+  /**
+   * Entrar na conta (botão do topo e "Tem conta? Entrar" na sacola). Na mesa também: o pedido vai
+   * para a mesa no nome do cliente, sem entrega nem retirada.
+   */
+  accountLogin: boolean;
   /** Entrega e retirada (endereço, taxa, pedido mínimo, motoboy). */
   delivery: boolean;
   /** Reservar mesa. */
@@ -46,6 +52,7 @@ export function storeRules(mode: StoreMode, t: StoreToggles = {}): StoreRules {
       mode,
       chat: false,
       accountTab: false,
+      accountLogin: accounts,
       delivery: false,
       reservations: false,
       favorites: false,
@@ -57,6 +64,7 @@ export function storeRules(mode: StoreMode, t: StoreToggles = {}): StoreRules {
     mode,
     chat,
     accountTab: accounts,
+    accountLogin: accounts,
     delivery: true,
     reservations: true,
     favorites: true,
@@ -73,5 +81,7 @@ export function storeScreenAllowed(rules: StoreRules, screen: string): boolean {
   if (screen.startsWith('fidelidade')) return rules.loyalty;
   if (screen.startsWith('reservar')) return rules.reservations;
   if (screen === 'mesa' || screen.startsWith('mesa/')) return rules.tableService;
+  // Endereços salvos só servem para a entrega (na mesa não há).
+  if (screen.startsWith('conta/enderecos')) return rules.delivery;
   return true;
 }

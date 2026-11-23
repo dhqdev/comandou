@@ -1,13 +1,20 @@
 import { fromCents, qtyLabel, toCents } from '@comandou/shared';
 import { Skeleton } from '../../design-system';
-import { ChevronRight, ReceiptText } from 'lucide-react';
+import { ChevronRight, ReceiptText, UserRound } from 'lucide-react';
 import { CSSProperties, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { dateTime } from '../../features/format';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
 import { useStore } from './context';
-import { AccountOrder, recentOrders, STEP_LABEL, tableOrders } from './store';
+import {
+  AccountOrder,
+  forgetOrders,
+  isTableClosed,
+  recentOrders,
+  STEP_LABEL,
+  tableOrders,
+} from './store';
 import { OrdersArt } from './art';
 import { Photo } from './ui';
 import './table-welcome.css';
@@ -36,10 +43,15 @@ const TABLE_STEP: Record<AccountOrder['step'], string> = {
 
 /**
  * Aba "Minha mesa" do cardápio da mesa: os pedidos que este aparelho mandou para ela, com o passo
- * de cada um (atualiza sozinho) e quanto já foi pedido. Sem conta e sem histórico de outras mesas.
+ * de cada um (atualiza sozinho) e quanto já foi pedido. Sem histórico de outras mesas. Depois que
+ * a conta da mesa é paga, os pedidos saem do celular (a API não mostra mais); com a conta do
+ * cliente aberta, eles continuam no histórico dela.
  */
 function TableOrdersScreen() {
-  const { table } = useStore();
+  const { table, account, rules } = useStore();
+  const me = account?.customer ?? null;
+  // Muda quando um pedido sai do aparelho (a lista é lida de novo).
+  const [gone, setGone] = useState(0);
   const list = table ? tableOrders(table.id) : [];
   const tokens = list.map((o) => o.token).join(',');
   const [views, setViews] = useState<Record<string, TableOrderView>>({});
@@ -50,7 +62,11 @@ function TableOrdersScreen() {
       tokens.split(',').forEach((t) =>
         api<TableOrderView>(`/store/orders/${encodeURIComponent(t)}`)
           .then((v) => setViews((m) => ({ ...m, [t]: v })))
-          .catch(() => undefined),
+          .catch((e) => {
+            if (!isTableClosed(e)) return;
+            forgetOrders([t]);
+            setGone((n) => n + 1);
+          }),
       );
     load();
     const id = window.setInterval(() => document.visibilityState === 'visible' && load(), 15_000);
@@ -68,8 +84,20 @@ function TableOrdersScreen() {
       {list.length === 0 ? (
         <div className="empty-state">
           <OrdersArt live className="empty-state__art" />
-          <strong>Nada pedido ainda</strong>
-          <p>Escolha no cardápio e envie: o pedido aparece aqui com o andamento.</p>
+          {gone > 0 ? (
+            <>
+              <strong>Conta paga. Obrigado!</strong>
+              <p>
+                O que foi pedido nesta conta não fica mais neste celular.
+                {me ? ' Está guardado no histórico da sua conta.' : ''}
+              </p>
+            </>
+          ) : (
+            <>
+              <strong>Nada pedido ainda</strong>
+              <p>Escolha no cardápio e envie: o pedido aparece aqui com o andamento.</p>
+            </>
+          )}
           <Link className="cta cta--inline" to="/pedir">
             Ver o cardápio
           </Link>
@@ -119,10 +147,31 @@ function TableOrdersScreen() {
               );
             })}
           </ul>
-          <p className="form-hint tw-total__hint">
-            Para fechar a conta da mesa inteira (pedidos de outros celulares e do garçom entram nela
-            também), toque em <Link to="/pedir/mesa/conta">Fechar a conta</Link>.
-          </p>
+          {/* Atalhos da mesa: fechar a conta e (sem conta aberta) entrar para guardar. */}
+          <nav className="tw-go" aria-label="Conta da mesa">
+            <Link className="tw-go__item" to="/pedir/mesa/conta">
+              <span className="tw-go__icon tw-go__icon--bill" aria-hidden>
+                <ReceiptText size={22} />
+              </span>
+              <span className="tw-go__text">
+                <strong>Fechar a conta</strong>
+                <small>Pedidos da mesa toda</small>
+              </span>
+              <ChevronRight size={18} aria-hidden className="tw-go__chev" />
+            </Link>
+            {rules.accountLogin && !me && (
+              <Link className="tw-go__item" to="/pedir/conta">
+                <span className="tw-go__icon tw-go__icon--me" aria-hidden>
+                  <UserRound size={22} />
+                </span>
+                <span className="tw-go__text">
+                  <strong>Entrar na conta</strong>
+                  <small>Guardar no histórico</small>
+                </span>
+                <ChevronRight size={18} aria-hidden className="tw-go__chev" />
+              </Link>
+            )}
+          </nav>
           <Link className="cta cta--inline" to="/pedir">
             Pedir mais
           </Link>
@@ -143,7 +192,8 @@ function OnlineOrdersScreen() {
   const me = account?.customer;
   const [orders, setOrders] = useState<AccountOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const recent = recentOrders();
+  // Pedidos da mesa ficam na aba Minha mesa (e saem quando a conta é paga).
+  const recent = recentOrders().filter((o) => !o.tableId);
 
   useEffect(() => {
     if (!me) return;

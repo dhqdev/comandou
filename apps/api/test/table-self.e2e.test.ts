@@ -96,6 +96,8 @@ afterAll(async () => {
 describe('Mesa pelo celular: CPF, chamar o garçom e fechar a conta pelo Pix', () => {
   let table: { id: string; label: string };
   let sessionId: string;
+  /** Primeiro pedido do celular da mesa (link do acompanhamento). */
+  let first: { token: string; number: number };
   const atTable = (extra: object = {}) => ({
     channel: 'table',
     tableId: table.id,
@@ -111,12 +113,18 @@ describe('Mesa pelo celular: CPF, chamar o garçom e fechar a conta pelo Pix', (
     const noCpf = atTable({ customerCpf: undefined });
     await pub.post('/store/orders', noCpf, key()).expect(400);
     await pub.post('/store/orders', atTable({ customerCpf: '111.111.111-11' }), key()).expect(400);
-    const o = (await pub.post('/store/orders', atTable(), key()).expect(201)).body;
+    const body = atTable();
+    const o = (await pub.post('/store/orders', body, key()).expect(201)).body;
+    first = { token: body.token, number: o.number };
     const [row] = await ownerQuery<{ tax_document: string }>(
       `SELECT tax_document FROM orders WHERE tenant_id = $1 AND number = $2`,
       [fx.tenantA, o.number],
     );
     expect(row!.tax_document).toBe('52998224725');
+    // Com mesa cadastrada, o cardápio online oferece "Estou no restaurante" (o da mesa, não).
+    expect((await pub.get('/store').expect(200)).body.store.tables).toBe(true);
+    expect((await pub.get(`/store?mesa=${table.id}`).expect(200)).body.store.tables).toBe(false);
+    expect((await pub.get('/store', HOST_B).expect(200)).body.store.tables).toBe(false);
     // O garçom também lança na mesma comanda.
     const tab = (await get('adminA', '/tabs').expect(200)).body.find(
       (t: { tableId: string }) => t.tableId === table.id,
@@ -267,5 +275,22 @@ describe('Mesa pelo celular: CPF, chamar o garçom e fechar a conta pelo Pix', (
     expect(
       (await get('adminB', `/table-service/tabs/${tab.id}/receipts`).expect(200)).body,
     ).toEqual([]);
+  });
+
+  it('conta paga: o pedido some do acompanhamento do celular quando termina', async () => {
+    const [o] = await ownerQuery<{ id: string; status: string }>(
+      `SELECT id, status FROM orders WHERE tenant_id = $1 AND number = $2`,
+      [fx.tenantA, first.number],
+    );
+    // Ainda na cozinha: o cliente segue acompanhando (pode ter de buscar no balcão).
+    if (o!.status !== 'completed') {
+      await pub.get(`/store/orders/${first.token}`).expect(200);
+      if (o!.status !== 'ready')
+        await post('adminA', `/orders/${o!.id}/status`, { to: 'ready' }).expect(201);
+      await post('adminA', `/orders/${o!.id}/status`, { to: 'completed' }).expect(201);
+    }
+    const gone = await pub.get(`/store/orders/${first.token}`).expect(410);
+    expect(gone.body).toMatchObject({ code: 'table_closed' });
+    expect(JSON.stringify(gone.body)).not.toContain('X-Burguer');
   });
 });

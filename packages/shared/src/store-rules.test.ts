@@ -8,6 +8,8 @@ describe('regras de cada cardápio', () => {
       mode: 'table',
       chat: false,
       accountTab: false,
+      // Entrar na conta vale na mesa: o pedido vai para a mesa no nome do cliente.
+      accountLogin: true,
       delivery: false,
       reservations: false,
       favorites: false,
@@ -15,10 +17,19 @@ describe('regras de cada cardápio', () => {
       installHint: false,
       tableService: true,
     });
-    for (const s of ['conversa', 'favoritos', 'fidelidade', 'reservar'])
+    for (const s of ['conversa', 'favoritos', 'fidelidade', 'reservar', 'conta/enderecos'])
       expect(storeScreenAllowed(r, s)).toBe(false);
     // Produto, sacola, pedidos, a conta (login do Pix) e a aba do garçom continuam abrindo.
-    for (const s of ['', 'produto/1', 'sacola', 'pedidos', 'conta', 'mesa', 'mesa/conta'])
+    for (const s of [
+      '',
+      'produto/1',
+      'sacola',
+      'pedidos',
+      'conta',
+      'conta/dados',
+      'mesa',
+      'mesa/conta',
+    ])
       expect(storeScreenAllowed(r, s)).toBe(true);
   });
 
@@ -32,6 +43,9 @@ describe('regras de cada cardápio', () => {
     const off = storeRules('online', { chatEnabled: false, accountsEnabled: false });
     expect(off.chat).toBe(false);
     expect(off.accountTab).toBe(false);
+    expect(off.accountLogin).toBe(false);
+    expect(storeRules('table', { accountsEnabled: false }).accountLogin).toBe(false);
+    expect(storeScreenAllowed(off, 'conta/enderecos')).toBe(true);
     expect(storeScreenAllowed(off, 'conversa')).toBe(false);
     // Chamar o garçom e fechar a conta pelo celular: só no cardápio da mesa.
     expect(storeScreenAllowed(off, 'mesa')).toBe(false);

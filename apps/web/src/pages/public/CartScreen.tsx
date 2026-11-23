@@ -675,8 +675,8 @@ export function CartScreen() {
                     />
                   </Field>
                 </div>
-                {/* Na mesa não pede conta: só o Pix no app pede login (no bloco da mesa). */}
-                {rules.accountTab && (
+                {/* Na mesa a conta é opcional: com ela, o pedido fica no histórico do cliente. */}
+                {rules.accountLogin && (
                   <Link className="ck-login" to="/pedir/conta" state={{ back: 'checkout' }}>
                     <span>
                       <strong>Tem conta?</strong> Entrar

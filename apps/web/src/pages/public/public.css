@@ -192,7 +192,7 @@
 
 /* Esqueleto de carregamento: só o brilho que passa (fundo), como o .cm-bone do Design System.
    Nada de pulsar a opacidade: elemento que pulsava e era reaproveitado pelo React como o conteúdo
-   deixava a tela inteira piscando no Safari do iPhone (acompanhamento do pedido, 0.243). */
+   deixava a tela inteira piscando no Safari do iPhone (acompanhamento do pedido, 0.244). */
 .sk {
   border-radius: var(--cm-radius-md);
   background-color: var(--cm-sk-bone, var(--cm-border));
@@ -858,4 +858,23 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+/* Conta da mesa paga: o pedido saiu do celular (PublicOrderPage › TableBillEnded). */
+.order-ended h1 {
+  margin: 4px 0 0;
+  font-size: 1.25rem;
+  color: var(--cm-text);
+}
+.order-ended p {
+  margin: 0;
+  max-width: 34ch;
+}
+.order-ended__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: var(--cm-success);
+  background: var(--cm-success-bg);
 }

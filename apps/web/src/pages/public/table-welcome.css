@@ -259,6 +259,121 @@
   font-size: var(--cm-text-lg);
   font-variant-numeric: tabular-nums;
 }
-.tw-total__hint {
-  margin: 12px 0;
+
+/*
+ * Atalhos da Minha mesa (Fechar a conta, Entrar na conta) no lugar do texto. Movimento só com
+ * transform (opacidade esmaece a tela no iPhone): a conta "sai da impressora" dentro da bolinha
+ * e a cabeça do cliente acena de leve.
+ */
+.tw-go {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 14px 0 18px;
+}
+.tw-go__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 12px 10px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-r-lg);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  text-decoration: none;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+  animation: tw-go-in var(--cm-spring-dur) var(--cm-spring) both;
+}
+.tw-go__item + .tw-go__item {
+  animation-delay: 60ms;
+}
+.tw-go__item:active {
+  transform: scale(0.98);
+  transition-duration: 80ms;
+}
+@keyframes tw-go-in {
+  from {
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    transform: none;
+  }
+}
+.tw-go__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+.tw-go__icon--me {
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
+  color: var(--cm-brand-700);
+}
+.tw-go__icon svg {
+  will-change: transform;
+}
+.tw-go__icon--bill svg {
+  animation: tw-print 3.2s var(--cm-ease) infinite;
+}
+.tw-go__icon--me svg {
+  transform-origin: 50% 90%;
+  animation: tw-nod 3.2s var(--cm-ease) 1.2s infinite;
+}
+@keyframes tw-print {
+  0%,
+  8% {
+    transform: translateY(26px);
+  }
+  30%,
+  82% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-26px);
+  }
+}
+@keyframes tw-nod {
+  0%,
+  70%,
+  100% {
+    transform: rotate(0);
+  }
+  78% {
+    transform: rotate(-10deg);
+  }
+  86% {
+    transform: rotate(8deg);
+  }
+  93% {
+    transform: rotate(-3deg);
+  }
+}
+.tw-go__text {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
+}
+.tw-go__text strong {
+  font-weight: 700;
+}
+.tw-go__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.tw-go__chev {
+  flex: none;
+  color: var(--cm-text-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tw-go__item,
+  .tw-go__icon svg {
+    animation: none;
+  }
 }

@@ -853,7 +853,7 @@
   font-size: var(--cm-text-sm);
 }
 /* Carregando: o mesmo brilho que passa do .cm-bone (sem pulsar a opacidade, que no Safari do
-   iPhone pode ficar presa no elemento e fazer a tela piscar; 0.243). */
+   iPhone pode ficar presa no elemento e fazer a tela piscar; 0.244). */
 .board__skeleton {
   height: 72px;
   border-radius: var(--cm-radius-md);

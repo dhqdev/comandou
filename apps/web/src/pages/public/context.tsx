@@ -39,6 +39,8 @@ export interface StoreCtx {
   table: PublicTable | null;
   /** "Não estou nesta mesa": volta para entrega e retirada. */
   leaveTable(): void;
+  /** "Estou no restaurante": o cliente leu o QR Code da mesa e passa a pedir para ela. */
+  enterTable(tableId: string): void;
   /**
    * Mesa que confere a localização: onde o celular estava quando o cliente confirmou que está no
    * restaurante (vai junto com o pedido). null = ainda não confirmou (a confirmação aparece).
@@ -156,12 +158,14 @@ export function StoreProvider({
   refreshStatus,
   refreshMenu,
   leaveTable,
+  enterTable,
   children,
 }: {
   menu: PublicMenu;
   refreshStatus(): Promise<void>;
   refreshMenu(): Promise<void>;
   leaveTable(): void;
+  enterTable(tableId: string): void;
   children: ReactNode;
 }) {
   const [cart, setCart] = useStored<CartLine[]>('cm-cart', []);
@@ -317,6 +321,7 @@ export function StoreProvider({
     rules,
     table: menu.table ?? null,
     leaveTable,
+    enterTable,
     here,
     setHere,
     product: (id) => index.get(id),
