@@ -6,6 +6,7 @@ export * from './releases';
 export * from './plans';
 export * from './waiter';
 export * from './courier-pay';
+export * from './staff-pay';
 export * from './menu';
 export * from './fiscal';
 export * from './report-doc';

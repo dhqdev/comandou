@@ -30,6 +30,8 @@ import { StockCostsService } from '../stock/stock-costs.service';
 import { StockOpsService } from '../stock/stock-ops.service';
 import { StockSectionsController } from '../stock/stock-sections.controller';
 import { UsersController } from '../users/users.controller';
+import { StaffPayController } from '../users/staff-pay.controller';
+import { StaffPayService } from '../users/staff-pay.service';
 import { StaffAccountController } from '../users/account.controller';
 import { CashController } from '../cash/cash.controller';
 import { CashService } from '../cash/cash.service';
@@ -98,6 +100,7 @@ import { OrdersService } from './orders.service';
     FinanceCloseController,
     BankController,
     UsersController,
+    StaffPayController,
     FiscalController,
     MessagingController,
     AgendaController,
@@ -132,6 +135,7 @@ import { OrdersService } from './orders.service';
     TemplateAiService,
     DeliveryService,
     CourierPayService,
+    StaffPayService,
     ZonesService,
     GeocoderService,
     CepService,

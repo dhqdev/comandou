@@ -61,14 +61,29 @@ Acesso, só para quem entra com login. A situação sai de `features/courier-sta
 `app_seen_at`, migração 0109). A cor escolhida (`couriers.color`, 0110) vale em todo `colorOf`
 (mapa, Ao vivo e calendário do Acerto).
 
-## Equipe no celular
+## Equipe (cartões, computador e celular)
 
-`MemberCard` em `pages/TeamPage.tsx` (classes `team-mc*` em `team.css`; 0.228.3, pedido do David,
-que achou a tabela em "rótulo: valor" ruim no celular). Mesmo desenho dos cartões de Entregadores:
-avatar com a inicial em `--cm-brand-100`, nome e e-mail (ou "Entra só com o PIN"), o papel numa
-escolha na largura toda, uma linha "PIN criado/Senha · visto …" com Novo PIN/Nova senha em
-`link-btn` à direita e o rodapé cinza com **Abrir, Link e Desativar** (vermelho). Desativado:
-cartão apagado e só Reativar. No computador continua a tabela.
+`MemberCard` em `pages/TeamPage.tsx` (classes `team-mc*` em `team.css`; celular na 0.228.3 e, a
+pedido do David, também no computador desde a 0.234: nada de tabela por linhas). Grade
+`minmax(320px)`, mesmo desenho dos cartões de Entregadores: **bolinha cheia na cor da função com
+o ícone do serviço em branco** (`RoleAvatar`, `ROLE_ICON`/`ROLE_COLOR` em `features/staff-pay.tsx`,
+paleta dos entregadores: garçom laranja `HandPlatter`, cozinha vermelho `ChefHat`, caixa verde
+`Wallet`, balcão azul `Store`, entregador azul-petróleo `Bike`, gerente roxo `BriefcaseBusiness`,
+administrador âmbar `Crown`), nome e e-mail (ou "Entra só com o PIN"), a linha "**Papel** · o que
+faz" (`ROLE_HINTS`), o quadro Papel/Acesso/Visto/Ganhos com linha fina (Novo PIN/Nova senha e
+Pagar/Definir ganho em `link-btn` à direita) e o rodapé cinza com **Abrir, Link e Desativar**
+(vermelho). Desativado: cartão apagado e só Reativar. Em cima da grade, uma linha discreta com
+pessoas ativas, a pagar agora e pago no mês.
+
+**Pagamentos** (`StaffPayPanel`, `SidePanel` xl, `staff-pay.css`): mês com setas, quatro números
+numa faixa com linha fina (a pagar agora em laranja de texto), uma linha por pessoa com colunas
+fixas (quem, A receber/No mês/Já recebeu, ações de 280px) para os números alinharem; Pagar é
+`secondary` (o primário é o da janela de pagar). Entregador: só "Abrir Acerto".
+
+App do garçom: abas de baixo **Mesas, Pedidos, Perfil, Chat, Conta**; Desafios mora na Conta (botão
+com o selo do nível) e no menu lateral do tablet. Perfil (`waiter/WaiterProfile.tsx`, `wt-profile*`):
+cartão de quem é com o nível, "Vou receber" grande em `--cm-brand-700` com a conta linha a linha
+(`PayBreakdown`), números do mês em quadros 2×2 (4 no tablet), pagamentos e dias trabalhados.
 
 ## Edição do item no garçom
 

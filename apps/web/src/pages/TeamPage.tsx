@@ -6,8 +6,9 @@ import {
   ROLES,
   type Role,
 } from '@comandou/shared';
-import { ExternalLink, Hash, KeyRound, Link2, UserPlus, Users } from 'lucide-react';
+import { ExternalLink, HandCoins, Hash, KeyRound, Link2, UserPlus, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import {
   Alert,
   Badge,
@@ -20,9 +21,8 @@ import {
   Select,
   Skeleton,
 } from '../design-system';
-import { useAuth } from '../app/auth';
+import { useAuth, useCan } from '../app/auth';
 import { ACCESS_LINKS, accessUrl, openPathOf } from '../app/role-home';
-import { initials } from '../features/chat/util';
 import { copyText } from '../features/PixQr';
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
@@ -32,7 +32,16 @@ import { useLiveData } from '../lib/realtime';
 import type { Member } from '../lib/types';
 import { TourButton } from '../features/tour/PageTour';
 import { PinField, PinModal, PinReveal, pinFieldError } from '../features/StaffPin';
-import { useWide } from '../waiter/common';
+import {
+  PayModal,
+  RoleAvatar,
+  RuleModal,
+  StaffPayPanel,
+  thisMonth,
+  useStaffPay,
+  type StaffPerson,
+} from '../features/staff-pay';
+import { brl } from '../lib/money';
 import './team.css';
 
 /** Link de acesso de um papel (o da área dele; gerente e dono, o endereço do painel). */
@@ -41,20 +50,31 @@ function linkOf(role: Role): string {
   return accessUrl(area.path);
 }
 
-/** Equipe do restaurante: quem acessa, com qual papel. Só administradores alteram. */
+/**
+ * Equipe do restaurante: um cartão por pessoa, com o ícone da função dela, como entra e, para quem
+ * vê o financeiro, quanto tem a receber. O botão Pagamentos abre o painel com a conta de cada um
+ * (que sempre vai para o Financeiro). Só administradores alteram a equipe.
+ */
 export function TeamPage() {
   const toast = useToast();
   const { me } = useAuth();
-  /** Celular: um cartão por pessoa em vez da tabela virada em "rótulo: valor". */
-  const phone = !useWide(641);
+  const canSeePay = useCan('finance:read');
+  const canPay = useCan('finance:write');
   const [members, setMembers] = useState<Member[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [paying, setPaying] = useState<StaffPerson | null>(null);
+  const [ruleFor, setRuleFor] = useState<StaffPerson | null>(null);
   /** Quem vai ganhar senha nova (outra pessoa) ou 'self' (trocar a própria). */
   const [pwFor, setPwFor] = useState<Member | 'self' | null>(null);
   /** Garçom ou entregador que vai ganhar PIN novo. */
   const [pinFor, setPinFor] = useState<Member | null>(null);
-  useLinkParam('acao', (a) => a === 'pessoa' && setAdding(true));
+  useLinkParam('acao', (a) => {
+    if (a === 'pessoa') setAdding(true);
+    if (a === 'pagamentos') setPayOpen(true);
+  });
+  const pay = useStaffPay(thisMonth(), canSeePay);
 
   const load = useCallback(async () => {
     try {
@@ -77,6 +97,7 @@ export function TeamPage() {
       toast((e as Error).message, 'danger');
     }
     await load();
+    void pay.reload();
   }
 
   async function copyLink(url: string, who: string) {
@@ -84,181 +105,81 @@ export function TeamPage() {
     else toast(url);
   }
 
+  const personOf = (id: string) => pay.data?.people.find((p) => p.userId === id) ?? null;
+  const active = members?.filter((m) => m.status === 'active').length ?? 0;
+
   return (
     <>
       <div className="page-head">
         <h1 className="page-title cm-sr-only">Equipe</h1>
         <TourButton tour="equipe" />
+        {canSeePay && (
+          <Button
+            variant="secondary"
+            icon={<HandCoins size={18} />}
+            onClick={() => setPayOpen(true)}
+          >
+            Pagamentos
+          </Button>
+        )}
         <Button icon={<UserPlus size={18} />} onClick={() => setAdding(true)}>
           Adicionar pessoa
         </Button>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
-      {phone && members?.length ? (
-        <ul className="team-cards" aria-label="Pessoas da equipe">
-          {members.map((m) => (
-            <MemberCard
-              key={m.id}
-              m={m}
-              self={m.id === me?.user.id}
-              onRole={(role) => update(m, { role }, 'Papel atualizado')}
-              onStatus={(status) =>
-                update(
-                  m,
-                  { status },
-                  status === 'revoked' ? `${m.name} foi desativado` : `${m.name} foi reativado`,
-                )
-              }
-              onPin={() => setPinFor(m)}
-              onPassword={() => setPwFor(m.id === me?.user.id ? 'self' : m)}
-              onCopy={() => copyLink(linkOf(m.role as Role), m.name)}
-            />
-          ))}
-        </ul>
-      ) : (
-        <Card bodyless>
-          {members === null ? (
-            <div className="cm-card__body">
-              <Skeleton />
-            </div>
-          ) : members.length === 0 ? (
-            <EmptyState icon={<Users size={20} />} title="Ninguém na equipe ainda" />
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="cm-table">
-                <thead>
-                  <tr>
-                    <th>Pessoa</th>
-                    <th>Papel</th>
-                    <th>Como entra</th>
-                    <th>Último acesso</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {members.map((m) => {
-                    const self = m.id === me?.user.id;
-                    return (
-                      <tr key={m.id} data-search-id={`membro-${m.id}`}>
-                        <td>
-                          <strong>{m.name}</strong> {self && <Badge tone="info">você</Badge>}{' '}
-                          {m.status === 'revoked' && <Badge tone="danger">desativado</Badge>}
-                          {!isPinOnlyEmail(m.email) && <div className="cm-hint">{m.email}</div>}
-                        </td>
-                        <td>
-                          {self ? (
-                            ROLE_LABELS[m.role as Role]
-                          ) : (
-                            <Select
-                              className="cm-input"
-                              aria-label={`Papel de ${m.name}`}
-                              value={m.role}
-                              onChange={(e) =>
-                                update(m, { role: e.target.value }, 'Papel atualizado')
-                              }
-                            >
-                              {ROLES.map((r) => (
-                                <option key={r} value={r}>
-                                  {ROLE_LABELS[r]}
-                                </option>
-                              ))}
-                            </Select>
-                          )}
-                        </td>
-                        <td>
-                          {isPinRole(m.role) ? (
-                            <div className="team-access">
-                              <span className="team-access__what">
-                                <Hash size={14} aria-hidden /> PIN
-                                <span className="cm-hint">
-                                  {m.hasPin ? 'criado' : 'ainda sem PIN'}
-                                </span>
-                              </span>
-                              {!self && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setPinFor(m)}
-                                  aria-label={`${m.hasPin ? 'Novo PIN' : 'Criar PIN'} para ${m.name}`}
-                                >
-                                  {m.hasPin ? 'Novo PIN' : 'Criar PIN'}
-                                </Button>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="team-access">
-                              <span className="team-access__what">
-                                <KeyRound size={14} aria-hidden /> Senha
-                              </span>
-                              {(self || !isPinOnlyEmail(m.email)) && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setPwFor(self ? 'self' : m)}
-                                  aria-label={
-                                    self ? 'Trocar minha senha' : `Nova senha para ${m.name}`
-                                  }
-                                >
-                                  {self ? 'Trocar senha' : 'Nova senha'}
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                        <td>{m.lastSeenAt ? dateTime(m.lastSeenAt) : '—'}</td>
-                        <td className="cm-num">
-                          <div className="team-actions">
-                            {!self && m.status === 'active' && (
-                              <>
-                                <a
-                                  className="cm-btn cm-btn--ghost cm-btn--icon"
-                                  href={openPathOf(m.role as Role, m.id)}
-                                  target="_blank"
-                                  rel="noopener"
-                                  aria-label={`Abrir a tela de ${m.name}`}
-                                  title="Abrir a tela desta pessoa (com a sua conta, em outra aba)"
-                                >
-                                  <ExternalLink size={16} aria-hidden />
-                                </a>
-                                <Button
-                                  variant="ghost"
-                                  icon={<Link2 size={16} />}
-                                  onClick={() => copyLink(linkOf(m.role as Role), m.name)}
-                                  aria-label={`Copiar link de acesso de ${m.name}`}
-                                  title={`Copiar o link de acesso desta pessoa (${linkOf(m.role as Role).replace(/^https?:\/\//, '')})`}
-                                />
-                              </>
-                            )}
-                            {!self &&
-                              (m.status === 'active' ? (
-                                <Button
-                                  variant="ghost"
-                                  onClick={() =>
-                                    update(m, { status: 'revoked' }, `${m.name} foi desativado`)
-                                  }
-                                >
-                                  Desativar
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  onClick={() =>
-                                    update(m, { status: 'active' }, `${m.name} foi reativado`)
-                                  }
-                                >
-                                  Reativar
-                                </Button>
-                              ))}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+      {members && members.length > 0 && (
+        <p className="team-summary">
+          <span>
+            <b>{active}</b> {active === 1 ? 'pessoa ativa' : 'pessoas ativas'}
+          </span>
+          {pay.data && (
+            <>
+              <span>
+                A pagar agora <b>{brl(pay.data.totals.pending)}</b>
+              </span>
+              <span>
+                Pago no mês <b>{brl(pay.data.totals.monthPaid)}</b>
+              </span>
+            </>
           )}
+        </p>
+      )}
+      {members === null ? (
+        <Skeleton variant="cards" />
+      ) : members.length === 0 ? (
+        <Card>
+          <EmptyState icon={<Users size={20} />} title="Ninguém na equipe ainda" />
         </Card>
+      ) : (
+        <ul className="team-cards" aria-label="Pessoas da equipe">
+          {members.map((m) => {
+            const person = personOf(m.id);
+            return (
+              <MemberCard
+                key={m.id}
+                m={m}
+                self={m.id === me?.user.id}
+                pay={canSeePay ? person : undefined}
+                onPay={
+                  canPay && person && !person.courier
+                    ? () => (person.hasRule ? setPaying(person) : setRuleFor(person))
+                    : undefined
+                }
+                onRole={(role) => update(m, { role }, 'Papel atualizado')}
+                onStatus={(status) =>
+                  update(
+                    m,
+                    { status },
+                    status === 'revoked' ? `${m.name} foi desativado` : `${m.name} foi reativado`,
+                  )
+                }
+                onPin={() => setPinFor(m)}
+                onPassword={() => setPwFor(m.id === me?.user.id ? 'self' : m)}
+                onCopy={() => copyLink(linkOf(m.role as Role), m.name)}
+              />
+            );
+          })}
+        </ul>
       )}
       <ChangePasswordModal open={pwFor === 'self'} onClose={() => setPwFor(null)} />
       <MemberPasswordModal
@@ -272,19 +193,47 @@ export function TeamPage() {
         onDone={() => {
           setAdding(false);
           void load();
+          void pay.reload();
         }}
       />
+      {canSeePay && (
+        <StaffPayPanel open={payOpen} onClose={() => setPayOpen(false)} canPay={canPay} />
+      )}
+      {paying && (
+        <PayModal
+          person={paying}
+          onClose={() => setPaying(null)}
+          onDone={() => {
+            setPaying(null);
+            toast(`Pagamento de ${paying.name} lançado no Financeiro`, 'success');
+            void pay.reload();
+          }}
+        />
+      )}
+      {ruleFor && (
+        <RuleModal
+          person={ruleFor}
+          onClose={() => setRuleFor(null)}
+          onDone={() => {
+            setRuleFor(null);
+            void pay.reload();
+          }}
+        />
+      )}
     </>
   );
 }
 
 /**
- * Cartão de uma pessoa no celular: quem é, papel (escolha na largura toda), como entra com a troca
- * de PIN ou senha ao lado, e as ações num rodapé.
+ * Cartão de uma pessoa (computador e celular, no jeito dos cartões de Entregas › Entregadores):
+ * bolinha na cor da função com o ícone do serviço, nome e e-mail, o que a função faz; Papel,
+ * Acesso, Visto e Ganhos com linha fina; e as ações num rodapé cinza.
  */
 function MemberCard({
   m,
   self,
+  pay,
+  onPay,
   onRole,
   onStatus,
   onPin,
@@ -293,6 +242,9 @@ function MemberCard({
 }: {
   m: Member;
   self: boolean;
+  /** Ganhos da pessoa (só para quem vê o financeiro; null enquanto carrega). */
+  pay?: StaffPerson | null;
+  onPay?: () => void;
   onRole(role: string): void;
   onStatus(status: 'active' | 'revoked'): void;
   onPin(): void;
@@ -302,7 +254,7 @@ function MemberCard({
   const pin = isPinRole(m.role);
   const active = m.status === 'active';
   const email = isPinOnlyEmail(m.email) ? null : m.email;
-  const role = ROLE_LABELS[m.role as Role];
+  const role = m.role as Role;
   let change: { label: string; aria: string; run(): void } | null = null;
   if (pin && !self)
     change = {
@@ -319,9 +271,7 @@ function MemberCard({
   return (
     <li className="team-mc" data-off={active ? undefined : ''} data-search-id={`membro-${m.id}`}>
       <div className="team-mc__head">
-        <span className="team-mc__avatar" aria-hidden>
-          {initials(m.name)}
-        </span>
+        <RoleAvatar role={role} />
         <div className="team-mc__who">
           <strong>{m.name}</strong>
           <span className="team-mc__sub">{email ?? 'Entra só com o PIN, sem e-mail'}</span>
@@ -329,53 +279,104 @@ function MemberCard({
         {self && <Badge tone="info">você</Badge>}
         {!active && <Badge tone="danger">desativado</Badge>}
       </div>
-      <div className="team-mc__body">
-        {self ? (
-          <div className="team-mc__role">{role}</div>
-        ) : (
-          <Select
-            className="cm-input"
-            aria-label={`Papel de ${m.name}`}
-            value={m.role}
-            onChange={(e) => onRole(e.target.value)}
-          >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABELS[r]}
-              </option>
-            ))}
-          </Select>
-        )}
-        <div className="team-mc__access">
-          <span className="team-mc__how">
-            {pin ? <Hash size={14} aria-hidden /> : <KeyRound size={14} aria-hidden />}
-            {pin ? (m.hasPin ? 'PIN criado' : 'Sem PIN') : 'Senha'}
-            <span className="team-mc__seen">
-              {m.lastSeenAt ? `· visto ${dateTime(m.lastSeenAt)}` : '· ainda não entrou'}
-            </span>
-          </span>
-          {change && (
-            <button
-              type="button"
-              className="link-btn"
-              onClick={change.run}
-              aria-label={change.aria}
-            >
-              {change.label}
-            </button>
-          )}
+      <p className="team-mc__does">
+        <b>{ROLE_LABELS[role]}</b> · {ROLE_HINTS[role]}
+      </p>
+      <dl className="team-mc__facts">
+        <div>
+          <dt>Papel</dt>
+          <dd>
+            {self ? (
+              <span className="team-mc__role">{ROLE_LABELS[role]}</span>
+            ) : (
+              <Select
+                className="cm-input"
+                aria-label={`Papel de ${m.name}`}
+                value={m.role}
+                onChange={(e) => onRole(e.target.value)}
+              >
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </dd>
         </div>
-      </div>
+        <div>
+          <dt>Acesso</dt>
+          <dd className="team-mc__row">
+            <span className="team-mc__how">
+              {pin ? <Hash size={14} aria-hidden /> : <KeyRound size={14} aria-hidden />}
+              {pin ? (m.hasPin ? 'PIN criado' : 'Sem PIN') : 'Senha'}
+            </span>
+            {change && (
+              <button
+                type="button"
+                className="link-btn"
+                onClick={change.run}
+                aria-label={change.aria}
+              >
+                {change.label}
+              </button>
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Visto</dt>
+          <dd className="team-mc__seen">
+            {m.lastSeenAt ? dateTime(m.lastSeenAt) : 'Ainda não entrou'}
+          </dd>
+        </div>
+        {pay !== undefined && (
+          <div>
+            <dt>Ganhos</dt>
+            <dd className="team-mc__row">
+              {pay === null ? (
+                <span className="team-mc__seen">—</span>
+              ) : !pay.hasRule && Number(pay.totalPaid) === 0 ? (
+                <span className="team-mc__seen">Sem regra de pagamento</span>
+              ) : (
+                <span className="team-mc__pay">
+                  <b>{brl(pay.pending)}</b> a receber
+                  <span className="team-mc__seen">
+                    {pay.courier ? ' · pelas corridas' : ` · ${brl(pay.totalPaid)} já recebidos`}
+                  </span>
+                </span>
+              )}
+              {pay?.courier ? (
+                <Link className="link-btn" to="/entregas?aba=acerto">
+                  Acerto
+                </Link>
+              ) : (
+                onPay &&
+                active && (
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={onPay}
+                    aria-label={`${pay?.hasRule ? 'Pagar' : 'Definir ganho de'} ${m.name}`}
+                  >
+                    {pay?.hasRule ? 'Pagar' : 'Definir ganho'}
+                  </button>
+                )
+              )}
+            </dd>
+          </div>
+        )}
+      </dl>
       {!self && (
         <div className="team-mc__actions" data-one={active ? undefined : ''}>
           {active ? (
             <>
               <a
                 className="cm-btn cm-btn--ghost cm-btn--sm"
-                href={openPathOf(m.role as Role, m.id)}
+                href={openPathOf(role, m.id)}
                 target="_blank"
                 rel="noopener"
                 aria-label={`Abrir a tela de ${m.name}`}
+                title="Abrir a tela desta pessoa (com a sua conta, em outra aba)"
               >
                 <ExternalLink size={15} aria-hidden /> Abrir
               </a>
@@ -385,6 +386,7 @@ function MemberCard({
                 icon={<Link2 size={15} />}
                 onClick={onCopy}
                 aria-label={`Copiar link de acesso de ${m.name}`}
+                title={`Copiar o link de acesso desta pessoa (${linkOf(role).replace(/^https?:\/\//, '')})`}
               >
                 Link
               </Button>

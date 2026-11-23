@@ -58,6 +58,7 @@ test('garçom: cadastro só com nome em Equipe e entrada pelo PIN', async ({
     await expectNoHorizontalScroll(w, [
       '/garcom/mesas',
       '/garcom/pedidos',
+      '/garcom/perfil',
       '/garcom/desafios',
       '/garcom/pedido',
     ]);
@@ -68,6 +69,15 @@ test('garçom: cadastro só com nome em Equipe e entrada pelo PIN', async ({
     // Cadastrado só com PIN: a conta não oferece "Trocar senha".
     await w.getByRole('button', { name: 'Conta' }).click();
     await expect(w.getByRole('button', { name: 'Trocar senha' })).toHaveCount(0);
+    // Desafios saíram das abas de baixo e ficam dentro da Conta.
+    await expect(w.locator('.wt-tabs').getByRole('link', { name: 'Desafios' })).toHaveCount(0);
+    await w.getByRole('button', { name: /^Desafios/ }).click();
+    await expect(w.getByRole('heading', { name: 'Desafios', exact: true })).toBeVisible();
+    // Perfil: quanto vai receber (sem regra cadastrada, o aviso para falar com o gerente).
+    await w.locator('.wt-tabs').getByRole('link', { name: 'Perfil' }).click();
+    await expect(w.getByRole('heading', { name: 'Meu perfil' })).toBeVisible();
+    await expect(w.getByText('Vou receber')).toBeVisible();
+    await w.screenshot({ path: shot(`${label}-garcom-perfil`) });
     await ctx.close();
   }
 });

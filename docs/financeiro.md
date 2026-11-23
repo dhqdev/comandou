@@ -27,6 +27,31 @@ Venda no PDV ──► Caixa ──fechar──► Recebíveis (finance_settleme
 3. Caixas fechados **antes** desta versão aparecem em Fechamentos como "Falta lançar", com o
    botão **Lançar no financeiro** (`POST /finance/closings/:sessionId/post`).
 
+## Pagamento da equipe (0.234)
+
+Equipe › **Pagamentos** (`features/staff-pay.tsx`, API `users/staff-pay.service.ts`, regra em
+`packages/shared/src/staff-pay.ts`) paga todo mundo menos o entregador, que segue no Acerto de
+Entregas (`courier-pay.service.ts`; o painel só mostra o que falta pagar a ele e leva ao Acerto).
+
+1. **Como a pessoa ganha** (`staff_pay_profiles.rule`): salário fixo do mês (proporcional aos dias
+   do período, mês inteiro = salário inteiro, `prorateMonthly`), diária por dia trabalhado, % das
+   vendas (itens com desconto, `subtotal - discount`) e % da taxa de serviço (`surcharge`) dos
+   pedidos que ela lançou (`orders.created_by`, menos os cancelados). Tudo somado (`staffPay`).
+2. **Dia trabalhado** (`staff_workdays`): gravado pela sessão no login e no toque de 1 minuto da
+   `SessionService.validate` (`users/workdays.ts`, num SAVEPOINT: se falhar, a sessão segue).
+   Acesso do suporte não conta. Ao pagar, o gerente pode corrigir os dias.
+3. **A pagar**: do dia seguinte ao último período pago (ou do começo do mês / da entrada na
+   equipe) até hoje. O mesmo período nunca é pago duas vezes (trava consultiva por pessoa e
+   `from > último period_to`).
+4. **Pagar sempre lança no Financeiro** (categoria Salários): pago hoje (com a forma) ou conta a
+   pagar com vencimento. Cancelar esse lançamento no Financeiro desfaz o pagamento: o período
+   volta a ficar em aberto (os somatórios ignoram pagamento com lançamento cancelado).
+5. **App do garçom › Perfil** (`GET /staff-pay/me`, sem permissão: cada um vê só o seu): quanto
+   vai receber, os números do mês, os dias trabalhados e os pagamentos recebidos.
+
+Tabelas (migração 0112): `staff_workdays`, `staff_pay_profiles`, `staff_payouts` (com
+`finance_entry_id` obrigatório), todas com `tenant_id` e RLS. Teste: `test/staff-pay.e2e.test.ts`.
+
 ## Visão geral, gráficos e leituras do mês (0.159)
 
 A aba **Visão geral** abre primeiro e não tem API própria: junta o que as outras abas já pedem

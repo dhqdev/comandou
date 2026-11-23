@@ -1,0 +1,247 @@
+/* Pagamentos da equipe (Equipe › Pagamentos) e a bolinha com o ícone da função de cada pessoa. */
+
+/* Bolinha cheia na cor da função (como o avatar dos entregadores), ícone em branco. */
+.role-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--role);
+  color: #fff;
+}
+
+.sp-head {
+  display: grid;
+  gap: 2px;
+}
+.sp-head__sub {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 400;
+}
+
+.sp-month {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.sp-month strong {
+  min-width: 150px;
+  text-align: center;
+}
+
+/* Quatro números do mês, separados por linha fina. */
+.sp-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: 0 0 18px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+}
+.sp-totals div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+}
+.sp-totals div + div {
+  border-left: 1px solid var(--cm-border);
+}
+.sp-totals dt {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.sp-totals dd {
+  margin: 0;
+  font-size: var(--cm-text-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sp-totals div:first-child dd {
+  color: var(--cm-brand-700);
+}
+
+.sp-people {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+.sp-person {
+  display: grid;
+  /* Colunas fixas: os números ficam alinhados de uma pessoa para a outra. */
+  grid-template-columns: minmax(0, 1.3fr) minmax(300px, 1.5fr) 280px;
+  align-items: center;
+  gap: 12px 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+}
+.sp-person[data-off] {
+  background: var(--cm-surface-muted);
+  opacity: 0.7;
+}
+.sp-person__who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.sp-person__who > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.sp-person__who strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sp-person__role {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.sp-person__nums {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 0;
+}
+.sp-person__nums div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.sp-person__nums dt {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.sp-person__nums dd {
+  display: grid;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.sp-person__nums dd[data-strong] {
+  font-size: var(--cm-text-lg);
+  font-weight: 700;
+}
+.sp-person__nums small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 400;
+}
+.sp-person__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@media (max-width: 900px) {
+  .sp-person {
+    grid-template-columns: 1fr;
+  }
+  .sp-person__actions {
+    justify-content: stretch;
+  }
+  .sp-person__actions > * {
+    flex: 1;
+    justify-content: center;
+  }
+  .sp-totals div + div {
+    border-left: 0;
+    border-top: 1px solid var(--cm-border);
+  }
+}
+
+.sp-recent h3 {
+  margin: 0 0 8px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.sp-payouts {
+  display: grid;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+.sp-payouts li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 2px;
+}
+.sp-payouts li + li {
+  border-top: 1px solid var(--cm-border);
+}
+.sp-payouts li > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.sp-payouts li[data-cancelled] {
+  opacity: 0.6;
+}
+.sp-payouts li[data-cancelled] .sp-payouts__value {
+  text-decoration: line-through;
+}
+.sp-payouts__value {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Conta do pagamento, linha a linha. */
+.sp-breakdown {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  padding: 4px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+}
+.sp-breakdown > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: var(--cm-text-sm);
+}
+.sp-breakdown > div + div {
+  border-top: 1px solid var(--cm-border);
+}
+.sp-breakdown dt {
+  margin: 0;
+  color: var(--cm-text-muted);
+}
+.sp-breakdown dd {
+  margin: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.sp-breakdown__total dt,
+.sp-breakdown__total dd {
+  color: var(--cm-text);
+  font-size: var(--cm-text-md);
+  font-weight: 700;
+}
+
+.sp-when {
+  display: grid;
+  gap: 6px;
+}
+.sp-example {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+  font-weight: 600;
+}

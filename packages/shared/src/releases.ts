@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.234.0',
+    date: '2026-11-22',
+    title: 'Pagamento da equipe e perfil do garçom',
+    summary:
+      'A Equipe virou cartões com o ícone da função de cada pessoa e ganhou o botão Pagamentos: quanto cada um tem a receber, quanto já recebeu e o pagamento que cai sempre no Financeiro. O garçom ganhou a aba Perfil, com quanto vai receber, e os Desafios passaram para a Conta.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Equipe › Pagamentos: cadastre como cada pessoa ganha (salário do mês, diária, comissão sobre as vendas e parte da taxa de serviço dos pedidos que ela lançou) e veja quanto ela tem a receber agora, quanto recebeu no mês e no total.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pagar alguém lança na hora em Financeiro › Salários, como conta paga ou agendada para um dia. O mesmo período não é pago duas vezes, e cancelar o lançamento agendado no Financeiro reabre o período.',
+      },
+      {
+        tag: 'novo',
+        text: 'As diárias contam sozinhas os dias em que a pessoa entrou no sistema; ao pagar, dá para corrigir o número de dias e lançar bônus ou vale.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Equipe em cartões, no computador e no celular, com o ícone e a cor da função de cada pessoa (garçom, cozinha, caixa, balcão, entregador, gerente e administrador) e quanto ela tem a receber.',
+      },
+      {
+        tag: 'novo',
+        text: 'App do garçom: aba Perfil com quanto vai receber desde o último pagamento, a conta linha a linha, os números do mês, os dias trabalhados e os pagamentos recebidos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'App do garçom: Desafios saíram das abas de baixo e ficam dentro da Conta (e no menu lateral, no tablet).',
+      },
+    ],
+  },
+  {
     version: '0.233.4',
     date: '2026-11-22',
     title: 'Busca do Salão maior',

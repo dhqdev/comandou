@@ -1,7 +1,9 @@
 import { isPinOnlyEmail, waiterLevel } from '@comandou/shared';
 import {
+  ChevronRight,
   CircleUserRound,
   ClipboardList,
+  IdCard,
   KeyRound,
   LayoutGrid,
   LogOut,
@@ -9,7 +11,7 @@ import {
   MessagesSquare,
 } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect, useState } from 'react';
-import { Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router';
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { Modal, ThemeToggle } from '../design-system';
 import { useAuth } from '../app/auth';
 import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
@@ -23,6 +25,7 @@ import { Seal, WaiterStats, WaiterStatsContext } from './common';
 import { WaiterChallenges } from './WaiterChallenges';
 import { WaiterOrder } from './WaiterOrder';
 import { WaiterOrders } from './WaiterOrders';
+import { WaiterProfile } from './WaiterProfile';
 import { WaiterTab } from './WaiterTab';
 import { WaiterTables } from './WaiterTables';
 import './waiter.css';
@@ -30,19 +33,21 @@ import './waiter.css';
 const NAV = [
   { to: '/garcom/mesas', label: 'Mesas', long: 'Mesas e comandas', icon: <LayoutGrid /> },
   { to: '/garcom/pedidos', label: 'Pedidos', long: 'Meus pedidos', icon: <ClipboardList /> },
-  { to: '/garcom/desafios', label: 'Desafios', long: 'Desafios', icon: <Medal /> },
+  { to: '/garcom/perfil', label: 'Perfil', long: 'Meu perfil', icon: <IdCard /> },
 ];
 
 /**
  * App do garçom (/garcom), no molde do Anota AI e do PedidoJá: só o que o garçom usa no salão.
  * Mapa de mesas e comandas, lançar pedido (mesa, comanda, delivery ou para levar), pedir a
- * conta, transferir mesa, acompanhar os próprios pedidos e os desafios com selos. Sem caixa,
- * desconto, cancelamento direto, relatórios ou configurações (o servidor também bloqueia).
- * Celular: abas embaixo. Notebook/tablet: menu fixo à esquerda.
+ * conta, transferir mesa, acompanhar os próprios pedidos, o perfil (quanto vai receber) e os
+ * desafios com selos (dentro da Conta). Sem caixa, desconto, cancelamento direto, relatórios ou
+ * configurações (o servidor também bloqueia).
+ * Celular: abas embaixo (Mesas, Pedidos, Perfil, Chat, Conta). Notebook/tablet: menu à esquerda.
  */
 export function WaiterApp() {
   const { me, logout } = useAuth();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const online = useOnline();
   const live = useRealtimeStatus();
   const [stats, setStats] = useState<WaiterStats | null>(null);
@@ -105,6 +110,9 @@ export function WaiterApp() {
             ))}
           </nav>
           <div className="wt-side__foot">
+            <NavLink to="/garcom/desafios" className="wt-side__link">
+              <Medal /> Desafios
+            </NavLink>
             <div className="wt-side__row">
               <span>Tema</span>
               <ThemeToggle />
@@ -147,6 +155,7 @@ export function WaiterApp() {
             <Route path="pedido" element={<WaiterOrder />} />
             <Route path="comanda/:id" element={<WaiterTab />} />
             <Route path="pedidos" element={<WaiterOrders />} />
+            <Route path="perfil" element={<WaiterProfile />} />
             <Route path="desafios" element={<WaiterChallenges />} />
             <Route path="*" element={<Navigate to="/garcom/mesas" replace />} />
           </Routes>
@@ -200,6 +209,25 @@ export function WaiterApp() {
               </span>
             </span>
           </div>
+          {/* Desafios saíram das abas de baixo: ficam aqui, com o nível de agora. */}
+          <button
+            type="button"
+            className="wt-account__challenges"
+            aria-label={`Desafios: nível ${level.seal.name}, ${stats?.totalOrders ?? 0} pedidos`}
+            onClick={() => {
+              setAccount(false);
+              navigate('/garcom/desafios');
+            }}
+          >
+            <Seal seal={level.seal} earned size={32} />
+            <span>
+              <strong>Desafios</strong>
+              <span className="cm-hint">
+                Nível {level.seal.name} · {stats?.totalOrders ?? 0} pedidos
+              </span>
+            </span>
+            <ChevronRight size={18} aria-hidden />
+          </button>
           <div className="wt-side__row">
             <span>Tema</span>
             <ThemeToggle />

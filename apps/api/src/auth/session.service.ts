@@ -6,6 +6,7 @@ import { ENV, Env } from '../config/env';
 import { DatabaseService, Tx } from '../database/database.service';
 import { memberships, sessions, users } from '../database/schema';
 import type { AuthenticatedUser } from '../tenancy/tenant.types';
+import { markWorkday } from '../users/workdays';
 
 export const SESSION_COOKIE = 'cm_sid';
 
@@ -63,6 +64,7 @@ export class SessionService {
       supportAdminName: meta.supportAdminName ?? null,
       remember,
     });
+    if (!meta.supportAdminName) await markWorkday(tx, tenantId, userId);
     return { token, expiresAt };
   }
 
@@ -122,6 +124,8 @@ export class SessionService {
               : { lastSeenAt: new Date() },
           )
           .where(eq(sessions.id, row.sessionId));
+        // Dia de trabalho da pessoa (diárias em Equipe › Pagamentos). Acesso do suporte não conta.
+        if (!row.supportAdminName) await markWorkday(tx, tenantId, row.userId);
       }
       return {
         renewedUntil,

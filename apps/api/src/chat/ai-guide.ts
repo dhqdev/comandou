@@ -230,7 +230,7 @@ ${news}`;
 /** Apps próprios de cada papel, com os caminhos que existem neles. */
 const OWN_APPS: Partial<Record<Role, string>> = {
   waiter:
-    '- Mesas (/garcom/mesas): mapa do salão; tocar na mesa abre a comanda para lançar itens (item vendido por peso pede o peso da balança), pedir a conta, transferir e pedir cancelamento (o caixa aprova).\n- Meus pedidos (/garcom/pedidos): os pedidos que você lançou e o andamento.\n- Desafios (/garcom/desafios): metas e selos do garçom.\nReceber, dar desconto e fechar a conta ficam com o caixa.',
+    '- Mesas (/garcom/mesas): mapa do salão; tocar na mesa abre a comanda para lançar itens (item vendido por peso pede o peso da balança), pedir a conta, transferir e pedir cancelamento (o caixa aprova).\n- Meus pedidos (/garcom/pedidos): os pedidos que você lançou e o andamento.\n- Meu perfil (/garcom/perfil): quanto você vai receber desde o último pagamento (salário, diárias, comissão e taxa de serviço, pela regra que o restaurante cadastrou), os números do mês, os dias trabalhados e os pagamentos recebidos.\n- Desafios (/garcom/desafios, dentro de Conta): metas e selos do garçom.\nReceber, dar desconto e fechar a conta ficam com o caixa.',
   kitchen:
     '- Cozinha (/cozinha): fila de preparo por setor; tocar no item começa o preparo e marca pronto.',
   driver:
