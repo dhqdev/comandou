@@ -891,7 +891,9 @@ export function OrderDetailModal({
               )}
             </div>
 
-            {order.payOnline && <OnlineCharges order={order} onDone={(o) => setOrder(o)} />}
+            {(order.payOnline || !!order.onlineCharges?.length) && (
+              <OnlineCharges order={order} onDone={(o) => setOrder(o)} />
+            )}
 
             {order.pixStatus && (
               <section className="od-block od-card">

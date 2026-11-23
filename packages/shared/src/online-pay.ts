@@ -29,6 +29,11 @@ export const ONLINE_PAY_LABELS: Record<OnlinePayMethod, string> = {
 export const MAX_CARD_ATTEMPTS = 3;
 /** Pedido pago pelo app sem pagamento depois disso é cancelado sozinho (o Pix vence junto). */
 export const ONLINE_PAY_WINDOW_MINUTES = 20;
+/**
+ * Conta da mesa pelo app: o QR Code do Pix vale isso. Enquanto ele espera, ninguém cobra a
+ * comanda de outro jeito; menos tempo trava menos a mesa se o cliente desistir.
+ */
+export const TABLE_PAY_PIX_MINUTES = 10;
 /** Teto da taxa da Comandou: nunca mais que metade do pagamento. */
 export const MAX_FEE_SHARE = 0.5;
 

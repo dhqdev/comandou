@@ -238,3 +238,18 @@
   justify-content: center;
   min-height: 50px;
 }
+
+/* Conta da mesa pelo PagBank: formulário do Pix automático e do cartão, e "pagar de outro jeito". */
+.tsv-pay .pills {
+  margin-bottom: 10px;
+}
+.tsv-app .opay__fields:first-child {
+  margin-top: 0;
+}
+.tsv-pay__other {
+  justify-self: center;
+  margin-top: 8px;
+}
+.tsv-pay {
+  display: grid;
+}

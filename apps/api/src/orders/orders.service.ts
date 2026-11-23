@@ -396,17 +396,22 @@ export class OrdersService {
       `SELECT pay_online AS "payOnline" FROM orders WHERE id = $1`,
       [id],
     );
-    const onlineCharges = online?.payOnline
-      ? await q(
-          tx,
-          `SELECT id, method, status, amount::text, fee_amount::text AS "feeAmount",
+    // Pedido de mesa: também a conta inteira paga pelo app no celular (cobrança da comanda).
+    const onlineCharges =
+      online?.payOnline || o.tabId
+        ? await q(
+            tx,
+            `SELECT id, method, status, amount::text, fee_amount::text AS "feeAmount",
                   refunded_amount::text AS "refundedAmount", card_brand AS "cardBrand",
                   card_last4 AS "cardLast4", decline_reason AS "declineReason",
-                  payment_id AS "paymentId", created_at AS "createdAt", paid_at AS "paidAt"
-             FROM online_charges WHERE order_id = $1 ORDER BY created_at`,
-          [id],
-        )
-      : [];
+                  payment_id AS "paymentId", tab_id IS NOT NULL AS "forTab", applied::text,
+                  created_at AS "createdAt", paid_at AS "paidAt"
+             FROM online_charges
+            WHERE order_id = $1 OR (tab_id IS NOT NULL AND tab_id = $2::uuid)
+            ORDER BY created_at`,
+            [id, o.tabId ?? null],
+          )
+        : [];
     // Aplicativo de delivery: dados do canal e as ações enviadas a ele (enviando, enviado, falhou).
     const app = o.appChannel
       ? {

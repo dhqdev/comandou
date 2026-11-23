@@ -1377,6 +1377,10 @@ export interface OnlineCharge {
   declineReason: string | null;
   paymentId: string | null;
   lastError?: string | null;
+  /** Conta inteira da mesa paga pelo celular (cobrança da comanda, não só deste pedido). */
+  forTab?: boolean;
+  /** Conta da mesa: quanto entrou nos pedidos ao lançar no caixa. */
+  applied?: string | null;
   createdAt: string;
   paidAt: string | null;
 }

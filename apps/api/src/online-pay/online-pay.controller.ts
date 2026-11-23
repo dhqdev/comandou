@@ -54,13 +54,13 @@ export function validCpf(d: string): boolean {
   return dv(9) === Number(d[9]) && dv(10) === Number(d[10]);
 }
 
-const Cpf = z
+export const Cpf = z
   .string()
   .transform((v) => v.replace(/\D/g, ''))
   .refine(validCpf, 'CPF inválido');
-const Email = z.string().trim().toLowerCase().email().max(254);
+export const Email = z.string().trim().toLowerCase().email().max(254);
 
-const PayCard = z.object({
+export const PayCard = z.object({
   /** Cartão cifrado no celular pelo SDK do PagBank (o número nunca chega aqui). */
   encryptedCard: z.string().min(100).max(4000),
   holderName: z
@@ -72,7 +72,7 @@ const PayCard = z.object({
   cpf: Cpf,
   email: Email,
 });
-const PayPix = z.object({ cpf: Cpf, email: Email });
+export const PayPix = z.object({ cpf: Cpf, email: Email });
 
 const Update = z
   .object({

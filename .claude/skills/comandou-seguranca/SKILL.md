@@ -50,7 +50,10 @@ cookie, CSRF, corpo gigante e Host estranho.
   Exceção revisada: a mesa do QR Code (`/store/table/:tableId/...`, 0.235, e o pedido pela mesa).
   O id da mesa (uuid do QR colado nela) é a chave; a conta pública mostra só itens e valores da
   comanda aberta (nada de nome, CPF ou telefone), o chamado segue a conferência de localização da
-  loja e o comprovante só vira dinheiro depois que o caixa aprova.
+  loja e o comprovante só vira dinheiro depois que o caixa aprova. Pagar a conta pelo PagBank
+  (`pay/pix`, `pay/card`, `pay/cancel`, 0.236) segue a mesma conferência, cobra só o saldo do banco
+  igual ao `amount` que o cliente viu, não grava CPF/e-mail e trava a comanda no máximo 10 minutos
+  (qualquer um na mesa solta; o que for pago depois sem saldo é devolvido sozinho).
 - `@SkipTenant()` desliga a sessão também: só com `PlatformHostGuard` + `PlatformSessionGuard`
   (painel) ou token próprio conferido **antes** de ler o corpo (`bearerMatches`, tempo constante).
 - `@SkipCsrf()` só para webhook de terceiro com token ou assinatura.

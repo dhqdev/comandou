@@ -7,14 +7,14 @@ import {
 } from '@nestjs/common';
 import { fromCents, toCents } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
-import { CashService } from '../cash/cash.service';
+import { assertNoTabOnlinePending, CashService } from '../cash/cash.service';
 import { Ctx, onlineCtx } from '../common/context';
 import { withIdempotency } from '../common/idempotency';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
-import { ON_ACCOUNT_SQL, OrderRow, OrdersService } from '../orders/orders.service';
+import { OnlinePayService, Payer, TablePay } from '../online-pay/online-pay.service';
+import { ON_ACCOUNT_SQL, OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
-import { completeSeatedForTab } from '../reservations/seated';
 import {
   publicPix,
   StoreService,
@@ -22,6 +22,7 @@ import {
   tablePresenceOf,
   UUID_RE,
 } from '../store/store.service';
+import { closeTabIfDoneIn, payTabOrdersIn, tabDueOf, tabOrdersIn } from './tab-settle';
 
 /** Comprovantes da conta da mesa: além disso, o caixa resolve com o cliente. */
 export const MAX_TAB_RECEIPTS = 5;
@@ -39,17 +40,6 @@ interface TabRow {
   status: string;
   table_id: string | null;
 }
-type TabOrder = OrderRow & { pix_status: string | null; on_account: boolean };
-
-const ORDER_COLS = `o.id, o.number, o.channel, o.status, o.total::text, o.subtotal::text,
-  o.discount::text, o.surcharge::text, o.delivery_fee::text, o.paid_amount::text,
-  o.payment_status, o.tab_id, o.version, o.pix_status, ${ON_ACCOUNT_SQL} AS on_account`;
-
-/** Saldo que a conta da mesa cobra (sem o fiado e o "a receber", que são cobrados à parte). */
-const dueOf = (orders: TabOrder[]) =>
-  orders
-    .filter((o) => o.status !== 'cancelled' && !o.on_account)
-    .reduce((s, o) => s + Math.max(0, toCents(o.total) - toCents(o.paid_amount)), 0);
 
 /**
  * Cliente sentado, pelo cardápio do QR Code da mesa: chama o garçom e fecha a conta sozinho.
@@ -70,6 +60,7 @@ export class TableSelfService {
     private readonly store: StoreService,
     private readonly cash: CashService,
     private readonly orders: OrdersService,
+    private readonly onlinePay: OnlinePayService,
   ) {}
 
   // ------------------------------------------------------------------ cliente (público)
@@ -94,15 +85,6 @@ export class TableSelfService {
     );
   }
 
-  private tabOrdersIn(tx: Tx, tabId: string, lock = false) {
-    return q<TabOrder>(
-      tx,
-      `SELECT ${ORDER_COLS} FROM orders o WHERE o.tab_id = $1 ORDER BY o.created_at, o.id
-        ${lock ? 'FOR UPDATE' : ''}`,
-      [tabId],
-    );
-  }
-
   /** Loja com o cardápio ligado (e a conferência de que o celular está no restaurante). */
   private async storeFor(tx: Tx, presence?: Presence) {
     const s = await this.store.settingsIn(tx);
@@ -124,8 +106,13 @@ export class TableSelfService {
   /**
    * Conta da mesa para o cliente: itens, taxa de serviço, total, pago e saldo da comanda aberta,
    * as formas de pagar que a loja ligou, o último comprovante e o chamado aberto.
+   *
+   * Formas de pagar pelo celular (as que o admin liberou): o Pix com comprovante (`methods.pix`)
+   * e o PagBank conectado (`methods.pixAuto` = Pix que confirma sozinho, `methods.card`). Como
+   * no cardápio online, o Pix do PagBank fica no lugar do Pix com comprovante.
    */
-  bill(tenantId: string, tableId: string) {
+  async bill(tenantId: string, tableId: string) {
+    const offer = await this.onlinePay.offer(tenantId).catch(() => null);
     return this.db.withTenant({ tenantId }, async (tx) => {
       const s = await this.store.settingsIn(tx);
       if (!s.enabled) throw new NotFoundException('Cardápio online desativado');
@@ -136,13 +123,16 @@ export class TableSelfService {
           WHERE table_id = $1 AND status = 'open'`,
         [tableId],
       );
-      const pix = publicPix(s);
+      const storePix = publicPix(s);
+      const manualPix = !!storePix && !offer?.pix;
       const tab = await this.openTabIn(tx, tableId);
       const base = {
         table: { id: table.id, label: table.label },
         call: call ?? null,
-        methods: { pix: !!pix },
-        pix,
+        methods: { pix: manualPix, pixAuto: !!offer?.pix, card: !!offer?.card },
+        pix: manualPix ? storePix : null,
+        /** Chave pública do cartão e o ambiente (o cartão é cifrado no celular). */
+        pagbank: offer ? { publicKey: offer.publicKey, env: offer.env } : null,
       };
       if (!tab)
         return {
@@ -155,8 +145,9 @@ export class TableSelfService {
           due: '0.00',
           awaiting: 0,
           receipt: null,
+          online: null,
         };
-      const orders = await this.tabOrdersIn(tx, tab.id);
+      const orders = await tabOrdersIn(tx, tab.id);
       const live = orders.filter((o) => o.status !== 'cancelled');
       const items = await q<{ name: string; quantity: string; unit: string; total: string }>(
         tx,
@@ -179,16 +170,19 @@ export class TableSelfService {
           ORDER BY created_at DESC LIMIT 1`,
         [tab.id],
       );
-      const sum = (f: (o: TabOrder) => string) =>
+      const online = await this.onlinePay.tabPublicViewIn(tx, tab.id);
+      const sum = (f: (o: (typeof live)[number]) => string) =>
         fromCents(live.reduce((n, o) => n + toCents(f(o)), 0));
+      // Pago pelo app e ainda fora do caixa: para o cliente a conta já está paga.
+      const outside = toCents(online.paidOutside);
       return {
         ...base,
         open: true,
         items,
         serviceFee: sum((o) => o.surcharge),
         total: sum((o) => o.total),
-        paid: sum((o) => o.paid_amount),
-        due: fromCents(dueOf(orders)),
+        paid: fromCents(toCents(sum((o) => o.paid_amount)) + outside),
+        due: fromCents(Math.max(0, tabDueOf(orders) - outside)),
         /** Pedidos do celular ainda esperando a loja aceitar: não se paga antes. */
         awaiting: live.filter((o) => o.status === 'awaiting').length,
         receipt: receipt
@@ -199,8 +193,55 @@ export class TableSelfService {
               at: receipt.createdAt,
             }
           : null,
+        online,
       };
     });
+  }
+
+  /**
+   * Paga a conta inteira da mesa pelo PagBank (Pix automático ou cartão), sem a conta do cliente:
+   * o CPF e o e-mail de quem paga vão só para o PagBank. Mesma conferência de localização do
+   * chamado (gerar o Pix trava cobrar a mesa de outro jeito até ele vencer).
+   */
+  async payTab(
+    tenantId: string,
+    tableId: string,
+    b: (
+      | { method: 'card'; encryptedCard: string; holderName: string }
+      | { method: 'pix'; name: string }
+    ) & { cpf: string; email: string; amount: string; presence?: Presence },
+    baseUrl: string,
+    ip?: string,
+  ) {
+    const table = await this.db.withTenant({ tenantId }, async (tx) => {
+      await this.storeFor(tx, b.presence);
+      return this.tableIn(tx, tableId);
+    });
+    const payer: Payer = {
+      name: b.method === 'card' ? b.holderName : b.name,
+      email: b.email,
+      taxId: b.cpf,
+      phone: '',
+    };
+    const p: TablePay =
+      b.method === 'card'
+        ? {
+            method: 'card',
+            encryptedCard: b.encryptedCard,
+            holderName: b.holderName,
+            payer,
+            amount: b.amount,
+          }
+        : { method: 'pix', payer, amount: b.amount };
+    await this.onlinePay.payTab(tenantId, table, p, baseUrl, ip);
+    return this.bill(tenantId, tableId);
+  }
+
+  /** "Pagar de outro jeito": o Pix gerado deixa de valer e a mesa paga com o garçom. */
+  async cancelTabPix(tenantId: string, tableId: string) {
+    await this.db.withTenant({ tenantId }, (tx) => this.tableIn(tx, tableId));
+    await this.onlinePay.cancelTabPix(tenantId, tableId);
+    return this.bill(tenantId, tableId);
   }
 
   /** "Chamar o garçom" (ou "pagar com o garçom"): um chamado aberto por mesa. */
@@ -281,13 +322,19 @@ export class TableSelfService {
       await this.tableIn(tx, tableId);
       const tab = await this.openTabIn(tx, tableId, true);
       if (!tab) throw new ConflictException('Esta mesa não tem conta aberta');
-      const orders = await this.tabOrdersIn(tx, tab.id, true);
+      const orders = await tabOrdersIn(tx, tab.id, true);
       const waiting = orders.find((o) => o.status === 'awaiting');
       if (waiting)
         throw new ConflictException(
           `O pedido #${waiting.number} ainda espera a loja aceitar. Pague depois que ele for aceito.`,
         );
-      const due = dueOf(orders);
+      // Pagando pelo PagBank agora (ou já pago por ele): mandar comprovante cobraria duas vezes.
+      await assertNoTabOnlinePending(tx, tab.id).catch(() => {
+        throw new ConflictException(
+          'Esta mesa já está pagando a conta pelo app. Espere confirmar ou chame o garçom.',
+        );
+      });
+      const due = tabDueOf(orders);
       if (due <= 0) throw new ConflictException('A conta desta mesa já está paga');
       const n = await one<{ n: number }>(
         tx,
@@ -472,7 +519,7 @@ export class TableSelfService {
             `SELECT id, number, status, table_id FROM tabs WHERE id = $1 FOR UPDATE`,
             [tabId],
           );
-          const orders = await this.tabOrdersIn(tx, tabId, true);
+          const orders = await tabOrdersIn(tx, tabId, true);
           const r = await this.lockReceipt(tx, id);
           if (!tab || tab.status !== 'open')
             throw new ConflictException(
@@ -483,27 +530,19 @@ export class TableSelfService {
             throw new ConflictException(
               `O pedido #${waiting.number}, feito pelo cliente no celular, ainda espera aceite. Aceite ou recuse antes de aprovar o Pix.`,
             );
-          const due = dueOf(orders);
+          const due = tabDueOf(orders);
           if (due <= 0)
             throw new ConflictException(
               'A conta da mesa já está paga. Recuse este comprovante e, se o Pix caiu, devolva o valor ao cliente.',
             );
-          let left = Math.min(toCents(r.amount), due);
-          const applied = left;
-          for (const o of orders) {
-            if (left === 0) break;
-            if (o.status === 'cancelled' || o.on_account) continue;
-            const open = toCents(o.total) - toCents(o.paid_amount);
-            if (open <= 0) continue;
-            const part = Math.min(open, left);
-            await this.cash.applyPayment(tx, ctx, o, {
-              cashSessionId,
-              method: 'pix',
-              amountCents: part,
-            });
-            touched.push(o.id);
-            left -= part;
-          }
+          // A mesa pagando pelo PagBank agora: aprovar o comprovante cobraria duas vezes.
+          await assertNoTabOnlinePending(tx, tabId);
+          const { applied, payments } = await payTabOrdersIn(tx, ctx, this.cash, orders, {
+            cashSessionId,
+            method: 'pix',
+            cents: toCents(r.amount),
+          });
+          touched.push(...payments.map((p) => p.orderId));
           await q(
             tx,
             `UPDATE tab_pix_receipts SET status = 'approved', reviewed_by = $2, reviewed_at = now(),
@@ -525,7 +564,7 @@ export class TableSelfService {
             const st = await this.orders.settleServedIn(tx, ctx, oid);
             reservations.push(...(st.reservationIds ?? []));
           }
-          const closed = await this.closeIfDoneIn(tx, ctx, tabId);
+          const closed = await closeTabIfDoneIn(tx, this.audit, ctx, tabId, 'tab_pix_paid');
           return {
             tabId,
             closed,
@@ -543,39 +582,6 @@ export class TableSelfService {
     if (res.closed.done) this.orders.notifyTabClosed(ctx, res.tabId);
     this.orders.publishReservations(ctx, res.reservations);
     return { applied: res.applied, short: res.short, tabClosed: res.closed.done };
-  }
-
-  /** Comanda sem saldo e sem pedido aberto: fecha (a mesa fica livre). */
-  private async closeIfDoneIn(tx: Tx, ctx: Ctx, tabId: string) {
-    const left = await one<{ open: number; due: string; number: number }>(
-      tx,
-      `SELECT count(o.id) FILTER (WHERE o.status NOT IN ('completed','cancelled'))::int AS open,
-              COALESCE(sum(o.total - o.paid_amount)
-                FILTER (WHERE o.status <> 'cancelled' AND NOT ${ON_ACCOUNT_SQL}), 0)::text AS due,
-              tb.number
-         FROM tabs tb LEFT JOIN orders o ON o.tab_id = tb.id
-        WHERE tb.id = $1 AND tb.status = 'open'
-        GROUP BY tb.id`,
-      [tabId],
-    );
-    if (!left || left.open > 0 || toCents(left.due) > 0)
-      return { done: false, reservations: [] as string[] };
-    await q(
-      tx,
-      `UPDATE tabs SET status = 'closed', closed_by = $2, closed_at = now() WHERE id = $1`,
-      [tabId, ctx.userId],
-    );
-    const reservations = await completeSeatedForTab(tx, tabId);
-    await this.audit.record(tx, {
-      tenantId: ctx.tenantId,
-      actorUserId: ctx.userId,
-      action: 'tab.closed',
-      entity: 'tab',
-      entityId: tabId,
-      data: { number: left.number, auto: 'tab_pix_paid' },
-      ip: ctx.ip,
-    });
-    return { done: true, reservations };
   }
 
   /** Comprovante recusado (com motivo): o cliente vê na conta da mesa e pode mandar outro. */

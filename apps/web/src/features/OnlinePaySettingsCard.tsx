@@ -34,7 +34,10 @@ interface OnlinePayView {
     declineReason: string | null;
     inCash: boolean;
     createdAt: string;
-    orderNumber: number;
+    /** null: conta inteira da mesa (tabNumber/tableLabel). */
+    orderNumber: number | null;
+    tabNumber: number | null;
+    tableLabel: string | null;
   }[];
 }
 
@@ -233,7 +236,10 @@ export function OnlinePaySettingsCard({ canManage }: { canManage: boolean }) {
               {v.charges.map((c) => (
                 <li key={c.id} className="opay-list__row">
                   <span>
-                    Pedido #{c.orderNumber} · {c.method === 'card' ? 'Cartão' : 'Pix'}
+                    {c.orderNumber != null
+                      ? `Pedido #${c.orderNumber}`
+                      : `Conta da mesa ${c.tableLabel ?? ''} (comanda #${c.tabNumber ?? ''})`}{' '}
+                    · {c.method === 'card' ? 'Cartão' : 'Pix'}
                     {c.cardLast4 ? ` final ${c.cardLast4}` : ''}
                   </span>
                   <span className="opay-list__amount">{brl(c.amount)}</span>

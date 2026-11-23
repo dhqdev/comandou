@@ -62,6 +62,37 @@ export async function assertNoTabPixPending(tx: Tx, orderId: string) {
     )
   )
     throw new ConflictException(TAB_PIX_PENDING_MESSAGE);
+  const tab = await one<{ tab_id: string | null }>(tx, `SELECT tab_id FROM orders WHERE id = $1`, [
+    orderId,
+  ]);
+  if (tab?.tab_id) await assertNoTabOnlinePending(tx, tab.tab_id);
+}
+
+/** A mesa está pagando a conta inteira pelo PagBank no celular (Pix gerado ou cartão sem resposta). */
+export const TAB_ONLINE_PENDING_MESSAGE =
+  'A mesa está pagando a conta pelo PagBank no celular. Espere o pagamento confirmar (ou o Pix vencer) antes de cobrar de outro jeito.';
+/** A mesa pagou pelo PagBank e o valor ainda não entrou no caixa (nenhum caixa aberto na hora). */
+export const TAB_ONLINE_PAID_MESSAGE =
+  'A mesa já pagou a conta pelo PagBank. O valor entra no caixa sozinho; para lançar agora, abra um pedido da mesa e toque em "Lançar no caixa".';
+
+/**
+ * Cobrança do PagBank da conta da mesa esperando ou paga fora do caixa: cobrar a comanda de outro
+ * jeito faria o cliente pagar duas vezes (o que chegasse depois seria devolvido).
+ */
+export async function assertNoTabOnlinePending(tx: Tx, tabId: string) {
+  const c = await one<{ status: string }>(
+    tx,
+    `SELECT status FROM online_charges
+      WHERE tab_id = $1
+        AND ((status = 'pending' AND NOT (method = 'pix' AND pix_expires_at < now()))
+             OR (status = 'paid' AND payment_id IS NULL))
+      ORDER BY status = 'paid' DESC LIMIT 1`,
+    [tabId],
+  );
+  if (c)
+    throw new ConflictException(
+      c.status === 'paid' ? TAB_ONLINE_PAID_MESSAGE : TAB_ONLINE_PENDING_MESSAGE,
+    );
 }
 
 interface SessionRow {

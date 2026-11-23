@@ -14,9 +14,11 @@ Decisão: [ADR 0013](decisions/0013-pagamento-online-pagbank-split.md).
 2. **Conectado, o restaurante escolhe o que aceita pelo app:** cartão de crédito, Pix automático
    ou os dois (Loja online → Pagamentos). Com o Pix automático ligado, a entrega e a retirada usam
    o Pix do PagBank (QR Code com o valor, confirmado sozinho) no lugar do Pix com comprovante. Na
-   mesa continua o Pix com comprovante, e o resto da mesa é pago com o garçom.
-3. **Pagar pelo app pede a conta do cliente aberta**, como o Pix com comprovante: o pagamento fica
-   ligado a quem pagou, e o PagBank pede nome, e-mail e CPF do comprador.
+   mesa, o pedido continua com o Pix com comprovante ou pago no fim; a **conta inteira da mesa**
+   (aba Garçom › Fechar a conta) também pode ser paga pelo PagBank (veja "Conta da mesa").
+3. **Pagar o pedido pelo app pede a conta do cliente aberta**, como o Pix com comprovante: o
+   pagamento fica ligado a quem pagou, e o PagBank pede nome, e-mail e CPF do comprador. A conta da
+   mesa é a exceção: veja abaixo.
 4. **O pedido espera o pagamento.** Pedido pago pelo app nasce "em análise" e não vai para a
    cozinha antes de pago. Pagou: com o aceite automático ligado ele é aceito na hora; sem o aceite
    automático, a equipe aceita como sempre (já pago).
@@ -33,6 +35,37 @@ Decisão: [ADR 0013](decisions/0013-pagamento-online-pagbank-split.md).
    cliente. Se o PagBank recusar, nada é estornado aqui. Pedido pago que é cancelado antes de o
    pagamento entrar no caixa é devolvido sozinho pelo PagBank.
 9. **Depois de pagar, o cliente não cancela pelo app**: fala com a loja (que estorna).
+
+## Conta da mesa (0.236)
+
+O cliente sentado fecha a conta inteira da mesa pelo cardápio do QR Code (`/pedir/mesa/conta`):
+todos os pedidos da comanda, inclusive os do garçom e de outros celulares.
+
+1. **Formas que a loja liberou.** Com o PagBank conectado: Pix automático (no lugar do Pix com
+   comprovante, como no cardápio online) e/ou cartão de crédito, conforme Loja online →
+   Pagamentos. Sem PagBank, segue o Pix da loja com comprovante. Sempre dá para chamar o garçom.
+2. **Sem conta do cliente.** Na mesa ninguém entra em conta: a tela pede nome (Pix), CPF e e-mail
+   de quem paga, que vão só para o PagBank (o pedido pela mesa já pede o CPF; a tela preenche
+   com o que o cliente digitou). O PagBank recebe sem telefone.
+3. **O valor é o saldo de agora.** O celular manda o valor que mostrou; se a conta mudou (o garçom
+   lançou mais, um item foi cancelado), nada é cobrado e a tela mostra o valor novo. Pedido do
+   celular esperando a loja aceitar, Pix de pedido ou comprovante da mesa com o caixa travam o
+   pagamento até resolver.
+4. **Enquanto o PagBank espera, ninguém cobra a comanda de outro jeito** (caixa, garçom, pedido
+   avulso, comprovante). O Pix da mesa vale **10 minutos**; o cliente pode tocar em "Pagar de
+   outro jeito" (ou em "Pagar com o garçom"), e o Pix deixa de valer na hora.
+5. **Pago, entra no caixa sozinho** (o caixa escolhido em Pagamentos ou o aberto há mais tempo),
+   como Pix ou crédito, dividido nos pedidos da comanda do mais antigo ao mais novo (um pagamento
+   por pedido, ligados à cobrança em `online_charge_payments`). Pedido já entregue e agora pago
+   conclui; sem nada em preparo, a mesa fica livre. Sem caixa aberto, a conta aparece paga para o
+   cliente, a comanda fica travada ("já pagou pelo PagBank") e o valor entra quando um caixa
+   abrir (ou pelo "Lançar no caixa" no detalhe de qualquer pedido da mesa).
+6. **Devoluções sozinhas:** comanda fechada ou paga de outro jeito quando o pagamento chega (Pix
+   antigo pago depois, aviso atrasado do PagBank) volta inteiro; item cancelado enquanto o cliente
+   pagava faz entrar só o saldo, e a sobra volta pelo PagBank (`applied` e `excess_refunded_at`).
+   Estornar no caixa um dos pagamentos da conta vai ao PagBank antes, só com aquele valor.
+7. A cobrança da comanda é a mesma `online_charges`, com `tab_id` no lugar de `order_id`; aviso,
+   conferência, varredura, taxa da Comandou e relatório do Super Admin valem igual.
 
 ## A taxa da Comandou
 

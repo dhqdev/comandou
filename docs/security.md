@@ -19,6 +19,7 @@ houve teste de invasão por terceiros; recomendamos um antes de abrir para muito
 | Robôs, varreduras e IPs de ataque | CrowdSec opcional no Traefik: lê o log de acesso, bloqueia por 4 h quem varre falhas ou força o login (mais de 15 erros seguidos), recebe a lista da comunidade; webhook do Asaas, status e métricas nunca são bloqueados; CrowdSec fora do ar não derruba os sites ([crowdsec.md](crowdsec.md)) | `internal.controller.test.ts` |
 | Painel da plataforma | só em `admin.<base>`, senha + TOTP com código de uso único, papel próprio no banco, auditoria | `platform.e2e.test.ts` |
 | Pagamento duplicado | chave de idempotência, trava da linha do pedido, conferência do saldo | `operations.e2e.test.ts`; teste de carga com 100 disputas sem nenhuma duplicação |
+| Conta da mesa paga duas vezes ou no valor errado (PagBank pela mesa, sem login) | rota pública só pelo id da mesa do QR Code, com limite por minuto e a conferência de localização; valor sempre do banco e igual ao que o cliente viu (senão nada é cobrado); uma cobrança esperando por comanda, e com ela ninguém cobra a comanda de outro jeito; o que chega sem saldo é devolvido sozinho; a conta pública não mostra nome, CPF nem cartão de quem pagou | `table-pay.e2e.test.ts` |
 | Vazamento por log | pino sem cookies, `Authorization` e `Set-Cookie`; token do link de rastreio mascarado na API e fora do log do Nginx | `log-redact.test.ts`; Nginx conferido localmente |
 | Segredos | Docker secrets (`*_FILE`); tokens de integração e sessões do WhatsApp cifrados (AES-256-GCM); backups cifrados com age | `secret-box.test.ts`, `gateway.test.ts` |
 | Esqueci minha senha (equipe e painel) | código de 6 números por e-mail, só o hash guardado e preso à conta; 15 minutos, 5 tentativas, 5 códigos por hora por conta e o limite por IP do login (que segura quem tenta adivinhar e-mails: a tela avisa quando o e-mail não é de nenhuma conta, a pedido do dono); código certo vira token de uso único (30 min) e a senha só muda pela função `app_reset_password_with_token`; a conta sai dos outros aparelhos e recebe o aviso "senha trocada"; no painel, os navegadores confiáveis saem e o TOTP continua obrigatório | `password-reset.e2e.test.ts` |
@@ -85,6 +86,15 @@ Aceitos (registrados): o teste de "Sites" do painel faz um GET sem a proteção 
 mas só no caminho fixo `/api/v1/health/site` de domínios já verificados e mostra só o código HTTP;
 o PIN de 4 números é guardado como hash rápido (quem roubar o banco descobre os PINs, que só
 valem com o limite por restaurante).
+
+## Revisão de 2026-11-23 (0.236, conta da mesa pelo PagBank)
+
+Rotas novas `POST /store/table/:tableId/pay/{pix,card,cancel}` (`@Public`, na lista revisada da
+varredura): limite de 10, 6 e 10 por minuto por IP; a mesa vem do QR Code (mesma exceção revisada
+da 0.235) e o chamado segue a conferência de localização; o corpo passa pelo Zod (CPF com dígito,
+e-mail, nome, valor em texto decimal); CPF e e-mail não são gravados no Comandou. Gerar o Pix trava
+a comanda por no máximo 10 minutos, e qualquer um na mesa pode soltar ("Pagar de outro jeito");
+um Pix solto e pago depois é achado pela conferência e devolvido se a conta já foi paga.
 
 ## Riscos que continuam
 

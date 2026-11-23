@@ -7,6 +7,7 @@ import {
 import { fromCents, paymentStatusFor, toCents } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import {
+  assertNoTabOnlinePending,
   CashService,
   changeFor,
   PaymentInput,
@@ -335,6 +336,8 @@ export class TabsService {
           )
         )
           throw new ConflictException(TAB_PIX_PENDING_MESSAGE);
+        // A mesa está pagando (ou já pagou) a conta inteira pelo PagBank no celular.
+        await assertNoTabOnlinePending(tx, id);
         const balance = orders.reduce((s, o) => s + toCents(o.total) - toCents(o.paid_amount), 0);
         let remaining = toCents(b.amount);
         if (remaining <= 0) throw new UnprocessableEntityException('Valor deve ser maior que zero');

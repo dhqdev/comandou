@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.236.0',
+    date: '2026-11-23',
+    title: 'Conta da mesa paga pelo PagBank',
+    summary:
+      'Fechar a conta pelo celular agora segue as formas que a loja liberou: com o PagBank conectado, o cliente da mesa paga a conta inteira no Pix que confirma sozinho ou no cartão de crédito, sem precisar entrar numa conta. O valor entra no caixa nos pedidos da mesa e, sem nada em preparo, a mesa fica livre.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Conta da mesa pelo PagBank: Pix automático (sem comprovante) e cartão de crédito para a mesa inteira, com nome, CPF e e-mail de quem paga, que vão só para o PagBank.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pago, o valor entra no caixa como Pix ou crédito nos pedidos da comanda, do mais antigo ao mais novo, e a mesa fecha sozinha quando tudo já saiu da cozinha. Sem caixa aberto, entra quando um caixa abrir.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Como no cardápio online, o Pix do PagBank fica no lugar do Pix com comprovante. Sem PagBank, a conta da mesa segue com o Pix da loja e o comprovante.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Enquanto a mesa está pagando pelo PagBank, o caixa e o garçom não conseguem cobrar a comanda de outro jeito. O Pix vale 10 minutos e o cliente pode tocar em "Pagar de outro jeito".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Se a conta mudou enquanto o cliente olhava a tela, nada é cobrado e o valor novo aparece. Item cancelado enquanto ele pagava: entra o saldo e a sobra volta sozinha pelo PagBank.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Pix pago depois que a mesa já pagou com o garçom (aviso atrasado do banco) é devolvido sozinho, e o estorno no caixa de um pagamento da conta da mesa vai ao PagBank antes.',
+      },
+    ],
+  },
+  {
     version: '0.235.0',
     date: '2026-11-22',
     title: 'Mesa chama o garçom e fecha a conta pelo celular',

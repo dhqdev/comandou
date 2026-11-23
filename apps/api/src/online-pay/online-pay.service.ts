@@ -19,6 +19,7 @@ import {
   OnlinePayMethod,
   platformFeeCents,
   splitParts,
+  TABLE_PAY_PIX_MINUTES,
   toCents,
 } from '@comandou/shared';
 import { createHash, randomBytes } from 'node:crypto';
@@ -32,6 +33,7 @@ import { DatabaseService, Tx } from '../database/database.service';
 import { OrdersService } from '../orders/orders.service';
 import { PlatformDb } from '../platform/platform-db.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { closeTabIfDoneIn, payTabOrdersIn, tabDueOf, tabOrdersIn } from '../tables/tab-settle';
 import {
   chargeStatusOf,
   declineReasonOf,
@@ -80,7 +82,9 @@ interface AccountRow {
 
 interface ChargeRow {
   id: string;
-  order_id: string;
+  /** Cobrança de um pedido (order_id) ou da conta inteira da mesa (tab_id). */
+  order_id: string | null;
+  tab_id: string | null;
   method: OnlinePayMethod;
   environment: PagBankEnvironment;
   status: OnlineChargeStatus;
@@ -105,8 +109,38 @@ export interface Payer {
   name: string;
   email: string;
   taxId: string;
+  /** Vazio na mesa (o cliente não entrou na conta): o PagBank recebe sem telefone. */
   phone: string;
 }
+
+/** Pagamento da conta da mesa pelo app (cartão cifrado no celular ou Pix). */
+export type TablePay =
+  | { method: 'card'; encryptedCard: string; holderName: string; payer: Payer; amount: string }
+  | { method: 'pix'; payer: Payer; amount: string };
+
+/** O que o cardápio da mesa mostra sobre o pagamento da conta pelo app (nada do pagador). */
+export interface TabOnlineView {
+  status: OnlineChargeStatus | 'none';
+  method: OnlinePayMethod | null;
+  amount: string | null;
+  pix: { code: string; expiresAt: Date | null } | null;
+  /** Cartão enviado e o PagBank ainda não respondeu. */
+  processing: boolean;
+  declineReason: string | null;
+  cardAttemptsLeft: number;
+  /** Pago pelo app e ainda fora do caixa (a conta já aparece paga para o cliente). */
+  paidOutside: string;
+}
+
+/** Cobranças do pedido ($1) e, se ele é de uma comanda, as da conta inteira da mesa. */
+const OF_ORDER = `(order_id = $1 OR (tab_id IS NOT NULL
+  AND tab_id = (SELECT tab_id FROM orders WHERE id = $1)))`;
+
+/** Entidade da auditoria de uma cobrança: o pedido ou a comanda. */
+const subjectOf = (c: { order_id: string | null; tab_id: string | null }) =>
+  c.tab_id
+    ? ({ entity: 'tab', entityId: c.tab_id } as const)
+    : ({ entity: 'order', entityId: c.order_id! } as const);
 
 const sha = (s: string) => createHash('sha256').update(s).digest();
 const minutesAgo = (d: Date) => (Date.now() - new Date(d).getTime()) / 60_000;
@@ -314,8 +348,12 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
                 c.refunded_amount::text AS "refundedAmount", c.card_brand AS "cardBrand",
                 c.card_last4 AS "cardLast4", c.decline_reason AS "declineReason",
                 c.payment_id IS NOT NULL AS "inCash", c.created_at AS "createdAt", c.paid_at AS "paidAt",
-                o.number AS "orderNumber", o.id AS "orderId"
-           FROM online_charges c JOIN orders o ON o.id = c.order_id
+                o.number AS "orderNumber", o.id AS "orderId",
+                tb.number AS "tabNumber", dt.label AS "tableLabel"
+           FROM online_charges c
+           LEFT JOIN orders o ON o.id = c.order_id
+           LEFT JOIN tabs tb ON tb.id = c.tab_id
+           LEFT JOIN dining_tables dt ON dt.id = tb.table_id
           ORDER BY c.created_at DESC LIMIT 30`,
       );
       const month = await one<{ paid: string; fees: string; n: number }>(
@@ -711,8 +749,6 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     const description = `Pedido #${prep.number}`;
     const notifyUrl = `${baseUrl}/api/v1/store/pagbank/notify`;
     const pb = this.client(cfg.environment);
-    let res: PagBankOrder | null = null;
-    let err: PagBankError | null = null;
     const expiresAt = new Date(Date.now() + ONLINE_PAY_WINDOW_MINUTES * 60_000);
     const send = () =>
       p.method === 'card'
@@ -735,21 +771,7 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
             receivers,
             notifyUrl,
           });
-    // Sem resposta (rede, tempo esgotado ou erro do PagBank): o pedido pode ter sido criado e o
-    // cartão cobrado. Repete UMA vez o mesmo envio, com a mesma chave de idempotência (o id da
-    // tentativa): se o PagBank já tinha criado, devolve o mesmo pedido em vez de cobrar de novo.
-    // O cartão cifrado só existe nesta requisição, então é a única hora de repetir.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        res = await send();
-        err = null;
-        break;
-      } catch (e) {
-        err = e instanceof PagBankError ? e : new PagBankError((e as Error).message, 0);
-        if (!uncertain(err) || attempt > 0) break;
-        await new Promise((r) => setTimeout(r, PAGBANK_RETRY_MS));
-      }
-    }
+    const { res, err } = await this.sendWithRetry(send);
     // 3) Resultado.
     await this.db.withTenant(ctx, async (tx) => {
       if (res) return this.applyOrderIn(tx, ctx, prep.chargeId, res);
@@ -781,14 +803,326 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     return this.publicView(tenantId, orderId);
   }
 
+  // ------------------------------------------------------------------ conta da mesa
+
+  /**
+   * Conta inteira da mesa pelo app (cardápio do QR Code, sem a conta do cliente): cartão cifrado
+   * no celular ou Pix, do saldo de agora da comanda aberta. Quem chama já conferiu a loja, a mesa
+   * e a localização. `amount` é o que o cliente viu na tela: se a conta mudou, nada é cobrado.
+   * Pago, entra no caixa nos pedidos da comanda (`launchTab`).
+   */
+  async payTab(
+    tenantId: string,
+    table: { id: string; label: string },
+    p: TablePay,
+    baseUrl: string,
+    ip?: string,
+  ) {
+    const cfg = await this.platformCfg();
+    if (!this.ready(cfg) || !cfg.receiverAccountId)
+      throw new ConflictException('Esta loja não está recebendo pagamento pelo app agora');
+    const fee = await this.feeOf(tenantId, cfg);
+    const ctx = onlineCtx(tenantId);
+    ctx.ip = ip;
+    // 1) Grava a tentativa (ou devolve o Pix que já está esperando).
+    const prep = await this.db.withTenant(ctx, async (tx) => {
+      const a = await this.accountIn(tx);
+      if (!this.connected(a, cfg) || !(p.method === 'card' ? a.card_enabled : a.pix_enabled))
+        throw new ConflictException('Esta forma de pagamento não está disponível nesta loja');
+      const tab = await one<{ id: string; number: number }>(
+        tx,
+        `SELECT id, number FROM tabs WHERE table_id = $1 AND status = 'open' FOR UPDATE`,
+        [table.id],
+      );
+      if (!tab) throw new ConflictException('Esta mesa não tem conta aberta');
+      const orders = await tabOrdersIn(tx, tab.id, true);
+      const waiting = orders.find((o) => o.status === 'awaiting');
+      if (waiting)
+        throw new ConflictException(
+          `O pedido #${waiting.number} ainda espera a loja aceitar. Pague depois que ele for aceito.`,
+        );
+      const pixOrder = orders.find((o) => o.status !== 'cancelled' && o.pix_status === 'submitted');
+      if (pixOrder)
+        throw new ConflictException(
+          `O Pix do pedido #${pixOrder.number} ainda está com o caixa. Espere a conferência para pagar o resto.`,
+        );
+      if (
+        await one(tx, `SELECT 1 FROM tab_pix_receipts WHERE tab_id = $1 AND status = 'submitted'`, [
+          tab.id,
+        ])
+      )
+        throw new ConflictException(
+          'O comprovante do Pix desta mesa ainda está com o caixa. Espere a conferência.',
+        );
+      const cs = await q<ChargeRow & { pix_text: string | null; pix_expires_at: Date | null }>(
+        tx,
+        `SELECT id, method, status, amount::text, payment_id, pix_text, pix_expires_at,
+                pagbank_order_id, created_at
+           FROM online_charges WHERE tab_id = $1 ORDER BY created_at`,
+        [tab.id],
+      );
+      if (cs.some((c) => c.status === 'paid' && !c.payment_id))
+        throw new ConflictException('A conta desta mesa já foi paga pelo app');
+      const due = tabDueOf(orders);
+      if (due <= 0) throw new ConflictException('A conta desta mesa já está paga');
+      if (toCents(p.amount) !== due)
+        throw new ConflictException({
+          message: `A conta da mesa mudou: agora falta pagar R$ ${fromCents(due).replace('.', ',')}. Confira antes de pagar.`,
+          code: 'bill_changed',
+        });
+      const pending = cs.find((c) => c.status === 'pending');
+      if (pending) {
+        // Pix esperando, do mesmo valor e ainda valendo: o mesmo QR Code.
+        if (
+          p.method === 'pix' &&
+          pending.method === 'pix' &&
+          toCents(pending.amount) === due &&
+          pending.pix_text &&
+          pending.pix_expires_at &&
+          new Date(pending.pix_expires_at).getTime() > Date.now() + 60_000
+        )
+          return { reuse: tab.id } as const;
+        // Cartão que o PagBank não respondeu: pode ter sido cobrado. Outro cartão poderia cobrar
+        // duas vezes; o Pix fica liberado (o que chegar sem saldo é devolvido ao lançar).
+        const unconfirmedCard =
+          pending.method === 'card' &&
+          !pending.pagbank_order_id &&
+          minutesAgo(pending.created_at) < ONLINE_PAY_WINDOW_MINUTES;
+        if (unconfirmedCard && p.method === 'card')
+          throw new ConflictException(
+            'O PagBank ainda não confirmou o cartão anterior. Para não cobrar duas vezes, pague com Pix ou aguarde alguns minutos.',
+          );
+        if (pending.method === 'pix' || unconfirmedCard || minutesAgo(pending.created_at) > 2)
+          await q(
+            tx,
+            `UPDATE online_charges SET status = 'expired', last_error = 'trocou a forma de pagamento'
+              WHERE id = $1`,
+            [pending.id],
+          );
+        else
+          throw new ConflictException(
+            'O pagamento anterior ainda está sendo confirmado. Aguarde um instante.',
+          );
+      }
+      if (
+        p.method === 'card' &&
+        cs.filter((c) => c.method === 'card' && c.status === 'declined').length >= MAX_CARD_ATTEMPTS
+      )
+        throw new ConflictException(
+          'Muitas tentativas com cartão nesta mesa. Pague com Pix ou chame o garçom.',
+        );
+      if (due < 100)
+        throw new UnprocessableEntityException('Valor mínimo para pagar pelo app: R$ 1,00');
+      const feeCents = platformFeeCents(due, fee.percent, toCents(fee.fixed));
+      const c = await one<{ id: string }>(
+        tx,
+        `INSERT INTO online_charges (tenant_id, tab_id, method, environment, amount, fee_amount,
+                                     fee_percent, fee_fixed, receiver_account_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+        [
+          tenantId,
+          tab.id,
+          p.method,
+          cfg.environment,
+          fromCents(due),
+          fromCents(feeCents),
+          fee.percent,
+          fee.fixed,
+          cfg.receiverAccountId,
+        ],
+      );
+      // A mesa pediu a conta: o salão mostra "em pagamento".
+      await q(
+        tx,
+        `UPDATE tabs SET bill_requested_at = COALESCE(bill_requested_at, now()) WHERE id = $1`,
+        [tab.id],
+      );
+      const token = await this.sellerTokenIn(tx, tenantId, a, cfg);
+      return {
+        chargeId: c!.id,
+        tabId: tab.id,
+        number: tab.number,
+        due,
+        feeCents,
+        token,
+        seller: a.seller_account_id!,
+      } as const;
+    });
+    if ('reuse' in prep) return;
+    // 2) PagBank.
+    const reason = `Mesa ${table.label}`.slice(0, 60);
+    const receivers: SplitReceiver[] | null =
+      prep.feeCents > 0
+        ? [
+            {
+              accountId: prep.seller,
+              cents: splitParts(prep.due, prep.feeCents).restaurant,
+              reason,
+            },
+            { accountId: cfg.receiverAccountId, cents: prep.feeCents, reason: 'Taxa Comandou' },
+          ]
+        : null;
+    const description = `${reason} · conta #${prep.number}`;
+    const notifyUrl = `${baseUrl}/api/v1/store/pagbank/notify`;
+    const pb = this.client(cfg.environment);
+    const expiresAt = new Date(Date.now() + TABLE_PAY_PIX_MINUTES * 60_000);
+    const { res, err } = await this.sendWithRetry(() =>
+      p.method === 'card'
+        ? pb.cardOrder(prep.token, {
+            referenceId: prep.chargeId,
+            description,
+            customer: p.payer,
+            cents: prep.due,
+            encryptedCard: p.encryptedCard,
+            holder: { name: p.holderName, taxId: p.payer.taxId },
+            receivers,
+            notifyUrl,
+          })
+        : pb.pixOrder(prep.token, {
+            referenceId: prep.chargeId,
+            description,
+            customer: p.payer,
+            cents: prep.due,
+            expiresAt,
+            receivers,
+            notifyUrl,
+          }),
+    );
+    // 3) Resultado.
+    await this.db.withTenant(ctx, async (tx) => {
+      if (res) return this.applyOrderIn(tx, ctx, prep.chargeId, res);
+      // Recusa clara (4xx): a tentativa não vale. Sem resposta: fica esperando o aviso.
+      const definite = err!.status >= 400 && err!.status < 500;
+      await q(
+        tx,
+        `UPDATE online_charges SET status = CASE WHEN $3 THEN 'declined' ELSE status END,
+                decline_reason = CASE WHEN $3 THEN $2 ELSE decline_reason END, last_error = $2
+          WHERE id = $1 AND status = 'pending'`,
+        [prep.chargeId, err!.message.slice(0, 300), definite],
+      );
+      await this.audit.record(tx, {
+        tenantId,
+        actorUserId: null,
+        action: 'online_pay.charge_failed',
+        entity: 'tab',
+        entityId: prep.tabId,
+        data: {
+          chargeId: prep.chargeId,
+          method: p.method,
+          status: err!.status,
+          error: err!.message,
+        },
+        ip,
+      });
+    });
+    await this.afterTabCharge(tenantId, prep.tabId, prep.chargeId);
+  }
+
+  /**
+   * "Pagar de outro jeito": o Pix gerado para a conta da mesa deixa de valer e a mesa volta a
+   * poder pagar com o garçom. Se o cliente ainda pagar aquele QR Code, a conferência acha e, com a
+   * conta já paga, devolve. Cartão sem resposta não sai daqui (pode ter sido cobrado).
+   */
+  async cancelTabPix(tenantId: string, tableId: string) {
+    const tabId = await this.db.withTenant({ tenantId }, async (tx) => {
+      const tab = await one<{ id: string }>(
+        tx,
+        `SELECT id FROM tabs WHERE table_id = $1 AND status = 'open' FOR UPDATE`,
+        [tableId],
+      );
+      if (!tab) return null;
+      const card = await one(
+        tx,
+        `SELECT 1 FROM online_charges WHERE tab_id = $1 AND status = 'pending' AND method = 'card'`,
+        [tab.id],
+      );
+      if (card)
+        throw new ConflictException(
+          'O banco ainda está confirmando o cartão. Aguarde um instante para não pagar duas vezes.',
+        );
+      const r = await one(
+        tx,
+        `UPDATE online_charges SET status = 'expired', last_error = 'o cliente desistiu do Pix'
+          WHERE tab_id = $1 AND status = 'pending' AND method = 'pix' RETURNING id`,
+        [tab.id],
+      );
+      return r ? tab.id : null;
+    });
+    if (tabId) this.realtime.publish(tenantId, { type: 'tab.changed', tabId });
+  }
+
+  /** O pagamento da conta da mesa pelo app, para o cardápio da mesa (nada de quem pagou). */
+  async tabPublicViewIn(tx: Tx, tabId: string): Promise<TabOnlineView> {
+    const cs = await q<{
+      method: OnlinePayMethod;
+      status: OnlineChargeStatus;
+      amount: string;
+      decline_reason: string | null;
+      pix_text: string | null;
+      pix_expires_at: Date | null;
+      payment_id: string | null;
+    }>(
+      tx,
+      `SELECT method, status, amount::text, decline_reason, pix_text, pix_expires_at, payment_id
+         FROM online_charges WHERE tab_id = $1 ORDER BY created_at`,
+      [tabId],
+    );
+    const last = cs[cs.length - 1];
+    const outside = cs
+      .filter((c) => c.status === 'paid' && !c.payment_id)
+      .reduce((n, c) => n + toCents(c.amount), 0);
+    const declined = cs.filter((c) => c.method === 'card' && c.status === 'declined').length;
+    return {
+      status: last?.status ?? 'none',
+      method: last?.method ?? null,
+      amount: last?.amount ?? null,
+      // Pix vencido (a varredura ainda não passou): some da tela e o cliente gera outro.
+      pix:
+        last?.method === 'pix' &&
+        last.status === 'pending' &&
+        last.pix_text &&
+        (!last.pix_expires_at || new Date(last.pix_expires_at).getTime() > Date.now())
+          ? { code: last.pix_text, expiresAt: last.pix_expires_at }
+          : null,
+      processing: last?.status === 'pending' && last.method === 'card',
+      declineReason: last?.status === 'declined' ? last.decline_reason : null,
+      cardAttemptsLeft: Math.max(0, MAX_CARD_ATTEMPTS - declined),
+      paidOutside: fromCents(outside),
+    };
+  }
+
+  /**
+   * Sem resposta (rede, tempo esgotado ou erro do PagBank): o pedido pode ter sido criado e o
+   * cartão cobrado. Repete UMA vez o mesmo envio, com a mesma chave de idempotência (o id da
+   * tentativa): se o PagBank já tinha criado, devolve o mesmo pedido em vez de cobrar de novo.
+   * O cartão cifrado só existe nesta requisição, então é a única hora de repetir.
+   */
+  private async sendWithRetry(send: () => Promise<PagBankOrder>) {
+    let res: PagBankOrder | null = null;
+    let err: PagBankError | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        res = await send();
+        err = null;
+        break;
+      } catch (e) {
+        err = e instanceof PagBankError ? e : new PagBankError((e as Error).message, 0);
+        if (!uncertain(err) || attempt > 0) break;
+        await new Promise((r) => setTimeout(r, PAGBANK_RETRY_MS));
+      }
+    }
+    return { res, err };
+  }
+
   /**
    * Aplica a situação de um pedido do PagBank à cobrança (resposta da criação, aviso ou consulta).
    * Pago: grava, devolve se o pedido foi cancelado, senão lança no caixa e aceita o pedido.
+   * Conta da mesa: pago com a comanda aberta fica para lançar (quem chama lança logo depois).
    */
   private async applyOrderIn(tx: Tx, ctx: Ctx, chargeId: string, res: PagBankOrder) {
     const c = await one<ChargeRow>(
       tx,
-      `SELECT id, order_id, method, status, amount::text, payment_id FROM online_charges WHERE id = $1 FOR UPDATE`,
+      `SELECT id, order_id, tab_id, method, status, amount::text, payment_id FROM online_charges WHERE id = $1 FOR UPDATE`,
       [chargeId],
     );
     if (!c) return;
@@ -832,14 +1166,14 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
         tenantId: ctx.tenantId,
         actorUserId: null,
         action: `online_pay.charge_${next}`,
-        entity: 'order',
-        entityId: c.order_id,
+        ...subjectOf(c),
         data: { chargeId, code: ch?.payment_response?.code ?? null },
         ip: ctx.ip,
       });
       return;
     }
     // Pago.
+    if (c.tab_id) return this.paidTabIn(tx, ctx, c);
     const o = await one<{ status: string }>(tx, `SELECT status FROM orders WHERE id = $1`, [
       c.order_id,
     ]);
@@ -865,7 +1199,32 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
       ip: ctx.ip,
     });
     if (cancelled) return;
-    await this.acceptPaidIn(tx, ctx, c.order_id);
+    await this.acceptPaidIn(tx, ctx, c.order_id!);
+  }
+
+  /**
+   * Conta da mesa paga no PagBank. Comanda já fechada: volta ao cliente. Aberta: fica "paga, falta
+   * lançar" e quem chama lança logo depois (`launch`), em outra transação, na ordem das travas do
+   * caixa. Duas cobranças pagas da mesma conta (Pix pago enquanto trocava para o cartão) se
+   * resolvem ao lançar: a que chega sem saldo é devolvida.
+   */
+  private async paidTabIn(tx: Tx, ctx: Ctx, c: ChargeRow) {
+    const tab = await one<{ status: string }>(tx, `SELECT status FROM tabs WHERE id = $1`, [
+      c.tab_id,
+    ]);
+    const closed = tab?.status !== 'open';
+    await q(tx, `UPDATE online_charges SET status = $2, paid_at = now() WHERE id = $1`, [
+      c.id,
+      closed ? 'refund_due' : 'paid',
+    ]);
+    await this.audit.record(tx, {
+      tenantId: ctx.tenantId,
+      actorUserId: null,
+      action: closed ? 'online_pay.refund_due' : 'online_pay.charge_paid',
+      ...subjectOf(c),
+      data: { chargeId: c.id, method: c.method, amount: c.amount },
+      ip: ctx.ip,
+    });
   }
 
   /** Pedido pago em análise com aceite automático: vai para a cozinha. */
@@ -885,6 +1244,15 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
    * aberto, fica para depois. Travas na ordem do caixa: sessão → comanda → pedido → cobrança.
    */
   async launch(tenantId: string, chargeId: string, sessionId?: string, by?: Ctx) {
+    const kind = await this.db.withTenant({ tenantId }, (tx) =>
+      one<{ tab_id: string | null }>(
+        tx,
+        `SELECT tab_id FROM online_charges WHERE id = $1 AND status = 'paid' AND payment_id IS NULL`,
+        [chargeId],
+      ),
+    );
+    if (!kind) return false;
+    if (kind.tab_id) return this.launchTab(tenantId, chargeId, sessionId, by);
     const res = await this.db.withTenant({ tenantId }, async (tx) => {
       const pre = await one<{ order_id: string; method: OnlinePayMethod }>(
         tx,
@@ -892,17 +1260,7 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
         [chargeId],
       );
       if (!pre) return null;
-      const sid =
-        sessionId ??
-        (
-          await one<{ id: string }>(
-            tx,
-            `SELECT s.id FROM cash_sessions s
-               LEFT JOIN online_pay_accounts a ON true
-              WHERE s.status = 'open' AND (a.cash_register_id IS NULL OR s.register_id = a.cash_register_id)
-              ORDER BY s.opened_at LIMIT 1`,
-          )
-        )?.id;
+      const sid = sessionId ?? (await this.openSessionIn(tx));
       if (!sid) return null;
       const sess = await this.cash.lockSession(tx, sid, 'SHARE');
       await this.orders.lockTabOf(tx, pre.order_id);
@@ -955,12 +1313,149 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     return true;
   }
 
+  /** Caixa onde entra o pago pelo app: o escolhido na Loja online ou o aberto há mais tempo. */
+  private async openSessionIn(tx: Tx) {
+    const s = await one<{ id: string }>(
+      tx,
+      `SELECT s.id FROM cash_sessions s
+         LEFT JOIN online_pay_accounts a ON true
+        WHERE s.status = 'open' AND (a.cash_register_id IS NULL OR s.register_id = a.cash_register_id)
+        ORDER BY s.opened_at LIMIT 1`,
+    );
+    return s?.id;
+  }
+
+  /**
+   * Conta da mesa paga pelo app: entra no caixa nos pedidos da comanda (do mais antigo ao mais
+   * novo), como o comprovante aprovado, e a mesa fica livre sem saldo e sem nada em preparo. O que
+   * passou do saldo (item cancelado enquanto o cliente pagava) volta ao cliente pelo PagBank;
+   * comanda fechada ou já paga de outro jeito: volta tudo. Travas na ordem do caixa: sessão →
+   * comanda → pedidos → cobrança.
+   */
+  private async launchTab(tenantId: string, chargeId: string, sessionId?: string, by?: Ctx) {
+    const res = await this.db.withTenant({ tenantId }, async (tx) => {
+      const pre = await one<{ tab_id: string; method: OnlinePayMethod }>(
+        tx,
+        `SELECT tab_id, method FROM online_charges WHERE id = $1 AND status = 'paid' AND payment_id IS NULL`,
+        [chargeId],
+      );
+      if (!pre) return null;
+      const sid = sessionId ?? (await this.openSessionIn(tx));
+      if (!sid) return null;
+      const sess = await this.cash.lockSession(tx, sid, 'SHARE');
+      const tab = await one<{ status: string }>(
+        tx,
+        `SELECT status FROM tabs WHERE id = $1 FOR UPDATE`,
+        [pre.tab_id],
+      );
+      // Pedido do celular ainda em análise não recebe pagamento (a loja pode recusar).
+      const orders = (await tabOrdersIn(tx, pre.tab_id, true)).filter(
+        (o) => o.status !== 'awaiting',
+      );
+      const c = await one<{ amount: string }>(
+        tx,
+        `SELECT amount::text FROM online_charges WHERE id = $1 AND status = 'paid' AND payment_id IS NULL FOR UPDATE`,
+        [chargeId],
+      );
+      if (!c) return null;
+      const opener = await one<{ opened_by: string }>(
+        tx,
+        `SELECT opened_by FROM cash_sessions WHERE id = $1`,
+        [sess.id],
+      );
+      const ctx: Ctx = by ?? { tenantId, userId: opener!.opened_by, user: ONLINE_CUSTOMER };
+      if (tab?.status !== 'open' || tabDueOf(orders) <= 0) {
+        // Fechada ou paga de outro jeito enquanto o cliente pagava: o pagamento volta inteiro.
+        await q(tx, `UPDATE online_charges SET status = 'refund_due' WHERE id = $1`, [chargeId]);
+        await this.audit.record(tx, {
+          tenantId,
+          actorUserId: by?.userId ?? null,
+          action: 'online_pay.refund_due',
+          entity: 'tab',
+          entityId: pre.tab_id,
+          data: { chargeId, amount: c.amount, reason: 'conta já paga' },
+        });
+        return { refund: true, tabId: pre.tab_id } as const;
+      }
+      const { applied, payments } = await payTabOrdersIn(tx, ctx, this.cash, orders, {
+        cashSessionId: sess.id,
+        method: pre.method === 'card' ? 'credit' : 'pix',
+        cents: toCents(c.amount),
+      });
+      for (const p of payments)
+        await q(
+          tx,
+          `INSERT INTO online_charge_payments (tenant_id, charge_id, payment_id, order_id, amount)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [tenantId, chargeId, p.id, p.orderId, fromCents(p.cents)],
+        );
+      await q(tx, `UPDATE online_charges SET payment_id = $2, applied = $3 WHERE id = $1`, [
+        chargeId,
+        payments[0]!.id,
+        fromCents(applied),
+      ]);
+      const excess = toCents(c.amount) - applied;
+      await this.audit.record(tx, {
+        tenantId,
+        actorUserId: by?.userId ?? null,
+        action: 'online_pay.launched',
+        entity: 'tab',
+        entityId: pre.tab_id,
+        data: {
+          chargeId,
+          sessionId: sess.id,
+          amount: fromCents(applied),
+          payments: payments.map((p) => p.id),
+          ...(excess > 0 ? { excess: fromCents(excess) } : {}),
+        },
+      });
+      // Pedidos já servidos e agora pagos: concluem. Sem saldo e nada aberto: a mesa fica livre.
+      const reservations: string[] = [];
+      for (const p of payments) {
+        const st = await this.orders.settleServedIn(tx, ctx, p.orderId);
+        reservations.push(...(st.reservationIds ?? []));
+      }
+      const closed = await closeTabIfDoneIn(tx, this.audit, ctx, pre.tab_id, 'tab_online_paid');
+      const paid = await q<{ id: string }>(
+        tx,
+        `SELECT id FROM orders WHERE id = ANY($1::uuid[]) AND payment_status = 'paid'`,
+        [payments.map((p) => p.orderId)],
+      );
+      return {
+        refund: false as const,
+        tabId: pre.tab_id,
+        sessionId: sess.id,
+        touched: payments.map((p) => p.orderId),
+        paid: paid.map((r) => r.id),
+        closed: closed.done,
+        reservations: [...reservations, ...closed.reservations],
+        excess: excess > 0,
+        ctx,
+      };
+    });
+    if (!res) return false;
+    this.realtime.publish(tenantId, { type: 'tab.changed', tabId: res.tabId });
+    if (res.refund) {
+      await this.refundDue(tenantId, chargeId).catch((e) => this.warn(e));
+      return true;
+    }
+    for (const oid of res.touched) this.publishOrder(tenantId, oid);
+    this.realtime.publish(tenantId, { type: 'cash.changed', sessionId: res.sessionId });
+    for (const oid of res.paid) this.cash.notifyPaid(res.ctx, oid);
+    if (res.closed) this.orders.notifyTabClosed(res.ctx, res.tabId);
+    this.orders.publishReservations(res.ctx, res.reservations);
+    if (res.excess) await this.refundExcess(tenantId, chargeId).catch((e) => this.warn(e));
+    return true;
+  }
+
   /** A equipe lança na hora, no caixa que escolheu. */
   async launchByStaff(ctx: Ctx, orderId: string, cashSessionId: string) {
     const c = await this.db.withTenant(ctx, (tx) =>
       one<{ id: string }>(
         tx,
-        `SELECT id FROM online_charges WHERE order_id = $1 AND status = 'paid' AND payment_id IS NULL`,
+        `SELECT id FROM online_charges WHERE ${OF_ORDER}
+            AND status = 'paid' AND payment_id IS NULL
+          ORDER BY created_at LIMIT 1`,
         [orderId],
       ),
     );
@@ -1001,7 +1496,7 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     const pre = await this.db.withTenant(ctx, async (tx) => {
       const c = await one<ChargeRow>(
         tx,
-        `SELECT id, order_id, status, pagbank_order_id, environment FROM online_charges WHERE id = $1`,
+        `SELECT id, order_id, tab_id, status, pagbank_order_id, environment FROM online_charges WHERE id = $1`,
         [chargeId],
       );
       const a = await this.accountIn(tx);
@@ -1015,7 +1510,14 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     if (res.reference_id && res.reference_id !== chargeId) return;
     const before = pre.c.status;
     await this.db.withTenant(ctx, (tx) => this.applyOrderIn(tx, ctx, chargeId, res));
-    if (before === 'pending' || before === 'expired') this.publishOrder(tenantId, pre.c.order_id);
+    if (pre.c.tab_id) return this.afterTabCharge(tenantId, pre.c.tab_id, chargeId);
+    if (before === 'pending' || before === 'expired') this.publishOrder(tenantId, pre.c.order_id!);
+  }
+
+  /** Conta da mesa: avisa a mesa e a equipe e, se o PagBank confirmou, lança no caixa já. */
+  private async afterTabCharge(tenantId: string, tabId: string, chargeId: string) {
+    this.realtime.publish(tenantId, { type: 'tab.changed', tabId });
+    await this.launch(tenantId, chargeId).catch((e) => this.warn(e));
   }
 
   /**
@@ -1048,10 +1550,14 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
 
   /** Estorno no caixa de um pagamento do app: devolve no PagBank antes (falhou, não estorna). */
   private async onRefundIn(tx: Tx, ctx: Ctx, paymentId: string, cents: number) {
+    // Conta da mesa: a cobrança criou um pagamento em cada pedido (online_charge_payments).
     const c = await one<ChargeRow>(
       tx,
-      `SELECT id, order_id, environment, status, amount::text, refunded_amount::text, pagbank_charge_id
-         FROM online_charges WHERE payment_id = $1 FOR UPDATE`,
+      `SELECT id, order_id, tab_id, environment, status, amount::text, refunded_amount::text, pagbank_charge_id
+         FROM online_charges
+        WHERE payment_id = $1
+           OR id = (SELECT charge_id FROM online_charge_payments WHERE payment_id = $1)
+        FOR UPDATE`,
       [paymentId],
     );
     if (!c) return;
@@ -1088,8 +1594,7 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
       tenantId: ctx.tenantId,
       actorUserId: ctx.userId,
       action: 'online_pay.refunded',
-      entity: 'order',
-      entityId: c.order_id,
+      ...subjectOf(c),
       data: { chargeId: c.id, amount: fromCents(cents), paymentId },
       ip: ctx.ip,
     });
@@ -1102,7 +1607,7 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     await this.db.withTenant({ tenantId }, async (tx) => {
       const c = await one<ChargeRow>(
         tx,
-        `SELECT id, order_id, environment, amount::text, refunded_amount::text, pagbank_charge_id
+        `SELECT id, order_id, tab_id, environment, amount::text, refunded_amount::text, pagbank_charge_id
            FROM online_charges WHERE id = $1 AND status = 'refund_due' FOR UPDATE SKIP LOCKED`,
         [chargeId],
       );
@@ -1133,9 +1638,61 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
         tenantId,
         actorUserId: null,
         action: 'online_pay.refunded',
-        entity: 'order',
-        entityId: c.order_id,
+        ...subjectOf(c),
         data: { chargeId: c.id, amount: fromCents(cents), auto: true },
+      });
+    });
+  }
+
+  /**
+   * Conta da mesa paga acima do saldo (um item cancelado enquanto o cliente pagava): a sobra volta
+   * ao cliente pelo PagBank; o resto já entrou no caixa.
+   */
+  private async refundExcess(tenantId: string, chargeId: string) {
+    const cfg = await this.platformCfg();
+    if (!this.ready(cfg)) return;
+    await this.db.withTenant({ tenantId }, async (tx) => {
+      const c = await one<ChargeRow & { applied: string }>(
+        tx,
+        `SELECT id, order_id, tab_id, environment, amount::text, applied::text, pagbank_charge_id
+           FROM online_charges
+          WHERE id = $1 AND tab_id IS NOT NULL AND status = 'paid' AND applied IS NOT NULL
+            AND applied < amount AND excess_refunded_at IS NULL
+          FOR UPDATE SKIP LOCKED`,
+        [chargeId],
+      );
+      const a = await this.accountIn(tx);
+      if (!c?.pagbank_charge_id || !a?.access_token_enc || a.environment !== c.environment) return;
+      const token = await this.sellerTokenIn(tx, tenantId, a, cfg);
+      const cents = toCents(c.amount) - toCents(c.applied);
+      try {
+        await this.client(c.environment).cancelCharge(
+          token,
+          c.pagbank_charge_id,
+          cents,
+          `${c.id}-sobra`,
+        );
+      } catch (e) {
+        await q(tx, `UPDATE online_charges SET last_error = $2 WHERE id = $1`, [
+          c.id,
+          (e as Error).message.slice(0, 300),
+        ]);
+        return;
+      }
+      await q(
+        tx,
+        `UPDATE online_charges SET refunded_amount = refunded_amount + $2::numeric,
+                status = CASE WHEN refunded_amount + $2::numeric >= amount THEN 'refunded' ELSE status END,
+                excess_refunded_at = now(), last_error = NULL
+          WHERE id = $1`,
+        [c.id, fromCents(cents)],
+      );
+      await this.audit.record(tx, {
+        tenantId,
+        actorUserId: null,
+        action: 'online_pay.refunded',
+        ...subjectOf(c),
+        data: { chargeId: c.id, amount: fromCents(cents), auto: true, excess: true },
       });
     });
   }
@@ -1199,13 +1756,40 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
         tx,
         `SELECT id FROM online_charges WHERE status = 'refund_due' LIMIT 50`,
       ),
+      excess: await q<{ id: string }>(
+        tx,
+        `SELECT id FROM online_charges
+          WHERE tab_id IS NOT NULL AND status = 'paid' AND applied IS NOT NULL
+            AND applied < amount AND excess_refunded_at IS NULL
+          LIMIT 50`,
+      ),
     }));
     for (const l of work.lost)
       this.logger.warn(`cobrança ${l.id} sem resposta do PagBank: confira no painel do PagBank`);
     for (const c of work.pending) await this.sync(tenantId, c.id).catch((e) => this.warn(e));
     for (const c of work.launch) await this.launch(tenantId, c.id).catch((e) => this.warn(e));
     for (const c of work.refund) await this.refundDue(tenantId, c.id).catch((e) => this.warn(e));
+    for (const c of work.excess) await this.refundExcess(tenantId, c.id).catch((e) => this.warn(e));
     for (const o of work.expired) await this.expireOrder(tenantId, o.id).catch((e) => this.warn(e));
+    await this.expireTabPix(tenantId).catch((e) => this.warn(e));
+  }
+
+  /**
+   * Pix da conta da mesa vencido (depois da conferência acima): a mesa volta a poder pagar de outro
+   * jeito. Se o cliente ainda pagar o QR Code antigo, o aviso ou a conferência acham e, com a conta
+   * já paga, devolvem.
+   */
+  private async expireTabPix(tenantId: string) {
+    const gone = await this.db.withTenant({ tenantId }, (tx) =>
+      q<{ tab_id: string }>(
+        tx,
+        `UPDATE online_charges SET status = 'expired', last_error = 'o Pix venceu'
+          WHERE tab_id IS NOT NULL AND status = 'pending' AND method = 'pix'
+            AND pix_expires_at < now()
+        RETURNING tab_id`,
+      ),
+    );
+    for (const g of gone) this.realtime.publish(tenantId, { type: 'tab.changed', tabId: g.tab_id });
   }
 
   private warn(e: unknown) {
@@ -1217,6 +1801,8 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     if (!this.platformDb.enabled) return [];
     const sql = `SELECT DISTINCT tenant_id FROM online_charges
                   WHERE status IN ('pending','refund_due') OR (status = 'paid' AND payment_id IS NULL)
+                     OR (tab_id IS NOT NULL AND status = 'paid' AND applied < amount
+                         AND excess_refunded_at IS NULL)
                  UNION
                  SELECT DISTINCT tenant_id FROM online_pay_accounts WHERE connected_at IS NOT NULL`;
     const ids = new Set<string>();
@@ -1326,7 +1912,7 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     const cs = await this.db.withTenant({ tenantId }, (tx) =>
       q<{ id: string; status: string; payment_id: string | null }>(
         tx,
-        `SELECT id, status, payment_id FROM online_charges WHERE order_id = $1`,
+        `SELECT id, status, payment_id FROM online_charges WHERE ${OF_ORDER}`,
         [orderId],
       ),
     );
@@ -1335,13 +1921,14 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
       if (c.status === 'refund_due') await this.refundDue(tenantId, c.id);
     }
     const paid = await this.db.withTenant({ tenantId }, (tx) =>
-      one<{ id: string }>(
+      q<{ id: string }>(
         tx,
-        `SELECT id FROM online_charges WHERE order_id = $1 AND status = 'paid' AND payment_id IS NULL`,
+        `SELECT id FROM online_charges WHERE ${OF_ORDER} AND status = 'paid' AND payment_id IS NULL
+          ORDER BY created_at`,
         [orderId],
       ),
     );
-    if (paid) await this.launch(tenantId, paid.id);
+    for (const c of paid) await this.launch(tenantId, c.id);
   }
 
   staffCharges(ctx: Ctx, orderId: string) {
@@ -1355,8 +1942,9 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
       `SELECT id, method, status, amount::text, fee_amount::text AS "feeAmount",
               refunded_amount::text AS "refundedAmount", card_brand AS "cardBrand", card_last4 AS "cardLast4",
               decline_reason AS "declineReason", payment_id AS "paymentId", last_error AS "lastError",
+              tab_id IS NOT NULL AS "forTab", applied::text,
               created_at AS "createdAt", paid_at AS "paidAt"
-         FROM online_charges WHERE order_id = $1 ORDER BY created_at`,
+         FROM online_charges WHERE ${OF_ORDER} ORDER BY created_at`,
       [orderId],
     );
   }

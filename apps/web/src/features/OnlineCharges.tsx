@@ -18,7 +18,8 @@ const TONE: Record<OnlineChargeStatus, 'success' | 'warning' | 'danger' | 'neutr
 
 /**
  * Pago pelo app (PagBank), no detalhe do pedido: as tentativas, e "Lançar no caixa" quando o
- * pagamento chegou sem caixa aberto (o sistema também lança sozinho quando um caixa abre).
+ * pagamento chegou sem caixa aberto (o sistema também lança sozinho quando um caixa abre). Pedido
+ * de mesa: também a conta inteira da mesa paga pelo celular (vale para todos os pedidos dela).
  */
 export function OnlineCharges({ order, onDone }: { order: Order; onDone(o: Order): void }) {
   const toast = useToast();
@@ -42,7 +43,9 @@ export function OnlineCharges({ order, onDone }: { order: Order; onDone(o: Order
 
   return (
     <section className="od-block od-card">
-      <h3 className="od-block__title">Pagamento pelo app</h3>
+      <h3 className="od-block__title">
+        {order.payOnline ? 'Pagamento pelo app' : 'Conta da mesa paga pelo celular'}
+      </h3>
       {charges.length === 0 ? (
         <p className="od-empty">
           O cliente ainda não pagou. O pedido fica em análise até o pagamento e cancela sozinho
@@ -52,7 +55,8 @@ export function OnlineCharges({ order, onDone }: { order: Order; onDone(o: Order
         <ul className="pix-history">
           {charges.map((c) => (
             <li key={c.id}>
-              {dateTime(c.createdAt)} · {c.method === 'card' ? 'Cartão' : 'Pix'}
+              {dateTime(c.createdAt)} · {c.forTab ? 'Conta da mesa · ' : ''}
+              {c.method === 'card' ? 'Cartão' : 'Pix'}
               {c.cardLast4 ? ` final ${c.cardLast4}` : ''} · {brl(c.amount)}{' '}
               <Badge tone={TONE[c.status]}>
                 {c.status === 'paid' && !c.paymentId
@@ -60,6 +64,9 @@ export function OnlineCharges({ order, onDone }: { order: Order; onDone(o: Order
                   : ONLINE_CHARGE_LABELS[c.status]}
               </Badge>
               {c.declineReason && c.status === 'declined' ? ` ${c.declineReason}` : ''}
+              {c.forTab && c.applied && c.applied !== c.amount
+                ? ` Entrou ${brl(c.applied)}; a sobra volta ao cliente pelo PagBank.`
+                : ''}
             </li>
           ))}
         </ul>

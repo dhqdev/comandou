@@ -343,7 +343,14 @@ function customerOf(c: { name: string; email: string; taxId: string; phone: stri
     name: c.name,
     email: c.email,
     tax_id: c.taxId,
-    phones: [{ country: '55', area: digits.slice(0, 2), number: digits.slice(2), type: 'MOBILE' }],
+    // Telefone é opcional no PagBank: na mesa o cliente não entrou na conta e não informa.
+    ...(digits.length >= 10
+      ? {
+          phones: [
+            { country: '55', area: digits.slice(0, 2), number: digits.slice(2), type: 'MOBILE' },
+          ],
+        }
+      : {}),
   };
 }
 
