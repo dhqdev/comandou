@@ -243,7 +243,7 @@
 /* ---------------------------------------------------------------- movimento (só o essencial) */
 /*
  * Nenhum movimento daqui mexe em opacidade: no Safari do iPhone, desenho esmaecendo em loop fazia a
- * tela inteira do acompanhamento ficar mais fraca e mais forte junto (0.240.2). O vapor e o vento
+ * tela inteira do acompanhamento ficar mais fraca e mais forte junto (0.241.1). O vapor e o vento
  * passam desenhando a linha (stroke-dashoffset) e deslizando; o resto é transform.
  */
 /* Motoboy andando: rodas giram e o vento passa. */
