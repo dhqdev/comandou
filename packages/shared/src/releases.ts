@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.243.1',
+    date: '2026-11-23',
+    title: 'Minha mesa mais limpa',
+    summary:
+      'Na aba Minha mesa do cardápio da mesa, o texto sobre fechar a conta e entrar na conta virou dois atalhos com desenho: Fechar a conta e Entrar na conta.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Minha mesa: no lugar dos dois parágrafos, os atalhos Fechar a conta (pedidos da mesa toda) e Entrar na conta (guardar no histórico, só para quem ainda não entrou). A conta sai da impressora dentro da bolinha e o boneco da conta acena, com movimento leve que não esmaece a tela no iPhone.',
+      },
+    ],
+  },
+  {
     version: '0.243.0',
     date: '2026-11-23',
     title: 'Conta paga sai do celular e pedido com a conta na mesa',

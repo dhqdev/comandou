@@ -113,6 +113,10 @@ balançando para o chamado), "Mesa X está chamando o garçom · há N min" e um
 comprovante grande à esquerda e, à direita, o que ele cobre, o saldo de agora, o caixa e
 Aprovar (primário) / Recusar com motivo. No cardápio da mesa, a aba Garçom tem dois cartões
 grandes (bolinha da cor da loja com o ícone, título e uma linha), no jeito do resto do cardápio.
+A aba **Minha mesa** não tem parágrafo de explicação (pedido do David, 0.243.1): embaixo dos
+pedidos vêm os atalhos `tw-go` (Fechar a conta e, sem conta aberta, Entrar na conta; bolinha com o
+ícone, título e uma linha curta, seta), com movimento só de `transform` (a conta sobe da bolinha,
+o boneco acena).
 
 Comprovante esperando (0.238) também marca a própria mesa: no Salão a mesa fica verde com o selo **Pix** no lugar do tempo; no PDV o cartão ganha contorno verde, bolinha verde e a linha "Pix para conferir". Dentro da mesa, o quadro verde suave `.tpix` fica no alto (antes dos pedidos) com a miniatura do comprovante, Recusar (ghost) e Conferir e aprovar (secondary); o primário é o Conferir Pix do rodapé.
 

@@ -1,6 +1,6 @@
 import { fromCents, qtyLabel, toCents } from '@comandou/shared';
 import { Skeleton } from '../../design-system';
-import { ChevronRight, ReceiptText } from 'lucide-react';
+import { ChevronRight, ReceiptText, UserRound } from 'lucide-react';
 import { CSSProperties, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { dateTime } from '../../features/format';
@@ -147,16 +147,31 @@ function TableOrdersScreen() {
               );
             })}
           </ul>
-          <p className="form-hint tw-total__hint">
-            Para fechar a conta da mesa inteira (pedidos de outros celulares e do garçom entram nela
-            também), toque em <Link to="/pedir/mesa/conta">Fechar a conta</Link>.
-          </p>
-          {rules.accountLogin && !me && (
-            <p className="form-hint tw-total__hint">
-              Depois que a conta é paga, estes pedidos saem do celular. Para guardar no histórico,{' '}
-              <Link to="/pedir/conta">entre na sua conta</Link> antes do próximo pedido.
-            </p>
-          )}
+          {/* Atalhos da mesa: fechar a conta e (sem conta aberta) entrar para guardar. */}
+          <nav className="tw-go" aria-label="Conta da mesa">
+            <Link className="tw-go__item" to="/pedir/mesa/conta">
+              <span className="tw-go__icon tw-go__icon--bill" aria-hidden>
+                <ReceiptText size={22} />
+              </span>
+              <span className="tw-go__text">
+                <strong>Fechar a conta</strong>
+                <small>Pedidos da mesa toda</small>
+              </span>
+              <ChevronRight size={18} aria-hidden className="tw-go__chev" />
+            </Link>
+            {rules.accountLogin && !me && (
+              <Link className="tw-go__item" to="/pedir/conta">
+                <span className="tw-go__icon tw-go__icon--me" aria-hidden>
+                  <UserRound size={22} />
+                </span>
+                <span className="tw-go__text">
+                  <strong>Entrar na conta</strong>
+                  <small>Guardar no histórico</small>
+                </span>
+                <ChevronRight size={18} aria-hidden className="tw-go__chev" />
+              </Link>
+            )}
+          </nav>
           <Link className="cta cta--inline" to="/pedir">
             Pedir mais
           </Link>
