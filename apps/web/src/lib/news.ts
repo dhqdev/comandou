@@ -45,9 +45,16 @@ function parse(raw: string): string[] {
   }
 }
 
-/** Marca como lidas as versões mostradas. Guarda só as que ainda estão no sininho, para não crescer. */
+/**
+ * Quantas versões vistas guardar. Precisa caber com folga tudo o que aparece no sininho de uma vez:
+ * em dias de muitas entregas passam de 50 versões em 3 dias, e um limite curto apagava justamente
+ * as mais novas, que voltavam a aparecer como "nova".
+ */
+const SEEN_MAX = 500;
+
+/** Marca como lidas as versões mostradas. As recém-vistas vão na frente, para nunca serem cortadas. */
 export function markNewsSeen(versions: readonly string[]) {
-  const all = Array.from(new Set([...parse(readRaw()), ...versions])).slice(-50);
+  const all = Array.from(new Set([...versions, ...parse(readRaw())])).slice(0, SEEN_MAX);
   try {
     localStorage.setItem(KEY, JSON.stringify(all));
   } catch {

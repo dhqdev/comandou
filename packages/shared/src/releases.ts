@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.244.2',
+    date: '2026-11-23',
+    title: 'Sininho de novidades limpa ao abrir',
+    summary:
+      'Abrir o sininho de novidades agora marca todas como vistas e o número some. Em dias com muitas versões, as mais novas continuavam aparecendo como "nova" (o sininho mostrava 9+ mesmo depois de aberto).',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Sininho de novidades: o aparelho guardava só as últimas 50 versões vistas e, com 70 versões nos últimos 3 dias, apagava justamente as 20 mais novas, que voltavam como "20 novidades novas". Agora guarda todas as que estão no sininho e as recém-vistas nunca são cortadas.',
+      },
+    ],
+  },
+  {
     version: '0.244.1',
     date: '2026-11-23',
     title: 'Menu lateral muda num clique',

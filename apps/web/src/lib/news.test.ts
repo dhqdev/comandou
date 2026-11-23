@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newsExpiresAt, recentNews } from './news';
+import { markNewsSeen, newsExpiresAt, recentNews } from './news';
 
 const at = (s: string) => new Date(s).getTime();
 
@@ -22,5 +22,17 @@ describe('novidades do sininho', () => {
 
   it('ignora data inválida', () => {
     expect(recentNews([{ date: 'x' }], at('2026-11-03T09:00:00'))).toEqual([]);
+  });
+
+  it('marca como lidas todas as novidades mostradas, mesmo em dia de muitas versões', () => {
+    localStorage.setItem(
+      'pm.newsSeen',
+      JSON.stringify(Array.from({ length: 50 }, (_, i) => `old.${i}`)),
+    );
+    const shown = Array.from({ length: 70 }, (_, i) => `0.${300 - i}.0`);
+    markNewsSeen(shown.slice(20));
+    markNewsSeen(shown);
+    const seen: string[] = JSON.parse(localStorage.getItem('pm.newsSeen') ?? '[]');
+    expect(shown.filter((v) => !seen.includes(v))).toEqual([]);
   });
 });
