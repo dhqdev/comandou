@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.245.0',
+    date: '2026-11-23',
+    title: 'Site novo: mais limpo, com prato em 3D',
+    summary:
+      'O site do Comandou foi refeito: mais espaço, menos enfeite e três momentos em 3D. O celular da loja e os pedidos flutuam em camadas no topo, a tela do sistema chega deitada e se endireita ao rolar, e o hambúrguer, a batata, o milk-shake e o brownie da demonstração giram de verdade na tela.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Site: seção Prato em 3D com os modelos de verdade da Fumaça Burger, no mesmo visualizador do cardápio. Arraste para girar e troque o prato embaixo. O visualizador só baixa quando a seção chega perto da tela.',
+      },
+      {
+        tag: 'novo',
+        text: 'Site: grade com os 16 módulos do sistema (PDV, salão, mesa pelo QR Code, cozinha, caixa, cardápio online, entregas, aplicativos, estoque, financeiro, nota fiscal, WhatsApp com IA, reservas, equipe, impressão e relatórios).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site: topo com o celular e os cartões de pedidos em 3D, girando de leve com o mouse; telas do sistema numa moldura que se endireita com a rolagem; três passos, preço e perguntas com linha fina no lugar de cartões.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site: saíram as faíscas no clique, o botão que segue o mouse, a frase que acende palavra por palavra e a faixa que passa sozinha. A página ficou mais leve e direta.',
+      },
+    ],
+  },
+  {
     version: '0.244.2',
     date: '2026-11-23',
     title: 'Sininho de novidades limpa ao abrir',

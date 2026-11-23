@@ -199,44 +199,36 @@ exceções, só no site:
 - **Menu solto.** `.st-nav` é uma pílula flutuante (sticky, afastada do topo e das laterais),
   compacta e com sombra depois de rolar (`is-scrolled`); abaixo de 1080 px vira o botão de menu com
   a folha `.st-nav__sheet`. É o único lugar do site com fundo translúcido.
-- **React Bits** (`site/reactbits/`, licença MIT + Commons Clause: usar dentro do Comandou pode,
-  revender o componente não): `ClickSpark` (faíscas no clique, cobre a página inteira),
-  `Magnet` (botão principal segue o ponteiro, via `CtaButton`), `SpotlightCard` (holofote nos cartões), `StarBorder` (luz na borda do quadro do preço)
-  e `GlareHover` (brilho na tela do sistema). Copie o arquivo do repositório
-  DavidHDev/react-bits (`src/ts-default/...`) com o cabeçalho de crédito; prefira os que não
-  pedem gsap, motion ou three (os de rolagem que pedem, como ScrollReveal, ScrollStack e
-  ScrollVelocity, foram refeitos em `site/motion.ts`). Todos já param com "reduzir movimento".
-- **Rolagem** (`site/motion.ts` + `site/scroll.css`): Lenis no computador (no toque, a rolagem
+- **Minimalista e com 3D (0.245, pedido do dono: "muito mais profissional, minimalista, com
+  elementos 3D")**: muito espaço, linha fina no lugar de cartão (módulos numa grade de linhas
+  `st-mods`, passos com números ligados por uma linha, perguntas e preço com linha fina), título
+  grande e escuro com a segunda parte em cinza (`.st-h1__soft`, `--cm-gray-400`) e laranja só no
+  botão principal e no passo 1. O 3D tem três lugares e só esses: o **palco do topo** (`Stage`,
+  celular da loja e os cartões "Pedidos agora", vendas do dia e "Pix aprovado" em camadas com
+  `translateZ`, girando de leve com o mouse por `useTilt`; no celular só o celular e o Pix), a
+  **moldura das telas do sistema**, que chega deitada (`rotateX` pelo `--p`), e o **Prato em
+  3D** (`Dish3D.tsx`, os `.glb` da demonstração no `@google/model-viewer`, carregado só perto da
+  tela). Nada de three.js solto nem biblioteca nova para 3D: o model-viewer já vem com o sistema.
+  Cartão flutuante do palco balança com a propriedade `translate` (a `transform` é a camada 3D).
+- **Saíram na 0.245** e não voltam sem pedido: React Bits (`ClickSpark`, `Magnet`,
+  `SpotlightCard`, `StarBorder`, `GlareHover`; a pasta `site/reactbits/` foi apagada), a frase
+  que acende palavra por palavra, a faixa que passa, a pilha dos passos e os cartões de
+  detalhes com animação. Ficaram o botão físico `.st-press`, a seta que anda no hover e o + que
+  vira − nas perguntas.
+- **Rolagem** (`site/motion.ts` + `site/landing.css`): Lenis no computador (no toque, a rolagem
   do aparelho) e um laço por quadro que escreve `--p` nos elementos; o CSS só usa transform e
   opacity e, sem a variável, cai no estado final parado. Cena nova: `useScrollProgress(modo)` e
-  uma regra em `scroll.css`. Título de seção com `SectionHead` (título + uma frase opcional),
-  **sem número nem rótulo em cima** (desde a 0.193: o "01 / O sistema" era o eyebrow que a
-  skill `impeccable` proíbe e deixava o site com cara de modelo pronto).
-- **Topo** (`site/hero.css`, refeito na 0.198.4 a pedido do David, que achou o anterior "feio e mal
-  feito": tela da cozinha cortada na borda e avisos amontoados): no computador (≥1080px) duas
-  colunas, à esquerda título, frase, cartão de criar e duas linhas com visto; à direita **um quadro
-  só** (`.st-stage`, raio 32, tom quente bem fraco, círculos finos atrás) com o celular da loja
-  cortado embaixo pelo quadro, o panda espiando atrás dele e, à direita, o cartão "Pedidos agora"
-  (`LiveOrders` em `SiteApp.tsx`, `HERO_ORDERS` em `site-data.ts`: um pedido novo a cada 3,4 s,
-  os de baixo andam com FLIP, só transform) e as vendas do dia. Nada passa da borda do quadro nem
-  cobre o conteúdo do celular além da beira. No celular, só o celular da loja no quadro. Sem
-  screenshot do sistema no topo, sem selo em pílula e sem fundo de pontinhos.
-- **Fim** (0.193): um bloco só (convite, botões e o panda num painel claro com linha fina) e o
-  rodapé de verdade (marca e o que é, colunas Produto e Ajuda, linha de baixo com o ano). Nada de
-  frase gigante correndo nem a marca enorme no rodapé: foi o que deixou o final esquisito.
-- **Aplicativos** (`#aplicativos`, refeito na 0.198.4): faixa com os nomes dos aplicativos entre
-  duas linhas finas (texto grande, bolinha no tom `--cm-tint-*` de `APP_HUE`, sem logo de
-  terceiros), embaixo a fila no jeito da tela de Pedidos (abas, selo do aplicativo no tom dele,
-  cliente, tempo, Aceitar nos novos, situação em pílula fraca) e, ao lado, o que dá para fazer
-  sem o portal com ícone solto. A lista sai de `DELIVERY_APPS`/`APP_FEATURES` (+ ícone em
-  `APP_FEATURE_ICONS`, mesma ordem) em `site-data.ts`: aplicativo novo ligado, entra lá e em
-  `APP_HUE`.
+  uma regra em `landing.css`. Título de seção com `SectionHead` (título + uma frase opcional,
+  `center` para centralizar), **sem número nem rótulo em cima** (eyebrow que a skill
+  `impeccable` proíbe).
+- **Aplicativos**: a faixa "Recebe os pedidos de" logo abaixo do topo (nomes em texto, sem logo
+  de terceiros) e a seção `#aplicativos` com a fila no jeito da tela de Pedidos e o que dá para
+  fazer sem o portal. Listas em `DELIVERY_APPS`/`APP_FEATURES`/`APP_HUE` de `site-data.ts`.
+- **Fim e rodapé**: um painel claro com linha fina (panda, convite e botões) e o rodapé de
+  verdade (marca, colunas Produto e Ajuda, linha com o ano).
 - **Impeccable** (`.claude/skills/impeccable`, Apache 2.0, de pbakaus/impeccable): no site vale o
   modo *Persuade* e o `reference/craft-floor.md` (contraste, espaçamento, nada de eyebrow, nada de
   cartões iguais como estrutura da página), sempre abaixo destas regras.
-- **Uiverse** (licença MIT): o efeito de botão físico `.st-press` (borda de baixo mais escura,
-  afunda ao apertar), a seta que corre no botão (`CtaButton arrow`), os vistos que se desenham e
-  o + que vira − nas perguntas seguem o estilo dos elementos de lá, reescritos com os tokens.
 - Nada disso entra nas telas de trabalho (PDV, salão, cozinha, painel): lá continua sóbrio.
 
 ## Listas (barra de filtros)

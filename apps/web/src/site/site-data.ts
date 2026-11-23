@@ -71,23 +71,93 @@ export const STEPS: { title: string; text: string }[] = [
   { title: 'Venda', text: 'Confira, ajuste as cores e receba o primeiro pedido.' },
 ];
 
-/** O que vem junto (a faixa que passa sozinha). */
-export const FEATURES = [
-  'Cardápio online',
-  'PDV',
-  'Salão e garçom',
-  'Cozinha',
-  'Caixa',
-  'Delivery',
-  'iFood e outros apps',
-  'Estoque',
-  'Financeiro',
-  'Nota fiscal',
-  'WhatsApp',
-  'Pix',
-  'Fidelidade',
-  'Relatórios',
-  'Prato em 3D',
+/** Os módulos do sistema (grade "Tudo o que o restaurante usa"). O ícone fica em SiteApp.tsx. */
+export interface Module {
+  key: string;
+  title: string;
+  text: string;
+}
+export const MODULES: Module[] = [
+  { key: 'pdv', title: 'PDV', text: 'Balcão, mesa, retirada e delivery numa tela, com atalhos.' },
+  {
+    key: 'salao',
+    title: 'Salão e garçom',
+    text: 'Mapa das mesas, comandas e o garçom lançando pelo celular.',
+  },
+  {
+    key: 'mesa',
+    title: 'Mesa pelo QR Code',
+    text: 'O cliente pede, chama o garçom e paga a conta pelo Pix.',
+  },
+  {
+    key: 'cozinha',
+    title: 'Cozinha sem papel',
+    text: 'Fila por setor, tempo de cada pedido e aviso de atraso.',
+  },
+  {
+    key: 'caixa',
+    title: 'Caixa',
+    text: 'Abertura, sangria, troco e fechamento que bate com a gaveta.',
+  },
+  {
+    key: 'loja',
+    title: 'Cardápio online',
+    text: 'Loja própria com a sua marca, conta do cliente e fidelidade.',
+  },
+  {
+    key: 'entregas',
+    title: 'Entregas',
+    text: 'Áreas no mapa, app do entregador, rastreio e acerto.',
+  },
+  {
+    key: 'apps',
+    title: 'iFood e outros apps',
+    text: 'Pedidos dos aplicativos na mesma fila da cozinha.',
+  },
+  {
+    key: 'estoque',
+    title: 'Estoque e ficha técnica',
+    text: 'Custo médio, baixa na venda e quantos dias cada item dura.',
+  },
+  {
+    key: 'financeiro',
+    title: 'Financeiro',
+    text: 'Contas, conciliação bancária, DRE e o repasse das maquininhas.',
+  },
+  { key: 'fiscal', title: 'Nota fiscal', text: 'NFC-e direto do caixa, sem outro programa.' },
+  {
+    key: 'whatsapp',
+    title: 'WhatsApp com IA',
+    text: 'Responde, mostra o cardápio e faz reservas sozinho.',
+  },
+  {
+    key: 'reservas',
+    title: 'Reservas',
+    text: 'Calendário de dia, semana e mês, com arrastar para remarcar.',
+  },
+  {
+    key: 'equipe',
+    title: 'Equipe e pagamentos',
+    text: 'Acesso por função, dias trabalhados, comissão e salário.',
+  },
+  {
+    key: 'impressao',
+    title: 'Impressão',
+    text: 'App para Windows que acha a impressora sozinho, até sem driver.',
+  },
+  {
+    key: 'relatorios',
+    title: 'Relatórios',
+    text: 'Vendas, perdas, cardápio e equipe, com exportação para Excel.',
+  },
+];
+
+/** Pratos da demonstração com modelo 3D de verdade (public/site/3d/<key>.glb). */
+export const DISHES: { key: string; name: string; price: string }[] = [
+  { key: 'fumaca', name: 'Fumaça (o da casa)', price: '44,90' },
+  { key: 'batata', name: 'Batata frita', price: '22,90' },
+  { key: 'shake-chocolate', name: 'Milk-shake', price: '22,90' },
+  { key: 'brownie-sorvete', name: 'Brownie', price: '26,90' },
 ];
 
 export const SITE_FAQ: { q: string; a: string }[] = [

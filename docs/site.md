@@ -4,33 +4,38 @@ O domínio base (`comandou.com` e `www.comandou.com`) mostra o site público: o 
 com telas de verdade da demonstração, o preço (vem de Super Admin › Planos) e o cadastro em que o
 dono cria o próprio restaurante de teste.
 
-## Movimento e rolagem
+## Desenho, 3D e movimento (0.245)
 
-O site tem mais movimento que as telas de trabalho, sempre com transform e opacity e parado com
-"reduzir movimento". O código fica em `apps/web/src/site/`:
+Refeito na 0.245 para ficar minimalista: muito espaço, linha fina no lugar de cartão, título
+grande e escuro com a segunda parte em cinza e laranja só na ação principal. O código fica em
+`apps/web/src/site/` (`SiteApp.tsx`, estilos em `site.css` para menu, cadastro e celular, e em
+`landing.css` para as seções):
 
-- `motion.ts`: rolagem suave no computador (Lenis; no toque fica a do aparelho, e não age dentro
-  de janelas nem de campos de texto) e um único laço por quadro que escreve `--p` (0 a 1) nos
-  elementos que andam com a rolagem. `scroll.css` faz o resto.
-- Topo (`hero.css`): no computador, título, frase e o cartão de criar o restaurante à esquerda
-  (com duas linhas embaixo: teste sem cartão e os aplicativos de delivery) e, à direita, um quadro
-  só com o celular da loja (mostra o que a pessoa digita) e o cartão "Pedidos agora", onde chega
-  um pedido de um canal diferente a cada poucos segundos, com as vendas do dia embaixo. No tablet
-  tudo empilha; no celular fica só o celular da loja no quadro.
-- Seções: O sistema (telas que passam sozinhas), **Aplicativos** (pedidos do iFood, 99Food,
-  Keeta, Rappi, aiqfome e Open Delivery na mesma fila; lista em `site-data.ts`), a frase grande,
-  os detalhes, os três passos, o preço, as perguntas e o fim (convite com o panda e o rodapé com
-  colunas).
-- Cenas: o celular e os pedidos do topo sobem um pouco mais rápido que a tela de trás; a tela do
-  sistema cresce ao chegar; a frase grande acende palavra por palavra presa no meio da tela; os
-  três passos se empilham (o de baixo encolhe um pouco); a faixa do que vem junto acelera com a
-  rolagem; a fila dos aplicativos entra linha por linha; a barra de leitura no topo.
-- React Bits (`site/reactbits/`): `ClickSpark`, `Magnet`, `SpotlightCard`,
-  `StarBorder` (luz que corre na borda do quadro do preço) e `GlareHover` (brilho na tela do
-  sistema). ScrollReveal, ScrollStack e ScrollVelocity pedem gsap ou motion, então foram refeitos
-  em `motion.ts` com a mesma ideia e sem dependência.
-- Uiverse (em CSS): botão físico `.st-press`, seta que corre no botão (`.st-arrow`), vistos que se
-  desenham no preço e o + que vira − nas perguntas.
+- **Topo**: título, frase, o cartão de criar e três linhas com visto à esquerda; à direita o
+  **palco 3D** (`Stage`): o celular da loja (mostra o que a pessoa digita) deitado em
+  perspectiva, com o cartão "Pedidos agora" (um pedido de um canal diferente a cada 3,4 s), as
+  vendas do dia e o "Pix aprovado" flutuando em camadas mais perto (`translateZ`). O conjunto
+  gira de leve com o mouse (`useTilt` em `motion.ts`, escreve `--tx`/`--ty`). No celular fica
+  o celular da loja e o Pix, sem os pedidos.
+- **Seções, em ordem**: a faixa "Recebe os pedidos de" (nomes dos aplicativos em texto), **O
+  sistema** (telas de verdade que passam sozinhas, numa moldura que chega deitada e se
+  endireita com a rolagem: `--p` de `useScrollProgress('enter')`), **Módulos** (`MODULES` de
+  `site-data.ts`, grade de linhas finas com ícone solto), **Prato em 3D**, **Aplicativos** (a
+  fila no jeito da tela de Pedidos e o que dá para fazer sem o portal), **três passos**,
+  **preço**, **perguntas** e o fim (panda, convite e rodapé).
+- **Prato em 3D** (`Dish3D.tsx`): os modelos de verdade da Fumaça Burger
+  (`public/site/3d/*.glb`, cópia de `apps/api/db/demo/fumaca/models/`, gerados por
+  `tools/demo-images/fumaca/models/build.mjs`) no mesmo `@google/model-viewer` do cardápio. O
+  visualizador e o modelo só baixam quando a seção chega a 400 px da tela; antes disso (e sem
+  WebGL) aparece a foto. Prato novo: o `.glb` na pasta e uma linha em `DISHES`. Os `.glb` não
+  entram no cache do app (o `globPatterns` do PWA não pega `.glb`).
+- **Movimento**: Lenis no computador (no toque, a rolagem do aparelho), títulos que sobem de
+  trás de uma máscara, seções que entram ao chegar (`.st-reveal`), barra de leitura no topo.
+  Tudo com transform e opacity; com "reduzir movimento", parado no estado final.
+- Saíram na 0.245 (deixavam o site carregado): faíscas no clique, botão que segue o mouse,
+  holofote nos cartões, borda com luz no preço, brilho na tela, frase que acende palavra por
+  palavra, faixa que passa sozinha e a pilha dos três passos (a pasta `site/reactbits/` foi
+  apagada).
 
 ## Como o cadastro funciona
 

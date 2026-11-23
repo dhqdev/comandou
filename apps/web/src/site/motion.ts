@@ -85,43 +85,6 @@ export function useScrollProgress<T extends HTMLElement>(
   return ref;
 }
 
-/**
- * Pilha de cartões (ideia do ScrollStack do React Bits, refeita sem dependências): cada cartão
- * fica preso no topo e, quando o próximo chega por cima, encolhe e escurece um pouco. Escreve
- * `--d` (quantos cartões já estão por cima, contínuo) em cada um.
- */
-export function useStack<T extends HTMLElement>(): RefObject<T | null> {
-  const ref = useRef<T>(null);
-  const tops = useRef<number[]>([]);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || calmMotion()) return;
-    const measure = () => {
-      tops.current = [...el.children].map((c) => parseFloat(getComputedStyle(c).top) || 0);
-      schedule();
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, []);
-  useScene(
-    () => [...(ref.current?.children ?? [])] as HTMLElement[],
-    (rects, vh) => {
-      const cards = [...(ref.current?.children ?? [])] as HTMLElement[];
-      // Quanto cada cartão já chegou ao seu lugar preso (0 longe, 1 preso).
-      const arrived = rects.map((r, j) =>
-        clamp01(1 - (r.top - (tops.current[j] ?? 0)) / (vh * 0.7)),
-      );
-      cards.forEach((card, i) => {
-        let depth = 0;
-        for (let j = i + 1; j < arrived.length; j++) depth += arrived[j]!;
-        card.style.setProperty('--d', depth.toFixed(4));
-      });
-    },
-  );
-  return ref;
-}
-
 /** Barra de leitura no topo: `--p` de 0 a 1 em toda a página (funciona em qualquer navegador). */
 export function useReadingBar<T extends HTMLElement>(): RefObject<T | null> {
   const ref = useRef<T>(null);
@@ -139,62 +102,48 @@ export function useReadingBar<T extends HTMLElement>(): RefObject<T | null> {
 }
 
 /**
- * Faixa que passa (ideia do ScrollVelocity do React Bits, refeita sem dependências): anda
- * sozinha e acelera com a rolagem, virando de lado quando a pessoa sobe a página. Só anima
- * enquanto está na tela.
+ * Profundidade que segue o ponteiro: escreve `--tx` e `--ty` (-1 a 1, posição do mouse em relação
+ * ao centro do elemento) e o CSS gira o palco em 3D com elas. Só com mouse (no toque fica parado
+ * no ângulo de descanso), só enquanto o elemento está na tela e nunca com "reduzir movimento".
+ * O valor anda até o alvo aos poucos, para o giro ficar macio.
  */
-export function useVelocityMarquee<T extends HTMLElement>(base = 40): RefObject<T | null> {
+export function useTilt<T extends HTMLElement>(): RefObject<T | null> {
   const ref = useRef<T>(null);
   useEffect(() => {
-    const track = ref.current;
-    if (!track || calmMotion()) return;
+    const el = ref.current;
+    if (!el || calmMotion() || !window.matchMedia('(pointer: fine)').matches) return;
+    let tx = 0;
+    let ty = 0;
     let x = 0;
-    let dir = -1;
-    let boost = 0;
-    let lastY = window.scrollY;
-    let lastT = performance.now();
+    let y = 0;
     let id = 0;
-    let visible = false;
-    let hold = false;
-    const frame = (t: number) => {
-      const dt = Math.min(64, t - lastT) / 1000;
-      lastT = t;
-      const y = window.scrollY;
-      const v = (y - lastY) / Math.max(dt, 0.001);
-      lastY = y;
-      if (Math.abs(v) > 20) dir = v > 0 ? -1 : 1;
-      // A velocidade da rolagem entra suave e sai devagar.
-      boost += (Math.min(Math.abs(v) / 6, 600) - boost) * (Math.abs(v) / 6 > boost ? 0.25 : 0.06);
-      const speed = hold ? base * 0.25 : base + boost;
-      const half = track.scrollWidth / 2;
-      x += dir * speed * dt;
-      if (half > 0) {
-        if (x <= -half) x += half;
-        if (x > 0) x -= half;
-      }
-      track.style.transform = `translate3d(${x.toFixed(2)}px,0,0)`;
-      id = visible ? requestAnimationFrame(frame) : 0;
+    const frame = () => {
+      x += (tx - x) * 0.08;
+      y += (ty - y) * 0.08;
+      el.style.setProperty('--tx', x.toFixed(4));
+      el.style.setProperty('--ty', y.toFixed(4));
+      id = Math.abs(tx - x) + Math.abs(ty - y) > 0.001 ? requestAnimationFrame(frame) : 0;
     };
-    const io = new IntersectionObserver(([e]) => {
-      visible = !!e?.isIntersecting;
-      if (visible && !id) {
-        lastT = performance.now();
-        lastY = window.scrollY;
-        id = requestAnimationFrame(frame);
-      }
-    });
-    io.observe(track);
-    const on = () => (hold = true);
-    const off = () => (hold = false);
-    track.addEventListener('pointerenter', on);
-    track.addEventListener('pointerleave', off);
+    const move = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) return;
+      tx = Math.max(-1, Math.min(1, ((e.clientX - (r.left + r.width / 2)) / r.width) * 2));
+      ty = Math.max(-1, Math.min(1, ((e.clientY - (r.top + r.height / 2)) / r.height) * 2));
+      if (!id) id = requestAnimationFrame(frame);
+    };
+    const leave = () => {
+      tx = 0;
+      ty = 0;
+      if (!id) id = requestAnimationFrame(frame);
+    };
+    window.addEventListener('pointermove', move, { passive: true });
+    document.documentElement.addEventListener('pointerleave', leave);
     return () => {
-      io.disconnect();
+      window.removeEventListener('pointermove', move);
+      document.documentElement.removeEventListener('pointerleave', leave);
       cancelAnimationFrame(id);
-      track.removeEventListener('pointerenter', on);
-      track.removeEventListener('pointerleave', off);
     };
-  }, [base]);
+  }, []);
   return ref;
 }
 
