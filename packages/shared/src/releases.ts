@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.240.0',
+    date: '2026-11-23',
+    title: 'Atalhos nos cartões do Salão no PDV',
+    summary:
+      'Cada mesa ocupada e cada comanda no Salão do PDV agora mostra o número e o total à esquerda e quatro atalhos à direita: ver os pedidos, mais ações, imprimir a conta e fechar a conta. Um toque e já está na ação certa.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cartões do Salão no PDV com atalhos em 2 × 2: em cima, Ver pedidos (abre a comanda com os pedidos) e os três pontinhos (Renomear, Transferir); embaixo, Imprimir a conta e o $ vermelho para fechar a conta. Com comprovante do Pix esperando, o $ abre a conferência do Pix.',
+      },
+    ],
+  },
+  {
     version: '0.239.0',
     date: '2026-11-23',
     title: 'Aprovar o Pix da mesa fecha a conta',

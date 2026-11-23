@@ -25,9 +25,11 @@ export interface SalonCardTab {
 export type SalonCardAction = 'open' | 'print' | TabIntent;
 
 /**
- * Cartão de comanda do salão no PDV (mesa ocupada ou comanda aberta): tocar abre a comanda;
- * do lado, imprimir a conta, fechar a conta e os três pontinhos com Ver pedidos, Renomear,
- * Transferir e Fechar conta. Mesa livre continua sendo o cartão simples.
+ * Cartão de comanda do salão no PDV (mesa ocupada ou comanda aberta): número e total à esquerda
+ * e, à direita, os atalhos em 2 × 2: Ver pedidos e os três pontinhos (Renomear, Transferir,
+ * Fechar conta) em cima, Imprimir a conta e Fechar a conta ($) embaixo. Tocar no cartão também
+ * abre a comanda. Estreito (celular), só os três pontinhos, com tudo dentro do menu.
+ * Mesa livre continua sendo o cartão simples.
  */
 export function SalonTabCard({
   tab,
@@ -72,6 +74,30 @@ export function SalonTabCard({
       </button>
       <div className="pdv-tabcard__actions">
         <button
+          type="button"
+          className="pdv-tabcard__btn pdv-tabcard__btn--wide"
+          aria-label="Ver os pedidos da comanda"
+          title="Ver os pedidos"
+          onClick={() => onAction('open')}
+        >
+          <ListChecks size={16} />
+        </button>
+        <button
+          ref={more}
+          type="button"
+          className="pdv-tabcard__btn pdv-tabcard__btn--more"
+          aria-label="Mais ações da comanda"
+          title="Mais ações"
+          aria-haspopup="menu"
+          aria-expanded={menu}
+          onClick={() => {
+            setNarrow(!printBtn.current?.offsetParent);
+            setMenu((v) => !v);
+          }}
+        >
+          <EllipsisVertical size={16} />
+        </button>
+        <button
           ref={printBtn}
           type="button"
           className="pdv-tabcard__btn pdv-tabcard__btn--wide"
@@ -92,20 +118,6 @@ export function SalonTabCard({
             <BadgeDollarSign size={16} />
           </button>
         )}
-        <button
-          ref={more}
-          type="button"
-          className="pdv-tabcard__btn"
-          aria-label="Mais ações da comanda"
-          aria-haspopup="menu"
-          aria-expanded={menu}
-          onClick={() => {
-            setNarrow(!printBtn.current?.offsetParent);
-            setMenu((v) => !v);
-          }}
-        >
-          <EllipsisVertical size={16} />
-        </button>
       </div>
       {menu && (
         <TabMenu
@@ -113,7 +125,7 @@ export function SalonTabCard({
           tab={tab}
           onClose={() => setMenu(false)}
           items={[
-            { key: 'open', icon: <ListChecks size={18} />, text: 'Ver pedidos' },
+            narrow && { key: 'open', icon: <ListChecks size={18} />, text: 'Ver pedidos' },
             canOperate && { key: 'rename', icon: <Pencil size={18} />, text: 'Renomear' },
             canOperate && {
               key: 'transfer',
