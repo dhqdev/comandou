@@ -4,8 +4,11 @@ name: Comandou (testes, imagens e Release)
 #  1. Testes: Qualidade (formatação, tipos, testes) e Ponta a ponta (navegador e backup).
 #  2. Versão: a do package.json (a mesma da tela Novidades) se ainda não tem tag; senão a próxima
 #     correção dela (v0.8.1 → v0.8.2...). Todo push aprovado vira versão.
-#  3. Imagens: as 4 imagens no GHCR (amd64 + arm64): ghcr.io/<dono>/comandou-*.
-#  4. Release: só depois de tudo, cria a tag e a Release no GitHub. Se algo falhar antes, não fica
+#  3. Imagens: as 4 imagens no GHCR (amd64 + arm64): ghcr.io/<dono>/comandou-*:<versão>.
+#  4. latest: só com as 4 publicadas, "latest" passa para a versão nova, as 4 de uma vez. (Antes
+#     cada imagem marcava o próprio latest: se uma falhasse ou o run fosse cancelado no meio, o
+#     latest ficava misturado, ex.: API nova com web velha.)
+#  5. Release: só depois de tudo, cria a tag e a Release no GitHub. Se algo falhar antes, não fica
 #     tag sem imagem.
 # Mudança só de documentação não roda nada. Versão nova de funcionalidade (0.9.0...): suba o número
 # no package.json e em packages/shared/src/releases.ts. Pelo botão "Run workflow" dá para
@@ -33,6 +36,8 @@ jobs:
     name: 1. Qualidade (formatação, tipos e testes)
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    # Hoje leva ~12 min; travado (teste que espera para sempre), falha em vez de prender 6 h.
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
@@ -94,7 +99,11 @@ jobs:
       - name: Testes da API e do Web (Vitest)
         run: pnpm test
       - name: Testes do agente de impressão
-        run: node --test tools/print-agent/escpos.test.mjs tools/print-agent/core.test.mjs tools/print-agent/devices.test.mjs tools/print-agent/discovery.test.mjs
+        # Todo *.test.mjs do agente (arquivo de teste novo entra sozinho, sem mexer aqui).
+        run: |
+          mapfile -t files < <(find tools/print-agent -name '*.test.mjs' -not -path '*/node_modules/*' | sort)
+          [ "${#files[@]}" -gt 0 ] || { echo "nenhum teste do agente de impressão encontrado"; exit 1; }
+          node --test "${files[@]}"
       - name: Build de produção
         run: pnpm build
       - name: Auditoria de dependências (alta/crítica)
@@ -106,6 +115,8 @@ jobs:
     # Playwright 1.56 não instala o Chromium no ubuntu-latest novo (26.04).
     runs-on: ubuntu-24.04
     needs: check
+    # Hoje leva ~8 min.
+    timeout-minutes: 30
     env:
       # Valores só de teste (banco descartável do CI), nunca usados em produção.
       E2E_INTEGRATIONS_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
@@ -320,16 +331,48 @@ jobs:
           push: true
           build-args: |
             COMANDOU_VERSION=${{ needs.version.outputs.tag }}
-          # "latest" = última versão aprovada da main (stack em :latest + Re-pull no Portainer).
+          # Só a versão: o "latest" muda no passo 4, depois que as 4 imagens saíram.
           tags: |
             ghcr.io/${{ github.repository_owner }}/comandou-${{ matrix.image }}:${{ needs.version.outputs.tag }}
-            ghcr.io/${{ github.repository_owner }}/comandou-${{ matrix.image }}:latest
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
-  release:
-    name: 4. Criar a tag e a Release
+  latest:
+    name: 4. Marcar a versão como latest (as 4 imagens juntas)
     needs: [version, images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 10
+    steps:
+      - name: Entrar no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # "latest" = última versão aprovada da main (stack em :latest + Re-pull no Portainer). Só
+      # copia o manifesto que já está no GHCR (amd64 + arm64), sem construir nada: leva segundos.
+      - name: latest → ${{ needs.version.outputs.tag }}
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          for img in api web whatsapp-gateway backup; do
+            repo="ghcr.io/${OWNER}/comandou-${img}"
+            docker buildx imagetools inspect "$repo:$TAG" >/dev/null
+          done
+          for img in api web whatsapp-gateway backup; do
+            repo="ghcr.io/${OWNER}/comandou-${img}"
+            docker buildx imagetools create -t "$repo:latest" "$repo:$TAG"
+            echo "ok: $repo:latest = $TAG"
+          done
+
+  release:
+    name: 5. Criar a tag e a Release
+    needs: [version, latest]
     if: needs.version.outputs.create == 'true'
     runs-on: ubuntu-latest
     permissions:

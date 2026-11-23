@@ -1,10 +1,12 @@
 import {
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
+  PanelLeft,
   PanelLeftClose,
-  PanelLeftOpen,
+  PanelLeftDashed,
   X,
 } from 'lucide-react';
 import {
@@ -28,9 +30,11 @@ import './app-frame.css';
  * Moldura padrão de todos os apps do Comandou (restaurante e painel admin):
  *
  * - Computador/tablet: barra lateral e topo formam uma peça só; o conteúdo fica num painel com o
- *   canto arredondado. A barra abre (ícone + nome, grupos que abrem embaixo) ou recolhe (só os
- *   ícones), deslizando, e o conteúdo cresce junto. Recolhida, basta encostar o mouse para ela
- *   abrir por cima do conteúdo e fechar ao sair (o botão do topo a deixa fixa aberta).
+ *   canto arredondado. A barra tem três jeitos (`RailMode`), escolhidos no botão do topo dela (ao
+ *   lado do nome; fechada, ele aparece no lugar da logo ao encostar o mouse), cujo ícone mostra o
+ *   jeito atual: aberta (ícone + nome, grupos que abrem embaixo; o conteúdo encolhe junto),
+ *   recolhida que abre ao encostar o mouse (por cima do conteúdo, fecha ao sair) e fechada (só os
+ *   ícones, o mouse não abre; grupo abre o submenu ao lado).
  * - Celular/PWA: barra de abas embaixo com alvos grandes. A última aba ("Mais") abre uma tela
  *   própria (/mais) com o cartão da conta no topo e as outras telas em grupos de blocos; o
  *   submenu de uma aba sobe de baixo numa folha (Sheet) que fecha arrastando para baixo.
@@ -96,14 +100,34 @@ export interface FrameItem {
   profile?: { name: string; detail?: string };
 }
 
+/**
+ * Jeito da barra lateral no computador: `aberto` (fixa, ícone + nome), `mouse` (só ícones; encostar
+ * o mouse abre por cima do conteúdo) ou `fechado` (só ícones, sempre: o mouse não abre).
+ */
+export type RailMode = 'aberto' | 'mouse' | 'fechado';
+const RAIL_MODES: { mode: RailMode; label: string; hint: string; icon: ReactNode }[] = [
+  { mode: 'aberto', label: 'Aberto', hint: 'Ícones e nomes sempre à vista', icon: <PanelLeft /> },
+  {
+    mode: 'mouse',
+    label: 'Abre com o mouse',
+    hint: 'Só ícones; encostar o mouse abre',
+    icon: <PanelLeftDashed />,
+  },
+  { mode: 'fechado', label: 'Fechado', hint: 'Só ícones, sempre', icon: <PanelLeftClose /> },
+];
+const RAIL_MODE_KEY = 'menu-lateral';
+const MODE_KEY = 'cm-rail-mode';
+/** Chave antiga (aberto/recolhido): quem tinha recolhido entra no "abre com o mouse". */
 const WIDE_KEY = 'cm-rail-wide';
 const badgeText = (n: number) => (n > 99 ? '99+' : String(n));
-/** Menu largo é o padrão; quem recolheu continua recolhido. */
-function readWide() {
+/** Menu aberto é o padrão; a escolha fica guardada neste navegador. */
+function readRailMode(): RailMode {
   try {
-    return localStorage.getItem(WIDE_KEY) !== '0';
+    const m = localStorage.getItem(MODE_KEY);
+    if (m === 'aberto' || m === 'mouse' || m === 'fechado') return m;
+    return localStorage.getItem(WIDE_KEY) === '0' ? 'mouse' : 'aberto';
   } catch {
-    return true;
+    return 'aberto';
   }
 }
 
@@ -183,16 +207,12 @@ export function AppFrame({
   const { pathname } = useLocation();
   const [sheet, setSheet] = useState<string | null>(null);
   // Computador: menu largo (ícone + nome, grupos que abrem embaixo) ou estreito (só ícones, com o
-  // submenu ao lado). A escolha fica guardada neste navegador.
-  const [wide, setWideState] = useState(readWide);
-  const setWide = (v: boolean) => {
-    setWideState(v);
-    try {
-      localStorage.setItem(WIDE_KEY, v ? '1' : '0');
-    } catch {
-      /* navegador sem armazenamento: vale só nesta aba */
-    }
-  };
+  // submenu ao lado), em três jeitos (`RailMode`). A escolha fica guardada neste navegador.
+  const [mode, setModeState] = useState<RailMode>(readRailMode);
+  const wide = mode === 'aberto';
+  /** Recolhida que abre ao encostar o mouse (no `fechado`, o mouse não abre). */
+  const hoverOpens = mode === 'mouse';
+  const modeInfo = RAIL_MODES.find((o) => o.mode === mode) ?? RAIL_MODES[0];
   // Recolhido: encostar o mouse abre a barra por cima do conteúdo (sem empurrar a tela) e sair
   // fecha. Pequena espera nas duas pontas para não piscar ao passar o mouse de raspão.
   const [peek, setPeek] = useState(false);
@@ -221,6 +241,17 @@ export function AppFrame({
   const open = fly && !fly.closing ? fly.key : null;
   const setOpen = (key: string | null) =>
     setFly((f) => (key ? { key, closing: false } : f ? { ...f, closing: true } : null));
+  const setMode = (m: RailMode) => {
+    setOpen(null);
+    window.clearTimeout(peekTimer.current);
+    setPeek(false);
+    setModeState(m);
+    try {
+      localStorage.setItem(MODE_KEY, m);
+    } catch {
+      /* navegador sem armazenamento: vale só nesta aba */
+    }
+  };
   // `right`: borda da barra no clique. Aberta (ex.: Conta do painel), o submenu sai dela.
   const [anchor, setAnchor] = useState({ top: 0, bottom: 0, right: 0 });
   const railEl = useRef<HTMLElement>(null);
@@ -367,6 +398,8 @@ export function AppFrame({
 
   const railItem = (it: FrameItem) => {
     const active = itemActive(pathname, it) || open === it.key;
+    // Fechada, o nome nunca aparece na barra: fica na dica do mouse.
+    const tip = mode === 'fechado' ? it.label : undefined;
     const body = (
       <>
         <span className="cm-rail__icon">
@@ -405,6 +438,7 @@ export function AppFrame({
           to={it.to}
           end={it.end ?? it.to === '/'}
           aria-label={it.label}
+          title={tip}
           data-tour-key={it.key}
           className={`cm-rail__item ${active ? 'is-active' : ''}`}
         >
@@ -422,12 +456,15 @@ export function AppFrame({
             type="button"
             data-rail-key={expanded ? undefined : it.key}
             data-tour-key={it.key}
+            title={tip}
             className={`cm-rail__item ${active && !show ? 'is-active' : ''}`}
             aria-expanded={expanded ? show : open === it.key}
             aria-haspopup={expanded ? undefined : 'menu'}
             onClick={(e) => {
               if (expanded) return setGroup(show ? null : it.key);
-              if (window.matchMedia?.('(hover: hover)').matches) {
+              // Abre com o mouse: o clique abre a barra já no grupo. Fechada (ou sem mouse): o
+              // submenu sai ao lado, com a barra parada.
+              if (hoverOpens && window.matchMedia?.('(hover: hover)').matches) {
                 window.clearTimeout(peekTimer.current);
                 setGroup(it.key);
                 return setPeek(true);
@@ -472,6 +509,7 @@ export function AppFrame({
         type="button"
         data-rail-key={it.key}
         data-tour-key={it.key}
+        title={tip}
         aria-label={it.profile ? it.label : undefined}
         className={`cm-rail__item ${active ? 'is-active' : ''}`}
         aria-expanded={hasMenu ? open === it.key : undefined}
@@ -494,7 +532,14 @@ export function AppFrame({
     );
   };
 
-  const flyItem = fly ? all.find((i) => i.key === fly.key) : undefined;
+  // Os três jeitos da barra, no submenu do botão do topo dela (ao lado do nome).
+  const modeItem: FrameItem = {
+    key: RAIL_MODE_KEY,
+    label: 'Menu lateral',
+    icon: modeInfo.icon,
+    panel: <RailModePicker mode={mode} onPick={setMode} />,
+  };
+  const flyItem = fly ? [...all, modeItem].find((i) => i.key === fly.key) : undefined;
 
   // Painel ao lado do botão: começa na altura dele; se não couber embaixo (ex.: Conta, no pé
   // da barra), termina na altura do botão, subindo a partir dele.
@@ -515,6 +560,7 @@ export function AppFrame({
     <div
       className={`cm-frame ${className}`}
       data-rail={expanded ? 'wide' : 'narrow'}
+      data-rail-mode={mode}
       data-pinned={wide || undefined}
       data-peek={(peek && !wide) || undefined}
     >
@@ -525,7 +571,7 @@ export function AppFrame({
         onPointerEnter={(e) => {
           if (e.pointerType !== 'mouse') return;
           hover.current = true;
-          if (!wide) schedulePeek(true, peek ? 0 : 90);
+          if (hoverOpens) schedulePeek(true, peek ? 0 : 90);
         }}
         onPointerLeave={(e) => {
           if (e.pointerType !== 'mouse') return;
@@ -536,19 +582,26 @@ export function AppFrame({
       >
         <div className="cm-rail__brand">
           {brand}
+          {/* Jeito do menu: o ícone mostra o atual e o toque abre os três para escolher. */}
           <button
             type="button"
             className="cm-rail__toggle"
-            aria-label={wide ? 'Recolher menu' : 'Manter o menu aberto'}
-            title={wide ? 'Recolher menu' : 'Manter o menu aberto'}
-            onClick={() => {
-              setOpen(null);
-              window.clearTimeout(peekTimer.current);
-              setPeek(false);
-              setWide(!wide);
+            data-rail-key={RAIL_MODE_KEY}
+            aria-label={`Menu lateral: ${modeInfo.label}. Mudar`}
+            title={`Menu lateral: ${modeInfo.label}`}
+            aria-haspopup="menu"
+            aria-expanded={open === RAIL_MODE_KEY}
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setAnchor({
+                top: r.top,
+                bottom: r.bottom,
+                right: railEl.current?.getBoundingClientRect().right ?? 0,
+              });
+              setOpen(open === RAIL_MODE_KEY ? null : RAIL_MODE_KEY);
             }}
           >
-            {wide ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+            {modeInfo.icon}
           </button>
         </div>
         <nav
@@ -815,6 +868,31 @@ function useTableLabels(root: RefObject<HTMLElement | null>) {
       cancelAnimationFrame(raf);
     };
   }, [root]);
+}
+
+/** Os três jeitos do menu lateral, no submenu do "Menu lateral" (o escolhido com o visto). */
+function RailModePicker({ mode, onPick }: { mode: RailMode; onPick: (m: RailMode) => void }) {
+  return (
+    <div className="cm-flyout__links cm-railmode">
+      {RAIL_MODES.map((o) => (
+        <button
+          key={o.mode}
+          type="button"
+          role="menuitemradio"
+          aria-checked={mode === o.mode}
+          className={`cm-flyout__link cm-railmode__opt ${mode === o.mode ? 'active' : ''}`}
+          onClick={() => onPick(o.mode)}
+        >
+          {o.icon}
+          <span className="cm-railmode__text">
+            <span>{o.label}</span>
+            <span className="cm-railmode__hint">{o.hint}</span>
+          </span>
+          {mode === o.mode && <Check className="cm-railmode__check" aria-hidden />}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function FlyLinks({ links }: { links: FrameLink[] }) {

@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.242.0',
+    date: '2026-11-23',
+    title: 'Menu lateral do seu jeito e topo mais limpo',
+    summary:
+      'O menu lateral ganhou três jeitos, escolhidos no botão ao lado do nome do restaurante: aberto, abre com o mouse ou fechado (só os ícones, mesmo com o mouse em cima). Letras e ícones do menu ficaram maiores, e o topo ficou mais limpo: sem versão, sem nome do restaurante e com a busca só com "Pesquisar". Os sons de aviso passaram para a tela Conta.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Menu lateral em três jeitos: Aberto (ícones e nomes sempre à vista), Abre com o mouse (só ícones; encostar o mouse abre por cima da tela) e Fechado (só ícones, o mouse não abre; Cardápio, Estoque e os outros grupos abrem o submenu ao lado). Escolha no botão ao lado do nome do restaurante; no Fechado, encoste o mouse na logo para ele aparecer. O ícone do botão mostra o jeito escolhido, e a escolha fica guardada no aparelho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Menu lateral com letra e ícones maiores (nomes de 16 px e ícones de 22 px), mais fácil de ler no balcão.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Topo mais limpo: sai o número da versão (continua no pé da tela Conta) e o nome do restaurante (fica no menu aberto). A busca mostra só "Pesquisar" e o atalho Ctrl K.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O botão de som saiu do topo. Volume, repetir até atender, som gravado e o som de cada aviso ficam em Conta › Este aparelho › Sons de aviso. No PDV, o Silenciar continua no mesmo lugar.',
+      },
+      {
+        tag: 'correção',
+        text: 'Com o menu recolhido, abrir um grupo (ex.: Cardápio) não faz mais os ícones do menu sumirem.',
+      },
+    ],
+  },
+  {
     version: '0.241.1',
     date: '2026-11-23',
     title: 'Desenhos do pedido voltam a se mexer, sem piscar',

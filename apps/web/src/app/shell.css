@@ -1,4 +1,5 @@
-/* Topo do app do restaurante (dentro da moldura AppFrame do design system). */
+/* Topo do app (dentro da moldura AppFrame do design system). Título da tela no Super Admin;
+   o app do restaurante não mostra nome nem versão no topo. */
 .topbar__tenant {
   display: flex;
   flex-shrink: 0;
@@ -12,22 +13,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.topbar__name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* Menu aberto (fixo) no computador: o nome do restaurante já está ao lado do logo. */
-@media (min-width: 861px) {
-  .cm-frame[data-pinned] .topbar__name {
-    display: none;
-  }
-}
-.topbar__version {
-  font-size: var(--cm-text-2xs);
-  font-weight: 500;
-  color: var(--cm-text-subtle);
 }
 .topbar__spacer {
   flex: 1;

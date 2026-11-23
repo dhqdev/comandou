@@ -680,16 +680,17 @@ export function GlobalSearchTrigger({ onOpen, icon }: { onOpen(): void; icon?: b
         type="button"
         className="gsearch-trigger--icon"
         onClick={onOpen}
-        aria-label="Buscar no sistema"
+        aria-label="Pesquisar"
       >
         <Search size={20} />
       </button>
     );
   }
   return (
-    <button type="button" className="gsearch-trigger" onClick={onOpen} aria-label="Buscar">
+    // Só "Pesquisar" (pedido do David: mais limpo); o que dá para achar aparece ao abrir.
+    <button type="button" className="gsearch-trigger" onClick={onOpen} aria-label="Pesquisar">
       <Search size={16} aria-hidden />
-      <span className="gsearch-trigger__text">Buscar mesa, comanda, pedido, cliente, tela…</span>
+      <span className="gsearch-trigger__text">Pesquisar</span>
       <kbd>{SEARCH_SHORTCUT}</kbd>
     </button>
   );

@@ -363,14 +363,15 @@
  * As duas formas têm o mesmo desenho: recolher só estreita a barra e apaga os nomes, então os
  * ícones ficam parados no lugar e nada pula. Fixa aberta, a coluna do conteúdo encolhe junto
  * (grid-template-columns anima); recolhida, encostar o mouse abre a barra POR CIMA do conteúdo
- * (data-peek), com sombra, sem mexer na tela. Itens de 38px, letra de 15px e ícone de 20px numa
- * coluna fixa (enxuto e fácil de ler, pedido do David); ativo em cinza com o ícone laranja;
- * subitens recuados num fio fino; a conta no pé mostra quem está usando. */
+ * (data-peek), com sombra, sem mexer na tela; fechada (data-rail-mode='fechado') fica só nos
+ * ícones mesmo com o mouse em cima. Itens de 42px, letra de 16px e ícone de 22px numa coluna fixa
+ * (maiores desde a 0.242, pedido do David); ativo em cinza com o ícone laranja; subitens de 15px
+ * recuados num fio fino; a conta no pé mostra quem está usando. */
 @media (min-width: 861px) {
   .cm-frame {
-    --rail-open: 252px;
-    /* 66px: o centro do ícone (12 + 10 + 11 = 33px) fica no meio da faixa recolhida. */
-    --rail-closed: 66px;
+    --rail-open: 264px;
+    /* 68px: o centro do ícone (12 + 10 + 12 = 34px) fica no meio da faixa recolhida. */
+    --rail-closed: 68px;
     --rail-w: var(--rail-closed);
     --rail-ease: cubic-bezier(0.32, 0.72, 0, 1);
     --rail-dur: 360ms;
@@ -417,9 +418,14 @@
     text-overflow: clip;
   }
   /* Item da grade encolhe junto com a barra (sem isso o nome da conta segurava a largura e o
-     realce passava da borda recolhida). */
-  .cm-frame .cm-rail__item {
+     realce passava da borda recolhida). A coluna também fica presa à largura da barra: o título
+     da seção e os subitens escondidos a deixavam mais larga que a barra recolhida e, no clique
+     num grupo, a barra rolava de lado e sumia com os ícones. */
+  .cm-frame :is(.cm-rail__item, .cm-rail__group, .cm-rail__section) {
     min-width: 0;
+  }
+  .cm-frame :is(.cm-rail__nav, .cm-rail__foot) {
+    grid-template-columns: minmax(0, 1fr);
   }
   .cm-frame .cm-rail__section {
     position: relative;
@@ -430,7 +436,7 @@
     content: '';
     position: absolute;
     top: 55%;
-    left: 11px;
+    left: 12px;
     width: 20px;
     height: 1px;
     background: var(--cm-border-strong);
@@ -455,7 +461,7 @@
     .cm-frame[data-rail='narrow'] .cm-rail__toggle {
       position: absolute;
       top: calc(50% + 6px);
-      left: 40px;
+      left: 41px;
       width: 22px;
       height: 22px;
       border: 1px solid var(--cm-border);
@@ -466,6 +472,32 @@
     .cm-frame[data-rail='narrow'] .cm-rail__toggle svg {
       width: 13px;
       height: 13px;
+    }
+  }
+  /* Com mouse e a barra fechada: encostar na logo (ou chegar pelo Tab) troca a logo pelo botão do
+     menu, para escolher outro jeito sem a barra abrir. No "abre com o mouse" a barra já abre ao
+     encostar e o botão aparece no lugar de sempre. */
+  @media (hover: hover) {
+    .cm-frame[data-rail='narrow'] .cm-rail__toggle {
+      position: absolute;
+      top: 50%;
+      left: 14px;
+      width: 40px;
+      height: 40px;
+      margin-top: -20px;
+      border-radius: 11px;
+      background: color-mix(in oklab, var(--cm-text) 6%, var(--cm-frame));
+      color: var(--cm-sidebar-text-strong);
+      pointer-events: none;
+    }
+    .cm-frame[data-rail='narrow'] .cm-rail__toggle:hover {
+      background: color-mix(in oklab, var(--cm-text) 10%, var(--cm-frame));
+    }
+    .cm-frame[data-rail-mode='fechado'][data-rail='narrow'] .cm-rail__brand:hover .cm-rail__toggle,
+    .cm-frame[data-rail='narrow'] .cm-rail__toggle:focus-visible,
+    .cm-frame[data-rail='narrow'] .cm-rail__toggle[aria-expanded='true'] {
+      opacity: 1;
+      pointer-events: auto;
     }
   }
   /* Fixa aberta: o painel encosta reto no menu e no topo (sem a curvinha no encontro). */
@@ -495,13 +527,13 @@
     justify-content: space-between;
     gap: 8px;
     /* Largura fixa da barra aberta: recolhendo, nada se espreme (o nome não vira "Fum…"); a
-       barra só corta o que passa da borda. Logo centrada na faixa recolhida (padding 13px). */
+       barra só corta o que passa da borda. Logo centrada na faixa recolhida (padding 14px). */
     flex: none;
     width: var(--rail-open);
     height: var(--top-h);
     /* Fio de ponta a ponta separa o topo (logo + nome) dos itens do menu. */
     margin: 0 -12px 6px;
-    padding: 0 12px 0 13px;
+    padding: 0 12px 0 14px;
     border-bottom: 1px solid var(--cm-border);
   }
   .cm-frame .cm-rail__brand .cm-store-brand {
@@ -533,10 +565,19 @@
   }
   .cm-frame .cm-rail__toggle {
     flex-shrink: 0;
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     border-radius: var(--cm-radius-md);
     color: var(--cm-text-subtle);
+  }
+  /* O ícone do botão mostra o jeito atual do menu (aberto, abre com o mouse, fechado). */
+  .cm-frame .cm-rail__toggle svg {
+    width: 20px;
+    height: 20px;
+  }
+  .cm-frame .cm-rail__toggle[aria-expanded='true'] {
+    background: color-mix(in oklab, var(--cm-text) 6%, transparent);
+    color: var(--cm-sidebar-text-strong);
   }
   .cm-frame :is(.cm-rail__nav, .cm-rail__foot) {
     justify-items: stretch;
@@ -553,7 +594,7 @@
     padding: 12px 10px 5px;
     background: none;
     color: var(--cm-text-subtle);
-    font-size: var(--cm-text-xs);
+    font-size: 0.8125rem;
     font-weight: 600;
     line-height: 1.2;
   }
@@ -574,10 +615,10 @@
     justify-items: start;
     gap: 12px;
     width: 100%;
-    min-height: 38px;
+    min-height: 42px;
     padding: 0 10px;
     border-radius: var(--cm-radius-md);
-    font-size: var(--cm-text-md);
+    font-size: 1rem;
     font-weight: 500;
     line-height: 1.2;
     text-align: left;
@@ -597,18 +638,18 @@
   .cm-frame .cm-rail__item.is-active::after {
     display: none;
   }
-  /* Ícone numa coluna fixa de 22px: os nomes ficam alinhados. */
+  /* Ícone numa coluna fixa de 24px: os nomes ficam alinhados. */
   .cm-frame .cm-rail__icon {
     flex: none;
-    width: 22px;
+    width: 24px;
     color: var(--cm-text-subtle);
   }
   .cm-frame .cm-rail__item:hover .cm-rail__icon {
     color: var(--cm-sidebar-text-strong);
   }
   .cm-frame .cm-rail__icon svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
   }
   .cm-frame .cm-rail__item.is-active .cm-rail__icon {
     color: var(--cm-brand-700);
@@ -666,7 +707,7 @@
   .cm-rail__sub {
     display: grid;
     gap: 1px;
-    margin: 2px 0 6px 20px;
+    margin: 2px 0 6px 21px;
     border-left: 1px solid var(--cm-border-strong);
   }
   .cm-rail__subitem {
@@ -674,12 +715,12 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 34px;
+    min-height: 36px;
     margin-left: 6px;
     padding: 0 8px 0 18px;
     border-radius: var(--cm-radius-sm);
     color: var(--cm-sidebar-text);
-    font-size: var(--cm-text-sm);
+    font-size: var(--cm-text-md);
     font-weight: 500;
     text-decoration: none;
     white-space: nowrap;
@@ -716,22 +757,22 @@
   }
   /* Conta no pé: avatar, nome e papel. */
   .cm-frame .cm-rail__item:has(.cm-rail__profile) {
-    min-height: 46px;
-    padding-left: 5px;
+    min-height: 50px;
+    padding-left: 6px;
   }
   /* Avatar centrado na faixa recolhida, como os ícones. */
   .cm-frame .cm-rail__item:has(.cm-rail__profile) .cm-rail__icon {
     width: 32px;
   }
   .cm-frame .cm-rail__avatar {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     font-size: 10px;
   }
   .cm-frame .cm-rail__item:has(.cm-rail__profile) .cm-rail__avatar {
-    width: 28px;
-    height: 28px;
-    font-size: 11px;
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
   }
   .cm-frame .cm-rail__item.is-active .cm-rail__avatar {
     box-shadow: none;
@@ -748,18 +789,18 @@
   }
   .cm-rail__profile-name {
     color: var(--cm-sidebar-text-strong);
-    font-size: var(--cm-text-sm);
+    font-size: var(--cm-text-md);
     font-weight: 600;
   }
   .cm-rail__profile-detail {
     color: var(--cm-text-subtle);
-    font-size: var(--cm-text-xs);
+    font-size: 0.8125rem;
     font-weight: 500;
   }
   /* Tela baixa (notebook de 768px, Windows com zoom): linhas um pouco mais baixas. */
   @media (max-height: 800px) {
     .cm-frame .cm-rail__item {
-      min-height: 36px;
+      min-height: 38px;
     }
     .cm-frame .cm-rail__section {
       padding-top: 12px;
@@ -769,10 +810,10 @@
       padding-top: 4px;
     }
     .cm-frame .cm-rail__item:has(.cm-rail__profile) {
-      min-height: 42px;
+      min-height: 46px;
     }
     .cm-rail__subitem {
-      min-height: 32px;
+      min-height: 34px;
     }
   }
 }
@@ -890,6 +931,39 @@
 }
 .cm-flyout__link .cm-badge {
   margin-left: auto;
+}
+/* "Menu lateral": os três jeitos da barra (aberto, abre com o mouse, fechado), o escolhido com
+   o visto laranja. */
+.cm-railmode__opt {
+  width: 100%;
+  min-height: 48px;
+  padding-block: 6px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+}
+.cm-railmode__opt:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: -2px;
+}
+.cm-railmode__text {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+}
+.cm-railmode__hint {
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+  font-weight: 500;
+}
+.cm-flyout__link svg.cm-railmode__check {
+  flex: none;
+  color: var(--cm-brand-700);
 }
 @keyframes cm-fly-row {
   from {

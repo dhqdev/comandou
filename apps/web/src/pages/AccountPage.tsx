@@ -13,6 +13,8 @@ import {
   Store,
   Sun,
   UserRound,
+  Volume2,
+  VolumeX,
   Wand2,
 } from 'lucide-react';
 import { CSSProperties, MouseEvent, ReactNode, useEffect, useState } from 'react';
@@ -21,7 +23,9 @@ import { useAccountTools } from '../app/account-tools';
 import { useAuth } from '../app/auth';
 import { clickPoint, switchTheme, useTheme } from '../design-system';
 import { openTeamChat } from '../features/chat/TeamChat';
+import { SoundSettings } from '../features/SoundControl';
 import { api } from '../lib/api';
+import { useSoundSettings } from '../lib/sounds';
 import { MyDataModal, RestaurantDataModal } from './account/AccountForms';
 import './account.css';
 
@@ -101,6 +105,9 @@ export function AccountPage() {
 
   const nextTheme = theme === 'dark' ? 'light' : 'dark';
   const [form, setForm] = useState<'me' | 'restaurant' | null>(null);
+  // Sons de aviso: saíram do topo (pedido do David) e moram aqui, em Este aparelho.
+  const sound = useSoundSettings();
+  const [soundOpen, setSoundOpen] = useState(false);
   const isOwner = me?.user.role === 'owner';
   const sections: { key: string; title: string; items: Action[] }[] = [
     {
@@ -200,6 +207,16 @@ export function AccountPage() {
           icon: theme === 'dark' ? <Moon /> : <Sun />,
           onClick: (e) => switchTheme(nextTheme, clickPoint(e, e.currentTarget)),
         },
+        {
+          key: 'sons',
+          title: 'Sons de aviso',
+          text: 'Volume, repetir até atender, som gravado e o som de cada aviso.',
+          icon: sound.enabled ? <Volume2 /> : <VolumeX />,
+          onClick: () => setSoundOpen(true),
+          status: sound.enabled
+            ? { tone: 'success', text: `Ligados · volume ${Math.round(sound.volume * 100)}%` }
+            : { tone: 'warning', text: 'Desligados neste aparelho' },
+        },
         tools.install.show
           ? {
               key: 'instalar',
@@ -288,6 +305,7 @@ export function AccountPage() {
       <p className="acc__foot">Comandou v{__APP_VERSION__}</p>
       <MyDataModal open={form === 'me'} onClose={() => setForm(null)} />
       <RestaurantDataModal open={form === 'restaurant'} onClose={() => setForm(null)} />
+      <SoundSettings open={soundOpen} onClose={() => setSoundOpen(false)} />
     </div>
   );
 }

@@ -30,8 +30,8 @@ export async function nav(page: Page, name: string | RegExp) {
     const link = group.getByRole('link', { name, exact });
     if (await link.count()) return link.click();
   }
-  // Menu recolhido: o grupo abre um submenu ao lado.
-  for (const group of await rail.locator('button[aria-haspopup]').all()) {
+  // Menu recolhido: o grupo abre um submenu ao lado (o botão do topo só escolhe o jeito do menu).
+  for (const group of await rail.locator('button[aria-haspopup]:not(.cm-rail__toggle)').all()) {
     await group.click();
     await page.getByRole('menu').waitFor();
     const link = page.getByRole('menu').getByRole('menuitem', { name, exact });

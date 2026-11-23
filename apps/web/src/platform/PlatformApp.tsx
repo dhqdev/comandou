@@ -614,7 +614,6 @@ function PlatformShell() {
           <>
             <div className="topbar__tenant" title={window.location.hostname}>
               {titleFor(pathname)}
-              <span className="topbar__version">v{__APP_VERSION__}</span>
             </div>
             <span className="adm-top__spacer" />
             <button

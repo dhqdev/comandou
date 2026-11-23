@@ -684,8 +684,8 @@ export function PdvPage() {
           </label>
         </div>
         <div className="pdv__spacer" />
-        {/* Silenciar: desliga todos os avisos sonoros deste aparelho (o mesmo do botão de som do
-            topo, onde ficam o volume e cada som). */}
+        {/* Silenciar: desliga todos os avisos sonoros deste aparelho (o mesmo liga/desliga de
+            Conta › Sons de aviso, onde ficam o volume e cada som). */}
         <button
           type="button"
           className="pdv__mute"

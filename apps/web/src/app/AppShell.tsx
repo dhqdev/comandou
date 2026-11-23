@@ -52,7 +52,6 @@ import {
 } from '../design-system';
 import { GlobalSearch, GlobalSearchTrigger, useSearchHotkey } from '../features/GlobalSearch';
 import { NewsBell } from '../features/NewsBell';
-import { SoundControl } from '../features/SoundControl';
 import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
 import {
   openSupportInbox,
@@ -454,11 +453,8 @@ export function AppShell() {
         contentKey={location.pathname}
         top={
           <>
-            {/* Com o menu aberto, o nome já aparece ao lado do logo: aqui fica só a versão. */}
-            <div className="topbar__tenant" title={me?.tenant.name}>
-              <span className="topbar__name">{me?.tenant.name}</span>
-              <span className="topbar__version">v{__APP_VERSION__}</span>
-            </div>
+            {/* Sem nome nem versão no topo: o nome do restaurante fica no menu aberto (e no
+                title da logo) e a versão no pé da tela Conta. */}
             <GlobalSearchTrigger onOpen={() => setSearchOpen(true)} />
             <div className="topbar__spacer" />
             {/* Sinal da conexão (barrinhas): mede o tempo de resposta e o tempo real. */}
@@ -468,7 +464,7 @@ export function AppShell() {
             <SupportButton className="topbar__support" />
             <ChatTopButtons />
             <NewsBell />
-            <SoundControl />
+            {/* Sons de aviso: ajustes na tela Conta › Este aparelho (o PDV tem o Silenciar). */}
             <ThemeToggle />
           </>
         }
