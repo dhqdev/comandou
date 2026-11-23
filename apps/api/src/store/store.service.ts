@@ -37,7 +37,7 @@ import { SiteCopy } from '../chat/site-page';
 export const mediaUrl = (id: string | null | undefined) => (id ? `/api/v1/media/${id}` : null);
 export const publicTokenHash = (token: string) => createHash('sha256').update(token).digest();
 export const PUBLIC_TOKEN_RE = /^[A-Za-z0-9_-]{32,64}$/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface StoreSettings {
   enabled: boolean;
@@ -321,6 +321,8 @@ export interface OnlineOrderInput {
   customerName: string;
   /** Obrigatório na entrega e na retirada; opcional na mesa. */
   customerPhone?: string;
+  /** CPF (só dígitos, já conferido): obrigatório na mesa. */
+  customerCpf?: string;
   address?: {
     street: string;
     number: string;
@@ -1008,6 +1010,7 @@ export class StoreService {
           changeFor: !atTable && input.paymentMethod === 'cash' ? input.changeFor : undefined,
           customerId: input.customerId,
           rewardId: input.rewardId,
+          taxDocument: atTable ? input.customerCpf : undefined,
         },
         minSubtotal: atTable ? undefined : minSubtotal,
       },

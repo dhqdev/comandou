@@ -1,6 +1,6 @@
 import { AddressEdit } from './AddressEdit';
 import { AddressFields, addressPayload } from './AddressFields';
-import { fromCents, pixBrCode, toCents } from '@comandou/shared';
+import { fromCents, isValidCpf, pixBrCode, toCents } from '@comandou/shared';
 import {
   Bike,
   ChevronRight,
@@ -65,6 +65,15 @@ import { Field, Photo, ScreenHeader, Stepper, Switch } from './ui';
 const AddressPin = lazy(() => import('./AddressPin'));
 
 /** Sacola e finalização: com a conta aberta, nome, telefone e endereços já vêm preenchidos. */
+/** "52998224725" → "529.982.247-25", enquanto digita. */
+function maskCpf(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  return d
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d{1,2})$/, '.$1-$2');
+}
+
 export function CartScreen() {
   const {
     menu,
@@ -192,6 +201,9 @@ export function CartScreen() {
   const phoneDigits = phone.replace(/\D/g, '').length;
   // Na mesa o telefone é opcional (o garçom leva até ela); se digitar, tem de estar completo.
   const phoneOk = phoneDigits >= 10 || (atTable && phoneDigits === 0);
+  // Na mesa o CPF é obrigatório (vai para a nota fiscal da conta).
+  const cpfDigits = (customer.customerCpf ?? '').replace(/\D/g, '');
+  const cpfOk = !atTable || isValidCpf(cpfDigits);
   const typedOk = !!(customer.street.trim() && customer.number.trim() && customer.district.trim());
   // Com áreas no mapa, o endereço só vale depois de achar o ponto dentro de uma área.
   const pinOk = !zones || !!pinned?.quote.covered;
@@ -231,6 +243,7 @@ export function CartScreen() {
           },
         ]
       : []),
+    ...(!cpfOk ? [{ key: 'who' as const, text: cpfDigits ? 'um CPF válido' : 'seu CPF' }] : []),
     ...(channel === 'delivery' && !chosen && !typedOk
       ? [{ key: 'address' as const, text: 'rua, número e bairro' }]
       : []),
@@ -354,6 +367,7 @@ export function CartScreen() {
           token,
           customerName: name.trim(),
           customerPhone: phone.trim() || undefined,
+          customerCpf: atTable ? cpfDigits : undefined,
           address,
           notes: notes.trim() || undefined,
           // Na mesa: Pix agora pelo cardápio ou nada (paga no fim, com o garçom).
@@ -671,6 +685,30 @@ export function CartScreen() {
                   </Link>
                 )}
               </>
+            )}
+            {atTable && (
+              <Field
+                label="CPF"
+                hint={
+                  tried && !cpfOk ? (
+                    <span className="form-error">
+                      {cpfDigits ? 'Confira o CPF' : 'Informe o seu CPF para a nota da conta'}
+                    </span>
+                  ) : (
+                    'Vai na nota fiscal da conta da mesa.'
+                  )
+                }
+              >
+                <input
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="000.000.000-00"
+                  value={customer.customerCpf ?? ''}
+                  maxLength={14}
+                  aria-invalid={(tried && !cpfOk) || undefined}
+                  onChange={(e) => set('customerCpf', maskCpf(e.target.value))}
+                />
+              </Field>
             )}
           </section>
 

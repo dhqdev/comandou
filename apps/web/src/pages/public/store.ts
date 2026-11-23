@@ -192,6 +192,8 @@ export interface CustomerInfo {
   complement: string;
   reference: string;
   paymentMethod: 'pix' | 'credit' | 'debit' | 'cash' | 'voucher';
+  /** CPF (pedido da mesa pelo celular, vai para a nota). Guardado para os próximos pedidos. */
+  customerCpf?: string;
 }
 
 export const EMPTY_CUSTOMER: CustomerInfo = {

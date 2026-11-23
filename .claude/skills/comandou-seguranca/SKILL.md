@@ -47,6 +47,10 @@ cookie, CSRF, corpo gigante e Host estranho.
   `app_current_user()`; trocar e-mail pede a senha atual.
 - `@Public()`: limite próprio (`@Throttle`), token longo (`randomBytes(24+)`, guardado em hash)
   ou cookie do cliente conferido em cada chamada; nunca confie em id vindo do corpo.
+  Exceção revisada: a mesa do QR Code (`/store/table/:tableId/...`, 0.235, e o pedido pela mesa).
+  O id da mesa (uuid do QR colado nela) é a chave; a conta pública mostra só itens e valores da
+  comanda aberta (nada de nome, CPF ou telefone), o chamado segue a conferência de localização da
+  loja e o comprovante só vira dinheiro depois que o caixa aprova.
 - `@SkipTenant()` desliga a sessão também: só com `PlatformHostGuard` + `PlatformSessionGuard`
   (painel) ou token próprio conferido **antes** de ler o corpo (`bearerMatches`, tempo constante).
 - `@SkipCsrf()` só para webhook de terceiro com token ou assinatura.

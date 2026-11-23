@@ -46,6 +46,8 @@ import { ReservationsService } from '../reservations/reservations.service';
 import { SetupController } from '../setup/setup.controller';
 import { SalonController, TabsController } from '../tables/tabs.controller';
 import { TabsService } from '../tables/tabs.service';
+import { TableSelfController, TableServiceController } from '../tables/table-self.controller';
+import { TableSelfService } from '../tables/table-self.service';
 import { WaitersController } from '../tables/waiters.controller';
 import { AccountController, CustomersController } from '../store/account.controller';
 import { StoreReviewsController } from '../store/reviews.controller';
@@ -83,6 +85,8 @@ import { OrdersService } from './orders.service';
     OrdersController,
     PaymentsController,
     TabsController,
+    TableSelfController,
+    TableServiceController,
     SalonController,
     WaitersController,
     KitchenController,
@@ -136,6 +140,7 @@ import { OrdersService } from './orders.service';
     DeliveryService,
     CourierPayService,
     StaffPayService,
+    TableSelfService,
     ZonesService,
     GeocoderService,
     CepService,

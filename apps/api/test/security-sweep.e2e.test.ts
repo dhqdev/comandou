@@ -142,6 +142,10 @@ const PUBLIC_TENANT_ROUTES = [
   'GET /api/v1/store/site',
   'GET /api/v1/store/status',
   'POST /api/v1/store/table-presence',
+  'GET /api/v1/store/table/:tableId/bill',
+  'POST /api/v1/store/table/:tableId/call',
+  'POST /api/v1/store/table/:tableId/call/cancel',
+  'POST /api/v1/store/table/:tableId/pix-receipt',
   'GET /api/v1/tenant',
   'GET /api/v1/track/:token',
 ];

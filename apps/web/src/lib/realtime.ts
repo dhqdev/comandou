@@ -14,6 +14,13 @@ export type RealtimeEvent =
   | { type: 'kitchen.changed'; orderId: string }
   | { type: 'kitchen.settings' }
   | { type: 'tab.changed'; tabId: string }
+  // Mesa chamou o garçom pelo celular (ou o chamado foi atendido/cancelado).
+  | {
+      type: 'table.call';
+      tableId: string;
+      callId: string;
+      status: 'open' | 'answered' | 'cancelled';
+    }
   | { type: 'cash.changed'; sessionId: string }
   | { type: 'menu.changed' }
   | { type: 'channels.changed' }

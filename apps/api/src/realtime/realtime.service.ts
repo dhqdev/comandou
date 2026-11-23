@@ -12,6 +12,13 @@ export type RealtimeEvent =
   // O Super Admin mudou as cozinhas ou o que a tela da cozinha mostra.
   | { type: 'kitchen.settings' }
   | { type: 'tab.changed'; tabId: string }
+  /** Mesa chamou o garçom pelo celular (ou o chamado foi atendido/cancelado). */
+  | {
+      type: 'table.call';
+      tableId: string;
+      callId: string;
+      status: 'open' | 'answered' | 'cancelled';
+    }
   | { type: 'cash.changed'; sessionId: string }
   | { type: 'menu.changed' }
   // Aplicativos de delivery: loja, evento ou item sem vínculo mudou (tela Integrações).

@@ -18,7 +18,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { PIX_CITY_MAX, PIX_KEY_TYPES, PIX_NAME_MAX, roleHas } from '@comandou/shared';
+import { isValidCpf, PIX_CITY_MAX, PIX_KEY_TYPES, PIX_NAME_MAX, roleHas } from '@comandou/shared';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
@@ -82,6 +82,14 @@ const OnlineOrder = z
       .trim()
       .regex(/^[0-9()+\s-]{8,20}$/, 'telefone inválido')
       .optional(),
+    /** CPF do cliente: obrigatório no pedido da mesa pelo celular (vai para a nota fiscal). */
+    customerCpf: z
+      .string()
+      .trim()
+      .transform((v) => v.replace(/\D/g, ''))
+      .refine((v) => !v || isValidCpf(v), 'CPF inválido')
+      .optional()
+      .transform((v) => v || undefined),
     address: z
       .object({
         street: text(120),
@@ -143,6 +151,8 @@ const OnlineOrder = z
     if (o.channel === 'table') {
       if (!o.tableId)
         ctx.addIssue({ code: 'custom', path: ['tableId'], message: 'Informe a mesa' });
+      if (!o.customerCpf)
+        ctx.addIssue({ code: 'custom', path: ['customerCpf'], message: 'Informe o seu CPF' });
       return;
     }
     if (!o.customerPhone)

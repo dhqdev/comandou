@@ -44,6 +44,24 @@ export const pixPendingMessage = (number: number) =>
 export async function assertNoPixPending(tx: Tx, o: { id: string; number: number }) {
   if (await one(tx, `SELECT 1 FROM orders WHERE id = $1 AND pix_status = 'submitted'`, [o.id]))
     throw new ConflictException(pixPendingMessage(o.number));
+  await assertNoTabPixPending(tx, o.id);
+}
+
+/** A mesa mandou o comprovante do Pix da conta inteira (tab_pix_receipts) e o caixa ainda não viu. */
+export const TAB_PIX_PENDING_MESSAGE =
+  'A mesa mandou o comprovante do Pix da conta. Confira o comprovante antes de cobrar de novo.';
+
+/** Comprovante da conta da mesa esperando conferência: cobrar faria o cliente pagar duas vezes. */
+export async function assertNoTabPixPending(tx: Tx, orderId: string) {
+  if (
+    await one(
+      tx,
+      `SELECT 1 FROM tab_pix_receipts r JOIN orders o ON o.tab_id = r.tab_id
+        WHERE o.id = $1 AND r.status = 'submitted'`,
+      [orderId],
+    )
+  )
+    throw new ConflictException(TAB_PIX_PENDING_MESSAGE);
 }
 
 interface SessionRow {

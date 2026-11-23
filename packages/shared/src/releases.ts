@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.235.0',
+    date: '2026-11-22',
+    title: 'Mesa chama o garçom e fecha a conta pelo celular',
+    summary:
+      'No cardápio do QR Code da mesa entrou a aba Garçom, com dois botões: chamar o garçom e fechar a conta. O chamado aparece no PDV, no Salão e no app do garçom; a conta pode ser paga pelo Pix da loja, com o comprovante que o caixa confere. O pedido pela mesa agora pede o CPF.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápio da mesa: aba Garçom no meio, com "Chamar o garçom" e "Fechar a conta". O cliente vê há quanto tempo chamou e pode cancelar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Mesa chamando aparece no topo do sistema (PDV, Salão, Pedidos) e do app do garçom, com som e o botão Atender.',
+      },
+      {
+        tag: 'novo',
+        text: 'Fechar a conta pelo celular: o cliente vê os itens e o saldo da mesa inteira (pedidos do garçom e de outros celulares também), paga pelo Pix da loja e manda o print ou o PDF do comprovante.',
+      },
+      {
+        tag: 'novo',
+        text: 'O caixa confere o comprovante (Conferir, no topo da tela): aprovado, o Pix entra no caixa nos pedidos da mesa e, com tudo servido, a mesa fica livre; recusado, o cliente vê o motivo e manda outro. Enquanto o comprovante espera, a mesa não é cobrada de novo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Sem Pix ligado (ou se o cliente preferir cartão ou dinheiro), "Pagar com o garçom" chama o garçom para receber.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O pedido pelo QR Code da mesa pede o CPF do cliente, que vai para a nota fiscal da conta.',
+      },
+    ],
+  },
+  {
     version: '0.234.0',
     date: '2026-11-22',
     title: 'Pagamento da equipe e perfil do garçom',

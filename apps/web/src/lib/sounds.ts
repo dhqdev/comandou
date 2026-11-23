@@ -24,7 +24,11 @@ export const SOUND_INFO: { kind: SoundKind; label: string; hint: string }[] = [
   { kind: 'delivery', label: 'Pronto para entrega', hint: 'Pedido esperando um entregador' },
   { kind: 'courier', label: 'Nova corrida', hint: 'Entrega atribuída ao motoboy' },
   { kind: 'delivered', label: 'Entregue', hint: 'O entregador finalizou uma entrega' },
-  { kind: 'bill', label: 'Pediu a conta', hint: 'Uma mesa pediu para fechar' },
+  {
+    kind: 'bill',
+    label: 'Pediu a conta',
+    hint: 'Uma mesa pediu para fechar, chamou o garçom ou mandou o Pix da conta',
+  },
   { kind: 'cancel', label: 'Cancelamento', hint: 'Cliente pediu para cancelar um pedido' },
   { kind: 'message', label: 'Mensagem de cliente', hint: 'Cliente escreveu pelo cardápio online' },
   {

@@ -28,6 +28,8 @@ export interface StoreRules {
   loyalty: boolean;
   /** Aviso de instalar o cardápio como app. */
   installHint: boolean;
+  /** Aba do meio da mesa: chamar o garçom e fechar a conta pelo celular. */
+  tableService: boolean;
 }
 
 /** Ligado pela loja em Loja online (o cardápio de mesa ainda filtra por cima). */
@@ -49,6 +51,7 @@ export function storeRules(mode: StoreMode, t: StoreToggles = {}): StoreRules {
       favorites: false,
       loyalty: false,
       installHint: false,
+      tableService: true,
     };
   return {
     mode,
@@ -59,6 +62,7 @@ export function storeRules(mode: StoreMode, t: StoreToggles = {}): StoreRules {
     favorites: true,
     loyalty: true,
     installHint: true,
+    tableService: false,
   };
 }
 
@@ -68,5 +72,6 @@ export function storeScreenAllowed(rules: StoreRules, screen: string): boolean {
   if (screen.startsWith('favoritos')) return rules.favorites;
   if (screen.startsWith('fidelidade')) return rules.loyalty;
   if (screen.startsWith('reservar')) return rules.reservations;
+  if (screen === 'mesa' || screen.startsWith('mesa/')) return rules.tableService;
   return true;
 }

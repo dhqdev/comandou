@@ -120,8 +120,8 @@ function TableOrdersScreen() {
             })}
           </ul>
           <p className="form-hint tw-total__hint">
-            A conta da mesa fecha com o garçom ou no caixa (pedidos de outros celulares e do garçom
-            entram nela também).
+            Para fechar a conta da mesa inteira (pedidos de outros celulares e do garçom entram nela
+            também), toque em <Link to="/pedir/mesa/conta">Fechar a conta</Link>.
           </p>
           <Link className="cta cta--inline" to="/pedir">
             Pedir mais

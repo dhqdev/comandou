@@ -88,6 +88,8 @@ describe('Pedido pela mesa (QR Code colado na mesa)', () => {
     tableId: table.id,
     token: token(),
     customerName: 'Ana na Mesa',
+    // Pedido da mesa pelo celular pede o CPF (0.235).
+    customerCpf: '529.982.247-25',
     items: [{ productId: fx.prodA, quantity: 2 }],
     ...extra,
   });

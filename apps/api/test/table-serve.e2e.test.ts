@@ -76,6 +76,8 @@ const atTable = (extra: object = {}) => ({
   tableId,
   token: token(),
   customerName: 'Lia da Mesa',
+  // Pedido da mesa pelo celular pede o CPF (0.235).
+  customerCpf: '529.982.247-25',
   items: [{ productId: fx.prodA, quantity: 1 }],
   presence: NEAR,
   ...extra,

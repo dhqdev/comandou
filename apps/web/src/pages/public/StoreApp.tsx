@@ -1,5 +1,6 @@
 import { fromCents, storeScreenAllowed } from '@comandou/shared';
 import {
+  BellRing,
   ChevronRight,
   HandPlatter,
   Heart,
@@ -47,6 +48,7 @@ import { ProductScreen } from './ProductScreen';
 import { ReservationStatusScreen, ReserveScreen } from './ReservationScreens';
 import { InstallHint, useHomeScreenMeta } from './InstallHint';
 import { TableHere } from './TableHere';
+import { TableBillScreen, TableServiceScreen } from './TableServiceScreen';
 import {
   isTableId,
   rememberTable,
@@ -140,11 +142,14 @@ function useNavTabs(): MagicTab[] {
         : UserRound,
     [me],
   );
-  // Cada cardápio só mostra as abas que as regras dele deixam (store-rules.ts): na mesa, só o
-  // cardápio e os pedidos da mesa.
+  // Cada cardápio só mostra as abas que as regras dele deixam (store-rules.ts): na mesa, o
+  // cardápio, a aba do meio (chamar o garçom e fechar a conta) e os pedidos da mesa.
   const atTable = rules.mode === 'table';
   return [
     { to: '/pedir', label: 'Cardápio', icon: House, end: true, badge: 0 },
+    ...(rules.tableService
+      ? [{ to: '/pedir/mesa', label: 'Garçom', icon: BellRing, badge: 0 }]
+      : []),
     ...(rules.favorites
       ? [{ to: '/pedir/favoritos', label: 'Favoritos', icon: Heart, badge: 0 }]
       : []),
@@ -296,6 +301,11 @@ function Screens() {
             element={<Allowed screen="favoritos" el={<FavoritesScreen />} />}
           />
           <Route path="pedidos" element={<OrdersScreen />} />
+          <Route path="mesa" element={<Allowed screen="mesa" el={<TableServiceScreen />} />} />
+          <Route
+            path="mesa/conta"
+            element={<Allowed screen="mesa/conta" el={<TableBillScreen />} />}
+          />
           <Route path="pedidos/:id" element={<PublicOrderPage />} />
           <Route path="reservar" element={<Allowed screen="reservar" el={<ReserveScreen />} />} />
           <Route path="reserva/:token" element={<ReservationStatusScreen />} />

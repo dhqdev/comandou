@@ -13,11 +13,12 @@ describe('regras de cada cardápio', () => {
       favorites: false,
       loyalty: false,
       installHint: false,
+      tableService: true,
     });
     for (const s of ['conversa', 'favoritos', 'fidelidade', 'reservar'])
       expect(storeScreenAllowed(r, s)).toBe(false);
-    // Produto, sacola, pedidos e a conta (login do Pix) continuam abrindo.
-    for (const s of ['', 'produto/1', 'sacola', 'pedidos', 'conta'])
+    // Produto, sacola, pedidos, a conta (login do Pix) e a aba do garçom continuam abrindo.
+    for (const s of ['', 'produto/1', 'sacola', 'pedidos', 'conta', 'mesa', 'mesa/conta'])
       expect(storeScreenAllowed(r, s)).toBe(true);
   });
 
@@ -32,6 +33,9 @@ describe('regras de cada cardápio', () => {
     expect(off.chat).toBe(false);
     expect(off.accountTab).toBe(false);
     expect(storeScreenAllowed(off, 'conversa')).toBe(false);
+    // Chamar o garçom e fechar a conta pelo celular: só no cardápio da mesa.
+    expect(storeScreenAllowed(off, 'mesa')).toBe(false);
+    expect(storeScreenAllowed(off, 'mesa/conta')).toBe(false);
     // Sem o campo (loja antiga), a conversa vale ligada, como na tela da loja.
     expect(storeRules('online').chat).toBe(true);
   });

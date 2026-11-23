@@ -6,7 +6,13 @@ import {
 } from '@nestjs/common';
 import { fromCents, paymentStatusFor, toCents } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
-import { CashService, changeFor, PaymentInput, pixPendingMessage } from '../cash/cash.service';
+import {
+  CashService,
+  changeFor,
+  PaymentInput,
+  pixPendingMessage,
+  TAB_PIX_PENDING_MESSAGE,
+} from '../cash/cash.service';
 import type { Ctx } from '../common/context';
 import { withIdempotency } from '../common/idempotency';
 import { one, q } from '../common/sql';
@@ -320,6 +326,15 @@ export class TabsService {
         // Comprovante do Pix esperando conferência: cobrar de novo faria o cliente pagar duas vezes.
         const pixPending = orders.find((o) => o.pix_status === 'submitted');
         if (pixPending) throw new ConflictException(pixPendingMessage(pixPending.number));
+        // A mesa mandou o comprovante do Pix da conta inteira pelo celular.
+        if (
+          await one(
+            tx,
+            `SELECT 1 FROM tab_pix_receipts WHERE tab_id = $1 AND status = 'submitted'`,
+            [id],
+          )
+        )
+          throw new ConflictException(TAB_PIX_PENDING_MESSAGE);
         const balance = orders.reduce((s, o) => s + toCents(o.total) - toCents(o.paid_amount), 0);
         let remaining = toCents(b.amount);
         if (remaining <= 0) throw new UnprocessableEntityException('Valor deve ser maior que zero');

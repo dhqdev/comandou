@@ -19,6 +19,7 @@ import { api } from '../lib/api';
 import { useOnline } from '../lib/connectivity';
 import { rememberStaffApp } from '../lib/staff-app';
 import { OfflineBanner } from '../app/OfflineBanner';
+import { TableServiceAlerts } from '../features/TableCalls';
 import { useDebounced, useRealtime, useRealtimeStatus } from '../lib/realtime';
 import { ChangePasswordModal } from '../pages/TeamPage';
 import { Seal, WaiterStats, WaiterStatsContext } from './common';
@@ -144,6 +145,8 @@ export function WaiterApp() {
             </div>
           )}
           <OfflineBanner className="wt-offline" />
+          {/* Mesa chamando pelo celular: o garçom vê em qualquer tela e toca em Atender. */}
+          <TableServiceAlerts compact />
           {online && live === 'offline' && (
             <div className="wt-offline" role="status">
               Reconectando ao restaurante…

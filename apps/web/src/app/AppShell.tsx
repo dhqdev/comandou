@@ -73,6 +73,7 @@ import { rememberStaffApp } from '../lib/staff-app';
 import { PrintStatus } from '../features/PrintStatus';
 import { ConnectionSignal } from '../features/ConnectionSignal';
 import { OfflineBanner } from './OfflineBanner';
+import { TableServiceAlerts } from '../features/TableCalls';
 import { useHasUnseenRelease } from '../lib/releases';
 import { ChangePasswordModal } from '../pages/TeamPage';
 import { useInstallApp } from './InstallApp';
@@ -482,6 +483,8 @@ export function AppShell() {
             )}
             {/* Sem internet, o que for salvo fica no aparelho até a conexão voltar. */}
             <OfflineBanner />
+            {/* Mesa chamando o garçom ou mandando o Pix da conta: em todas as telas (PDV, Salão…). */}
+            <TableServiceAlerts />
           </>
         }
       >

@@ -74,6 +74,8 @@ export interface CreateOrderInput {
     pix?: boolean;
     /** Pago pelo app (PagBank): nasce em análise e só é aceito depois de pago. */
     payOnline?: 'card' | 'pix';
+    /** CPF do cliente (pedido da mesa pelo celular): vai para a nota fiscal (orders.tax_document). */
+    taxDocument?: string;
   };
   /** Pedido mínimo (sobre o subtotal dos itens), usado pelo cardápio online. */
   minSubtotal?: string;
@@ -674,9 +676,10 @@ export class OrdersService {
       `INSERT INTO orders (tenant_id, number, channel, status, tab_id, customer_name, customer_phone, delivery_address,
                            notes, subtotal, discount, surcharge, delivery_fee, total, created_by,
                            source, public_token_hash, payment_hint, change_for, accepted_at, customer_id,
-                           delivery_lat, delivery_lng, pix_status, pay_online)
+                           delivery_lat, delivery_lng, pix_status, pay_online, tax_document)
        VALUES ($1,$2,$3,$15,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$16,$17,$18,$19,
-               CASE WHEN $15 = 'new' AND $16 = 'online' THEN now() END, $20, $21, $22, $23, $24) RETURNING id`,
+               CASE WHEN $15 = 'new' AND $16 = 'online' THEN now() END, $20, $21, $22, $23, $24, $25)
+       RETURNING id`,
       [
         ctx.tenantId,
         number,
@@ -702,6 +705,7 @@ export class OrdersService {
         input.deliveryLocation?.lng.toFixed(6) ?? null,
         online?.pix ? 'waiting' : null,
         online?.payOnline ?? null,
+        online?.taxDocument ?? null,
       ],
     );
     if (reward)

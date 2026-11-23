@@ -1,0 +1,240 @@
+/* Aba do meio do cardápio da mesa: chamar o garçom e fechar a conta pelo celular. */
+.tsv {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 32px;
+}
+.tsv .page-h1 {
+  margin-bottom: 0;
+}
+.tsv-lead {
+  margin: -6px 0 4px;
+  color: var(--cm-text-muted);
+}
+.tsv-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  color: var(--cm-text-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tsv-actions {
+  display: grid;
+  gap: 12px;
+}
+.tsv-action {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 96px;
+  padding: 18px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-r-lg);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.tsv-action:active:not(:disabled) {
+  transform: scale(0.98);
+  transition-duration: 80ms;
+}
+.tsv-action:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.tsv-action[data-on] {
+  border-color: var(--cm-brand-500);
+}
+.tsv-action__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+.tsv-action__text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.tsv-action__text strong {
+  font-size: var(--cm-text-lg);
+  font-weight: 800;
+}
+.tsv-action__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.tsv-action__go {
+  flex: none;
+  color: var(--cm-text-muted);
+}
+
+/* Chamado aberto: há quanto tempo e o botão de desistir. */
+.tsv-called {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in oklab, var(--cm-brand-500) 40%, transparent);
+  border-radius: var(--sf-r);
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
+}
+.tsv-called__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  color: var(--cm-brand-700);
+  animation: tsv-ring 1.4s var(--cm-ease) infinite;
+}
+@keyframes tsv-ring {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0);
+  }
+  10%,
+  30%,
+  50% {
+    transform: rotate(-14deg);
+  }
+  20%,
+  40% {
+    transform: rotate(14deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tsv-called__icon {
+    animation: none;
+  }
+}
+.tsv-called__text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.tsv-called__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.tsv-called .link {
+  flex: none;
+}
+
+.tsv-art {
+  justify-self: center;
+  width: min(220px, 60%);
+  height: auto;
+  margin-top: 6px;
+  opacity: 0.95;
+}
+
+/* Conta: itens e somatório. */
+.tsv-bill {
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-r-lg);
+  background: var(--cm-surface);
+  overflow: hidden;
+}
+.tsv-bill ul {
+  margin: 0;
+  padding: 4px 16px;
+  list-style: none;
+}
+.tsv-bill li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: var(--cm-text-sm);
+}
+.tsv-bill li + li {
+  border-top: 1px solid var(--cm-border);
+}
+.tsv-bill li span:last-child,
+.tsv-bill dd {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tsv-bill dl {
+  margin: 0;
+  padding: 8px 16px 12px;
+  border-top: 1px solid var(--cm-border);
+  background: var(--cm-surface-sunken);
+}
+.tsv-bill dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: var(--cm-text-sm);
+}
+.tsv-bill dt {
+  color: var(--cm-text-muted);
+}
+.tsv-bill dd {
+  margin: 0;
+}
+.tsv-bill__due dt,
+.tsv-bill__due dd {
+  color: var(--cm-text);
+  font-size: var(--cm-text-lg);
+  font-weight: 800;
+}
+
+/* Situação do pagamento (enviado, aprovado, recusado, esperando aceite). */
+.tsv-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-r);
+  background: var(--cm-surface);
+}
+.tsv-state span {
+  display: grid;
+  gap: 2px;
+}
+.tsv-state small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.tsv-state[data-tone='ok'] > svg {
+  color: var(--cm-success);
+}
+.tsv-state[data-tone='wait'] > svg {
+  color: var(--cm-warning);
+}
+.tsv-state[data-tone='bad'] > svg {
+  color: var(--cm-danger);
+}
+
+.tsv-pay h2 {
+  margin: 4px 0 10px;
+  font-size: var(--cm-text-lg);
+  font-weight: 800;
+}
+.tsv-pay .cta {
+  width: 100%;
+  margin-top: 10px;
+}
+.tsv-other {
+  display: grid;
+  gap: 10px;
+}
+.tsv-other__btn {
+  justify-content: center;
+  min-height: 50px;
+}

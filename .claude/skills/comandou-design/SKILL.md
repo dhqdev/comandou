@@ -102,6 +102,17 @@ ficar cinza. Primeira escolha de um grupo obrigatório de uma opção segue sozi
 seção. Item do pedido tocado reabre a mesma tela ("Salvar"); o + do contador do produto repete
 direto só quando não há opções.
 
+## Avisos das mesas (0.235)
+
+Mesa chamando o garçom ou mandando o Pix da conta: `TableServiceAlerts` (`features/TableCalls.tsx`,
+`table-calls.css`) é uma **faixa no topo** do conteúdo (banners do `AppShell` e do app do garçom),
+nunca um aviso flutuante por cima dos botões. Uma linha por aviso: bolinha com o ícone (sino
+balançando para o chamado), "Mesa X está chamando o garçom · há N min" e um botão `secondary`
+(Atender / Conferir). Chamado em âmbar suave, Pix em verde suave. Conferir abre a janela com o
+comprovante grande à esquerda e, à direita, o que ele cobre, o saldo de agora, o caixa e
+Aprovar (primário) / Recusar com motivo. No cardápio da mesa, a aba Garçom tem dois cartões
+grandes (bolinha da cor da loja com o ícone, título e uma linha), no jeito do resto do cardápio.
+
 ## Modais e formulários
 
 - Janela abre **perto de quem abriu** (`liquid.ts`): no computador e no tablet sai de dentro do botão e fica ao lado dele (botão à direita, janela à direita; embaixo se couber) e volta para ele ao fechar; no celular a folha cresce do botão. Use sempre `Modal`/`Sheet`/`useLiquidDialog`: não posicione janela na mão nem com `margin: auto` fixo.
