@@ -304,6 +304,19 @@
 .tbl[data-state='paying'] .tbl__time {
   color: var(--cm-warning);
 }
+/* Mandou o comprovante do Pix: selo verde no lugar do tempo, até o caixa conferir. */
+.tbl[data-pix] {
+  --state-color: var(--cm-success);
+  --state-bg: var(--cm-success-bg);
+}
+.tbl[data-state] .tbl__pix {
+  border-color: transparent;
+  background: var(--cm-success);
+  color: #fff;
+}
+.ticket__flag--pix {
+  background: var(--cm-success);
+}
 .tbl__info {
   display: grid;
   justify-items: center;

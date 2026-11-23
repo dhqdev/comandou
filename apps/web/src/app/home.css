@@ -512,6 +512,23 @@
   outline: 2px solid var(--cm-focus, var(--cm-brand-500));
   outline-offset: 2px;
 }
+/* Comprovante do Pix esperando o caixa: linha verde e o cartão contornado, até conferir. */
+.pdv-tabcard[data-pix] {
+  border-color: var(--cm-success);
+  box-shadow: inset 0 0 0 1px var(--cm-success);
+}
+.pdv-table__pix {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--cm-success);
+}
 .pdv-table__sub {
   min-width: 0;
   overflow: hidden;
@@ -1216,4 +1233,7 @@
   .pdv-table__info em {
     display: none;
   }
+}
+.pdv [data-pix] {
+  --state: var(--cm-success);
 }

@@ -32,6 +32,8 @@ const TAB_SELECT = `
   SELECT tb.id, tb.number, tb.status, tb.customer_name AS "customerName", tb.table_id AS "tableId",
          dt.label AS "tableLabel", tb.opened_at AS "openedAt", tb.closed_at AS "closedAt",
          tb.bill_requested_at AS "billRequestedAt", tb.bill_split_parts AS "billSplitParts",
+         (SELECT max(r.created_at) FROM tab_pix_receipts r
+           WHERE r.tab_id = tb.id AND r.status = 'submitted') AS "pixReceiptAt",
          tb.service_fee_percent::text AS "serviceFeePercent",
          COALESCE(sum(o.surcharge) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS "serviceFee",
          COALESCE(sum(o.total) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS total,

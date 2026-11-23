@@ -1,5 +1,5 @@
 import { fromCents, toCents } from '@comandou/shared';
-import { BellRing, CreditCard, Download, ReceiptText } from 'lucide-react';
+import { BellRing, CreditCard, Download, FileText, ReceiptText } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCan } from '../app/auth';
 import { Alert, Button, Modal, TextField, useToast } from '../design-system';
@@ -46,6 +46,7 @@ function useLiveList<T extends { id: string }>(
   path: string,
   enabled: boolean,
   refresh: (e: { type: string }) => boolean,
+  sound = true,
 ) {
   const [items, setItems] = useState<T[]>([]);
   const known = useRef<Set<string> | null>(null);
@@ -54,13 +55,13 @@ function useLiveList<T extends { id: string }>(
     try {
       const list = await api<T[]>(path);
       // Primeira carga não toca: só o que chega depois de abrir a tela.
-      if (known.current && list.some((x) => !known.current!.has(x.id))) playSound('bill');
+      if (sound && known.current && list.some((x) => !known.current!.has(x.id))) playSound('bill');
       known.current = new Set(list.map((x) => x.id));
       setItems(list);
     } catch {
       /* sem rede: tenta de novo no próximo aviso */
     }
-  }, [path, enabled]);
+  }, [path, enabled, sound]);
   useEffect(() => {
     void load();
     if (!enabled) return;
@@ -79,12 +80,16 @@ export function useTableCalls(enabled = true) {
   return useLiveList<TableCall>('/table-service/calls', enabled, (e) => e.type === 'table.call');
 }
 
-/** Comprovantes do Pix da conta da mesa esperando o caixa. */
-export function useTabReceipts(enabled = true) {
+/**
+ * Comprovantes do Pix da conta da mesa esperando o caixa. `sound` desligado na janela da mesa:
+ * a faixa do topo já tocou o aviso.
+ */
+export function useTabReceipts(enabled = true, sound = true) {
   return useLiveList<TabReceipt>(
     '/table-service/receipts',
     enabled,
     (e) => e.type === 'tab.changed',
+    sound,
   );
 }
 
@@ -195,14 +200,17 @@ export function TabReceiptModal({
   receipt,
   onClose,
   onDone,
+  startRejecting = false,
 }: {
   receipt: TabReceipt;
   onClose(): void;
   onDone(): void;
+  /** Abre já no motivo da recusa (botão Recusar da janela da mesa). */
+  startRejecting?: boolean;
 }) {
   const toast = useToast();
   const { sessions, sessionId, choose } = useOpenSessions(true);
-  const [rejecting, setRejecting] = useState(false);
+  const [rejecting, setRejecting] = useState(startRejecting);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -355,5 +363,74 @@ export function TabReceiptModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * Aviso dentro da janela da mesa (Salão e PDV): a mesa mandou o comprovante do Pix da conta. Mostra
+ * o comprovante e, para quem recebe pagamento, Recusar e Conferir e aprovar. O cliente só sai da
+ * mesa depois dessa conferência, então o aviso fica no alto, antes dos pedidos.
+ */
+export function TabPixPanel({
+  receipt,
+  pendingSince,
+  canPay,
+  onReview,
+}: {
+  /** O comprovante (só chega para quem tem permissão de receber). */
+  receipt: TabReceipt | null;
+  pendingSince: string;
+  canPay: boolean;
+  onReview(reject: boolean): void;
+}) {
+  const url = receipt ? `/api/v1/table-service/receipts/${receipt.id}/file` : null;
+  const pdf = receipt?.contentType === 'application/pdf';
+  return (
+    <section className="tpix" aria-label="Comprovante do Pix da mesa" role="status">
+      {canPay && url && (
+        <button
+          type="button"
+          className="tpix__thumb"
+          onClick={() => onReview(false)}
+          aria-label="Ver o comprovante grande"
+        >
+          {pdf ? (
+            <span className="tpix__pdf">
+              <FileText size={26} aria-hidden />
+              PDF
+            </span>
+          ) : (
+            <img src={url} alt="" />
+          )}
+        </button>
+      )}
+      <div className="tpix__text">
+        <strong>
+          A mesa mandou o comprovante do Pix
+          {receipt ? ` · ${brl(receipt.amount)}` : ''}
+        </strong>
+        <span>
+          {since(pendingSince)} ·{' '}
+          {canPay
+            ? 'confira no app do banco antes de liberar o cliente.'
+            : 'peça para quem cuida do caixa conferir antes de liberar o cliente.'}
+        </span>
+        {receipt && toCents(receipt.due) !== toCents(receipt.amount) && (
+          <span className="tpix__warn">
+            A conta mudou depois do comprovante: agora é {brl(receipt.due)}.
+          </span>
+        )}
+      </div>
+      {canPay && receipt && (
+        <div className="tpix__actions">
+          <Button variant="ghost" onClick={() => onReview(true)}>
+            Recusar
+          </Button>
+          <Button variant="secondary" onClick={() => onReview(false)}>
+            Conferir e aprovar
+          </Button>
+        </div>
+      )}
+    </section>
   );
 }

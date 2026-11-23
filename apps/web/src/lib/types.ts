@@ -409,6 +409,8 @@ export interface Tab {
   balance: string;
   orderCount: number;
   billRequestedAt: string | null;
+  /** A mesa mandou o comprovante do Pix da conta e o caixa ainda não conferiu. */
+  pixReceiptAt?: string | null;
   /** Em quantas partes a mesa quer dividir a conta (marcado com "pediu a conta"). */
   billSplitParts?: number | null;
   /** Taxa de serviço da comanda (%), null = sem taxa; serviceFee = valor somado. */
@@ -434,6 +436,8 @@ export interface DiningTable {
   tabPaid: string;
   tabCustomer: string | null;
   billRequestedAt: string | null;
+  /** Comprovante do Pix da conta esperando o caixa conferir. */
+  pixReceiptAt?: string | null;
   /** Próxima reserva marcada na mesa (nas próximas horas), ou o grupo que já chegou. */
   reservationId?: string | null;
   reservationName?: string | null;

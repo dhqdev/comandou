@@ -39,8 +39,11 @@ export function SalonTabCard({
   canPay,
   onAction,
   onRename,
+  pix = false,
 }: {
   tab: SalonCardTab;
+  /** A mesa mandou o comprovante do Pix: o cartão fica em destaque e o $ confere o Pix. */
+  pix?: boolean;
   state: string;
   label: string;
   title: ReactNode;
@@ -57,7 +60,12 @@ export function SalonTabCard({
   /** Cartão estreito (celular): a impressora sai de fora e entra no menu. */
   const [narrow, setNarrow] = useState(false);
   return (
-    <div className="pdv-table pdv-tabcard" data-state={state} data-menu={menu || undefined}>
+    <div
+      className="pdv-table pdv-tabcard"
+      data-state={state}
+      data-menu={menu || undefined}
+      data-pix={pix || undefined}
+    >
       <button className="pdv-tabcard__open" aria-label={label} onClick={() => onAction('open')}>
         <strong>{title}</strong>
         {children}
@@ -77,8 +85,8 @@ export function SalonTabCard({
           <button
             type="button"
             className="pdv-tabcard__btn pdv-tabcard__btn--wide pdv-tabcard__btn--pay"
-            aria-label="Fechar a conta"
-            title="Fechar a conta"
+            aria-label={pix ? 'Conferir o Pix da conta' : 'Fechar a conta'}
+            title={pix ? 'Conferir o Pix da conta' : 'Fechar a conta'}
             onClick={() => onAction('close')}
           >
             <BadgeDollarSign size={16} />
@@ -116,8 +124,8 @@ export function SalonTabCard({
             canPay && {
               key: 'close',
               icon: <BadgeDollarSign size={18} />,
-              text: 'Fechar conta',
-              danger: true,
+              text: pix ? 'Conferir Pix' : 'Fechar conta',
+              danger: !pix,
             },
           ]}
           onPick={(k) => {

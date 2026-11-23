@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.237.0',
+    date: '2026-11-23',
+    title: 'Comprovante do Pix aparece na mesa',
+    summary:
+      'Quando o cliente manda o comprovante do Pix da conta pelo celular, a mesa avisa no Salão e no PDV, e ao abrir a mesa o comprovante já aparece lá dentro, com Recusar e Conferir e aprovar. Assim ninguém deixa o cliente esperando para sair.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'No Salão, a mesa fica verde com o selo Pix enquanto o comprovante espera. No PDV, o cartão da mesa (e da comanda) ganha contorno verde e a linha Pix para conferir.',
+      },
+      {
+        tag: 'novo',
+        text: 'Dentro da mesa, um quadro no alto mostra a foto do comprovante, o valor e há quanto tempo chegou, com Recusar e Conferir e aprovar. O botão principal do rodapé vira Conferir Pix.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No PDV, o botão de fechar a conta de uma mesa com comprovante esperando abre direto a conferência do Pix.',
+      },
+    ],
+  },
+  {
     version: '0.236.1',
     date: '2026-11-23',
     title: 'Funcionamento mais organizado no notebook',

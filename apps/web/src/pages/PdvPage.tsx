@@ -11,6 +11,7 @@ import {
   HandPlatter,
   Link2,
   Plus,
+  ReceiptText,
   Search,
   ShoppingBag,
   Store,
@@ -859,23 +860,33 @@ export function PdvPage() {
                             customerName: t.tabCustomer,
                           }}
                           state={st}
-                          label={`Mesa ${t.label} ${STATE_TEXT[st]}`}
+                          label={`Mesa ${t.label} ${STATE_TEXT[st]}${
+                            t.pixReceiptAt ? ', mandou o comprovante do Pix' : ''
+                          }`}
                           title={`Mesa ${t.label}`}
+                          pix={!!t.pixReceiptAt}
                           canOperate={canTables}
                           canPay={canPay}
                           onAction={(a) => tabAction(t.tabId!, a)}
                           onRename={loadSalon}
                         >
                           <span className="pdv-table__info">{brl(t.tabTotal)}</span>
-                          <span className="pdv-table__sub">
-                            {[
-                              t.tabNumber && `#${t.tabNumber}`,
-                              t.tabCustomer,
-                              t.openedAt && ago(minutesSince(t.openedAt, now)),
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </span>
+                          {t.pixReceiptAt ? (
+                            <span className="pdv-table__pix">
+                              <ReceiptText size={13} aria-hidden />
+                              Pix para conferir
+                            </span>
+                          ) : (
+                            <span className="pdv-table__sub">
+                              {[
+                                t.tabNumber && `#${t.tabNumber}`,
+                                t.tabCustomer,
+                                t.openedAt && ago(minutesSince(t.openedAt, now)),
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </span>
+                          )}
                         </SalonTabCard>
                       );
                     return (
@@ -900,7 +911,10 @@ export function PdvPage() {
                     key={t.id}
                     tab={t}
                     state={t.billRequestedAt ? 'paying' : 'busy'}
-                    label={`Comanda ${t.number}`}
+                    pix={!!t.pixReceiptAt}
+                    label={`Comanda ${t.number}${
+                      t.pixReceiptAt ? ', mandou o comprovante do Pix' : ''
+                    }`}
                     title={`#${t.number}`}
                     canOperate={canTables}
                     canPay={canPay}
@@ -908,7 +922,13 @@ export function PdvPage() {
                     onRename={loadSalon}
                   >
                     <span className="pdv-table__info">{brl(t.total)}</span>
-                    <span className="pdv-table__sub">
+                    {t.pixReceiptAt && (
+                      <span className="pdv-table__pix">
+                        <ReceiptText size={13} aria-hidden />
+                        Pix para conferir
+                      </span>
+                    )}
+                    <span className="pdv-table__sub" hidden={!!t.pixReceiptAt}>
                       {[
                         t.tableLabel ? `Mesa ${t.tableLabel}` : 'Sem mesa',
                         t.customerName,

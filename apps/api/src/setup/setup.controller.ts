@@ -175,6 +175,9 @@ export class SetupController {
           .join(', ')},
                 tb.id AS "tabId", tb.number AS "tabNumber", tb.opened_at AS "openedAt",
                 tb.customer_name AS "tabCustomer", tb.bill_requested_at AS "billRequestedAt",
+                -- Comprovante do Pix da conta esperando o caixa: a mesa mostra o aviso.
+                (SELECT max(r.created_at) FROM tab_pix_receipts r
+                  WHERE r.tab_id = tb.id AND r.status = 'submitted') AS "pixReceiptAt",
                 COALESCE((SELECT sum(o.paid_amount) FROM orders o WHERE o.tab_id = tb.id), 0)::text AS "tabPaid",
                 COALESCE((SELECT sum(o.total) FROM orders o WHERE o.tab_id = tb.id AND o.status <> 'cancelled'), 0)::text AS "tabTotal",
                 rv.id AS "reservationId", rv.name AS "reservationName",

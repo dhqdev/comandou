@@ -206,6 +206,12 @@ describe('Mesa pelo celular: CPF, chamar o garçom e fechar a conta pelo Pix', (
       (t: { tableId: string }) => t.tableId === table.id,
     );
     expect(tab.billRequestedAt).toBeTruthy();
+    // A mesa e a comanda avisam que tem comprovante esperando (Salão e PDV).
+    expect(tab.pixReceiptAt).toBeTruthy();
+    const tableRow = (await get('waiterA', '/tables').expect(200)).body.find(
+      (t: { id: string }) => t.id === table.id,
+    );
+    expect(tableRow.pixReceiptAt).toBeTruthy();
     const charge = await post(
       'cashierA',
       `/tabs/${tab.id}/payments`,
@@ -220,6 +226,7 @@ describe('Mesa pelo celular: CPF, chamar o garçom e fechar a conta pelo Pix', (
     }).expect(200);
     let bill = (await pub.get(`/store/table/${table.id}/bill`).expect(200)).body;
     expect(bill.receipt).toMatchObject({ status: 'rejected', rejectReason: 'Valor diferente' });
+    expect((await get('adminA', `/tabs/${tab.id}`).expect(200)).body.pixReceiptAt).toBeNull();
 
     await pub.upload(`/store/table/${table.id}/pix-receipt`, PNG, 'image/png').expect(200);
     pending = (await get('cashierA', '/table-service/receipts').expect(200)).body;

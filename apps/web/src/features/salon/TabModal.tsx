@@ -7,6 +7,7 @@ import { NewSaleModal } from '../NewSaleModal';
 import { OrderDetailModal } from '../OrderDetailModal';
 import { PaymentModal } from '../PaymentModal';
 import { PixReceiptChip } from '../PixReceipt';
+import { TabPixPanel, TabReceiptModal, useTabReceipts } from '../TableCalls';
 import { ReceiptPreview } from '../ReceiptPreview';
 import {
   ORDER_STATUS_LABELS,
@@ -69,6 +70,8 @@ export function TabModal({
   const [busy, setBusy] = useState(false);
   /** Comprovante de fechamento na tela (antes ou logo depois de fechar a conta). */
   const [receipt, setReceipt] = useState<{ afterClose: boolean } | null>(null);
+  /** Conferindo o comprovante do Pix que a mesa mandou (`reject` = abre já no motivo). */
+  const [reviewPix, setReviewPix] = useState<{ reject: boolean } | null>(null);
 
   /** Ação do menu ainda por fazer (uma vez, assim que a comanda chega). */
   const pending = useRef<TabIntent | null>(null);
@@ -88,9 +91,19 @@ export function TabModal({
       return null;
     }
   }, [tabId, toast]);
+  // Comprovante do Pix da conta que a mesa mandou (só quem recebe pagamento vê o arquivo).
+  const pixWaiting = !!tab?.pixReceiptAt && tab.status === 'open';
+  const pixList = useTabReceipts(canPay && pixWaiting, false);
+  const pix = pixWaiting ? (pixList.items.find((r) => r.tabId === tab?.id) ?? null) : null;
+  const reloadPix = pixList.reload;
+  useEffect(() => {
+    if (pixWaiting && canPay) void reloadPix();
+  }, [pixWaiting, canPay, tab?.pixReceiptAt, reloadPix]);
+
   useEffect(() => {
     setTab(null);
     setTransfer(false);
+    setReviewPix(null);
     pending.current = intent;
     closeAfterPay.current = false;
     setConfirming(false);
@@ -170,7 +183,9 @@ export function TabModal({
     if (want === 'transfer') {
       if (canOperate) setTransfer(true);
     } else if (canPay) {
-      if (toCents(tab.balance) > 0) {
+      // Comprovante do Pix esperando: fechar a conta é conferir o Pix (cobrar de novo é barrado).
+      if (tab.pixReceiptAt) setReviewPix({ reject: false });
+      else if (toCents(tab.balance) > 0) {
         closeAfterPay.current = true;
         setPaying(true);
       } else setConfirming(true);
@@ -208,7 +223,16 @@ export function TabModal({
           </Button>
         )}
         {canPay &&
-          (owes ? (
+          (pixWaiting ? (
+            <Button
+              size="lg"
+              icon={<ReceiptText size={18} />}
+              disabled={!pix}
+              onClick={() => setReviewPix({ reject: false })}
+            >
+              Conferir Pix {pix ? brl(pix.amount) : ''}
+            </Button>
+          ) : owes ? (
             <Button size="lg" icon={<Wallet size={18} />} onClick={() => setPaying(true)}>
               Receber {brl(tab.balance)}
             </Button>
@@ -238,6 +262,14 @@ export function TabModal({
         <Skeleton variant="detail" />
       ) : (
         <div className="tabm-wrap">
+          {pixWaiting && (
+            <TabPixPanel
+              receipt={pix}
+              pendingSince={tab.pixReceiptAt!}
+              canPay={canPay}
+              onReview={(reject) => setReviewPix({ reject })}
+            />
+          )}
           <div className="tabm">
             {/* Pedidos: o que a mesa consumiu, um por linha, com o que tem dentro escrito por extenso. */}
             <section className="tabm__orders" aria-label="Pedidos da comanda">
@@ -506,6 +538,19 @@ export function TabModal({
               Nenhum pagamento novo é lançado: só fecha o que já foi pago.
             </p>
           </Modal>
+          {reviewPix && pix && (
+            <TabReceiptModal
+              receipt={pix}
+              startRejecting={reviewPix.reject}
+              onClose={() => setReviewPix(null)}
+              onDone={() => {
+                setReviewPix(null);
+                void reloadPix();
+                void load();
+                onChanged();
+              }}
+            />
+          )}
           <ReceiptPreview
             target={receipt ? { kind: 'tab', id: tab.id } : null}
             onClose={() => {

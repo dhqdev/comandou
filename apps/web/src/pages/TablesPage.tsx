@@ -15,6 +15,7 @@ import {
   Plus,
   Printer,
   Receipt,
+  ReceiptText,
   ScanLine,
   Search,
   ShoppingBag,
@@ -618,8 +619,11 @@ function TableTile({ table: t, onOpen }: { table: DiningTable; onOpen(): void })
       className="tbl"
       data-state={st}
       data-shape={t.shape}
+      data-pix={(t.tabId && t.pixReceiptAt && true) || undefined}
       onClick={onOpen}
       aria-label={`Mesa ${t.label} ${STATE_LABEL[st].toLowerCase()}${
+        t.tabId && t.pixReceiptAt ? ', mandou o comprovante do Pix' : ''
+      }${
         !t.tabId && t.reservationAt && t.reservationStatus !== 'seated'
           ? `, reservada às ${hhmm(t.reservationAt)}`
           : ''
@@ -628,11 +632,18 @@ function TableTile({ table: t, onOpen }: { table: DiningTable; onOpen(): void })
       <span className="tbl__art">
         <TableGlyph shape={t.shape} seats={t.seats} />
         <span className="tbl__label">{t.label}</span>
-        {t.tabId && (
-          <span className="tbl__time" data-long={mins >= 90 || undefined}>
-            {st === 'paying' ? <Receipt size={11} aria-hidden /> : null}
-            {st === 'paying' ? 'conta' : elapsed(mins)}
+        {t.tabId && t.pixReceiptAt ? (
+          <span className="tbl__time tbl__pix" title="Mandou o comprovante do Pix: confira">
+            <ReceiptText size={11} aria-hidden />
+            Pix
           </span>
+        ) : (
+          t.tabId && (
+            <span className="tbl__time" data-long={mins >= 90 || undefined}>
+              {st === 'paying' ? <Receipt size={11} aria-hidden /> : null}
+              {st === 'paying' ? 'conta' : elapsed(mins)}
+            </span>
+          )
         )}
       </span>
       <span className="tbl__info">
@@ -675,11 +686,18 @@ function TabTicket({ tab: t, onOpen }: { tab: Tab; onOpen(): void }) {
           <small>Nº</small>
           {t.number}
         </span>
-        {t.billRequestedAt && (
-          <span className="ticket__flag" title="Pediu a conta">
-            <BellRing size={12} aria-hidden />
-            <span>conta</span>
+        {t.pixReceiptAt ? (
+          <span className="ticket__flag ticket__flag--pix" title="Mandou o comprovante do Pix">
+            <ReceiptText size={12} aria-hidden />
+            <span>Pix</span>
           </span>
+        ) : (
+          t.billRequestedAt && (
+            <span className="ticket__flag" title="Pediu a conta">
+              <BellRing size={12} aria-hidden />
+              <span>conta</span>
+            </span>
+          )
         )}
       </span>
       <span className="ticket__meta">

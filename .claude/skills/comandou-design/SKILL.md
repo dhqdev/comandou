@@ -113,6 +113,8 @@ comprovante grande à esquerda e, à direita, o que ele cobre, o saldo de agora,
 Aprovar (primário) / Recusar com motivo. No cardápio da mesa, a aba Garçom tem dois cartões
 grandes (bolinha da cor da loja com o ícone, título e uma linha), no jeito do resto do cardápio.
 
+Comprovante esperando (0.237) também marca a própria mesa: no Salão a mesa fica verde com o selo **Pix** no lugar do tempo; no PDV o cartão ganha contorno verde, bolinha verde e a linha "Pix para conferir". Dentro da mesa, o quadro verde suave `.tpix` fica no alto (antes dos pedidos) com a miniatura do comprovante, Recusar (ghost) e Conferir e aprovar (secondary); o primário é o Conferir Pix do rodapé.
+
 ## Modais e formulários
 
 - Janela abre **perto de quem abriu** (`liquid.ts`): no computador e no tablet sai de dentro do botão e fica ao lado dele (botão à direita, janela à direita; embaixo se couber) e volta para ele ao fechar; no celular a folha cresce do botão. Use sempre `Modal`/`Sheet`/`useLiquidDialog`: não posicione janela na mão nem com `margin: auto` fixo.
