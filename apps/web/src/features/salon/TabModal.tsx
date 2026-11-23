@@ -547,10 +547,11 @@ export function TabModal({
               onDone={(closed) => {
                 setReviewPix(null);
                 onChanged();
-                // Pix aprovado e a conta fechou: a mesa está livre, a janela sai junto.
-                if (closed) return onClose();
                 void reloadPix();
                 void load();
+                // Pix aprovado e a conta fechou: a mesa está livre. Mostra a conta para imprimir
+                // (se quiser) e a janela sai junto ao fechar.
+                if (closed) setReceipt({ afterClose: true });
               }}
             />
           )}

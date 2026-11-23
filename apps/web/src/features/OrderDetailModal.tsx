@@ -32,6 +32,7 @@ import {
   Phone,
   Printer,
   Receipt,
+  ReceiptText,
   ShoppingBag,
   Timer,
   User,
@@ -99,7 +100,7 @@ import { AppDriverCard, appDriverTakes } from './channels/AppDriver';
 import { AppOrderFinance } from './channels/AppOrderFinance';
 import { OrderReviewNote } from './channels/AppReviews';
 import { ChannelBadge } from './channels/ChannelBadge';
-import { TabPixHistory } from './TableCalls';
+import { TabPixHistory, TabReceiptModal, useTabReceipts } from './TableCalls';
 
 // Ícone de cada passo do rodapé (0.211.1, pedido do David: todo botão do pedido com símbolo).
 const STEP_ICON: Partial<Record<OrderStatus, ReactNode>> = {
@@ -163,6 +164,9 @@ export function OrderDetailModal({
     }
   }
   const [paying, setPaying] = useState(false);
+  /** Conferindo o comprovante do Pix da conta da mesa; `tabPrint` = conta fechada, imprimir. */
+  const [reviewTabPix, setReviewTabPix] = useState<{ reject: boolean } | null>(null);
+  const [tabPrint, setTabPrint] = useState<string | null>(null);
   const [mode, setMode] = useState<
     | null
     | 'cancel'
@@ -285,7 +289,15 @@ export function OrderDetailModal({
   // Pedido de aplicativo: itens, valores e cobrança mandam no aplicativo (sem fiado, desconto ou
   // troca de itens aqui; a observação interna continua).
   const isApp = order?.source === 'app';
-  const canFiado = !!order && !isApp && canCancel && hasBalance && order.status !== 'cancelled';
+  // A mesa mandou o comprovante do Pix da conta: a conta já foi paga pelo cliente, então aqui só
+  // se aprova ou recusa (nada de desconto, fiado ou outra cobrança enquanto isso).
+  const tabPix = useTabReceipts(canPay && !!order?.tabId, false);
+  const tabReceipt = order?.tabId
+    ? (tabPix.items.find((r) => r.tabId === order.tabId) ?? null)
+    : null;
+  const pixLocked = !!tabReceipt;
+  const canFiado =
+    !!order && !isApp && !pixLocked && canCancel && hasBalance && order.status !== 'cancelled';
   // Quem lançou: o primeiro passo do histórico (sem situação anterior).
   const launchedBy = order?.history?.find((h) => h.from === null)?.actorName ?? null;
   const activeItems = order ? order.items.filter((i) => i.status !== 'cancelled').length : 0;
@@ -314,10 +326,13 @@ export function OrderDetailModal({
     order.channel === 'delivery' &&
     !appTakes &&
     ['awaiting', 'new', 'in_production', 'ready', 'dispatched'].includes(order.status);
-  const canCloseBill = canReceive && !receiveOnDelivery;
+  const canCloseBill = canReceive && !receiveOnDelivery && !pixLocked;
   const leadIsStep = !canCloseBill && !canSend;
   const canAdjust =
-    !!order && !isApp && !['completed', 'cancelled', 'awaiting'].includes(order.status);
+    !!order &&
+    !isApp &&
+    !pixLocked &&
+    !['completed', 'cancelled', 'awaiting'].includes(order.status);
   // Editar itens: pedido aceito que ainda não saiu nem fechou (o servidor confere o resto).
   const canManage = useCan('orders:manage');
   const canEdit =
@@ -385,7 +400,9 @@ export function OrderDetailModal({
     : [];
   const canPrintSlip = !!order && !mode && canPrint && order.status !== 'cancelled';
   const hasBar =
-    !!order && !mode && (nextSteps.length > 0 || canCloseBill || canSend || canReject || canServe);
+    !!order &&
+    !mode &&
+    (nextSteps.length > 0 || canCloseBill || canSend || canReject || canServe || pixLocked);
 
   const header = order ? (
     <span className="odh" data-hue={CHANNEL_HUE[order.channel]}>
@@ -538,33 +555,34 @@ export function OrderDetailModal({
               <Ban size={18} aria-hidden /> Recusar
             </Button>
           )}
-          {nextSteps.map((a, i) => (
-            <Button
-              key={a.to}
-              variant={
-                (leadIsStep || order.status === 'awaiting') && i === 0 ? 'primary' : 'secondary'
-              }
-              loading={busy}
-              icon={
-                order.status === 'cancel_requested' ? (
-                  <RotateCcw size={18} />
-                ) : order.status === 'dispatched' ? (
-                  <PackageCheck size={18} />
-                ) : (
-                  STEP_ICON[a.to]
-                )
-              }
-              onClick={() => go(a.to)}
-            >
-              {a.label}
-            </Button>
-          ))}
+          {!pixLocked &&
+            nextSteps.map((a, i) => (
+              <Button
+                key={a.to}
+                variant={
+                  (leadIsStep || order.status === 'awaiting') && i === 0 ? 'primary' : 'secondary'
+                }
+                loading={busy}
+                icon={
+                  order.status === 'cancel_requested' ? (
+                    <RotateCcw size={18} />
+                  ) : order.status === 'dispatched' ? (
+                    <PackageCheck size={18} />
+                  ) : (
+                    STEP_ICON[a.to]
+                  )
+                }
+                onClick={() => go(a.to)}
+              >
+                {a.label}
+              </Button>
+            ))}
           {canSend && (
             <Button icon={<Bike size={18} />} onClick={() => setMode('dispatch')}>
               Despachar entregador
             </Button>
           )}
-          {canServe && (
+          {canServe && !pixLocked && (
             <Button
               variant={canCloseBill ? 'secondary' : 'primary'}
               loading={busy}
@@ -573,6 +591,21 @@ export function OrderDetailModal({
             >
               Entregue na mesa
             </Button>
+          )}
+          {pixLocked && tabReceipt && (
+            <>
+              <Button variant="secondary" onClick={() => setReviewTabPix({ reject: true })}>
+                Recusar Pix
+              </Button>
+              <Button
+                className="od-bar__close"
+                icon={<ReceiptText size={18} />}
+                onClick={() => setReviewTabPix({ reject: false })}
+              >
+                Conferir Pix {brl(tabReceipt.amount)}
+                <ChevronRight size={18} aria-hidden className="od-bar__chev" />
+              </Button>
+            </>
           )}
           {canCloseBill && (
             <Button
@@ -1146,6 +1179,24 @@ export function OrderDetailModal({
             onClose={() => setPreviewKind(null)}
           />
           <ReceiptFileModal file={receiptView} onClose={() => setReceiptView(null)} />
+          {reviewTabPix && tabReceipt && (
+            <TabReceiptModal
+              receipt={tabReceipt}
+              startRejecting={reviewTabPix.reject}
+              onClose={() => setReviewTabPix(null)}
+              onDone={(closed) => {
+                setReviewTabPix(null);
+                void tabPix.reload();
+                void load();
+                // Aprovado e a conta fechou: mostra a conta para imprimir, se quiser.
+                if (closed) setTabPrint(tabReceipt.tabId);
+              }}
+            />
+          )}
+          <ReceiptPreview
+            target={tabPrint ? { kind: 'tab', id: tabPrint } : null}
+            onClose={() => setTabPrint(null)}
+          />
         </div>
       )}
     </Frame>

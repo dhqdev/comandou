@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.241.0',
+    date: '2026-11-23',
+    title: 'Pedido da mesa com comprovante: só aprovar ou recusar',
+    summary:
+      'Quando a mesa mandou o comprovante do Pix da conta, o pedido não oferece mais Fechar conta, Desconto ou Vender fiado: a conta já foi paga pelo cliente. Ficam só Recusar Pix e Conferir Pix. Aprovando, a conta da mesa fecha e já aparece o comprovante de fechamento para imprimir, se quiser.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'No detalhe do pedido de uma mesa com comprovante esperando, somem Fechar conta, Desconto / Acréscimo, Vender fiado e os passos do pedido. No lugar, Recusar Pix e Conferir Pix com o valor da conta.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Aprovou o Pix (no pedido ou na mesa): a conta fecha e abre o comprovante de fechamento, com Imprimir e Fechar.',
+      },
+    ],
+  },
+  {
     version: '0.240.1',
     date: '2026-11-23',
     title: 'Acompanhar o pedido sem piscar',
