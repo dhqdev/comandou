@@ -300,8 +300,9 @@ export function TablesPage() {
     return [...m.entries()];
   }, [shownTables]);
 
-  const placeholder: Record<View, string> = {
-    tables: 'Buscar mesa, área ou cliente',
+  // O que a busca acha em cada visão: vira a dica ao passar o mouse (no campo, só "Pesquisar").
+  const searchHint: Record<View, string> = {
+    tables: 'Mesa, área ou cliente',
     tabs: 'Nº da comanda, mesa ou cliente',
     delivery: 'Nº do pedido, cliente ou endereço',
     pickup: 'Nº do pedido ou cliente',
@@ -437,7 +438,8 @@ export function TablesPage() {
         <label className="cm-search salon__search">
           <Search size={16} aria-hidden />
           <input
-            placeholder={placeholder[view]}
+            placeholder="Pesquisar"
+            title={searchHint[view]}
             aria-label="Buscar no salão"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

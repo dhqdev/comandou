@@ -42,7 +42,7 @@ import { SalonTabCard, type SalonCardAction } from '../features/salon/SalonTabCa
 import { TabModal, type TabIntent } from '../features/salon/TabModal';
 import { sortTables, tableState, type TableState } from '../features/table-state';
 import { api } from '../lib/api';
-import { brl } from '../lib/money';
+import { brl, changeToBring } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import {
   playSound,
@@ -158,6 +158,7 @@ function OrderCard({
   const who = order.tableLabel ? `Mesa ${order.tableLabel}` : order.customerName;
   const items = order.items.filter((i) => i.status !== 'cancelled');
   const action = nextAction(order);
+  const change = changeToBring(order.changeFor, order.balance);
   return (
     <article
       className="hcard"
@@ -194,6 +195,15 @@ function OrderCard({
         <span className="hcard__pills">
           <span className="hcard__pill">{brl(order.total)}</span>
           {who && <span className="hcard__pill hcard__pill--soft">{who}</span>}
+          {/* Pago em dinheiro com "troco para": quanto separar de troco, já no cartão. */}
+          {change && (
+            <span
+              className="hcard__pill hcard__pill--change"
+              title={`Troco para ${brl(order.changeFor!)}`}
+            >
+              Troco {brl(change)}
+            </span>
+          )}
         </span>
         {density === 'full' && (
           <>
@@ -660,9 +670,9 @@ export function PdvPage() {
           <label className="pdv__search">
             <Search size={18} aria-hidden />
             <input
-              placeholder="Buscar no PDV: pedido, mesa, comanda ou cliente…"
+              placeholder="Pesquisar"
               aria-label="Buscar pedido"
-              title="Busca só nesta tela. Para buscar no sistema todo, use a busca do topo (Ctrl K)."
+              title="Busca pedido, mesa, comanda ou cliente só nesta tela. Para o sistema todo, use a busca do topo (Ctrl K)."
               autoComplete="off"
               value={search}
               onChange={(e) => setSearch(e.target.value)}

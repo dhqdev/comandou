@@ -120,7 +120,7 @@ export function OutflowSection() {
         <ListToolbar
           lv={lv}
           searchLabel="Buscar saída"
-          placeholder="Buscar: insumo, motivo ou pedido"
+          searchHint="insumo, motivo ou pedido"
           summary={`${shown.length} ${shown.length === 1 ? 'saída' : 'saídas'} · ${formatBRL(total)}`}
         />
         {rows === null ? (

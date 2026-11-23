@@ -278,3 +278,11 @@
   font-size: var(--cm-text-sm);
   line-height: 1.5;
 }
+
+/* Celular: o tema fica em Conta › Este aparelho; o topo guarda o espaço para o nome da tela, que
+   era cortado ("Assisten…", "Agenda …") com seis botões ao lado. Super Admin fica como está. */
+@media (max-width: 640px) {
+  .topbar__theme {
+    display: none;
+  }
+}

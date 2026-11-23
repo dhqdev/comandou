@@ -65,7 +65,7 @@ import { maskPhone } from '../lib/br-format';
 import { ReceiptPreview } from './ReceiptPreview';
 import { mediaUrl } from '../lib/media';
 import { newIdempotencyKey } from '../lib/idempotency';
-import { brl, parseBrlInput } from '../lib/money';
+import { brl, changeToBring, parseBrlInput } from '../lib/money';
 import { useRealtime } from '../lib/realtime';
 import type { AppOrderInfo, Order, OrderItem, Payment } from '../lib/types';
 import {
@@ -261,6 +261,7 @@ export function OrderDetailModal({
   // Próximo passo do pedido (avançar, receber, despachar) fica no rodapé fixo, numa linha só,
   // junto com cancelar e o menu de impressão/ajustes: à vista mesmo rolando o detalhe.
   const hasBalance = !!order && toCents(order.balance) > 0;
+  const changeDue = order ? changeToBring(order.changeFor, order.balance) : null;
   // Concluir com saldo em aberto só vale saindo da rua (vira acerto do entregador) ou "a receber".
   const nextSteps =
     order && !mode
@@ -818,6 +819,12 @@ export function OrderDetailModal({
                   <Fact icon={<Wallet size={15} />} label="Vai pagar com" hue="teal">
                     {PAYMENT_METHOD_LABELS[order.paymentHint]}
                     {order.changeFor && ` · troco para ${brl(order.changeFor)}`}
+                    {/* Quanto separar de troco (pedido do David): já aparece dentro do pedido. */}
+                    {changeDue && (
+                      <span className="od-change">
+                        Levar <strong>{brl(changeDue)}</strong> de troco
+                      </span>
+                    )}
                   </Fact>
                 )}
                 {order.pixReceipts?.[0] && (
@@ -1355,6 +1362,8 @@ function DispatchForm({
         `Cliente: ${order.customerName}${order.customerPhone ? ` (${order.customerPhone})` : ''}`,
       order.deliveryAddress && `Endereço: ${order.deliveryAddress}`,
       `Total: ${brl(order.total)}${toCents(order.balance) > 0 ? ` (cobrar ${brl(order.balance)}${order.paymentHint ? ` em ${PAYMENT_METHOD_LABELS[order.paymentHint]}` : ''}${order.changeFor ? `, troco para ${brl(order.changeFor)}` : ''})` : ' (pago)'}`,
+      changeToBring(order.changeFor, order.balance) &&
+        `Levar ${brl(changeToBring(order.changeFor, order.balance)!)} de troco`,
     ]
       .filter(Boolean)
       .join('\n');
@@ -1663,7 +1672,7 @@ function AppOrderNote({ app, order }: { app: AppOrderInfo; order: Order }) {
   const method = app.paymentMethod ? PAYMENT_METHOD_LABELS[app.paymentMethod] : null;
   // Troco calculado (o iFood exige mostrar): "troco para" menos o que o cliente paga na entrega.
   const due = toCents(order.balance);
-  const change = order.changeFor ? toCents(order.changeFor) - due : 0;
+  const change = changeToBring(order.changeFor, order.balance);
   return (
     <div className="od-note" data-tone={failed || app.unlinkedItems ? 'warning' : undefined}>
       <Smartphone size={15} aria-hidden />
@@ -1674,7 +1683,7 @@ function AppOrderNote({ app, order }: { app: AppOrderInfo; order: Order }) {
             ? `Pago no aplicativo${method ? ` (${method}${app.paymentBrand ? ` ${app.paymentBrand}` : ''})` : ''}`
             : `Cobrar na entrega${method ? `: ${method}${app.paymentBrand ? ` ${app.paymentBrand}` : ''}` : ''}${
                 due > 0 ? ` ${brl(order.balance)}` : ''
-              }${change > 0 ? `, levar troco de ${brl(fromCents(change))}` : ''}`}
+              }${change ? `, levar troco de ${brl(change)}` : ''}`}
           {' · '}
           {app.deliveredBy === 'channel' ? 'entrega do aplicativo' : 'entrega da loja'}
           {Number(app.channelDiscount) > 0 &&

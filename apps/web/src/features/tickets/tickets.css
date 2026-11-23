@@ -677,17 +677,9 @@
   display: grid;
   gap: 14px;
   padding: 18px 22px 14px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--tk-c, var(--cm-brand-500)) 14%, var(--cm-bg)),
-    var(--cm-bg)
-  );
-  /* Degradê em OKLCH (o navegador antigo fica com a linha de cima). */
-  background: linear-gradient(
-    in oklch 180deg,
-    color-mix(in oklab, var(--tk-c, var(--cm-brand-500)) 14%, var(--cm-bg)),
-    var(--cm-bg)
-  );
+  /* Fundo liso com linha fina embaixo (sem lavagem de cor em degradê). */
+  background: var(--cm-bg);
+  border-bottom: 1px solid var(--cm-border);
 }
 .tk-drawer__top {
   display: flex;

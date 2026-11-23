@@ -413,7 +413,7 @@ export function ChatScreen() {
         autoFocus
         greeting={
           <>
-            <strong>Olá{first ? `, ${first}` : ''}! 👋</strong>
+            <strong>Olá{first ? `, ${first}` : ''}!</strong>
             {state.greeting ??
               `Mande sua mensagem para ${r.name}. Pode enviar fotos, vídeos e emojis; a equipe responde aqui mesmo.`}
           </>

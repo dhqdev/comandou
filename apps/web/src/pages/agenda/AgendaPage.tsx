@@ -409,7 +409,7 @@ export function AgendaPage() {
                   className="cm-input ag-search"
                   type="search"
                   aria-label="Buscar na agenda"
-                  placeholder="Buscar na agenda…"
+                  placeholder="Pesquisar"
                   autoFocus
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -563,7 +563,7 @@ export function AgendaPage() {
                 className="cm-input"
                 type="search"
                 aria-label="Buscar na agenda"
-                placeholder="Buscar na agenda…"
+                placeholder="Pesquisar"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />

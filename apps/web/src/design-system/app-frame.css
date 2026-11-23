@@ -891,10 +891,8 @@
 }
 .cm-flyout__title {
   padding: 6px 10px 8px;
-  font-size: var(--cm-text-2xs);
+  font-size: var(--cm-text-xs);
   font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
   color: var(--cm-text-subtle);
 }
 .cm-flyout__links {
@@ -1303,8 +1301,6 @@
 .cm-menu__role {
   font-size: 14px;
   font-weight: 750;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--cm-text-muted);
 }
 .cm-menu__note {

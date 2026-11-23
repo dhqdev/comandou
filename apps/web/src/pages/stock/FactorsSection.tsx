@@ -115,7 +115,7 @@ export function FactorsSection() {
         <ListToolbar
           lv={lv}
           searchLabel="Buscar fator"
-          placeholder="Buscar: sigla, nome ou insumo"
+          searchHint="sigla, nome ou insumo"
           summary={`${shown.length} ${shown.length === 1 ? 'fator' : 'fatores'}`}
         />
         {rows === null ? (

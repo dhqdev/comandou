@@ -1112,8 +1112,6 @@ details.adm-fieldset[open] > summary::before {
   padding: 10px 14px 4px;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
   color: var(--a-subtle);
 }
 
@@ -1798,12 +1796,13 @@ button.adm-card:hover {
 .adm-sites__row.is-link:hover {
   background: var(--a-panel-2);
 }
-/* Problema chama atenção só por uma linha fina à esquerda (sem cartão colorido). */
+/* Problema chama atenção por um fundo bem leve na cor da situação (a pílula diz qual), sem faixa
+   num lado só. */
 .adm-sites__row--bad {
-  box-shadow: inset 3px 0 0 var(--a-bad);
+  background: color-mix(in oklab, var(--a-bad) 6%, transparent);
 }
 .adm-sites__row--warn {
-  box-shadow: inset 3px 0 0 var(--a-warn);
+  background: color-mix(in oklab, var(--a-warn) 6%, transparent);
 }
 .adm-sites__head {
   padding-top: 10px;

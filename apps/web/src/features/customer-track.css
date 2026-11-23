@@ -56,8 +56,6 @@
   color: var(--cm-success);
   font-size: 0.75rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 .ctrack__live::before {
   content: '';

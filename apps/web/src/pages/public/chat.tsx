@@ -106,7 +106,7 @@ export function StoreChatProvider({ children }: { children: ReactNode }) {
         setUnread((n) => n + 1);
         playSound('message');
         navigator.vibrate?.([20, 60, 20]);
-        if (!open.current) toast('Nova mensagem da loja 💬', 'neutral');
+        if (!open.current) toast('Nova mensagem da loja', 'neutral');
       }
     });
     const poll = window.setInterval(() => {

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, EmptyState, TextField, useToast } from '../design-system';
-import { brl } from '../lib/money';
+import { brl, changeToBring } from '../lib/money';
 import { useRealtimeEvents } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
 import type { AvailableRun, CourierProfile, Delivery } from '../lib/types';
@@ -477,6 +477,8 @@ function RunCard({
               <small>
                 {payLabel}
                 {d.changeFor && `${payLabel ? ' · ' : ''}troco para ${brl(d.changeFor)}`}
+                {changeToBring(d.changeFor, d.balance) &&
+                  ` · leve ${brl(changeToBring(d.changeFor, d.balance)!)} de troco`}
               </small>
             )}
           </dd>

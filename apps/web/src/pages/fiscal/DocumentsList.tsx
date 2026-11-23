@@ -135,7 +135,7 @@ export function DocumentsList({ kind }: { kind: FiscalKind }) {
         <ListToolbar
           lv={lv}
           searchLabel={`Buscar ${label}`}
-          placeholder="Número, chave, pedido ou cliente"
+          searchHint="número, chave, pedido ou cliente"
           summary={`${shown.length} ${shown.length === 1 ? 'nota' : 'notas'}`}
         />
         {docs === null ? (

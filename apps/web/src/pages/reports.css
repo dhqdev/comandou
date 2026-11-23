@@ -105,8 +105,6 @@
   font-size: var(--cm-text-xs);
   font-weight: 700;
   color: var(--cm-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 .rp-day {
   position: relative;

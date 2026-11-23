@@ -143,8 +143,6 @@
   font: inherit;
   font-size: var(--cm-text-xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 .mi-row {
   display: grid;

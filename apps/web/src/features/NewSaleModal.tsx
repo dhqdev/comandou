@@ -382,7 +382,7 @@ export function NewSaleModal({
           <Search size={18} aria-hidden />
           <input
             ref={searchRef}
-            placeholder="Buscar produto pelo nome…"
+            placeholder="Pesquisar"
             aria-label="Buscar produto"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

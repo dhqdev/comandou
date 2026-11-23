@@ -555,7 +555,7 @@ export function GroupEditor({
                 className="cm-input"
                 type="search"
                 aria-label="Buscar item para o grupo"
-                placeholder="Buscar item"
+                placeholder="Pesquisar"
                 value={pickSearch}
                 onChange={(e) => setPickSearch(e.target.value)}
               />

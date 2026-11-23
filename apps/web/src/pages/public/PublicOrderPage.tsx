@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { Bone } from '../../design-system';
 import { CustomerLiveMap, DeliveryCode, type CustomerCourier } from '../../features/CustomerTrack';
 import { time } from '../../features/format';
 import { api, ApiError } from '../../lib/api';
@@ -243,18 +244,25 @@ export function PublicOrderPage() {
     }
   }
 
+  /*
+   * Carregando: esqueleto num <main> com chave própria. Quando o pedido chega, o React monta a tela
+   * do zero em vez de reaproveitar o esqueleto. Antes, o <div> do esqueleto (que pulsava a opacidade
+   * entre 1 e 0,5 sem parar) virava o .track que embrulha a página inteira, passando de bloco para
+   * grade no meio de uma animação acelerada; o Safari do iPhone deixava a animação presa e a tela
+   * toda ficava mais fraca e mais forte, sem parar (os ~50% dos prints do David, 2026-11-23). No
+   * computador o pedido costuma chegar antes de o esqueleto aparecer. O esqueleto também não mexe em
+   * opacidade: só o brilho que passa (Bone).
+   */
   if (!o)
-    return (
-      <main className="store store--center">
-        {error ? (
-          <>
-            <Store size={36} />
-            <p>{error}</p>
-            <Link to="/pedir">Ver o cardápio</Link>
-          </>
-        ) : (
-          <div className="sk" style={{ width: 280, height: 160 }} />
-        )}
+    return error ? (
+      <main key="erro" className="store store--center">
+        <Store size={36} />
+        <p>{error}</p>
+        <Link to="/pedir">Ver o cardápio</Link>
+      </main>
+    ) : (
+      <main key="carregando" className="store store--track" aria-busy="true">
+        <TrackSkeleton />
       </main>
     );
 
@@ -291,7 +299,7 @@ export function PublicOrderPage() {
    * mapa à esquerda e o resumo com as ações à direita, preso no topo, para caber sem rolar.
    */
   return (
-    <main className="store store--track">
+    <main key="pedido" className="store store--track">
       <div className="track">
         <header className="track__top">
           <button
@@ -529,6 +537,51 @@ export function PublicOrderPage() {
         <InstallHint name={o.restaurant.name} logoUrl={o.restaurant.logoUrl} delay={2500} />
       )}
     </main>
+  );
+}
+
+/**
+ * Esqueleto no formato da tela (topo, status com as etapas e resumo). Só o brilho que passa pelos
+ * blocos (background), nada de opacidade: é a tela que o cliente deixa aberta na mão.
+ */
+function TrackSkeleton() {
+  return (
+    <div className="track track--sk">
+      <p className="cm-sr-only" role="status">
+        Carregando o pedido
+      </p>
+      <div className="track__top" aria-hidden>
+        <Bone w={40} h={40} r="full" />
+        <Bone w={44} h={44} r={10} />
+        {/* O nome encolhe (como o nome da loja na tela pronta); a pílula do Cardápio, não. */}
+        <Bone w={150} h={16} style={{ flex: '0 1 150px', minWidth: 40 }} />
+        <Bone w={104} h={36} r="full" style={{ marginLeft: 'auto' }} />
+      </div>
+      <div className="track__card track__status" aria-hidden>
+        <div className="track__hero">
+          <Bone w={150} h={112} r={18} />
+          <Bone w={90} h={12} style={{ marginTop: 10 }} />
+          <Bone w={180} h={22} />
+          <Bone w={220} h={14} />
+        </div>
+        <div className="track__sk-steps">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i}>
+              <Bone w={26} h={26} r="full" />
+              <Bone w={`${62 - i * 8}%`} h={14} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="track__card track__sum" aria-hidden>
+        <Bone w={84} h={16} />
+        <div className="track__sk-row">
+          <Bone w={44} h={44} r={10} />
+          <Bone w="58%" h={14} />
+        </div>
+        <Bone w="100%" h={14} />
+      </div>
+    </div>
   );
 }
 

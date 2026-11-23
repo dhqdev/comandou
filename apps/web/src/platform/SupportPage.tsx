@@ -408,7 +408,7 @@ export function SupportPage() {
               <label className="sinbox__search">
                 <Search size={15} aria-hidden />
                 <input
-                  placeholder="Buscar restaurante"
+                  placeholder="Pesquisar"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   aria-label="Buscar restaurante"

@@ -54,7 +54,7 @@ export function ConversationList({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar conversas e mensagens"
+            placeholder="Pesquisar"
             aria-label="Buscar conversas e mensagens"
           />
           {q && (
@@ -202,7 +202,7 @@ export function PeopleList({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar pessoas"
+            placeholder="Pesquisar"
             aria-label="Buscar pessoas"
           />
         </label>
@@ -364,7 +364,7 @@ export function NewConversation({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar"
+            placeholder="Pesquisar"
             aria-label="Buscar pessoas"
           />
         </label>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { brl, parseBrlInput, parseDecimalInput } from './money';
+import { brl, changeToBring, parseBrlInput, parseDecimalInput } from './money';
 
 describe('money (web)', () => {
   it('formata em BRL', () => {
@@ -33,5 +33,20 @@ describe('parseDecimalInput (quantidade, custo e fator)', () => {
     expect(parseDecimalInput('1.234,5678', 4)).toBe('1234.5678');
     expect(parseDecimalInput('12,34567', 4)).toBeNull();
     expect(parseDecimalInput('abc', 3)).toBeNull();
+  });
+});
+
+describe('changeToBring', () => {
+  it('troco para 400,00 num pedido de 352,40: levar 47,60', () => {
+    expect(changeToBring('400.00', '352.40')).toBe('47.60');
+  });
+  it('sem troco quando não pediu, quando já está pago ou quando a nota não passa do valor', () => {
+    expect(changeToBring(null, '352.40')).toBeNull();
+    expect(changeToBring('400.00', '0.00')).toBeNull();
+    expect(changeToBring('352.40', '352.40')).toBeNull();
+    expect(changeToBring('300.00', '352.40')).toBeNull();
+  });
+  it('pagou uma parte antes: o troco sai do que ainda falta', () => {
+    expect(changeToBring('100.00', '52.40')).toBe('47.60');
   });
 });

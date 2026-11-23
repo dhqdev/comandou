@@ -340,7 +340,7 @@ function ItemsTab({
       <ListToolbar
         lv={lv}
         searchLabel="Buscar insumo"
-        placeholder="Buscar: nome, código, categoria ou fornecedor"
+        searchHint="nome, código, categoria ou fornecedor"
         summary={`${shown.length} ${shown.length === 1 ? 'insumo' : 'insumos'}`}
       />
       {items.length === 0 ? (

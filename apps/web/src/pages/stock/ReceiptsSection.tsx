@@ -108,7 +108,7 @@ export function ReceiptsSection() {
         <ListToolbar
           lv={lv}
           searchLabel="Buscar recebimento"
-          placeholder="Buscar: código, fornecedor ou nota"
+          searchHint="código, fornecedor ou nota"
           summary={`${shown.length} ${shown.length === 1 ? 'recebimento' : 'recebimentos'} · ${formatBRL(total)}`}
         />
         {rows === null ? (

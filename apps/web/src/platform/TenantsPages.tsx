@@ -138,10 +138,10 @@ export function TenantsPage() {
         <div className="adm-search">
           <input
             className="cm-input"
-            placeholder="Buscar por nome ou endereço"
+            placeholder="Pesquisar"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Buscar"
+            aria-label="Buscar restaurante por nome ou endereço"
           />
           <Select
             className="cm-input"

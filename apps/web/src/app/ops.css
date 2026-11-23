@@ -782,13 +782,8 @@ button.od-fact__link {
   height: 40px;
   border: 1px solid color-mix(in oklab, var(--hue, var(--cm-text-muted)) 32%, var(--cm-border));
   border-radius: 999px;
-  /* Leve degradê de cima para baixo e um brilho fino no alto: o círculo parece uma peça. */
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--hue, var(--cm-text-muted)) 22%, var(--cm-surface)),
-    color-mix(in oklab, var(--hue, var(--cm-text-muted)) 9%, var(--cm-surface))
-  );
-  box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 14%, transparent);
+  /* Tom chapado e fraco do assunto (sem degradê nem brilho: nada de "ícone de peça"). */
+  background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 13%, var(--cm-surface));
   color: var(--hue, var(--cm-text-muted));
   transition: background-color var(--cm-dur-fast) var(--cm-ease);
 }
@@ -1429,13 +1424,22 @@ button.pay-part {
 .cash-table td[data-zero] {
   color: var(--cm-text-muted);
 }
-.cash-table tr[data-kind='withdrawal'] td:first-child,
-.cash-table tr[data-kind='refund'] td:first-child {
-  box-shadow: inset 3px 0 0 var(--cm-danger);
+/* Saída (sangria, estorno) e entrada (abertura, suprimento): bolinha de cor antes do tipo, sem
+   faixa num lado só. */
+.cash-table
+  tr:is([data-kind='withdrawal'], [data-kind='refund'], [data-kind='opening'], [data-kind='supply'])
+  td:first-child::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: var(--cm-success);
 }
-.cash-table tr[data-kind='opening'] td:first-child,
-.cash-table tr[data-kind='supply'] td:first-child {
-  box-shadow: inset 3px 0 0 var(--cm-success);
+.cash-table tr:is([data-kind='withdrawal'], [data-kind='refund']) td:first-child::before {
+  background: var(--cm-danger);
 }
 .cash-table__ref {
   background: none;
@@ -1528,6 +1532,12 @@ button.pay-part {
   display: flex;
   gap: var(--cm-space-3);
   align-items: baseline;
+}
+/* Nota com palavra comprida (ex.: @@LOGO@@, nome de arquivo) quebra em vez de passar da tela no
+   celular, onde o painel cortava o fim do texto. */
+.release__notes li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .release__notes .cm-badge {
   min-width: 78px;
@@ -1826,4 +1836,16 @@ button.pay-part {
 }
 .paper-text__qr {
   opacity: 0.7;
+}
+
+/* "Vai pagar com": quanto separar de troco, numa linha própria logo abaixo da forma. */
+.od-change {
+  display: block;
+  margin-top: 2px;
+  color: var(--cm-warning);
+  font-weight: 600;
+}
+.od-change strong {
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
 }

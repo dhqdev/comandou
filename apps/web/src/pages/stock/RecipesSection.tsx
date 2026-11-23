@@ -268,7 +268,7 @@ export function RecipesSection() {
         <ListToolbar
           lv={lv}
           searchLabel="Buscar ficha"
-          placeholder="Buscar: item ou insumo usado"
+          searchHint="item ou insumo usado"
           summary={`${shown.length} ${shown.length === 1 ? 'ficha' : 'fichas'}`}
         />
         {rows === null ? (

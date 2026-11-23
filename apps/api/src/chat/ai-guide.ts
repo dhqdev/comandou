@@ -17,7 +17,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/',
     name: 'PDV',
     perms: ['orders:write'],
-    text: 'tela inicial: salão em cima e pedidos embaixo em colunas pelo andamento (aceitar, produzir, despachar). "Nova venda" abre em tela cheia com a grade de produtos, os itens e o painel do pedido (balcão, mesa, retirada, entrega ou **Fiado**). Fiado: escolha Fiado no Tipo de atendimento (ou no pedido já lançado, opção Fiado); a cobrança vai para a Agenda com a tag Fiado e o cliente recebe o lembrete pelo WhatsApp.',
+    text: 'tela inicial: salão em cima e pedidos embaixo em colunas pelo andamento (aceitar, produzir, despachar). Pedido do cardápio pago em dinheiro com troco mostra quanto separar: "Troco R$ X" no cartão e "Levar R$ X de troco" dentro do pedido. "Nova venda" abre em tela cheia com a grade de produtos, os itens e o painel do pedido (balcão, mesa, retirada, entrega ou **Fiado**). Fiado: escolha Fiado no Tipo de atendimento (ou no pedido já lançado, opção Fiado); a cobrança vai para a Agenda com a tag Fiado e o cliente recebe o lembrete pelo WhatsApp.',
   },
   {
     path: '/pedidos',

@@ -22,8 +22,6 @@
   gap: var(--cm-space-1);
   font-size: var(--cm-text-xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--cm-text-muted);
   text-decoration: none;
 }
@@ -398,8 +396,6 @@
   border-top: 1px solid var(--cm-border);
   font-size: var(--cm-text-xs);
   font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--cm-text-muted);
 }
 .fi-tab > .fi-sub:first-child,

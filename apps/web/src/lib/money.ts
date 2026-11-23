@@ -1,7 +1,19 @@
-import { formatBRL, toCents } from '@comandou/shared';
+import { formatBRL, fromCents, toCents } from '@comandou/shared';
 
 /** Formata o valor decimal vindo da API ("12.90") sem passar por float. */
 export const brl = (value: string) => formatBRL(toCents(value));
+
+/**
+ * Troco a levar no pedido pago em dinheiro: o "troco para" que o cliente pediu menos o que ele
+ * ainda vai pagar (saldo). `null` sem "troco para", com o pedido já pago ou quando a nota não passa
+ * do valor. Ex.: troco para 400,00 num pedido de 352,40 → "47.60".
+ */
+export function changeToBring(changeFor: string | null | undefined, due: string): string | null {
+  if (!changeFor) return null;
+  const owed = toCents(due);
+  const change = toCents(changeFor) - owed;
+  return owed > 0 && change > 0 ? fromCents(change) : null;
+}
 
 /**
  * Número digitado no padrão brasileiro com até `decimals` casas ("0,350", "12,3456"), em string com

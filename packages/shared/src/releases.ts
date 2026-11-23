@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.243.0',
+    date: '2026-11-23',
+    title: 'Troco no pedido e acompanhamento sem piscar no iPhone',
+    summary:
+      'Pedido pago em dinheiro com troco já mostra quanto levar de troco, no cartão do PDV e dentro do pedido. No iPhone, a tela em que o cliente acompanha o pedido parou de ficar mais clara e mais escura sem parar. As buscas ficaram só com "Pesquisar" e o visual ficou mais limpo em várias telas.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Troco: no pedido em dinheiro com "troco para", o PDV mostra "Troco R$ 47,60" no cartão e "Levar R$ 47,60 de troco" no pedido (troco para R$ 400,00 num pedido de R$ 352,40). O valor também aparece no app do entregador e na mensagem enviada a ele.',
+      },
+      {
+        tag: 'correção',
+        text: 'Acompanhamento do pedido no iPhone: a tela inteira ficava mais clara e mais escura sem parar. Enquanto o pedido carregava, aparecia um bloco que pulsava, e o Safari do iPhone continuava pulsando a página toda depois que o pedido chegava. O carregamento agora tem o formato da tela, só com um brilho que passa, e a página do pedido é desenhada do zero quando chega.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Buscas do PDV, Pedidos, Salão, Clientes, Estoque, Financeiro, Reservas, Agenda, conversas e Cardápio mostram só "Pesquisar". O que cada uma encontra aparece ao parar o mouse em cima.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Visual mais limpo: rótulos sem letra maiúscula espaçada (ex.: "Online" nos cartões do PDV), sem faixas coloridas num lado só (Cozinha, Caixa, Entregas, Estoque, chat), números do Estoque numa faixa só, ícones sem quadradinho colorido na Cozinha e na Impressão e carregamentos que não piscam.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No celular, o botão de tema saiu do topo (fica em Conta › Este aparelho) e sobra mais espaço para o nome da tela.',
+      },
+      {
+        tag: 'correção',
+        text: 'Novidades no celular: nota com palavra comprida não corta mais o fim do texto.',
+      },
+    ],
+  },
+  {
     version: '0.242.0',
     date: '2026-11-23',
     title: 'Menu lateral do seu jeito e topo mais limpo',

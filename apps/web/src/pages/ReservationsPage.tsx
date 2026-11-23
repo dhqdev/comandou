@@ -653,7 +653,8 @@ export function ReservationsPage() {
               className="cm-input"
               type="search"
               aria-label="Buscar reserva"
-              placeholder="Buscar por nome, celular ou código…"
+              placeholder="Pesquisar"
+              title="Buscar por nome, celular ou código"
               value={search ?? ''}
               onChange={(e) => setSearch(e.target.value || null)}
             />

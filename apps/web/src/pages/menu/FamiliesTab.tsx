@@ -239,7 +239,7 @@ export function FamilyModal({
                 className="cm-input"
                 type="search"
                 aria-label="Buscar item para a família"
-                placeholder="Buscar item"
+                placeholder="Pesquisar"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />

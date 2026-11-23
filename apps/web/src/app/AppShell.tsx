@@ -465,7 +465,7 @@ export function AppShell() {
             <ChatTopButtons />
             <NewsBell />
             {/* Sons de aviso: ajustes na tela Conta › Este aparelho (o PDV tem o Silenciar). */}
-            <ThemeToggle />
+            <ThemeToggle className="topbar__theme" />
           </>
         }
         banners={

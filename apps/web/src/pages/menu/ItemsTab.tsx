@@ -337,7 +337,7 @@ export function ItemsTab() {
           <ListToolbar
             lv={lv}
             searchLabel="Buscar item"
-            placeholder="Buscar por nome, código ou código de barras"
+            searchHint="nome, código ou código de barras"
             summary={visible && `${visible.length} ${visible.length === 1 ? 'item' : 'itens'}`}
           />
           {visible === null ? (

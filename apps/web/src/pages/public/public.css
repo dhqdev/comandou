@@ -190,16 +190,21 @@
   color: var(--cm-text-subtle);
 }
 
-/* Esqueleto de carregamento */
+/* Esqueleto de carregamento: só o brilho que passa (fundo), como o .cm-bone do Design System.
+   Nada de pulsar a opacidade: elemento que pulsava e era reaproveitado pelo React como o conteúdo
+   deixava a tela inteira piscando no Safari do iPhone (acompanhamento do pedido, 0.243). */
 .sk {
-  background: var(--cm-border);
   border-radius: var(--cm-radius-md);
-  animation: sk-fade 1s infinite alternate;
-}
-@keyframes sk-fade {
-  to {
-    opacity: 0.5;
-  }
+  background-color: var(--cm-sk-bone, var(--cm-border));
+  background-image: linear-gradient(
+    90deg,
+    transparent 0,
+    var(--cm-sk-shine, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.4s infinite linear;
 }
 
 /* ---------------------------------------------------------------- acompanhamento */
@@ -386,6 +391,26 @@
  */
 .store--track .track__art {
   will-change: transform;
+}
+/* Esqueleto do acompanhamento (TrackSkeleton): mesmo formato da tela, num elemento próprio. */
+.track--sk .track__hero {
+  gap: 10px;
+}
+.track__sk-steps {
+  display: grid;
+  gap: 16px;
+  padding-top: 18px;
+  border-top: 1px solid var(--cm-border);
+}
+.track__sk-steps > div,
+.track__sk-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.track--sk .track__sum {
+  display: grid;
+  gap: 14px;
 }
 .store--track .live-rider__pulse {
   animation: none !important;

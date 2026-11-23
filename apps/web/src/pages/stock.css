@@ -6,13 +6,20 @@
 }
 
 /* ------------------------------------------------------------- resumo (KPIs) */
+/* Um quadro só com os números separados por linha fina (como o KpiStrip do Financeiro e os números
+   de Clientes), não um cartão por número. A linha de cada número fica à esquerda e em cima dele, e
+   o quadro corta as que caem na borda (vale também quando os números quebram em duas linhas). */
 .st-kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  overflow: hidden;
 }
 .st-kpi {
-  --tone: var(--cm-brand-500);
+  /* Sem situação, o ícone fica cinza; a cor só aparece quando há o que olhar. */
+  --tone: var(--cm-text-subtle);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-areas: 'icon label' 'value value' 'hint hint';
@@ -20,10 +27,12 @@
   column-gap: var(--cm-space-2);
   row-gap: 2px;
   padding: var(--cm-space-4);
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-surface);
-  box-shadow: var(--cm-shadow-sm);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow:
+    -1px 0 0 var(--cm-border),
+    0 -1px 0 var(--cm-border);
   color: var(--cm-text);
   font: inherit;
   text-align: left;
@@ -339,8 +348,6 @@ button.st-kpi:active {
   margin: 0;
   padding: 10px var(--cm-space-5);
   font-size: var(--cm-text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--cm-brand-700);
   background: color-mix(in oklab, var(--cm-brand-500) 8%, var(--cm-surface));
   border-bottom: 1px solid var(--cm-border);
@@ -357,17 +364,14 @@ button.st-kpi:active {
   gap: var(--cm-space-4);
   align-items: center;
   padding: 10px var(--cm-space-5);
-  border-left: 3px solid transparent;
 }
 .st-count__row + .st-count__row {
   border-top: 1px solid var(--cm-border);
 }
 .st-count__row[data-diff='neg'] {
-  border-left-color: var(--cm-danger);
   background: color-mix(in oklab, var(--cm-danger) 5%, transparent);
 }
 .st-count__row[data-diff='pos'] {
-  border-left-color: var(--cm-success);
   background: color-mix(in oklab, var(--cm-success) 5%, transparent);
 }
 .st-count__name {
@@ -547,7 +551,6 @@ button.st-kpi:active {
 @media (max-width: 640px) {
   .st-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--cm-space-2);
   }
   .st-kpi {
     padding: var(--cm-space-3);

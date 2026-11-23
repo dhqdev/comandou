@@ -66,9 +66,8 @@
   place-items: center;
   width: 40px;
   height: 40px;
-  border-radius: var(--cm-radius-md);
-  background: var(--kds-kitchen);
-  color: var(--cm-on-brand);
+  /* Ícone solto na cor da cozinha (sem o quadradinho cheio). */
+  color: var(--kds-kitchen);
 }
 .kds-bar__names {
   display: grid;
@@ -275,15 +274,13 @@
   font-weight: 700;
   background: var(--cm-surface);
   border-bottom: 1px solid var(--cm-border);
-  box-shadow: inset 0 3px 0 var(--col);
 }
+/* Cor da coluna só no ícone solto e no contador (sem faixa no topo nem quadradinho tingido). */
 .kds__head-icon {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--cm-radius-sm);
-  background: color-mix(in oklab, var(--col) 12%, transparent);
+  width: 22px;
+  height: 22px;
   color: var(--col);
 }
 .kds__head-label {
@@ -326,19 +323,23 @@
   align-content: start;
   gap: 10px;
   padding: 12px;
+  /* Urgência no contorno inteiro (e fundo levemente tingido quando atrasa), sem faixa num lado só:
+     de longe a cor do cartão todo aparece melhor que uma tira. */
   border: 1px solid var(--cm-border-strong);
-  border-left: 4px solid var(--lvl);
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
   font-size: calc(var(--cm-text-md) * var(--kds-fs));
 }
 .kds-card[data-level='warn'] {
   --lvl: var(--cm-warning);
+  padding: 11px;
+  border: 2px solid var(--cm-warning);
 }
 .kds-card[data-level='late'] {
   --lvl: var(--cm-danger);
-  border-color: color-mix(in oklab, var(--cm-danger) 40%, var(--cm-border-strong));
-  border-left-color: var(--cm-danger);
+  padding: 11px;
+  border: 2px solid var(--cm-danger);
+  background: color-mix(in oklab, var(--cm-danger) 6%, var(--cm-surface));
 }
 .kds-card[data-col='done'] {
   --lvl: var(--cm-success);

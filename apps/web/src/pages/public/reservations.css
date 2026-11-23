@@ -250,8 +250,6 @@
 .rsv-ticket__info dt {
   font-size: var(--cm-text-xs);
   color: var(--cm-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 .rsv-ticket__info dd {
   margin: 2px 0 0;

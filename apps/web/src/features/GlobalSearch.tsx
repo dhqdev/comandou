@@ -534,7 +534,7 @@ export function GlobalSearch({
             enterKeyHint="go"
             autoComplete="off"
             spellCheck={false}
-            placeholder="Buscar pedido, mesa, cliente, tela…"
+            placeholder="Pesquisar"
             aria-label="Buscar no sistema"
             aria-controls="gsearch-list"
             aria-activedescendant={rows[active] ? `gsearch-${active}` : undefined}

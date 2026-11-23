@@ -852,16 +852,16 @@
   color: var(--cm-text-subtle);
   font-size: var(--cm-text-sm);
 }
+/* Carregando: o mesmo brilho que passa do .cm-bone (sem pulsar a opacidade, que no Safari do
+   iPhone pode ficar presa no elemento e fazer a tela piscar; 0.243). */
 .board__skeleton {
   height: 72px;
   border-radius: var(--cm-radius-md);
-  background: var(--cm-surface-sunken);
-  animation: home-pulse 1s infinite alternate;
-}
-@keyframes home-pulse {
-  to {
-    opacity: 0.5;
-  }
+  background-color: var(--cm-sk-bone);
+  background-image: linear-gradient(90deg, transparent 0, var(--cm-sk-shine) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: cm-sk-shine 1.4s ease-in-out infinite;
 }
 
 /* Cartão de pedido: ícone do canal, número, valor e cliente; tempo e próximo passo à direita. */
@@ -934,10 +934,8 @@
 .hcard__tag {
   padding: 1px 6px;
   border-radius: var(--cm-radius-xs);
-  font-size: var(--cm-text-2xs);
+  font-size: var(--cm-text-xs);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   background: color-mix(in oklab, var(--cm-brand-500) 10%, transparent);
   color: var(--cm-brand-700);
 }
@@ -961,6 +959,11 @@
 .hcard__pill--soft {
   font-weight: 600;
   color: var(--cm-text-muted);
+}
+/* Troco a separar (pago em dinheiro com "troco para"): âmbar suave, como as observações. */
+.hcard__pill--change {
+  background: color-mix(in oklab, var(--cm-warning) 14%, transparent);
+  color: var(--cm-warning);
 }
 .hcard__line {
   font-size: var(--cm-text-xs);

@@ -332,7 +332,6 @@
   gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--cm-border);
-  border-left: 4px solid var(--rider);
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
   transition:

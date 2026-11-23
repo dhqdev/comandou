@@ -161,7 +161,7 @@ export function WaiterTables() {
         <label className="wt-search">
           <Search size={18} aria-hidden />
           <input
-            placeholder={view === 'tables' ? 'Buscar por nome da mesa' : 'Nº da comanda ou cliente'}
+            placeholder="Pesquisar"
             aria-label="Buscar mesa ou comanda"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

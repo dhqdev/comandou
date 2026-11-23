@@ -172,7 +172,7 @@ export function LotsSection() {
         <ListToolbar
           lv={lv}
           searchLabel="Buscar lote"
-          placeholder="Buscar: lote, insumo ou recebimento"
+          searchHint="lote, insumo ou recebimento"
           summary={`${shown.length} ${shown.length === 1 ? 'lote' : 'lotes'}`}
         />
         {lots === null ? (

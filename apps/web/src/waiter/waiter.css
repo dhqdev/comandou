@@ -156,8 +156,6 @@
   color: var(--cm-brand-600);
   font-size: var(--cm-text-xs);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 .wt-player {
   display: flex;
@@ -1442,8 +1440,6 @@
   color: var(--cm-text-muted);
   font-size: var(--cm-text-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 .wt-summary strong,
 .wt-kpis strong {

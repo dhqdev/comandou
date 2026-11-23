@@ -350,7 +350,7 @@ export function WaiterOrder() {
               <Search size={18} aria-hidden />
               <input
                 autoFocus
-                placeholder="Buscar produto"
+                placeholder="Pesquisar"
                 aria-label="Buscar produto"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

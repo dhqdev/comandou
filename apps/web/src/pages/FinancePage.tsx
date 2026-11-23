@@ -486,7 +486,7 @@ function EntriesTab({ period }: { period: FinanceMonth | null }) {
         <ListToolbar
           lv={lv}
           searchLabel="Buscar lançamento"
-          placeholder="Buscar: descrição, fornecedor/cliente ou categoria"
+          searchHint="descrição, fornecedor/cliente ou categoria"
           summary={
             rows &&
             `${rows.length} ${rows.length === 1 ? 'lançamento' : 'lançamentos'} · ${brl(fromCents(total))}`

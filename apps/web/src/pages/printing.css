@@ -15,14 +15,12 @@
 }
 .print-hero__icon {
   flex: none;
-  width: 52px;
-  height: 52px;
-  border-radius: var(--cm-radius-lg);
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  background: var(--cm-brand-600);
-  color: var(--cm-on-brand);
-  box-shadow: 0 10px 24px -10px color-mix(in oklab, var(--cm-brand-600) 80%, transparent);
+  /* Ícone solto (sem quadradinho laranja nem brilho embaixo). */
+  color: var(--cm-brand-700);
 }
 .print-hero__title {
   margin: 0;

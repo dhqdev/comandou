@@ -115,7 +115,7 @@ export function CustomerLiveMap({
               : 'aguardando o GPS do entregador'}
           </span>
         </div>
-        {eta.signal === 'live' && <span className="ctrack__live">ao vivo</span>}
+        {eta.signal === 'live' && <span className="ctrack__live">Ao vivo</span>}
       </div>
     </div>
   );

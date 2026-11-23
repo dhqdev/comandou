@@ -372,7 +372,7 @@ function Inbox({
           <label className="sinbox__search">
             <Search size={15} aria-hidden />
             <input
-              placeholder="Buscar nome ou celular"
+              placeholder="Pesquisar"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               aria-label="Buscar conversa"

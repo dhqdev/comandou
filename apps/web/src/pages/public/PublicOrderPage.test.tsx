@@ -148,6 +148,56 @@ describe('Acompanhamento do pedido: desenhos com movimento, sem piscar', () => {
         for (const [name, frames] of used) expect(frames, name).not.toMatch(/opacity/);
       });
 
+  /*
+   * A causa da tela inteira piscando no iPhone (2026-11-23): o esqueleto de carregamento pulsava a
+   * opacidade (1 ↔ 0,5) e o React reaproveitava esse mesmo <div> como o .track da página. No
+   * Safari a animação ficava presa e a página toda pulsava a 50%, sem parar.
+   */
+  it('carregando: o esqueleto não mexe em opacidade', () => {
+    apiMock.mockReturnValue(new Promise(() => undefined));
+    const { container } = render(
+      <MemoryRouter initialEntries={['/pedido/tok']}>
+        <Routes>
+          <Route path="/pedido/:token" element={<PublicOrderPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Carregando o pedido');
+    const used = animationsOn(container, ['public.css', '../../design-system/skeleton.css']);
+    expect(used.size).toBeGreaterThan(0);
+    for (const [name, frames] of used) expect(frames, name).not.toMatch(/opacity/);
+  });
+
+  it('o esqueleto não vira a página: a tela do pedido nasce num elemento novo', async () => {
+    let arrive: (o: unknown) => void = () => undefined;
+    apiMock.mockReturnValue(new Promise((r) => (arrive = r)));
+    const { container } = render(
+      <MemoryRouter initialEntries={['/pedido/tok']}>
+        <Routes>
+          <Route path="/pedido/:token" element={<PublicOrderPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const loadingMain = container.querySelector('main');
+    const loadingNodes = [...container.querySelectorAll('main *')];
+    expect(loadingMain).toHaveAttribute('aria-busy', 'true');
+    arrive(order('ready', 'table'));
+    await screen.findByText('Pedido #18599');
+    const main = container.querySelector('main');
+    expect(main).not.toBe(loadingMain);
+    expect(loadingMain!.isConnected).toBe(false);
+    // Nenhum pedaço do esqueleto continua na tela (nem reaproveitado como outro bloco).
+    for (const el of loadingNodes) expect(el.isConnected).toBe(false);
+  });
+
+  it('nenhum esqueleto do cardápio pulsa a opacidade (.sk)', () => {
+    const { keyframes, rules } = cssOf('public.css');
+    const sk = rules.find((r) => r.selector === '.sk');
+    const name = /animation:\s*([\w-]+)/.exec(sk?.body ?? '')?.[1];
+    expect(name).toBeTruthy();
+    expect(keyframes.get(name!)).not.toMatch(/opacity/);
+  });
+
   it('o pulso do motoboy no mapa fica parado nesta tela', () => {
     const { rules } = cssOf('public.css');
     const rule = rules.find((r) => r.selector === '.store--track .live-rider__pulse');

@@ -486,7 +486,7 @@ export function CustomersPage() {
         <ListToolbar
           lv={lv}
           searchLabel="Buscar cliente"
-          placeholder="Buscar: nome, celular ou e-mail"
+          searchHint="nome, celular ou e-mail"
           summary={
             rows &&
             `${rows.length} ${rows.length === 1 ? 'cliente' : 'clientes'}` +

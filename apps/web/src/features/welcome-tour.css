@@ -130,8 +130,6 @@
   color: var(--cm-brand-700, var(--cm-text));
   font-size: var(--cm-text-xs);
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 .tourx__todo ol {
   margin: 0;

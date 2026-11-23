@@ -577,7 +577,7 @@ export function WhatsAppAdminPage() {
                 <label className="sinbox__search">
                   <Search size={15} aria-hidden />
                   <input
-                    placeholder="Buscar nome ou telefone"
+                    placeholder="Pesquisar"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
                     aria-label="Buscar nome ou telefone"

@@ -225,7 +225,8 @@ export function SitesTable({
       <div className="adm-search adm-sites__bar">
         <input
           className="cm-input"
-          placeholder="Buscar site, domínio, banco ou servidor"
+          placeholder="Pesquisar"
+          title="Buscar site, domínio, banco ou servidor"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           aria-label="Buscar site"

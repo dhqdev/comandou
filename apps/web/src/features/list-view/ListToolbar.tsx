@@ -659,7 +659,7 @@ function TabButton<T>({ lv, tab }: { lv: ListView<T>; tab: ListTab }) {
 export function ListToolbar<T>({
   lv,
   searchLabel,
-  placeholder,
+  searchHint,
   actions,
   summary,
   dateCounts,
@@ -667,7 +667,9 @@ export function ListToolbar<T>({
 }: {
   lv: ListView<T>;
   searchLabel: string;
-  placeholder: string;
+  /** O que a busca acha (ex.: "nº, cliente, telefone, mesa ou item"): vira a dica ao passar o mouse.
+   * No campo fica só "Pesquisar" (pedido do David, 0.243: mais limpo). */
+  searchHint?: string;
   /** Botões à direita das abas (ex.: atualizar). */
   actions?: ReactNode;
   /** Texto à direita dos filtros (ex.: "20 de 780 · R$ 1.234,00"). */
@@ -728,7 +730,8 @@ export function ListToolbar<T>({
             type="search"
             className="cm-input"
             aria-label={searchLabel}
-            placeholder={placeholder}
+            placeholder="Pesquisar"
+            title={searchHint ? `${searchLabel}: ${searchHint}` : undefined}
             value={lv.query}
             onChange={(e) => lv.setQuery(e.target.value)}
           />
