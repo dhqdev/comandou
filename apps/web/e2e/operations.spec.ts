@@ -146,7 +146,10 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   // O comprovante só é liberado depois de fechar (antes sairia sem os ajustes e pagamentos).
   await expect(pay.locator('.cop-bar').getByRole('button', { name: 'Imprimir' })).toBeDisabled();
   await pay.locator('.cop-bar').getByRole('button', { name: 'Fechar conta' }).click();
-  await expect(page.getByText('Conta fechada. Troco: R$ 21,50')).toBeVisible();
+  // Sem aviso flutuante (cobria os botões do rodapé): o painel mostra o fechamento e o troco.
+  await expect(pay.getByText('Conta fechada. Troco: R$ 21,50')).toBeVisible();
+  await expect(pay.locator('.cop-bar__status')).toContainText('Troco: R$ 21,50');
+  await shot(page, info.project.name, 'conta-fechada');
   await expect(pay.locator('.cop-bar').getByRole('button', { name: 'Imprimir' })).toBeEnabled();
   await pay.locator('.cop-bar').getByRole('button', { name: 'Concluir' }).click();
   await expect(pay).toBeHidden();

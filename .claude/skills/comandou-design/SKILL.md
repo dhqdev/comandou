@@ -101,6 +101,11 @@ direto só quando não há opções.
   320px e número com `inline-add__num` (120px).
 - Liga/desliga e linhas de texto + controle: `cm-form__row`. Bloco solto que deve ocupar a linha toda: `cm-form__block`.
 - Use `TextField`, `SelectField`, `CheckField`; não monte `<label>` na mão.
+- **Sem aviso flutuante (toast) quando a janela continua aberta** e já mostra o resultado: o
+  aviso sai no canto de baixo à direita, bem em cima dos botões do rodapé da `SidePanel`/`Modal`
+  (no notebook cobria Imprimir e Concluir do Fechar conta, pedido do David, 0.233.2). Mostre o
+  resultado dentro da própria janela (`Alert` no corpo, linha de situação no rodapé). Toast só
+  quando a janela fecha ou a ação é de tela.
 - **Campo de data:** sempre `TextField type="date"` (ou `DateInput`); data e hora,
   `type="datetime-local"` (vira `DateTimeInput`: calendário + hora). Nunca `<input type="date">`
   solto: o teste `date-picker.test.tsx` acusa. O calendário (`design-system/date-picker.tsx`) abre

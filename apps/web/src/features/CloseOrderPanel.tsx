@@ -11,7 +11,7 @@ import {
 } from '@comandou/shared';
 import { Minus, Plus, Printer, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, HelpScope, Select, TextField, useToast } from '../design-system';
+import { Alert, Button, HelpScope, Select, TextField } from '../design-system';
 import { useCan } from '../app/auth';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
@@ -63,7 +63,6 @@ export function CloseOrderPanel({
   onClose(): void;
   onDone(o: Order | null): void;
 }) {
-  const toast = useToast();
   const canAdjust = useCan('orders:manage');
   const canReceivable = useCan('orders:cancel');
   const { sessions, sessionId, choose } = useOpenSessions(open);
@@ -93,6 +92,8 @@ export function CloseOrderPanel({
    * sairia sem a taxa, o frete, o desconto e os pagamentos que ainda não foram gravados.
    */
   const [closed, setClosed] = useState<Order | null>(null);
+  /** Troco da conta fechada: depois de gravar, o saldo zera e o plano já não mostra o troco. */
+  const [change, setChange] = useState(0);
   const locked = busy || !!closed;
   // Retirada não tem taxa de serviço nem frete (o servidor também zera os dois).
   const pickup = order.channel === 'pickup';
@@ -114,6 +115,7 @@ export function CloseOrderPanel({
     setReason('');
     setError(null);
     setClosed(null);
+    setChange(0);
     setPreview(false);
     typed.current = false;
     // Só ao abrir: o pedido em tempo real não apaga o que está sendo digitado.
@@ -299,15 +301,9 @@ export function CloseOrderPanel({
           },
         });
       }
-      toast(
-        when === 'later'
-          ? `Pedido #${order.number} concluído a receber`
-          : plan.change > 0
-            ? `Conta fechada. Troco: ${money(plan.change)}`
-            : 'Conta fechada',
-        'success',
-      );
+      // Sem aviso flutuante: ele cobria os botões do rodapé. O próprio painel mostra que fechou.
       // Fica aberto para imprimir o comprovante já com tudo gravado; "Concluir" sai do painel.
+      setChange(when === 'now' ? plan.change : 0);
       setClosed(current);
     } catch (e) {
       setError(
@@ -321,8 +317,16 @@ export function CloseOrderPanel({
   }
 
   const activeItems = order.items.filter((i) => i.status !== 'cancelled');
+  const closedText =
+    when === 'later'
+      ? 'Pedido concluído a receber'
+      : change > 0
+        ? `Conta fechada. Troco: ${money(change)}`
+        : 'Conta fechada';
   const statusLine = closed
-    ? 'Conta fechada'
+    ? when === 'later'
+      ? 'Concluído a receber'
+      : 'Conta fechada'
     : when === 'later'
       ? `A receber: ${money(Math.max(totals.balance, 0))}`
       : plan.change > 0
@@ -390,7 +394,8 @@ export function CloseOrderPanel({
             </div>
             <div className="cop-bar__status">
               {paid > 0 && <span>Já pago: {money(paid)}</span>}
-              {when === 'now' && <span>Recebendo: {money(plan.typed)}</span>}
+              {when === 'now' && !closed && <span>Recebendo: {money(plan.typed)}</span>}
+              {closed && change > 0 && <span>Troco: {money(change)}</span>}
               <strong>{statusLine}</strong>
             </div>
             <div className="cop-bar__actions">
@@ -531,7 +536,7 @@ export function CloseOrderPanel({
             )}
             {closed && (
               <Alert tone="info">
-                Conta fechada. O comprovante já sai com taxa, frete, desconto, pagamentos e troco.
+                {`${closedText}. O comprovante já sai com taxa, frete, desconto, pagamentos e troco.`}
               </Alert>
             )}
             {!canAdjust && (

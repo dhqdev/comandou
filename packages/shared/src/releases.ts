@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.233.2',
+    date: '2026-11-22',
+    title: 'Fechar conta sem aviso por cima dos botões',
+    summary:
+      'Ao fechar a conta, o aviso verde "Conta fechada" aparecia em cima dos botões Imprimir e Concluir. Ele saiu: o próprio painel já mostra que a conta foi fechada e o troco.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Fechar conta não mostra mais o aviso flutuante que cobria os botões do rodapé, principalmente em telas de notebook.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Depois de fechar, o rodapé do painel mostra o troco (no lugar do "Recebendo: R$ 0,00") e o aviso dentro do painel diz "Conta fechada. Troco: …".',
+      },
+    ],
+  },
+  {
     version: '0.233.1',
     date: '2026-11-22',
     title: 'Topo do sistema mais limpo',
