@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.240.2',
+    date: '2026-11-23',
+    title: 'Desenhos do pedido voltam a se mexer, sem piscar',
+    summary:
+      'Na tela de acompanhar o pedido, o vapor da panela e da sacola volta a subir e o motoboy volta a andar. Só saiu o que fazia a tela inteira ficar mais fraca e mais forte no iPhone.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Acompanhamento do pedido: os desenhos voltaram a ter movimento (vapor subindo, rodas girando, vento, a sacola do pedido concluído entrando com o visto). O vapor agora sobe desenhando a linha em vez de sumir e aparecer, e nenhum movimento da tela mexe na transparência, que era o que fazia o Safari do iPhone esmaecer a tela toda.',
+      },
+    ],
+  },
+  {
     version: '0.240.1',
     date: '2026-11-23',
     title: 'Acompanhar o pedido sem piscar',

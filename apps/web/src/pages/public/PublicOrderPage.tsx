@@ -319,29 +319,28 @@ export function PublicOrderPage() {
             style={{ ['--tone' as string]: hero.tone }}
           >
             {/*
-              Desenhos parados (sem `live`/`ride`), de propósito. Esta tela fica aberta muito tempo
-              e a única coisa que se mexia nela era a animação do desenho (vapor subindo e sumindo,
-              motoboy, alfinete). No Safari do iPhone isso fazia a TELA INTEIRA ficar mais fraca e
-              mais forte sem parar (o texto do topo e o Resumo junto, ~50% de opacidade): pedido do
-              David, 2026-11-23. Atualizar os dados a cada 8 s não mexe em nada na tela; quem
-              piscava era o movimento. Não volte a ligar animação contínua aqui
-              (PublicOrderPage.test.tsx confere).
+              Desenhos com movimento, mas sem nada que some e aparece. O vapor que esmaecia e voltava
+              (opacidade animada) fazia o Safari do iPhone esmaecer a TELA INTEIRA junto, sem parar
+              (o topo e o Resumo também, ~50%): pedido do David, 2026-11-23. Agora o vapor sobe
+              desenhando a linha, as rodas giram e o alfinete flutua, só com transform e traço
+              (art.css). Atualizar os dados a cada 8 s não mexe em nada na tela. Nenhuma animação
+              desta tela pode mexer em opacidade (PublicOrderPage.test.tsx confere).
             */}
             <div className="track__hero" aria-live="polite">
               {o.step === 'awaiting' ? (
-                <OrdersArt className="track__art" />
+                <OrdersArt live className="track__art" />
               ) : o.step === 'accepted' ? (
-                <CookingArt className="track__art" />
+                <CookingArt live className="track__art" />
               ) : o.step === 'ready' ? (
                 o.channel === 'pickup' ? (
-                  <PickupArt className="track__art" />
+                  <PickupArt live className="track__art" />
                 ) : (
-                  <BagArt className="track__art" />
+                  <BagArt live className="track__art" />
                 )
               ) : o.step === 'dispatched' ? (
-                <MotoboyArt className="track__art" />
+                <MotoboyArt ride className="track__art" />
               ) : o.step === 'completed' ? (
-                <BagArt done className="track__art" />
+                <BagArt done live className="track__art" />
               ) : (
                 <span className="track__badge">
                   <Icon size={28} />

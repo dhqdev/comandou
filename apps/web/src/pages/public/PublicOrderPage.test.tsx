@@ -63,12 +63,67 @@ function order(step: string, channel: 'table' | 'delivery' | 'pickup') {
 
 const STEPS = ['awaiting', 'accepted', 'ready', 'dispatched', 'completed', 'cancelled'] as const;
 
-/*
- * A tela do pedido fica aberta o tempo todo na mão do cliente. Qualquer animação contínua nela
- * (vapor do desenho, pulso) fazia a tela inteira ficar mais fraca e mais forte no Safari do iPhone.
- * Aqui conferimos que nada dela liga movimento.
+/** Blocos do CSS (fora de @media, que só vale com "reduzir movimento" ou outra tela). */
+function cssOf(file: string) {
+  const css = readFileSync(join(__dirname, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const keyframes = new Map<string, string>();
+  const rules: { selector: string; body: string }[] = [];
+  let i = 0;
+  while (i < css.length) {
+    const open = css.indexOf('{', i);
+    if (open < 0) break;
+    const head = css.slice(i, open).trim();
+    // Acha o fim do bloco (com chaves de dentro, como em @keyframes e @media).
+    let depth = 1;
+    let j = open + 1;
+    while (depth && j < css.length) {
+      if (css[j] === '{') depth++;
+      else if (css[j] === '}') depth--;
+      j++;
+    }
+    const body = css.slice(open + 1, j - 1);
+    if (head.startsWith('@keyframes')) keyframes.set(head.split(/\s+/)[1]!, body);
+    else if (!head.startsWith('@')) rules.push({ selector: head, body });
+    i = j;
+  }
+  return { keyframes, rules };
+}
+
+/**
+ * Animações que o CSS liga nos elementos desta tela: o nome de cada `animation:` cuja regra vale
+ * para algum elemento desenhado.
  */
-describe('Acompanhamento do pedido: tela parada, sem piscar', () => {
+function animationsOn(root: Element, files: string[]) {
+  const all = files.map(cssOf);
+  const keyframes = new Map(all.flatMap((c) => [...c.keyframes]));
+  const used = new Map<string, string>();
+  const els = [root, ...root.querySelectorAll('*')];
+  for (const { rules } of all)
+    for (const { selector, body } of rules) {
+      const m = /(?:^|;)\s*animation(?:-name)?\s*:\s*([^;]+)/.exec(body);
+      if (!m || /^\s*none\b/.test(m[1]!)) continue;
+      const name = m[1]!.split(/\s+/).find((w) => keyframes.has(w));
+      if (!name) continue;
+      for (const sel of selector.split(',')) {
+        const clean = sel.trim().replace(/::?(before|after)$/, '');
+        let hit = false;
+        try {
+          hit = els.some((el) => el.matches(clean));
+        } catch {
+          /* seletor que o jsdom não entende */
+        }
+        if (hit) used.set(name, keyframes.get(name)!);
+      }
+    }
+  return used;
+}
+
+/*
+ * A tela do pedido fica aberta o tempo todo na mão do cliente. Animação que mexe em opacidade nela
+ * (vapor que some e aparece, pulso) fazia a tela inteira ficar mais fraca e mais forte no Safari do
+ * iPhone. Os desenhos se mexem, mas só com transform e traço.
+ */
+describe('Acompanhamento do pedido: desenhos com movimento, sem piscar', () => {
   afterEach(() => {
     cleanup();
     apiMock.mockReset();
@@ -76,7 +131,7 @@ describe('Acompanhamento do pedido: tela parada, sem piscar', () => {
 
   for (const channel of ['table', 'delivery', 'pickup'] as const)
     for (const step of STEPS)
-      it(`${channel} · ${step}: desenho sem animação`, async () => {
+      it(`${channel} · ${step}: nenhuma animação mexe em opacidade`, async () => {
         apiMock.mockResolvedValue(order(step, channel));
         const { container } = render(
           <MemoryRouter initialEntries={['/pedido/tok']}>
@@ -86,20 +141,16 @@ describe('Acompanhamento do pedido: tela parada, sem piscar', () => {
           </MemoryRouter>,
         );
         await screen.findByText('Pedido #18599');
-        expect(container.querySelectorAll('[data-live], [data-ride]')).toHaveLength(0);
+        const used = animationsOn(container, ['art.css', 'public.css']);
+        // Os desenhos seguem animados (pedido do David). A comanda do "aguardando" é parada desde
+        // sempre e o cancelado é um ícone.
+        if (step !== 'awaiting' && step !== 'cancelled') expect(used.size).toBeGreaterThan(0);
+        for (const [name, frames] of used) expect(frames, name).not.toMatch(/opacity/);
       });
 
-  it('o CSS desliga animação de desenho e do pulso do mapa nesta tela', () => {
-    const css = readFileSync(join(__dirname, 'public.css'), 'utf8');
-    expect(css).toMatch(
-      /\.store--track \.art,\s*\.store--track \.art \*,\s*\.store--track \.live-rider__pulse \{\s*animation: none !important;/,
-    );
-    // Nada da própria tela (.track*) com animação (só a trava `animation: none`).
-    const own = css.slice(
-      css.indexOf(
-        '/* ---------------------------------------------------------------- acompanhamento',
-      ),
-    );
-    expect(own.slice(0, own.indexOf('.steps {'))).not.toMatch(/^\s*animation:(?!\s*none)/m);
+  it('o pulso do motoboy no mapa fica parado nesta tela', () => {
+    const { rules } = cssOf('public.css');
+    const rule = rules.find((r) => r.selector === '.store--track .live-rider__pulse');
+    expect(rule?.body).toMatch(/animation:\s*none !important/);
   });
 });

@@ -377,13 +377,16 @@
   opacity: 0.6;
 }
 /*
- * Acompanhamento parado: nada aqui se mexe sozinho. Animação contínua nesta tela (vapor do desenho,
- * pulso do motoboy no mapa, bolinha pulsando, entrada da tela) fazia a tela inteira ficar mais
- * fraca e mais forte no Safari do iPhone (pedido do David, 2026-11-23). A bolinha verde de "Esta
- * página se atualiza sozinha" fica acesa, sem pulsar. Só o toque (afundar o botão) anima.
+ * Acompanhamento sem piscar: nada nesta tela pode animar opacidade. Vapor que some e aparece,
+ * bolinha ou pulso esmaecendo faziam a tela inteira ficar mais fraca e mais forte no Safari do
+ * iPhone (pedido do David, 2026-11-23). Os desenhos se mexem só com transform e traço (art.css) e
+ * ficam numa camada própria, para o repintar deles não encostar no resto da tela. A bolinha verde
+ * de "Esta página se atualiza sozinha" fica acesa, sem pulsar; o pulso do motoboy no mapa fica
+ * parado aqui (ele esmaece).
  */
-.store--track .art,
-.store--track .art *,
+.store--track .track__art {
+  will-change: transform;
+}
 .store--track .live-rider__pulse {
   animation: none !important;
 }

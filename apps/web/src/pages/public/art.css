@@ -241,11 +241,17 @@
 }
 
 /* ---------------------------------------------------------------- movimento (só o essencial) */
+/*
+ * Nenhum movimento daqui mexe em opacidade: no Safari do iPhone, desenho esmaecendo em loop fazia a
+ * tela inteira do acompanhamento ficar mais fraca e mais forte junto (0.240.2). O vapor e o vento
+ * passam desenhando a linha (stroke-dashoffset) e deslizando; o resto é transform.
+ */
 /* Motoboy andando: rodas giram e o vento passa. */
 .art[data-ride] .art-wheel {
   animation: art-spin 0.7s linear infinite;
 }
 .art[data-ride] .art-wind path {
+  stroke-dasharray: 10 46;
   animation: art-wind 1.2s linear infinite;
 }
 .art[data-ride] .art-wind path:nth-child(2) {
@@ -256,7 +262,8 @@
 }
 /* Vapor subindo (panela, sacola pronta). */
 .art[data-live] .art-steam path {
-  animation: art-steam 2.6s ease-out infinite;
+  stroke-dasharray: 20 60;
+  animation: art-steam 2.6s ease-in-out infinite;
 }
 .art[data-live] .art-steam path:nth-child(2) {
   animation-delay: -0.85s;
@@ -299,30 +306,26 @@
     transform: rotate(360deg);
   }
 }
+/* O traço entra pela ponta da direita e sai pela da esquerda (o vento fica para trás). */
 @keyframes art-wind {
-  0% {
-    transform: translateX(10px);
-    opacity: 0;
+  from {
+    stroke-dashoffset: -36;
+    transform: translateX(6px);
   }
-  40% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(-14px);
-    opacity: 0;
+  to {
+    stroke-dashoffset: 12;
+    transform: translateX(-8px);
   }
 }
+/* O traço nasce embaixo (o começo de cada fio) e sobe até sumir pela ponta de cima. */
 @keyframes art-steam {
-  0% {
-    transform: translateY(6px);
-    opacity: 0;
+  from {
+    stroke-dashoffset: 22;
+    transform: translateY(5px);
   }
-  40% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-8px);
-    opacity: 0;
+  to {
+    stroke-dashoffset: -30;
+    transform: translateY(-6px);
   }
 }
 @keyframes art-hover {
@@ -343,13 +346,11 @@
 @keyframes art-rise {
   from {
     transform: translateY(10px);
-    opacity: 0;
   }
 }
 @keyframes art-pop {
   from {
-    transform: scale(0.6);
-    opacity: 0;
+    transform: scale(0);
   }
 }
 @keyframes art-draw {
