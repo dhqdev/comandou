@@ -45,9 +45,36 @@
   align-items: center;
   justify-content: space-between;
 }
-.salon__search {
-  flex: 0 1 320px;
-  min-width: 200px;
+/* Busca do Salão maior e mais à vista (pedido do David, 0.233.4): ocupa o espaço ao lado dos
+ * filtros, contorno e ícone mais fortes, texto do tamanho normal. */
+.salon__search.cm-search {
+  flex: 1 1 420px;
+  max-width: 600px;
+  min-width: 240px;
+  height: 46px;
+  padding: 0 var(--cm-space-4);
+  gap: var(--cm-space-3);
+  border-width: 1.5px;
+  border-color: color-mix(in srgb, var(--cm-text) 28%, var(--cm-input-line));
+  color: var(--cm-text-muted);
+}
+.salon__search.cm-search:hover {
+  border-color: color-mix(in srgb, var(--cm-text) 42%, var(--cm-input-line));
+}
+.salon__search.cm-search:focus-within {
+  border-color: var(--cm-brand-500);
+  color: var(--cm-brand-500);
+}
+.salon__search.cm-search svg {
+  width: 19px;
+  height: 19px;
+}
+.salon__search.cm-search input {
+  font-size: 15px;
+}
+.salon__search.cm-search input::placeholder {
+  color: var(--cm-text-muted);
+  opacity: 1;
 }
 .salon-pills {
   display: flex;
@@ -690,8 +717,14 @@
     flex-wrap: nowrap;
     gap: var(--cm-space-2);
   }
-  .salon__search {
-    flex: 1 1 auto;
+  .salon__search.cm-search {
+    flex: 0 0 auto;
+    max-width: none;
+    min-width: 0;
+  }
+  /* 16px no celular: menos que isso o iPhone dá zoom ao tocar no campo. */
+  .salon__search.cm-search input {
+    font-size: 16px;
   }
   .salon-pills {
     flex-wrap: nowrap;

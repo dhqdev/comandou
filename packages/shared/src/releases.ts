@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.233.4',
+    date: '2026-11-22',
+    title: 'Busca do Salão maior',
+    summary:
+      'A barra de busca do Salão ficou maior e mais fácil de achar: ocupa o espaço ao lado dos filtros, com contorno e letra mais fortes.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Busca do Salão (mesas, comandas, delivery e para levar) mais larga e mais alta, com contorno, ícone e texto mais visíveis, também no tema escuro.',
+      },
+    ],
+  },
+  {
     version: '0.233.3',
     date: '2026-11-22',
     title: 'Pedido sem o botão "A receber"',
