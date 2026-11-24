@@ -30,6 +30,7 @@ import { ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Select, TextField, showLiquid, useToast, Skeleton } from '../design-system';
 import { useCan } from '../app/auth';
 import { api, ApiError } from '../lib/api';
+import { useRealtime } from '../lib/realtime';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { isOfflineResult } from '../lib/offline';
 import { brl, parseBrlInput } from '../lib/money';
@@ -165,6 +166,11 @@ export function NewSaleModal({
       .catch(() => setTables([]));
   }, [open, preset?.channel, preset?.tableId]);
 
+  // Cardápio mudou com a venda aberta (item esgotado, preço novo): lê de novo, sem mexer no resto.
+  const [menuRev, setMenuRev] = useState(0);
+  useRealtime((e) => {
+    if (open && e.type === 'menu.changed') setMenuRev((n) => n + 1);
+  });
   // Cada canal tem o seu cardápio (Principal no balcão/salão, Delivery na entrega/retirada):
   // ao trocar o canal, os itens e preços do carrinho passam a ser os do novo cardápio.
   useEffect(() => {
@@ -190,7 +196,7 @@ export function NewSaleModal({
     return () => {
       alive = false;
     };
-  }, [open, channel, toast]);
+  }, [open, channel, toast, menuRev]);
 
   const products = useMemo(() => {
     const all = menu ?? [];

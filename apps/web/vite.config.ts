@@ -101,7 +101,8 @@ export default defineConfig({
               cacheableResponse: { statuses: [200] },
             },
           },
-          { urlPattern: /^\/api\//, handler: 'NetworkOnly' },
+          // A API nunca sai do cache (a RegExp do Workbox compara com o endereço inteiro).
+          { urlPattern: ({ url }) => url.pathname.startsWith('/api/'), handler: 'NetworkOnly' },
         ],
       },
     }),

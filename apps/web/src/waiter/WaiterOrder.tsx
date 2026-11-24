@@ -22,6 +22,7 @@ import {
   Skeleton,
 } from '../design-system';
 import { api, ApiError } from '../lib/api';
+import { useRealtime } from '../lib/realtime';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { isOfflineResult } from '../lib/offline';
 import { mediaUrl } from '../lib/media';
@@ -104,6 +105,21 @@ export function WaiterOrder() {
   // Uma chave por pedido: reenvio depois de falha de rede não duplica.
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Cardápio mudou com a tela aberta (item esgotado, preço novo): lê de novo sem trocar a categoria.
+  useRealtime((e) => {
+    if (e.type !== 'menu.changed') return;
+    api<MenuCategory[]>(`/menu?channel=${channel}`).then(
+      (m) => {
+        const withProducts = m.filter((c) => c.products.length > 0);
+        setMenu(withProducts);
+        setActive((a) =>
+          a && withProducts.some((c) => c.id === a) ? a : (withProducts[0]?.id ?? null),
+        );
+      },
+      () => undefined,
+    );
+  });
 
   useEffect(() => {
     api<MenuCategory[]>(`/menu?channel=${channel}`).then(
