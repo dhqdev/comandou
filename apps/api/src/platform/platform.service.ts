@@ -42,6 +42,11 @@ const USAGE_SQL = `SELECT tenant_id AS "tenantId", users::int, products::int,
   orders_month::int AS "ordersMonth", last_order_at AS "lastOrderAt",
   fiscal_errors::int AS "fiscalErrors", message_failures::int AS "messageFailures"
   FROM platform_tenant_usage()`;
+/**
+ * Assinatura que não é a da demonstração (criada na subida da stack com a nota "Demonstração: …",
+ * ver demo/platform.ts): a demonstração não é cliente e não entra na receita.
+ */
+const NOT_DEMO = `coalesce(s.notes, '') NOT LIKE 'Demonstração:%'`;
 const EMPTY_USAGE = {
   users: 0,
   products: 0,
@@ -264,6 +269,39 @@ export class PlatformService {
   }
 
   // ------------------------------------------------------------------ visão geral
+  /**
+   * Uso de cada restaurante que roda aqui, lido onde os dados dele moram: banco central para quem
+   * está nele, o banco próprio para quem tem um (os restos de um restaurante no banco central
+   * depois da mudança não contam, nem as linhas de outros restaurantes num banco próprio).
+   */
+  private async usageOfAll() {
+    type U = {
+      tenantId: string;
+      ordersMonth: number;
+      lastOrderAt: Date | null;
+      fiscalErrors: number;
+      messageFailures: number;
+    };
+    const usage = new Map<string, U>();
+    for (const u of await this.db.query<U>(USAGE_SQL)) usage.set(u.tenantId, u);
+    const dedicated = await this.db.query<{ tenantId: string }>(
+      `SELECT tenant_id AS "tenantId" FROM tenant_databases`,
+    );
+    for (const d of dedicated) usage.delete(d.tenantId);
+    const errors: string[] = [];
+    for (const d of await this.db.eachDedicated<U>(USAGE_SQL)) {
+      if (d.error) errors.push(d.dbName);
+      const mine = d.rows.find((u) => u.tenantId === d.tenantId);
+      if (mine) usage.set(d.tenantId, mine);
+    }
+    return { usage, errors };
+  }
+
+  /**
+   * Tela Status do Super Admin: saúde, backups, negócio (assinaturas, receita e inadimplência),
+   * atendimento e uso. A demonstração (assinatura "Demonstração: …" criada na subida) não conta
+   * como cliente pagante; quem foi para outra instalação ou está sendo excluído também não.
+   */
   async overview() {
     const [database, redis, whatsappGateway, queue] = await Promise.all([
       this.checks.database(),
@@ -275,7 +313,68 @@ export class PlatformService {
       `SELECT status, count(*)::int AS n FROM tenants GROUP BY status`,
     );
     const subs = await this.db.query<{ status: string; n: number }>(
-      `SELECT status, count(*)::int AS n FROM subscriptions WHERE status <> 'cancelled' GROUP BY status`,
+      `SELECT s.status, count(*)::int AS n FROM subscriptions s JOIN tenants t ON t.id = s.tenant_id
+        WHERE s.status <> 'cancelled' AND t.status NOT IN ('migrated', 'deleting')
+          AND ${NOT_DEMO} GROUP BY s.status`,
+    );
+    const [business] = await this.db.query<{
+      paying: number;
+      pastDue: number;
+      trialing: number;
+      trialEndingSoon: number;
+      trialEnded: number;
+      courtesy: number;
+      blocked: number;
+      demo: number;
+      mrr: string;
+      newLast30: number;
+      cancelledLast30: number;
+    }>(
+      `WITH live AS (
+         SELECT s.status, s.trial_ends_at, s.blocked_at, p.price_monthly, NOT ${NOT_DEMO} AS demo
+           FROM subscriptions s JOIN plans p ON p.id = s.plan_id JOIN tenants t ON t.id = s.tenant_id
+          WHERE s.status <> 'cancelled' AND t.status NOT IN ('migrated', 'deleting'))
+       SELECT count(*) FILTER (WHERE NOT demo AND status IN ('active', 'past_due') AND price_monthly > 0)::int AS paying,
+              count(*) FILTER (WHERE NOT demo AND status = 'past_due')::int AS "pastDue",
+              count(*) FILTER (WHERE NOT demo AND status = 'trialing')::int AS trialing,
+              count(*) FILTER (WHERE NOT demo AND status = 'trialing'
+                AND trial_ends_at BETWEEN now() AND now() + interval '7 days')::int AS "trialEndingSoon",
+              count(*) FILTER (WHERE NOT demo AND status = 'trialing' AND trial_ends_at < now())::int AS "trialEnded",
+              count(*) FILTER (WHERE NOT demo AND status IN ('active', 'past_due') AND price_monthly = 0)::int AS courtesy,
+              count(*) FILTER (WHERE NOT demo AND blocked_at IS NOT NULL)::int AS blocked,
+              count(*) FILTER (WHERE demo)::int AS demo,
+              coalesce(sum(price_monthly) FILTER (WHERE NOT demo AND status IN ('active', 'past_due')), 0)::text AS mrr,
+              (SELECT count(*)::int FROM tenants t
+                WHERE t.created_at > now() - interval '30 days' AND t.status NOT IN ('migrated', 'deleting')
+                  AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.tenant_id = t.id
+                                   AND s.status <> 'cancelled' AND NOT ${NOT_DEMO})) AS "newLast30",
+              (SELECT count(*)::int FROM subscriptions
+                WHERE cancelled_at > now() - interval '30 days') AS "cancelledLast30"
+         FROM live`,
+    );
+    const [invoices] = await this.db.query<{
+      overdue: string;
+      overdueCount: number;
+      paidMonth: string;
+    }>(
+      `SELECT coalesce(sum(amount) FILTER (WHERE status = 'overdue'), 0)::text AS overdue,
+              count(*) FILTER (WHERE status = 'overdue')::int AS "overdueCount",
+              coalesce(sum(amount) FILTER (WHERE status = 'paid' AND paid_at >=
+                (date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo')), 0)::text AS "paidMonth"
+         FROM billing_invoices`,
+    );
+    const [support] = await this.db.query<{
+      chatsWaiting: number;
+      ticketsOpen: number;
+      ticketsWaiting: number;
+    }>(
+      `SELECT (SELECT count(DISTINCT c.tenant_id)::int FROM platform_support_chats c
+                 JOIN platform_support_messages m ON m.tenant_id = c.tenant_id
+                  AND m.sender = 'tenant' AND m.created_at > c.admin_read_at) AS "chatsWaiting",
+              (SELECT count(*)::int FROM platform_tickets
+                WHERE state IN ('running', 'approval', 'waiting')) AS "ticketsOpen",
+              (SELECT count(*)::int FROM platform_tickets
+                WHERE state IN ('approval', 'waiting')) AS "ticketsWaiting"`,
     );
     // Banco central: o "último backup" do painel é o dele (cada restaurante tem o seu na tela dele).
     const last = await this.db.query(
@@ -287,12 +386,24 @@ export class PlatformService {
       `SELECT kind, max(finished_at) AS at FROM backup_runs
         WHERE status = 'ok' AND tenant_id IS NULL GROUP BY kind`,
     );
-    const ALERTS_SQL = `SELECT coalesce(sum(fiscal_errors), 0)::int AS fiscal,
-              coalesce(sum(message_failures), 0)::int AS messages FROM platform_tenant_usage()`;
-    const alerts = await this.db.query<{ fiscal: number; messages: number }>(ALERTS_SQL);
-    for (const d of await this.db.eachDedicated<{ fiscal: number; messages: number }>(ALERTS_SQL)) {
-      alerts[0].fiscal += d.rows[0]?.fiscal ?? 0;
-      alerts[0].messages += d.rows[0]?.messages ?? 0;
+    // Uso: só de quem roda aqui e não é a demonstração (pedidos do mês, quem vendeu nos últimos
+    // 7 dias e as falhas).
+    const live = await this.db.query<{ id: string }>(
+      `SELECT t.id FROM tenants t
+        WHERE t.status IN ('provisioned', 'suspended', 'recovering', 'moving')
+          AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.tenant_id = t.id
+                           AND s.status <> 'cancelled' AND NOT ${NOT_DEMO})`,
+    );
+    const { usage, errors: usageErrors } = await this.usageOfAll();
+    const week = Date.now() - 7 * 86_400_000;
+    const sums = { ordersMonth: 0, sellingLast7: 0, fiscal: 0, messages: 0 };
+    for (const { id } of live) {
+      const u = usage.get(id);
+      if (!u) continue;
+      sums.ordersMonth += Number(u.ordersMonth ?? 0);
+      sums.fiscal += Number(u.fiscalErrors ?? 0);
+      sums.messages += Number(u.messageFailures ?? 0);
+      if (u.lastOrderAt && new Date(u.lastOrderAt).getTime() > week) sums.sellingLast7++;
     }
     const databases = await this.db.query<{ status: string; n: number }>(
       `SELECT status, count(*)::int AS n FROM tenant_databases GROUP BY status`,
@@ -307,9 +418,18 @@ export class PlatformService {
       queue,
       tenants: Object.fromEntries(tenants.map((r) => [r.status, r.n])),
       subscriptions: Object.fromEntries(subs.map((r) => [r.status, r.n])),
+      // Valores em texto decimal ("400.00"), como na Cobrança: a tela formata sem passar por float.
+      business: { ...business!, ...invoices! },
+      support: support!,
+      usage: {
+        ordersMonth: sums.ordersMonth,
+        sellingLast7: sums.sellingLast7,
+        live: live.length,
+        unreadable: usageErrors,
+      },
       backups: { backup: byKind('backup'), restoreTest: byKind('restore_test') },
       databases: Object.fromEntries(databases.map((r) => [r.status, r.n])),
-      last7Days: { fiscalErrors: alerts[0].fiscal, messageFailures: alerts[0].messages },
+      last7Days: { fiscalErrors: sums.fiscal, messageFailures: sums.messages },
     };
   }
 

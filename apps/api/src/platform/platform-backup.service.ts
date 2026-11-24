@@ -149,6 +149,23 @@ export class PlatformBackupService {
    * Testa o bucket com os dados do formulário (ou os salvos): grava um arquivo pequeno, confere,
    * lê a lista e apaga. Apagar sem permissão não é erro, só desliga a limpeza automática.
    */
+  /** Testa o bucket salvo (grava, confere, lista e apaga um arquivo de teste). */
+  async testSaved() {
+    const r = await this.row();
+    return this.test({
+      enabled: r.enabled,
+      endpoint: r.endpoint,
+      region: r.region,
+      bucket: r.bucket,
+      prefix: r.prefix,
+      keyId: r.key_id,
+      applicationKey: '',
+      runAt: r.run_at,
+      retentionDays: r.retention_days,
+      restoreTestWeekday: r.restore_test_weekday,
+    });
+  }
+
   async test(b: BackupSettingsInput) {
     this.checkEndpoint(b.endpoint);
     const current = await this.row();

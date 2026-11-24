@@ -22,18 +22,10 @@ import {
 } from './ui';
 import { ConsumptionRanking } from './TenantInsights';
 import { UpdatePanel } from './UpdatePanel';
+import { badServices as problemServices, finishedService as finished, serviceLevel } from './status-alerts';
 
 const rate = (bps: number | null) => (bps === null ? '—' : `${bytes(bps)}/s`);
 
-/** Serviço de execução única (migração) que já terminou bem: 0 rodando é o esperado. */
-const finished = (s: ServerService) => s.running === 0 && s.taskState === 'complete';
-
-function serviceLevel(s: ServerService): Level {
-  if (s.desired === 0) return 'off';
-  if (finished(s)) return 'ok';
-  if (s.desired !== null && s.running < s.desired) return s.running === 0 ? 'bad' : 'warn';
-  return 'ok';
-}
 
 const CLEANUP: { key: string; title: string; text: string }[] = [
   {
@@ -103,9 +95,7 @@ export function ServerPage() {
   const containers = (docker?.containers.list ?? []).filter(
     (c) => !q || c.name.toLowerCase().includes(q) || c.image.toLowerCase().includes(q),
   );
-  const badServices = (docker?.services ?? []).filter(
-    (s) => serviceLevel(s) !== 'ok' && s.desired !== 0,
-  );
+  const badServices = problemServices(docker?.services ?? []);
 
   return (
     <>

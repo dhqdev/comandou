@@ -1,14 +1,15 @@
-import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { Inject, Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import type { QueryResultRow } from 'pg';
 import { z } from 'zod';
 import { SECRET_CONTEXT as BACKUP_CONTEXT } from '../backup/backup-settings';
-import { KEY_CONTEXT as ASAAS_CONTEXT } from '../billing/billing.service';
+import { BillingService, KEY_CONTEXT as ASAAS_CONTEXT } from '../billing/billing.service';
 import { open, seal } from '../common/secret-box';
 import { ENV, Env } from '../config/env';
 import { FOCUS_MASTER_CONTEXT, FocusClient } from '../fiscal/focus.client';
-import { MAIL_SECRET } from '../mail/mail.service';
-import { PLATFORM_TOKEN_CONTEXT } from '../online-pay/online-pay.service';
-import { GITHUB_KEY_CONTEXT } from '../tickets/tickets.service';
+import { MAIL_SECRET, MailService } from '../mail/mail.service';
+import { OnlinePayService, PLATFORM_TOKEN_CONTEXT } from '../online-pay/online-pay.service';
+import { GITHUB_KEY_CONTEXT, TicketsService } from '../tickets/tickets.service';
 import { KNOWN_CHANNELS } from '@comandou/shared';
 import {
   ChannelCredentials,
@@ -16,7 +17,10 @@ import {
 } from '../integrations/channels/channel-credentials.service';
 import { ADMIN_KEY_CONTEXT, CLIENT_KEY_CONTEXT, OWNER_KEY_CONTEXT } from './ai-keys';
 import type { Actor } from './platform.service';
+import { PlatformAiService } from './platform-ai.service';
+import { PlatformBackupService } from './platform-backup.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
+import { ReleaseFeed } from './server-agent.service';
 
 export const FocusMasterBody = z.object({ token: z.string().trim().min(8).max(300) });
 export const FocusMasterTest = z.object({ token: z.string().trim().max(300).optional() });
@@ -37,6 +41,20 @@ export interface CredentialStatus {
   unreadable?: boolean;
 }
 
+/**
+ * Resultado de "Conferir todas": a chave salva foi usada agora no fornecedor. `ok: null` = não
+ * dá para testar daqui sem efeito colateral (o texto diz como saber).
+ */
+export interface CredentialCheck {
+  id: string;
+  ok: boolean | null;
+  detail: string;
+  ms: number;
+}
+
+/** Cada conferência desiste depois disto (o fornecedor fora do ar não trava a tela). */
+const CHECK_TIMEOUT_MS = 25_000;
+
 type Sealed = Buffer | null;
 
 const env2 = (v: string) => (v === 'production' ? 'produção' : 'sandbox');
@@ -48,11 +66,21 @@ const env2 = (v: string) => (v === 'production' ? 'produção' : 'sandbox');
  */
 @Injectable()
 export class PlatformCredentialsService {
+  private readonly logger = new Logger('Credenciais');
+  /** Separado para os testes trocarem a internet por uma função. */
+  fetcher: typeof fetch = (...a) => fetch(...a);
+
   constructor(
     @Inject(ENV) private readonly env: Env,
     private readonly db: PlatformDb,
     private readonly focus: FocusClient,
     private readonly channels: ChannelCredentials,
+    private readonly ai: PlatformAiService,
+    private readonly backup: PlatformBackupService,
+    private readonly releases: ReleaseFeed,
+    private readonly mail: MailService,
+    private readonly billing: BillingService,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   /**
@@ -229,6 +257,175 @@ export class PlatformCredentialsService {
       channels,
       customOd,
       items,
+    };
+  }
+
+  /**
+   * Conferir todas: usa cada chave salva no próprio fornecedor, sem gastar e sem mandar nada a
+   * ninguém (lê a conta, a chave ou o saldo; o Backblaze grava e apaga um arquivo de teste).
+   * Só as que estão salvas e abrem com a chave mestra; nunca devolve um valor.
+   */
+  async check(a: Actor): Promise<{ checkedAt: string; results: CredentialCheck[] }> {
+    const st = await this.status();
+    const saved = new Set(
+      st.items.filter((i) => i.configured && !i.unreadable).map((i) => i.id),
+    );
+    const run = async (
+      id: string,
+      fn: () => Promise<{ ok: boolean | null; detail: string }>,
+    ): Promise<CredentialCheck | null> => {
+      if (!saved.has(id)) return null;
+      const t0 = Date.now();
+      let timer: NodeJS.Timeout | undefined;
+      try {
+        const r = await Promise.race([
+          fn(),
+          new Promise<never>((_, rej) => {
+            timer = setTimeout(
+              () => rej(new Error(`sem resposta em ${CHECK_TIMEOUT_MS / 1000} s`)),
+              CHECK_TIMEOUT_MS,
+            );
+          }),
+        ]);
+        return { id, ...r, ms: Date.now() - t0 };
+      } catch (e) {
+        return { id, ok: false, detail: (e as Error).message, ms: Date.now() - t0 };
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+    const results = (
+      await Promise.all([
+        run('focus_master', async () => {
+          const r = await this.focus.testMaster();
+          return r.ok
+            ? {
+                ok: true,
+                detail:
+                  r.companies == null
+                    ? 'token aceito pela Focus'
+                    : `token aceito · ${r.companies} empresa(s) na conta`,
+              }
+            : { ok: false, detail: r.error ?? 'a Focus recusou o token' };
+        }),
+        run('openrouter_clients', () => this.ai.checkKey('clients')),
+        run('openrouter_owner', () => this.ai.checkKey('owner')),
+        run('openrouter_admin', () => this.ai.checkKey('admin')),
+        run('resend', () => this.checkResend()),
+        run('asaas', async () => {
+          const r = await this.billing.test(a);
+          return r.ok
+            ? {
+                ok: true,
+                detail: [r.accountName && `conta ${r.accountName}`, st.items.find((i) => i.id === 'asaas')?.detail]
+                  .filter(Boolean)
+                  .join(' · ') || 'chave aceita pelo Asaas',
+              }
+            : { ok: false, detail: r.error ?? 'o Asaas recusou a chave' };
+        }),
+        run('asaas_webhook', async () => ({
+          ok: null,
+          detail: 'O Asaas avisa aqui a cada pagamento; confira os últimos avisos em Cobrança',
+        })),
+        run('pagbank', () => this.checkPagBank()),
+        run('backblaze', async () => {
+          const r = await this.backup.testSaved();
+          const bad = r.steps.find((x) => !x.ok);
+          return r.ok
+            ? {
+                ok: true,
+                detail: r.canDelete
+                  ? 'gravou, leu e apagou um arquivo de teste no bucket'
+                  : 'grava e lê, mas não apaga (a retenção não limpa backups velhos)',
+              }
+            : { ok: false, detail: bad ? `${bad.step}: ${bad.detail ?? 'falhou'}` : 'falhou' };
+        }),
+        run('github_pipeline', async () => {
+          const tickets = this.moduleRef.get(TicketsService, { strict: false });
+          const r = await tickets.testGithub({});
+          const bad = r.checks.filter((x) => !x.ok);
+          return r.ok
+            ? { ok: true, detail: r.checks[0]?.label ?? 'token aceito pelo GitHub' }
+            : {
+                ok: false,
+                detail: bad.map((x) => [x.label, x.detail].filter(Boolean).join(': ')).join(' · '),
+              };
+        }),
+        run('update_github', async () => {
+          const r = await this.releases.latest();
+          return r.error || !r.latest
+            ? { ok: false, detail: r.error ?? 'não achei a última versão' }
+            : { ok: true, detail: `lê as versões publicadas (última: ${r.latest.version})` };
+        }),
+      ])
+    ).filter((r): r is CredentialCheck => !!r);
+    await this.db.tx((c) =>
+      platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'credentials.checked',
+        entity: 'credential',
+        data: {
+          ok: results.filter((r) => r.ok === true).map((r) => r.id),
+          failed: results.filter((r) => r.ok === false).map((r) => r.id),
+        },
+        ip: a.ip,
+      }),
+    );
+    return { checkedAt: new Date().toISOString(), results };
+  }
+
+  /**
+   * Resend: lê os domínios da conta. Chave "só envio" (a recomendada) não pode ler domínios e o
+   * Resend responde 401 restricted_api_key: a chave vale, só não dá para conferir o domínio.
+   */
+  private async checkResend(): Promise<{ ok: boolean | null; detail: string }> {
+    const s = await this.mail.settingsRow();
+    const cfg = this.mail.providerOf(s);
+    if (!cfg) return { ok: false, detail: 'A chave salva não abre: cole de novo' };
+    const res = await this.fetcher('https://api.resend.com/domains', {
+      headers: { Authorization: `Bearer ${cfg.apiKey}`, 'User-Agent': 'Comandou' },
+      signal: AbortSignal.timeout(15_000),
+    });
+    const body = (await res.json().catch(() => null)) as {
+      name?: string;
+      message?: string;
+      data?: { name?: string; status?: string }[];
+    } | null;
+    if (res.status === 401 && body?.name === 'restricted_api_key')
+      return {
+        ok: true,
+        detail: 'chave aceita (só envio: o domínio do remetente não dá para conferir com ela)',
+      };
+    if (!res.ok)
+      return {
+        ok: false,
+        detail: `O Resend recusou a chave (HTTP ${res.status}${body?.message ? `: ${body.message}` : ''})`,
+      };
+    const domain = s.from_address?.split('@')[1]?.toLowerCase();
+    if (!domain) return { ok: true, detail: 'chave aceita; falta o remetente na tela E-mail' };
+    const d = (body?.data ?? []).find((x) => x.name?.toLowerCase() === domain);
+    if (!d)
+      return {
+        ok: false,
+        detail: `Chave aceita, mas o domínio ${domain} do remetente não está cadastrado no Resend`,
+      };
+    return d.status === 'verified'
+      ? { ok: true, detail: `chave aceita · domínio ${domain} verificado` }
+      : {
+          ok: false,
+          detail: `Chave aceita, mas o domínio ${domain} está "${d.status}" no Resend: confira o DNS`,
+        };
+  }
+
+  /** PagBank: pede a chave pública da conta com o token da plataforma (não cobra nada). */
+  private async checkPagBank(): Promise<{ ok: boolean | null; detail: string }> {
+    const pay = this.moduleRef.get(OnlinePayService, { strict: false });
+    const cfg = await pay.platformCfg();
+    if (!cfg?.platformToken) return { ok: false, detail: 'O token salvo não abre: cole de novo' };
+    await pay.client(cfg.environment).publicKey(cfg.platformToken);
+    return {
+      ok: true,
+      detail: `token aceito (${env2(cfg.environment)})${cfg.clientSecret ? '' : ' · falta a aplicação do Connect'}`,
     };
   }
 
