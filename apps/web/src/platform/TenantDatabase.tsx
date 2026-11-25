@@ -25,6 +25,7 @@ const JOB_KIND: Record<DbJob['kind'], string> = {
   transfer: 'Trocar de servidor',
   migrate: 'Migrar para outro servidor',
   receive: 'Receber de outro servidor',
+  upgrade: 'Atualizar a versão',
 };
 const JOB_STATUS: Record<DbJob['status'], [string, Level]> = {
   queued: ['na fila', 'info'],

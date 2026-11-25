@@ -186,6 +186,8 @@ async function ensureDatabase(
   job: DbJob,
   dbName: string,
   server: DbServer | null = null,
+  /** Só estas migrações (troca de servidor: a mesma versão do banco de origem). */
+  only?: ReadonlySet<string>,
 ) {
   if (!TENANT_DB_NAME_RE.test(dbName)) throw new Error('nome de banco inválido');
   await checkMigrationsUpToDate(ctx);
@@ -204,7 +206,12 @@ async function ensureDatabase(
   await pool.query(`REVOKE ALL ON DATABASE "${dbName}" FROM PUBLIC`);
   for (const r of APP_ROLES) await pool.query(`GRANT CONNECT ON DATABASE "${dbName}" TO ${r}`);
   await step(ctx, job, 'Aplicando as migrações');
-  await migrate(databaseUrl(ctx.ownerUrl, dbName, server), ctx.migrationsDir, () => undefined);
+  await migrate(
+    databaseUrl(ctx.ownerUrl, dbName, server),
+    ctx.migrationsDir,
+    () => undefined,
+    only,
+  );
 }
 
 /** Apaga um banco de restaurante. Fecha a porta antes e derruba quem ainda estiver conectado. */
@@ -610,38 +617,116 @@ async function runDelete(ctx: DbJobContext, job: DbJob) {
  * copia tudo numa fotografia consistente, confere a contagem de cada tabela e só então troca o
  * apontamento. Se algo falhar antes da troca, o restaurante segue onde estava e o banco novo é
  * apagado. O banco antigo só é apagado depois da troca (com backup antes, se houver backup).
+ *
+ * O restaurante só sai do ar quando ESTE trabalho começa (não quando entra na fila): no "Mover
+ * todos", cada um fica parado só durante a própria cópia. Serviço reiniciado no meio: retoma
+ * (já trocado, só apaga o banco antigo; antes da troca, refaz o banco novo que ele mesmo criou).
  */
 async function runTransfer(ctx: DbJobContext, job: DbJob) {
-  const p = job.payload as { previousStatus?: string; toServerId?: string | null };
-  const previous = p.previousStatus ?? 'provisioned';
+  const p = job.payload as {
+    previousStatus?: string;
+    fromServerId?: string | null;
+    toServerId?: string | null;
+  };
+  const toId = p.toServerId ?? null;
   const reg = await registry(ctx, job.tenant_id);
-  if (!reg || reg.status !== 'transferring') throw new Error('Registro da mudança não encontrado');
+  if (!reg) throw new Error('Registro do banco não encontrado');
+  if (
+    reg.status === 'ready' &&
+    (reg.server_id ?? null) === toId &&
+    p.fromServerId !== undefined &&
+    (p.fromServerId ?? null) !== toId
+  )
+    return resumeSwitchedTransfer(ctx, job, reg.db_name, p.fromServerId ?? null);
+  if (reg.status !== 'ready' && reg.status !== 'transferring')
+    throw new Error('O banco deste restaurante não está pronto');
+  // Já em manutenção: pedido de antes desta versão (a API já tirava do ar) ou serviço reiniciado.
+  let maintenance = reg.status === 'transferring';
+  let previous = p.previousStatus ?? 'provisioned';
   const from = reg.server;
-  const to = (await serverById(ctx, p.toServerId))?.server ?? null;
-  const sameServer = (a: DbServer | null, b: DbServer | null) =>
-    (a?.host ?? null) === (b?.host ?? null) && (a?.port ?? null) === (b?.port ?? null);
-  if (sameServer(from, to)) throw new Error('O restaurante já está neste servidor');
-  const fromUrl = databaseUrl(ctx.ownerUrl, reg.db_name, from);
-  const toUrl = databaseUrl(ctx.ownerUrl, reg.db_name, to);
-  const target = serverPool(ctx, to);
+  let target: Pool | null = null;
   let created = false;
   let switched = false;
   try {
+    const dest = await serverById(ctx, toId);
+    if (dest && dest.status !== 'active')
+      throw new Error('O servidor de destino foi desativado depois do pedido. Nada foi mudado.');
+    const to = dest?.server ?? null;
+    const sameServer = (a: DbServer | null, b: DbServer | null) =>
+      (a?.host ?? null) === (b?.host ?? null) && (a?.port ?? null) === (b?.port ?? null);
+    if (sameServer(from, to)) throw new Error('O restaurante já está neste servidor');
+    const fromUrl = databaseUrl(ctx.ownerUrl, reg.db_name, from);
+    const toUrl = databaseUrl(ctx.ownerUrl, reg.db_name, to);
+    target = serverPool(ctx, to);
+
     await step(ctx, job, 'Conferindo o servidor de destino');
     await checkServer(target);
+    // O banco novo fica na MESMA versão do antigo (restaurante numa versão anterior continua nela).
+    const versions = await withClient(fromUrl, (c) =>
+      c.query<{ version: string }>(`SELECT version FROM schema_migrations`),
+    ).then((r) => new Set(r.rows.map((x) => x.version)));
+    const known = new Set(
+      readdirSync(ctx.migrationsDir ?? MIGRATIONS_DIR).filter((f) =>
+        /^\d{4}_[a-z0-9_]+\.sql$/.test(f),
+      ),
+    );
+    const unknown = [...versions].filter((v) => !known.has(v));
+    if (unknown.length)
+      throw new Error(
+        `O serviço de backup está numa versão mais antiga que o banco deste restaurante (falta ${unknown[0]}). Atualize o sistema e tente de novo.`,
+      );
     if (await databaseExists(target, reg.db_name)) {
-      // Um banco com o mesmo nome no destino: só reaproveita se estiver vazio (tentativa anterior).
+      // Um banco com o mesmo nome no destino: só reaproveita se estiver vazio (tentativa anterior)
+      // ou se foi este mesmo trabalho que o criou (serviço reiniciado antes da troca).
       const used = await withClient(toUrl, (c) =>
         c
           .query<{ n: string }>(`SELECT count(*)::text AS n FROM tenants`)
           .then((r) => Number(r.rows[0].n))
           .catch(() => 0),
       );
-      if (used)
+      const mine = await jobCreatedTarget(ctx, job);
+      if (used && !mine)
         throw new Error(
-          `O servidor de destino já tem um banco ${reg.db_name} com dados (é o mesmo servidor com outro endereço?). Nada foi mudado.`,
+          `O servidor de destino já tem um banco ${reg.db_name} com dados (é o mesmo servidor com outro endereço, ou sobrou de uma mudança antiga?). Nada foi mudado.`,
         );
+      if (mine) {
+        await step(ctx, job, 'Refazendo o banco novo (o serviço reiniciou no meio da mudança)');
+        await dropDatabase(target, reg.db_name);
+        created = true;
+      }
     } else created = true;
+    if (created)
+      await ctx.pool.query(
+        `UPDATE tenant_db_jobs SET result = result || '{"targetCreated": true}'::jsonb WHERE id = $1`,
+        [job.id],
+      );
+
+    if (!maintenance) {
+      await step(ctx, job, 'Tirando o restaurante do ar para a cópia');
+      previous = await tx(ctx.pool, async (c) => {
+        const t = await c.query<{ status: string }>(
+          `SELECT status FROM tenants WHERE id = $1 FOR UPDATE`,
+          [job.tenant_id],
+        );
+        const was = t.rows[0]?.status;
+        if (was !== 'provisioned' && was !== 'suspended')
+          throw new Error('O restaurante não está ativo nem suspenso. Nada foi mudado.');
+        const d = await c.query(
+          `UPDATE tenant_databases SET status = 'transferring', last_error = NULL
+            WHERE tenant_id = $1 AND status = 'ready'`,
+          [job.tenant_id],
+        );
+        if (!d.rowCount) throw new Error('O banco deste restaurante não está pronto');
+        await c.query(`UPDATE tenants SET status = 'moving' WHERE id = $1`, [job.tenant_id]);
+        await c.query(
+          `UPDATE tenant_db_jobs SET payload = payload || jsonb_build_object('previousStatus', $2::text)
+            WHERE id = $1`,
+          [job.id, was],
+        );
+        return was;
+      });
+      maintenance = true;
+    }
 
     await step(ctx, job, 'Esperando as conexões em uso terminarem');
     await sleep(ctx.settleMs ?? 15_000);
@@ -658,7 +743,7 @@ async function runTransfer(ctx: DbJobContext, job: DbJob) {
       );
       safety = { backupKey: b.key };
     }
-    await ensureDatabase(ctx, job, reg.db_name, to);
+    await ensureDatabase(ctx, job, reg.db_name, to, versions);
     await step(ctx, job, 'Copiando os dados para o novo servidor');
     const report = await withClient(fromUrl, (src) =>
       withClient(toUrl, (dst) => copyTenant(src, dst, job.tenant_id, ctx.log, { allUsers: true })),
@@ -668,7 +753,7 @@ async function runTransfer(ctx: DbJobContext, job: DbJob) {
       await c.query(
         `UPDATE tenant_databases SET server_id = $2, status = 'ready', ready_at = now(), last_error = NULL
           WHERE tenant_id = $1`,
-        [job.tenant_id, p.toServerId ?? null],
+        [job.tenant_id, toId],
       );
       await c.query(`UPDATE tenants SET status = $2 WHERE id = $1`, [job.tenant_id, previous]);
     });
@@ -693,23 +778,56 @@ async function runTransfer(ctx: DbJobContext, job: DbJob) {
   } catch (e) {
     if (!switched) {
       // Volta tudo como era: o restaurante continua no servidor de origem.
-      if (created) await dropDatabase(target, reg.db_name).catch(() => undefined);
-      await ctx.pool
-        .query(
-          `UPDATE tenant_databases SET status = 'ready', last_error = $2
-            WHERE tenant_id = $1 AND status = 'transferring'`,
-          [job.tenant_id, (e as Error).message.slice(0, 1000)],
-        )
-        .catch(() => undefined);
-      await ctx.pool
-        .query(`UPDATE tenants SET status = $2 WHERE id = $1 AND status = 'moving'`, [
-          job.tenant_id,
-          previous,
-        ])
-        .catch(() => undefined);
+      if (created && target) await dropDatabase(target, reg.db_name).catch(() => undefined);
+      if (maintenance) {
+        await ctx.pool
+          .query(
+            `UPDATE tenant_databases SET status = 'ready', last_error = $2
+              WHERE tenant_id = $1 AND status = 'transferring'`,
+            [job.tenant_id, (e as Error).message.slice(0, 1000)],
+          )
+          .catch(() => undefined);
+        await ctx.pool
+          .query(`UPDATE tenants SET status = $2 WHERE id = $1 AND status = 'moving'`, [
+            job.tenant_id,
+            previous,
+          ])
+          .catch(() => undefined);
+      }
     }
     throw e;
   }
+}
+
+/** Este trabalho criou o banco no destino numa tentativa anterior (serviço reiniciado)? */
+async function jobCreatedTarget(ctx: DbJobContext, job: DbJob) {
+  const { rows } = await ctx.pool.query<{ created: boolean }>(
+    `SELECT coalesce((result->>'targetCreated')::boolean, false) AS created
+       FROM tenant_db_jobs WHERE id = $1`,
+    [job.id],
+  );
+  return !!rows[0]?.created;
+}
+
+/**
+ * Serviço reiniciado depois da troca: o restaurante já está no servidor novo e funcionando. Só
+ * falta apagar o banco antigo (sem isso ele ficaria esquecido lá e travaria uma volta futura).
+ */
+async function resumeSwitchedTransfer(
+  ctx: DbJobContext,
+  job: DbJob,
+  dbName: string,
+  fromServerId: string | null,
+) {
+  await step(ctx, job, 'Apagando o banco no servidor antigo (retomado)');
+  let cleanup: Record<string, unknown> = {};
+  try {
+    const from = (await serverById(ctx, fromServerId))?.server ?? null;
+    await dropDatabase(serverPool(ctx, from), dbName);
+  } catch (e) {
+    cleanup = { warning: `O banco antigo não foi apagado: ${(e as Error).message}` };
+  }
+  await finishJob(ctx, job, { database: dbName, resumed: true, ...cleanup });
 }
 
 /** O servidor aceita o dono e ele pode criar bancos. */

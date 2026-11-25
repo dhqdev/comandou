@@ -75,8 +75,19 @@ export async function importCentralRows(
   const out: Record<string, number> = {};
   const tenant = (central.tenants ?? [])[0] as Record<string, unknown> | undefined;
   if (!tenant) throw new Error('O pacote não tem o cadastro do restaurante');
+  // Versão: o banco chega aqui com as migrações DESTA instalação (restaurar aplica todas), então
+  // o restaurante acompanha o sistema daqui. A versão presa da origem faria o migrate daqui pular
+  // o banco dele nas próximas atualizações (o código novo rodaria num banco antigo).
   out.tenants = await insertRows(c, 'tenants', [
-    { ...tenant, slug: over.slug, status: over.status, moved_to: null },
+    {
+      ...tenant,
+      slug: over.slug,
+      status: over.status,
+      moved_to: null,
+      app_version: null,
+      app_update_to: null,
+      app_update_at: null,
+    },
   ]);
 
   // Planos: mesmo código = mesmo plano. Sem ele aqui, cria igual (mesmo id, se estiver livre).
