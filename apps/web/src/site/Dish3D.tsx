@@ -1,113 +1,135 @@
-import { createElement, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { DepthPhoto, depthSupported } from './depth-photo';
 import { calmMotion } from './motion';
 import { DISHES } from './site-data';
 
 /**
- * Prato em 3D do site: os modelos de verdade da demonstração (public/site/3d/*.glb), no mesmo
- * visualizador que o cliente do restaurante usa no cardápio (@google/model-viewer). O visualizador
- * e o modelo só baixam quando a seção chega perto da tela; até lá (e sem WebGL) fica a foto.
+ * Prato em 3D do site: foto de verdade com profundidade (depth-photo.ts). O prato acompanha o
+ * mouse (ou o dedo arrastando) e, parado, passeia sozinho devagar. A moldura gira junto e a sombra
+ * anda embaixo. O visualizador só começa quando a seção chega perto da tela; antes disso (e sem
+ * WebGL) fica a foto parada, que já é bonita sozinha.
  */
-let viewerLib: Promise<unknown> | null = null;
-function loadViewer() {
-  // Mesmo cuidado do cardápio (pages/public/Model3D.tsx): o descompactador de malhas vem do
-  // próprio Comandou, nunca do gstatic.com (bloqueado pela política de conteúdo).
-  const g = self as unknown as { ModelViewerElement?: Record<string, unknown> };
-  g.ModelViewerElement = { ...g.ModelViewerElement, dracoDecoderLocation: '/vendor/draco/' };
-  viewerLib ??= import('@google/model-viewer');
-  viewerLib.catch(() => (viewerLib = null));
-  return viewerLib;
-}
-
-function webgl(): boolean {
-  try {
-    const c = document.createElement('canvas');
-    return !!(c.getContext('webgl2') ?? c.getContext('webgl'));
-  } catch {
-    return false;
-  }
-}
-
-export function Dish3D({ dish, onPick }: { dish: string; onPick: (key: string) => void }) {
-  const box = useRef<HTMLDivElement>(null);
+export function Dish3D() {
+  const [dish, setDish] = useState(DISHES[0]!.key);
   const [state, setState] = useState<'wait' | 'ready' | 'off'>('wait');
-  const [loaded, setLoaded] = useState<string | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const engine = useRef<DepthPhoto | null>(null);
+  /** Prato que está no visualizador (não carrega o mesmo duas vezes). */
+  const showing = useRef<string | null>(null);
+  const current = DISHES.find((d) => d.key === dish) ?? DISHES[0]!;
 
+  // Liga perto da tela e para fora dela (o laço do WebGL não roda à toa).
   useEffect(() => {
     const el = box.current;
-    if (!el) return;
-    if (!webgl()) {
+    const cv = canvas.current;
+    if (!el || !cv) return;
+    if (!depthSupported()) {
       setState('off');
       return;
     }
-    const start = () =>
-      loadViewer().then(
+    let made: DepthPhoto | null = null;
+    // Só desenha com a seção na tela e a aba aberta.
+    let inView = !('IntersectionObserver' in window);
+    const sync = () => made?.setShown(inView && !document.hidden);
+    const start = () => {
+      if (made) return;
+      try {
+        made = new DepthPhoto(cv, {
+          onFrame: (x, y) => {
+            el.style.setProperty('--lx', x.toFixed(4));
+            el.style.setProperty('--ly', y.toFixed(4));
+          },
+          onLost: () => setState('off'),
+        });
+      } catch {
+        setState('off');
+        return;
+      }
+      engine.current = made;
+      sync();
+      const first = DISHES.find((d) => d.key === el.dataset.dish) ?? DISHES[0]!;
+      showing.current = first.key;
+      made.show(scene(first.key)).then(
         () => setState('ready'),
         () => setState('off'),
       );
+    };
     if (!('IntersectionObserver' in window)) {
-      void start();
-      return;
+      start();
+      return () => made?.destroy();
     }
-    const io = new IntersectionObserver(
+    const near = new IntersectionObserver(
       ([e]) => {
-        if (!e?.isIntersecting) return;
-        io.disconnect();
-        void start();
+        if (e?.isIntersecting) start();
       },
-      { rootMargin: '400px 0px' },
+      { rootMargin: '300px 0px' },
     );
-    io.observe(el);
-    return () => io.disconnect();
+    const seen = new IntersectionObserver(([e]) => {
+      inView = !!e?.isIntersecting;
+      sync();
+    });
+    const tab = () => sync();
+    near.observe(el);
+    seen.observe(el);
+    document.addEventListener('visibilitychange', tab);
+    return () => {
+      near.disconnect();
+      seen.disconnect();
+      document.removeEventListener('visibilitychange', tab);
+      made?.destroy();
+      engine.current = null;
+    };
   }, []);
 
-  // O modelo novo avisa quando terminou de carregar (evento "load" do model-viewer).
   useEffect(() => {
-    const mv = box.current?.querySelector('model-viewer');
-    if (!mv) return;
-    const on = () => setLoaded(dish);
-    mv.addEventListener('load', on);
-    return () => mv.removeEventListener('load', on);
-  }, [state, dish]);
+    if (state !== 'ready' || showing.current === dish) return;
+    showing.current = dish;
+    void engine.current?.show(scene(dish)).catch(() => undefined);
+  }, [dish, state]);
 
-  const current = DISHES.find((d) => d.key === dish) ?? DISHES[0]!;
-  const calm = calmMotion();
+  // Mouse: o prato segue o ponteiro em cima da cena. Dedo: arrastar gira; soltar volta a passear.
+  const onMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse' && e.buttons === 0) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    engine.current?.point(
+      ((e.clientX - r.left) / r.width) * 2 - 1,
+      ((e.clientY - r.top) / r.height) * 2 - 1,
+    );
+  };
 
   return (
-    <div className="st-dish" data-loaded={loaded === dish || undefined}>
-      <div className="st-dish__stage" ref={box}>
-        <span className="st-dish__floor" aria-hidden />
-        {state === 'ready' ? (
-          createElement('model-viewer', {
-            class: 'st-dish__viewer',
-            src: `/site/3d/${current.key}.glb`,
-            alt: `${current.name} em 3D, girando`,
-            'camera-controls': '',
-            'disable-zoom': '',
-            'disable-pan': '',
-            'auto-rotate': calm ? undefined : '',
-            'auto-rotate-delay': '0',
-            'rotation-per-second': '18deg',
-            'interaction-prompt': 'none',
-            'camera-orbit': '30deg 66deg 125%',
-            'min-camera-orbit': 'auto 30deg auto',
-            'max-camera-orbit': 'auto 88deg auto',
-            'field-of-view': '30deg',
-            exposure: '1.05',
-            'shadow-intensity': '1.1',
-            'shadow-softness': '0.9',
-            'environment-image': 'neutral',
-            'touch-action': 'pan-y',
-            loading: 'eager',
-          })
-        ) : (
+    <div className="st-dish" data-state={state}>
+      <div
+        className="st-dish__stage"
+        ref={box}
+        data-dish={dish}
+        onPointerMove={onMove}
+        onPointerDown={onMove}
+        onPointerLeave={() => engine.current?.release()}
+        onPointerUp={() => engine.current?.release()}
+        onPointerCancel={() => engine.current?.release()}
+      >
+        <div className="st-dish__card">
           <img
+            key={current.key}
             className="st-dish__photo"
-            src="/site/food-burger-fumaca.webp"
-            alt={state === 'off' ? 'Fumaça (o da casa)' : ''}
-            width={480}
-            height={480}
+            src={`/site/3d/${current.key}.webp`}
+            alt={`${current.name}, foto do prato`}
+            width={1080}
+            height={810}
             loading="lazy"
+            decoding="async"
           />
+          <canvas className="st-dish__canvas" ref={canvas} aria-hidden />
+          <span className="st-dish__light" aria-hidden />
+        </div>
+        <span className="st-dish__shadow" aria-hidden />
+        {state === 'ready' && !calmMotion() && (
+          <span className="st-dish__hint" aria-hidden>
+            <span className="st-dish__hint-fine">Mexa o mouse para girar</span>
+            <span className="st-dish__hint-touch">Arraste para girar</span>
+          </span>
         )}
       </div>
       <div className="st-dish__picker" role="tablist" aria-label="Pratos em 3D">
@@ -118,14 +140,22 @@ export function Dish3D({ dish, onPick }: { dish: string; onPick: (key: string) =
             role="tab"
             aria-selected={d.key === dish}
             className={d.key === dish ? 'is-on' : undefined}
-            disabled={state === 'off'}
-            onClick={() => onPick(d.key)}
+            onClick={() => setDish(d.key)}
+            style={{ '--thumb': `url(/site/3d/${d.key}-sm.webp)` } as CSSProperties}
           >
-            <span>{d.name}</span>
-            <small>R$ {d.price}</small>
+            <i aria-hidden />
+            <span>
+              {d.name}
+              <small>R$ {d.price}</small>
+            </span>
           </button>
         ))}
       </div>
     </div>
   );
 }
+
+const scene = (key: string) => ({
+  photo: `/site/3d/${key}.webp`,
+  depth: `/site/3d/${key}-depth.webp`,
+});

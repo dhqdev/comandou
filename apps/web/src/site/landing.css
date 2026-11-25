@@ -1,10 +1,11 @@
 /*
- * Site público, desenho da 0.245 (pedido do dono: "muito mais profissional, minimalista, com
- * elementos 3D"). Muito espaço, linha fina no lugar de cartão, título grande e escuro com a
- * segunda linha cinza, laranja só na ação principal. Três momentos em 3D: o palco do topo
- * (celular e pedidos em camadas, girando de leve com o mouse), a tela do sistema que chega deitada
- * e se endireita com a rolagem e o prato de verdade que gira (Dish3D.tsx). Movimento só com
- * transform e opacity; com "reduzir movimento", tudo parado no estado final.
+ * Site público (0.245, refeito na 0.253 a pedido do dono: "minimalista, mais legal e bonito").
+ * Muito espaço, linha fina no lugar de cartão, título grande e escuro com a segunda linha cinza,
+ * laranja só na ação principal. Títulos com o Shuffle do React Bits (Shuffle.tsx). Três momentos
+ * em 3D: o palco do topo (celular e pedidos em camadas, girando de leve com o mouse), a tela do
+ * sistema que chega deitada e se endireita com a rolagem e o prato de verdade em profundidade
+ * (Dish3D.tsx, num estúdio escuro). Movimento só com transform e opacity; com "reduzir
+ * movimento", tudo parado no estado final.
  */
 
 /* ---------------------------------------------------------------- rolagem suave (Lenis) */
@@ -71,25 +72,6 @@ html.lenis {
   max-width: 560px;
 }
 
-/* Título que sobe de trás de uma máscara, palavra por palavra. */
-.st-split__w {
-  display: inline-block;
-  overflow: hidden;
-  vertical-align: top;
-  padding-bottom: 0.08em;
-  margin-bottom: -0.08em;
-}
-.st-split__w > span {
-  display: inline-block;
-}
-.st-js .st-head .st-split__w > span {
-  transform: translateY(105%);
-  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 45ms);
-}
-.st-js .st-head.is-in .st-split__w > span {
-  transform: none;
-}
-
 /* Entrada das seções: sobe um pouco e aparece. */
 .st-js .st-reveal {
   opacity: 0;
@@ -104,6 +86,9 @@ html.lenis {
 }
 .st-js .st-head.st-reveal {
   transform: none;
+}
+.st-head h2 {
+  color: var(--cm-text);
 }
 
 /* ---------------------------------------------------------------- botões */
@@ -132,21 +117,15 @@ html.lenis {
   line-height: 1;
   letter-spacing: -0.05em;
 }
+.st-h1__vis,
 .st-h1__row {
   display: block;
 }
+.st-h1__swap {
+  white-space: nowrap;
+}
 .st-h1__soft {
   color: var(--cm-gray-400);
-}
-.st-w {
-  display: inline-block;
-  animation: st-word 0.7s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 55ms + 80ms) both;
-}
-@keyframes st-word {
-  from {
-    opacity: 0;
-    transform: translateY(0.35em);
-  }
 }
 .st-lead {
   max-width: 540px;
@@ -252,7 +231,7 @@ html.lenis {
   position: relative;
   width: 100%;
   max-width: 560px;
-  height: 640px;
+  height: 660px;
   perspective: 1600px;
   perspective-origin: 50% 40%;
 }
@@ -260,8 +239,8 @@ html.lenis {
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transform: rotateX(calc(10deg - var(--ty) * 5deg)) rotateY(calc(-18deg + var(--tx) * 9deg))
-    rotateZ(1.5deg) translateY(calc(var(--p, 0) * -40px));
+  transform: rotateX(calc(8deg - var(--ty) * 5deg)) rotateY(calc(-14deg + var(--tx) * 9deg))
+    rotateZ(1deg) translateY(calc(var(--p, 0) * -40px));
   will-change: transform;
 }
 /* Um disco bem claro atrás e a sombra no chão dão o lugar onde o celular está. */
@@ -292,8 +271,8 @@ html.lenis {
 }
 .st-stage__phone {
   position: absolute;
-  left: 34%;
-  top: 24px;
+  left: 32%;
+  top: 22px;
   margin-left: -150px;
   transform: translateZ(0);
   transform-style: preserve-3d;
@@ -301,7 +280,8 @@ html.lenis {
 .st-stage__phone .st-phone {
   width: 300px;
   box-shadow:
-    0 0 0 1px var(--cm-gray-700),
+    0 0 0 1px #2a2a2e,
+    inset 0 0 0 1.5px #3a3a40,
     0 50px 80px -40px rgb(24 24 27 / 55%);
 }
 .st-stage__peek {
@@ -318,9 +298,9 @@ html.lenis {
   transform-style: preserve-3d;
 }
 .st-live {
-  right: -36px;
-  top: 120px;
-  width: 256px;
+  right: -72px;
+  top: 214px;
+  width: 248px;
   display: grid;
   gap: 12px;
   transform: translateZ(110px);
@@ -346,7 +326,7 @@ html.lenis {
   animation-duration: 7s;
   animation-delay: -2s;
 }
-.st-live__day span {
+.st-live__day > span {
   font-size: var(--cm-text-xs);
   color: var(--cm-text-subtle);
 }
@@ -466,8 +446,8 @@ html.lenis {
   animation: st-float 5.5s ease-in-out -1s infinite;
 }
 .st-stage__chip--pix {
-  left: 4px;
-  bottom: 96px;
+  left: -6px;
+  top: 108px;
   transform: translateZ(150px);
 }
 .st-stage__chip span:last-child {
@@ -490,6 +470,51 @@ html.lenis {
   color: var(--cm-success);
 }
 
+/* "Testar esta lanchonete": leva para a /demo, logo abaixo do celular. */
+.st-hero__art {
+  position: relative;
+}
+.st-hero__try {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -18px;
+  padding: 9px 16px 9px 12px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 999px;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 10px 24px -16px rgb(24 24 27 / 40%);
+  transition:
+    border-color 160ms ease,
+    transform 180ms var(--cm-spring-snappy);
+}
+.st-hero__try:hover {
+  border-color: var(--cm-text);
+}
+.st-hero__try:active {
+  transform: scale(0.97);
+}
+.st-hero__try svg {
+  transition: transform 220ms var(--cm-spring-snappy);
+}
+.st-hero__try:hover svg {
+  transform: translateX(3px);
+}
+.st-hero__try-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cm-success);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--cm-success) 18%, transparent);
+  animation: st-pulse 1.8s ease-in-out infinite;
+}
+
 @media (min-width: 1080px) {
   .st-hero {
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
@@ -499,6 +524,9 @@ html.lenis {
 @media (max-width: 1079px) {
   .st-hero {
     text-align: center;
+  }
+  .st-h1 {
+    font-size: clamp(1.9rem, 9.2vw, 4.1rem);
   }
   .st-hero__text {
     display: grid;
@@ -513,7 +541,7 @@ html.lenis {
 }
 @media (max-width: 620px) {
   .st-stage {
-    height: 660px;
+    height: 668px;
     max-width: 380px;
   }
   .st-stage__world {
@@ -535,9 +563,8 @@ html.lenis {
     display: none;
   }
   .st-stage__chip--pix {
-    left: auto;
-    right: -4px;
-    bottom: 90px;
+    left: 10px;
+    top: 70px;
   }
 }
 
@@ -707,7 +734,14 @@ html.lenis {
 }
 
 /* ---------------------------------------------------------------- módulos */
+/*
+ * As linhas da grade são o fundo da lista aparecendo entre os itens: com o mouse em cima, uma
+ * luz laranja bem fraca acompanha o ponteiro e acende só as linhas perto dele (no jeito do
+ * "MagicBento" do React Bits).
+ */
 .st-mods {
+  --mx: -400px;
+  --my: -400px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
@@ -716,7 +750,9 @@ html.lenis {
   overflow: hidden;
   border: 1px solid var(--cm-border);
   border-radius: 24px;
-  background: var(--cm-border);
+  background:
+    radial-gradient(260px circle at var(--mx) var(--my), var(--cm-brand-400), transparent 70%),
+    var(--cm-border);
   list-style: none;
 }
 .st-mods li {
@@ -783,25 +819,37 @@ html.lenis {
   }
 }
 
-/* ---------------------------------------------------------------- prato em 3D */
+/* ---------------------------------------------------------------- prato em 3D (estúdio escuro) */
+/*
+ * As fotos têm fundo preto: o painel escuro faz o prato flutuar. A moldura gira de leve com o
+ * ângulo do shader (`--lx`/`--ly`, de depth-photo.ts) e a sombra embaixo anda ao contrário.
+ */
 .st-3d {
+  --ink: #050505;
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
   align-items: center;
-  gap: clamp(32px, 5vw, 64px);
+  gap: clamp(28px, 5vw, 64px);
   padding: clamp(32px, 5vw, 64px);
+  overflow: hidden;
   border-radius: 32px;
-  background: var(--cm-surface-muted);
-  border: 1px solid var(--cm-border);
+  background: var(--ink);
+  color: #f4f4f5;
+}
+.st-3d__text h2 {
+  color: #fff;
+}
+.st-3d__text > p {
+  color: #a1a1aa;
 }
 .st-3d__facts {
   display: grid;
   gap: 12px;
   margin: 28px 0 0;
   padding: 24px 0 0;
-  border-top: 1px solid var(--cm-border);
+  border-top: 1px solid rgb(255 255 255 / 10%);
   list-style: none;
-  color: var(--cm-text-muted);
+  color: #d4d4d8;
 }
 .st-3d__facts li {
   display: flex;
@@ -810,7 +858,7 @@ html.lenis {
 }
 .st-3d__facts svg {
   flex: none;
-  color: var(--cm-text);
+  color: #fff;
 }
 .st-dish {
   display: grid;
@@ -818,90 +866,163 @@ html.lenis {
   min-width: 0;
 }
 .st-dish__stage {
+  --lx: 0;
+  --ly: 0;
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
+  perspective: 1400px;
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+}
+.st-dish__stage:active {
+  cursor: grabbing;
+}
+.st-dish__card {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 1 / 1;
-  width: 100%;
-  max-width: 560px;
-  margin: 0 auto;
-  border-radius: 50%;
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
+  aspect-ratio: 4 / 3;
+  border-radius: 24px;
+  background: var(--ink);
+  transform: rotateY(calc(var(--lx) * 7deg)) rotateX(calc(var(--ly) * -5deg));
+  /* As bordas da foto somem no escuro: só o prato fica. */
+  -webkit-mask-image: radial-gradient(ellipse 52% 54% at 50% 48%, #000 64%, transparent 100%);
+  mask-image: radial-gradient(ellipse 52% 54% at 50% 48%, #000 64%, transparent 100%);
 }
-.st-dish__floor {
-  position: absolute;
-  left: 22%;
-  right: 22%;
-  bottom: 18%;
-  height: 8%;
-  border-radius: 50%;
-  background: rgb(24 24 27 / 10%);
-  filter: blur(18px);
-}
-.st-dish__viewer {
+.st-dish__photo,
+.st-dish__canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  background: transparent;
-  --poster-color: transparent;
-  --progress-bar-color: var(--cm-brand-500);
-  --progress-bar-height: 2px;
-  cursor: grab;
-  outline: none;
-  animation: st-fade 0.5s var(--cm-ease) both;
-}
-.st-dish__viewer:active {
-  cursor: grabbing;
 }
 .st-dish__photo {
+  object-fit: cover;
+  transform: scale(1.064);
+  animation: st-fade 0.4s var(--cm-ease) both;
+}
+.st-dish__canvas {
+  display: block;
+  opacity: 0;
+  transition: opacity 0.5s var(--cm-ease);
+}
+.st-dish[data-state='ready'] .st-dish__canvas {
+  opacity: 1;
+}
+.st-dish[data-state='off'] .st-dish__canvas {
+  display: none;
+}
+/* Luz que passa por cima do prato, do lado contrário ao ângulo. */
+.st-dish__light {
   position: absolute;
-  inset: 18%;
-  width: 64%;
-  height: 64%;
-  object-fit: contain;
+  inset: -20%;
+  background: radial-gradient(
+    40% 35% at calc(50% - var(--lx) * 30%) calc(30% - var(--ly) * 20%),
+    rgb(255 255 255 / 9%),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+.st-dish__shadow {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: -2%;
+  height: 10%;
   border-radius: 50%;
+  background: rgb(0 0 0 / 70%);
+  filter: blur(22px);
+  transform: translateX(calc(var(--lx) * -18px));
+  z-index: -1;
+}
+.st-dish__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 10%);
+  color: #e4e4e7;
+  font-size: var(--cm-text-xs);
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: st-hint 6s var(--cm-ease) 1.2s both;
+}
+.st-dish__hint-touch {
+  display: none;
+}
+@media (pointer: coarse) {
+  .st-dish__hint-fine {
+    display: none;
+  }
+  .st-dish__hint-touch {
+    display: inline;
+  }
+}
+@keyframes st-hint {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  10%,
+  80% {
+    opacity: 1;
+  }
 }
 .st-dish__picker {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
 }
 .st-dish__picker button {
   display: grid;
-  gap: 1px;
-  min-height: 48px;
-  padding: 6px 16px;
-  border: 1px solid var(--cm-border);
-  border-radius: 14px;
-  background: var(--cm-surface);
-  color: var(--cm-text-muted);
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 6px 10px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 3%);
+  color: #d4d4d8;
   font: inherit;
   text-align: left;
   cursor: pointer;
   transition:
     border-color 160ms ease,
+    background-color 160ms ease,
     color 160ms ease,
     transform 160ms var(--cm-spring-snappy);
+}
+.st-dish__picker button:hover {
+  border-color: rgb(255 255 255 / 26%);
 }
 .st-dish__picker button:active {
   transform: scale(0.97);
 }
 .st-dish__picker button.is-on {
-  border-color: var(--cm-text);
-  color: var(--cm-text);
+  border-color: #fff;
+  background: rgb(255 255 255 / 9%);
+  color: #fff;
 }
-.st-dish__picker button:disabled {
-  display: none;
+.st-dish__picker i {
+  aspect-ratio: 4 / 3;
+  border-radius: 13px;
+  background: #111 var(--thumb) center / cover no-repeat;
 }
 .st-dish__picker span {
+  display: grid;
+  padding: 0 4px;
   font-size: var(--cm-text-sm);
   font-weight: 600;
+  line-height: 1.3;
 }
 .st-dish__picker small {
   font-size: var(--cm-text-xs);
-  color: var(--cm-text-subtle);
+  font-weight: 500;
+  color: #a1a1aa;
   font-variant-numeric: tabular-nums;
 }
 @media (max-width: 900px) {
@@ -912,10 +1033,134 @@ html.lenis {
 }
 @media (max-width: 520px) {
   .st-3d {
-    padding: 24px 18px;
+    padding: 28px 18px 22px;
   }
-  .st-dish__picker button {
-    padding: 6px 12px;
+  .st-dish__picker {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 132px;
+    margin: 0 -18px;
+    padding: 0 18px 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+}
+
+/* ---------------------------------------------------------------- lanchonete de demonstração */
+.st-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(32px, 6vw, 80px);
+}
+.st-demo__text h2 {
+  font-size: clamp(2rem, 4.2vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.042em;
+  text-wrap: balance;
+}
+.st-demo__text > p {
+  max-width: 500px;
+  margin-top: 16px;
+  font-size: clamp(1.0625rem, 1.5vw, 1.1875rem);
+  line-height: 1.55;
+  color: var(--cm-text-muted);
+}
+.st-demo__facts {
+  display: grid;
+  gap: 10px;
+  margin: 24px 0 28px;
+  padding: 0;
+  list-style: none;
+  color: var(--cm-text-muted);
+}
+.st-demo__facts li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.st-demo__facts svg {
+  flex: none;
+  color: var(--cm-success);
+}
+.st-demo__text .cm-btn {
+  text-decoration: none;
+}
+/*
+ * Leque de fotos (no jeito do "Bounce Cards" do React Bits): os cartões nascem empilhados, abrem
+ * em leque quando a seção chega e se espalham mais com o mouse em cima.
+ */
+.st-fan {
+  position: relative;
+  display: block;
+  height: clamp(300px, 34vw, 400px);
+  text-decoration: none;
+  color: inherit;
+}
+.st-fan__card {
+  --r: calc((var(--i) - 1.5) * 8deg);
+  --x: calc((var(--i) - 1.5) * 50%);
+  --y: calc(max(var(--i) - 1.5, 1.5 - var(--i)) * 16px);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(150px, 16vw, 210px);
+  aspect-ratio: 3 / 4;
+  margin: calc(clamp(150px, 16vw, 210px) * -0.667) 0 0 calc(clamp(150px, 16vw, 210px) * -0.5);
+  overflow: hidden;
+  border: 5px solid var(--cm-surface);
+  border-radius: 24px;
+  background: var(--cm-gray-800);
+  box-shadow: 0 24px 50px -24px rgb(24 24 27 / 50%);
+  transform: translate(var(--x), var(--y)) rotate(var(--r));
+  transition: transform 600ms var(--cm-spring);
+  transition-delay: calc(var(--i) * 40ms);
+}
+.st-fan__card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.st-fan__card span {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 94%);
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-js .st-demo:not(.is-in) .st-fan__card {
+  transform: translate(0, 18px) rotate(calc(var(--r) * 0.3));
+}
+.st-fan:hover .st-fan__card {
+  transform: translate(calc(var(--x) * 1.18), calc(var(--y) * 1.3 - 10px))
+    rotate(calc(var(--r) * 1.25));
+  transition-delay: 0ms;
+}
+.st-fan:focus-visible {
+  outline: 3px solid var(--cm-brand-500);
+  outline-offset: 6px;
+  border-radius: 24px;
+}
+@media (max-width: 900px) {
+  .st-demo {
+    grid-template-columns: 1fr;
+  }
+  .st-fan {
+    order: -1;
+    height: 300px;
+  }
+}
+@media (max-width: 520px) {
+  .st-fan__card {
+    --x: calc((var(--i) - 1.5) * 36%);
   }
 }
 
@@ -1228,7 +1473,7 @@ html.lenis {
 }
 .st-price__value {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   gap: 10px;
   margin-top: 8px;
 }
@@ -1242,7 +1487,8 @@ html.lenis {
 .st-price__value strong.st-price__ask {
   font-size: clamp(2rem, 4vw, 2.75rem);
 }
-.st-price__value span {
+.st-price__value > span {
+  padding-bottom: 0.45em;
   color: var(--cm-text-muted);
 }
 .st-price__cta {
@@ -1465,7 +1711,6 @@ html.lenis {
 
 /* ---------------------------------------------------------------- reduzir movimento */
 @media (prefers-reduced-motion: reduce) {
-  .st-w,
   .st-lead,
   .st-hero .st-build,
   .st-hero__facts,
@@ -1476,8 +1721,13 @@ html.lenis {
   .st-live__bar i,
   .st-live-dot i,
   .st-tour__frame img,
-  .st-dish__viewer {
+  .st-dish__photo,
+  .st-dish__hint,
+  .st-hero__try-dot {
     animation: none;
+  }
+  .st-fan__card {
+    transition: none;
   }
   .st-tour__frame {
     transform: none;
@@ -1486,7 +1736,6 @@ html.lenis {
   .st-js .st-mods li,
   .st-js .st-apps__feed li,
   .st-js .st-price__list li,
-  .st-js .st-head .st-split__w > span,
   .st-js .st-steps li::before {
     opacity: 1;
     transform: none;

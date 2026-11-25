@@ -1,13 +1,16 @@
-import { ArrowRight, Check, Copy, Globe, MapPin, PencilLine, Sparkles } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Modal, Spinner, TextField, type PandaMood } from '../design-system';
+import { ArrowRight, Check, Globe, MapPin, PencilLine, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { Button, Spinner, type PandaMood } from '../design-system';
+import { CreateFlow, type Created, type CreateState, type TrialForm } from './CreateFlow';
 import type { SiteConfig } from './host';
-import { looksLikeUrl, parseItems, SAMPLE_ITEMS, type MockItem } from './site-data';
+import { calmMotion } from './motion';
+import type { Look } from './PhoneMock';
+import { looksLikeUrl, parseItems, SAMPLE_ITEMS, SAMPLE_STORE } from './site-data';
 
 /**
  * "Crie o seu restaurante": a pessoa cola o site, o link do Google Maps ou descreve os itens;
  * o celular ao lado já mostra a loja com o nome, a cor e os itens dela. Depois informa nome e
- * e-mail, o restaurante é criado e ela entra direto nele, já logada.
+ * e-mail (CreateFlow.tsx), o restaurante é criado e ela entra direto nele, já logada.
  */
 export type Mode = 'site' | 'maps' | 'text';
 
@@ -19,25 +22,6 @@ export interface Preview {
   icon?: string | null;
   image?: string | null;
   color?: string | null;
-}
-
-/** O que o celular do topo mostra agora. */
-export interface Look {
-  name: string;
-  color: string | null;
-  icon: string | null;
-  cover: string | null;
-  items: MockItem[];
-  /** Itens digitados pela pessoa (sem foto). */
-  typed: boolean;
-  /** Frase do topo da loja (site montado pela IA). */
-  tagline?: string | null;
-  /** Categorias da loja (as da IA; sem elas, as de exemplo). */
-  chips?: string[];
-  /** A IA está montando o site agora. */
-  building?: boolean;
-  /** Site montado pela IA (o celular comemora). */
-  ai?: boolean;
 }
 
 /** O site que a IA montou (o rascunho inteiro fica no servidor até o cadastro). */
@@ -70,49 +54,88 @@ type AiState =
 
 const brl = (p: string | null) => (p ? p.replace('.', ',') : undefined);
 
-interface Created {
-  token: string;
-  entry: string;
-  slug: string;
-  url: string;
-  email: string;
-  password: string;
-  trialDays: number;
-  trialEndsAt: string;
-  emailOn: boolean;
-}
+/** A loja de exemplo do celular, antes de a pessoa mexer em qualquer coisa. */
+export const FIRST_LOOK: Look = {
+  name: SAMPLE_STORE.name,
+  color: null,
+  icon: SAMPLE_STORE.logo,
+  cover: SAMPLE_STORE.cover,
+  items: SAMPLE_ITEMS,
+  typed: false,
+  tagline: SAMPLE_STORE.tagline,
+  chips: SAMPLE_STORE.chips,
+};
 
 const MODES: {
   key: Mode;
   label: string;
   short: string;
   icon: typeof Globe;
-  placeholder: string;
 }[] = [
-  {
-    key: 'site',
-    label: 'Tenho site',
-    short: 'Site',
-    icon: Globe,
-    placeholder: 'seurestaurante.com.br',
-  },
-  {
-    key: 'maps',
-    label: 'Google Maps',
-    short: 'Maps',
-    icon: MapPin,
-    placeholder: 'Cole o link do Google Maps',
-  },
-  { key: 'text', label: 'Vou descrever', short: 'Descrever', icon: PencilLine, placeholder: '' },
+  { key: 'site', label: 'Tenho site', short: 'Site', icon: Globe },
+  { key: 'maps', label: 'Google Maps', short: 'Maps', icon: MapPin },
+  { key: 'text', label: 'Vou descrever', short: 'Descrever', icon: PencilLine },
 ];
 
-/** (11) 99999-8888 enquanto a pessoa digita. */
-function maskPhone(v: string) {
-  const d = v.replace(/\D/g, '').slice(0, 11);
-  if (d.length <= 2) return d;
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  const cut = d.length > 10 ? 7 : 6;
-  return `(${d.slice(0, 2)}) ${d.slice(2, cut)}-${d.slice(cut)}`;
+/** Exemplos que o campo do site escreve sozinho enquanto está vazio. */
+const SITE_EXAMPLES = [
+  'seurestaurante.com.br',
+  'pizzariadobairro.com.br',
+  'lanchonetedaesquina.com',
+  'hamburgueriacentral.com.br',
+];
+
+/**
+ * Texto de exemplo que se escreve e se apaga no campo vazio (React Bits "TextType", feito sem
+ * biblioteca e direto no atributo, sem redesenhar a tela a cada letra).
+ */
+function useTypedPlaceholder(
+  ref: RefObject<HTMLInputElement | null>,
+  phrases: string[],
+  active: boolean,
+) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !active || calmMotion()) return;
+    let phrase = 0;
+    let chars = 0;
+    let erasing = false;
+    let t = 0;
+    const tick = () => {
+      const full = phrases[phrase] ?? '';
+      if (!erasing) {
+        chars += 1;
+        if (chars >= full.length) {
+          erasing = true;
+          el.placeholder = full;
+          t = window.setTimeout(tick, 1800);
+          return;
+        }
+      } else {
+        chars -= 2;
+        if (chars <= 0) {
+          chars = 0;
+          erasing = false;
+          phrase = (phrase + 1) % phrases.length;
+          el.placeholder = '';
+          t = window.setTimeout(tick, 350);
+          return;
+        }
+      }
+      el.placeholder = full.slice(0, chars);
+      t = window.setTimeout(tick, erasing ? 28 : 55 + Math.random() * 45);
+    };
+    el.placeholder = phrases[0] ?? '';
+    t = window.setTimeout(() => {
+      chars = (phrases[0] ?? '').length;
+      erasing = true;
+      tick();
+    }, 2200);
+    return () => {
+      window.clearTimeout(t);
+      el.placeholder = phrases[0] ?? '';
+    };
+  }, [ref, phrases, active]);
 }
 
 const STORE_KEY = 'cm:trial';
@@ -140,20 +163,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
-/** O que o celular conta enquanto a IA monta o site. */
-export const AI_STEPS = [
-  'Lendo o que você mandou',
-  'Escolhendo as cores',
-  'Montando o cardápio',
-  'Escrevendo as descrições',
-];
-
-const BUILD_STEPS = [
-  'Reservando o seu endereço',
-  'Montando cardápio, PDV, cozinha e caixa',
-  'Criando o seu login',
-  'Abrindo as portas',
-];
+const EMPTY_FORM: TrialForm = { restaurant: '', name: '', email: '', phone: '', company: '' };
 
 export function Builder({
   config,
@@ -171,18 +181,19 @@ export function Builder({
   const [preview, setPreview] = useState<Preview | null>(null);
   const [looking, setLooking] = useState(false);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ restaurant: '', name: '', email: '', phone: '', company: '' });
+  const [form, setForm] = useState<TrialForm>(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Created | null>(null);
-  const [state, setState] = useState<'creating' | 'ready' | 'failed' | 'slow'>('creating');
+  const [state, setState] = useState<CreateState>('creating');
   const [tick, setTick] = useState(0);
   const [reachable, setReachable] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [ai, setAi] = useState<AiState>({ at: 'idle' });
   const named = useRef(false);
+  const field = useRef<HTMLInputElement>(null);
 
   const value = mode === 'site' ? link : mode === 'maps' ? maps : text;
+  useTypedPlaceholder(field, SITE_EXAMPLES, mode === 'site' && !link);
 
   // Voltou para a página (ou recarregou) com o restaurante recém-criado: mostra o login de novo.
   useEffect(() => {
@@ -236,10 +247,15 @@ export function Builder({
     );
   }, [value]);
 
-  // O celular acompanha: nome, cor e capa do site; os itens que a pessoa está digitando; ou o
-  // site inteiro que a IA montou.
+  // O celular acompanha: a loja de exemplo até a pessoa mexer; depois o nome, a cor e a capa do
+  // site dela, os itens que ela está digitando ou o site inteiro que a IA montou.
   useEffect(() => {
     const typed = typedItems.length > 0;
+    const touched = typed || !!preview || !!form.restaurant.trim() || ai.at !== 'idle';
+    if (!touched) {
+      onLook(FIRST_LOOK);
+      return;
+    }
     const base: Look = {
       name: form.restaurant.trim() || preview?.name || 'Seu restaurante',
       color: preview?.color ?? null,
@@ -322,10 +338,7 @@ export function Builder({
     if (!el || window.innerWidth > 900) return;
     const r = el.getBoundingClientRect();
     if (r.top > window.innerHeight * 0.6)
-      el.scrollIntoView({
-        block: 'center',
-        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-      });
+      el.scrollIntoView({ block: 'center', behavior: calmMotion() ? 'auto' : 'smooth' });
   };
 
   const source = () => {
@@ -342,9 +355,9 @@ export function Builder({
     onMood('thinking');
     try {
       const c = await post<Created>('trials', {
-        restaurant: form.restaurant,
-        name: form.name,
-        email: form.email,
+        restaurant: form.restaurant.trim(),
+        name: form.name.trim(),
+        email: form.email.trim(),
         phone: form.phone || null,
         source: source(),
         ...(ai.at === 'done' ? { aiSite: ai.claim } : {}),
@@ -352,6 +365,7 @@ export function Builder({
       });
       setState('creating');
       setTick(0);
+      setReachable(false);
       setCreated(c);
       try {
         sessionStorage.setItem(STORE_KEY, JSON.stringify(c));
@@ -445,30 +459,33 @@ export function Builder({
     window.location.assign(`${created.url}/entrar#${created.entry}`);
   };
 
-  const copy = async () => {
-    if (!created) return;
-    try {
-      await navigator.clipboard.writeText(
-        `${created.url}\nLogin: ${created.email}\nSenha: ${created.password}`,
-      );
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      /* sem permissão de copiar: os dados estão na tela */
-    }
+  const retry = () => {
+    setCreated(null);
+    setState('creating');
+    setError(null);
   };
 
   const closed = config && !config.signup;
-  const valid =
-    form.restaurant.trim().length >= 2 &&
-    form.name.trim().length >= 2 &&
-    /^\S+@\S+\.\S+$/.test(form.email.trim());
-  const step = Math.min(BUILD_STEPS.length - 1, Math.floor(tick / 2));
+  // Cor, ícone e capa da loja nova: do site que a IA montou, senão da prévia do site dela.
+  const made = ai.at === 'done' ? ai.site : null;
+  const brand = {
+    color: made?.brandColor ?? preview?.color ?? null,
+    icon: made?.logoUrl ?? preview?.icon ?? null,
+    cover: made?.coverUrl ?? preview?.image ?? null,
+  };
+  const modeIndex = MODES.findIndex((m) => m.key === mode);
+  const Icon = MODES[modeIndex]!.icon;
 
   return (
     <>
       <div className="st-build" id="criar">
-        <div className="st-seg" role="tablist" aria-label="De onde vem o seu cardápio">
+        <div
+          className="st-seg"
+          role="tablist"
+          aria-label="De onde vem o seu cardápio"
+          style={{ '--seg-i': modeIndex } as CSSProperties}
+        >
+          <span className="st-seg__glider" aria-hidden />
           {MODES.map((m) => (
             <button
               key={m.key}
@@ -488,7 +505,7 @@ export function Builder({
           ))}
         </div>
         <form
-          className="st-build__form"
+          className={`st-build__form ${mode === 'text' ? 'is-text' : ''}`}
           onSubmit={(e) => {
             e.preventDefault();
             start();
@@ -507,8 +524,10 @@ export function Builder({
               onChange={(e) => setText(e.target.value)}
             />
           ) : (
-            <div className="st-input-wrap">
+            <div className="st-input-wrap" key={mode}>
+              <Icon className="st-input-wrap__ic" size={18} aria-hidden />
               <input
+                ref={field}
                 className="st-input"
                 aria-label={mode === 'site' ? 'Endereço do seu site' : 'Link do Google Maps'}
                 inputMode="url"
@@ -516,7 +535,7 @@ export function Builder({
                 autoCorrect="off"
                 spellCheck={false}
                 maxLength={2000}
-                placeholder={MODES.find((m) => m.key === mode)!.placeholder}
+                placeholder={mode === 'site' ? SITE_EXAMPLES[0] : 'Cole o link do Google Maps'}
                 value={value}
                 onChange={(e) => (mode === 'site' ? setLink : setMaps)(e.target.value)}
               />
@@ -526,7 +545,7 @@ export function Builder({
           <Button
             type="submit"
             size="lg"
-            className="st-build__go"
+            className="st-build__go st-press"
             disabled={!!closed}
             loading={ai.at === 'building'}
           >
@@ -541,7 +560,7 @@ export function Builder({
               (config?.ai && value.trim() && ai.at !== 'done' ? (
                 <Sparkles size={17} aria-hidden />
               ) : (
-                <ArrowRight size={18} aria-hidden />
+                <ArrowRight size={18} aria-hidden className="st-arrow__i" />
               ))}
           </Button>
         </form>
@@ -583,6 +602,8 @@ export function Builder({
             <span>O cadastro pelo site está fechado no momento. Fale com a gente.</span>
           ) : mode === 'text' ? (
             <span>Um item por linha, com o preço no fim.</span>
+          ) : mode === 'maps' ? (
+            <span>No Maps, toque em Compartilhar e copie o link.</span>
           ) : (
             <span>Sem site? Use “Vou descrever” e escreva os itens.</span>
           )}
@@ -591,252 +612,33 @@ export function Builder({
 
       {ai.at === 'done' && !open && (
         <div className="st-sticky">
-          <Button size="lg" onClick={() => setOpen(true)}>
+          <Button size="lg" className="st-press" onClick={() => setOpen(true)}>
             Gostei, criar meu restaurante
             <ArrowRight size={18} aria-hidden />
           </Button>
         </div>
       )}
 
-      <Modal
+      <CreateFlow
         open={open}
-        onClose={() => !busy && setOpen(false)}
-        title={
-          !created
-            ? 'Falta pouco'
-            : state === 'ready'
-              ? 'Seu restaurante está no ar'
-              : state === 'failed'
-                ? 'Não deu certo'
-                : 'Criando o seu restaurante'
-        }
-        footer={
-          !created ? (
-            <>
-              <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
-                Voltar
-              </Button>
-              <Button onClick={() => void submit()} loading={busy} disabled={!valid}>
-                Criar e abrir
-              </Button>
-            </>
-          ) : state === 'ready' ? (
-            <>
-              <Button variant="secondary" onClick={() => void copy()} icon={<Copy size={15} />}>
-                {copied ? 'Copiado' : 'Copiar login'}
-              </Button>
-              <Button onClick={enter} loading={!reachable}>
-                {reachable ? 'Abrir meu restaurante' : 'Preparando o endereço'}
-              </Button>
-            </>
-          ) : state === 'failed' ? (
-            <>
-              <Button variant="ghost" onClick={() => setOpen(false)}>
-                Fechar
-              </Button>
-              <Button
-                onClick={() => {
-                  setCreated(null);
-                  setState('creating');
-                  setError(null);
-                }}
-              >
-                Tentar de novo
-              </Button>
-            </>
-          ) : undefined
-        }
-      >
-        {!created ? (
-          <div className="cm-form">
-            {error && (
-              <div className="cm-form__block">
-                <Alert tone="danger">{error}</Alert>
-              </div>
-            )}
-            <TextField
-              label="Nome do restaurante"
-              autoComplete="organization"
-              maxLength={80}
-              value={form.restaurant}
-              onChange={(e) => {
-                named.current = true;
-                setForm({ ...form, restaurant: e.target.value });
-              }}
-            />
-            <TextField
-              label="Seu nome"
-              autoComplete="name"
-              maxLength={120}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-            <TextField
-              label="E-mail"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              hint="O login e a senha chegam aqui."
-              maxLength={254}
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-            <TextField
-              label="WhatsApp (opcional)"
-              inputMode="tel"
-              autoComplete="tel"
-              maxLength={20}
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })}
-            />
-            {/* Campo que gente não vê nem preenche; robô preenche e o cadastro é recusado. */}
-            <input
-              className="st-hp"
-              tabIndex={-1}
-              autoComplete="off"
-              aria-hidden
-              value={form.company}
-              onChange={(e) => setForm({ ...form, company: e.target.value })}
-            />
-          </div>
-        ) : state === 'ready' ? (
-          <div className="st-ready">
-            <dl className="st-cred">
-              <div>
-                <dt>Endereço</dt>
-                <dd>{created.url.replace(/^https?:\/\//, '')}</dd>
-              </div>
-              <div>
-                <dt>Login</dt>
-                <dd>{created.email}</dd>
-              </div>
-              <div>
-                <dt>Senha</dt>
-                <dd className="st-cred__pass">{created.password}</dd>
-              </div>
-            </dl>
-            <p className="st-ready__note">
-              {created.emailOn
-                ? `Mandamos esses dados para ${created.email}. `
-                : 'Guarde esses dados: eles aparecem só agora. '}
-              O teste vale por {created.trialDays} dias.
-            </p>
-          </div>
-        ) : state === 'failed' ? (
-          <Alert tone="danger">
-            Não conseguimos criar o restaurante agora. Tente de novo em alguns minutos ou fale com a
-            gente.
-          </Alert>
-        ) : (
-          <ol className="st-steps-live" aria-live="polite">
-            {BUILD_STEPS.map((s, i) => (
-              <li key={s} className={i < step ? 'is-done' : i === step ? 'is-now' : ''}>
-                <span className="st-steps-live__dot">
-                  {i < step ? (
-                    <Check size={13} aria-hidden />
-                  ) : i === step ? (
-                    <Spinner inline label="" />
-                  ) : null}
-                </span>
-                {s}
-              </li>
-            ))}
-            {state === 'slow' && (
-              <li className="st-steps-live__slow">
-                Está demorando mais que o normal. Pode fechar: o login chega no seu e-mail quando
-                ficar pronto.
-              </li>
-            )}
-          </ol>
-        )}
-      </Modal>
+        onClose={(force) => (force || !busy) && setOpen(false)}
+        form={form}
+        onForm={(f, byHand) => {
+          if (byHand) named.current = true;
+          setForm(f);
+        }}
+        busy={busy}
+        error={error}
+        onSubmit={() => void submit()}
+        created={created}
+        state={state}
+        tick={tick}
+        reachable={reachable}
+        onEnter={enter}
+        onRetry={retry}
+        look={brand}
+        trialDays={config?.trialDays ?? 0}
+      />
     </>
-  );
-}
-
-/** Celular com a loja online: a mesma cara do cardápio de verdade, em miniatura. */
-export function PhoneMock({ look }: { look: Look }) {
-  const initial = look.name.trim()[0]?.toUpperCase() ?? 'C';
-  const chips = look.chips?.length ? look.chips : ['Mais pedidos', 'Combos', 'Bebidas'];
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    if (!look.building) return;
-    setStep(0);
-    const t = window.setInterval(() => setStep((n) => (n + 1) % AI_STEPS.length), 1500);
-    return () => window.clearInterval(t);
-  }, [look.building]);
-  // Uma "versão" por site montado: os itens entram de novo, um atrás do outro.
-  const stamp = `${look.ai ? 'ai' : 'base'}-${look.name}-${look.items[0]?.name ?? ''}`;
-  return (
-    <div
-      className={`st-phone ${look.building ? 'is-building' : ''} ${look.ai ? 'is-ai' : ''}`}
-      style={look.color ? ({ '--st-brand': look.color } as React.CSSProperties) : undefined}
-      aria-hidden
-    >
-      <div className="st-phone__screen">
-        <div
-          className="st-phone__cover"
-          style={{ backgroundImage: `url(${look.cover ?? '/site/food-capa.webp'})` }}
-        />
-        <div className="st-phone__logo">
-          {look.icon ? <img src={look.icon} alt="" /> : <span>{initial}</span>}
-        </div>
-        <div className="st-phone__name" key={look.name}>
-          {look.name}
-        </div>
-        {look.tagline ? (
-          <div className="st-phone__tag" key={look.tagline}>
-            {look.tagline}
-          </div>
-        ) : (
-          <div className="st-phone__open">
-            <i /> Aberto agora
-          </div>
-        )}
-        <div className="st-phone__chips" key={`c-${stamp}`}>
-          {chips.map((c, i) => (
-            <span
-              key={c}
-              className={i === 0 ? 'is-on' : ''}
-              style={{ animationDelay: `${i * 50}ms` }}
-            >
-              {c}
-            </span>
-          ))}
-        </div>
-        <ul className="st-phone__items" key={stamp}>
-          {look.items.slice(0, 3).map((it, i) => (
-            <li
-              key={`${it.name}-${i}`}
-              style={{ animationDelay: `${look.ai ? 120 + i * 110 : i * 40}ms` }}
-            >
-              <div>
-                <strong>{it.name}</strong>
-                {it.desc && <span>{it.desc}</span>}
-                <em>{it.price ? `R$ ${it.price}` : 'Preço a definir'}</em>
-              </div>
-              {it.photo ? (
-                <img src={it.photo} alt="" loading="lazy" />
-              ) : (
-                <b className="st-phone__ph">{it.name[0]?.toUpperCase()}</b>
-              )}
-            </li>
-          ))}
-        </ul>
-        <div className="st-phone__bag">
-          <span>Ver sacola</span>
-          <span>R$ 71,80</span>
-        </div>
-        {look.building && (
-          <div className="st-phone__ai">
-            <span className="st-phone__scan" />
-            <div className="st-phone__ai-card">
-              <Sparkles size={18} />
-              <span key={step}>{AI_STEPS[step]}</span>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
   );
 }

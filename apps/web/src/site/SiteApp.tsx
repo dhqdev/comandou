@@ -25,7 +25,14 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+} from 'react';
 import {
   applyTheme,
   Button,
@@ -35,24 +42,13 @@ import {
   type ButtonProps,
   type PandaMood,
 } from '../design-system';
+import { lazyPage } from '../lib/lazy-page';
 import { brl } from '../lib/money';
 import { contactHref, INCLUDED_IN_ALL, type PublicPlan } from '../pages/pricing-data';
-import { Builder, PhoneMock, type Look } from './Builder';
+import { Builder, FIRST_LOOK } from './Builder';
 import { Dish3D } from './Dish3D';
+import { RollIn, RollingValue, SiteLink, useSitePath } from './fx';
 import { loadSiteConfig, type SiteConfig } from './host';
-import {
-  APP_FEATURES,
-  APP_HUE,
-  APP_ORDERS,
-  DELIVERY_APPS,
-  DISHES,
-  HERO_ORDERS,
-  MODULES,
-  SAMPLE_ITEMS,
-  SITE_FAQ,
-  STEPS,
-  TOUR,
-} from './site-data';
 import {
   calmMotion,
   scrollToEl,
@@ -61,6 +57,20 @@ import {
   useSmoothScroll,
   useTilt,
 } from './motion';
+import { PhoneMock, type Look } from './PhoneMock';
+import { Shuffle, ShuffleWords } from './Shuffle';
+import {
+  APP_FEATURES,
+  APP_HUE,
+  APP_ORDERS,
+  DELIVERY_APPS,
+  HERO_ORDERS,
+  HERO_WORDS,
+  MODULES,
+  SITE_FAQ,
+  STEPS,
+  TOUR,
+} from './site-data';
 import './site.css';
 import './landing.css';
 
@@ -68,12 +78,23 @@ import './landing.css';
 // Roda ao carregar este arquivo, antes do primeiro desenho, para não piscar escuro.
 applyTheme('light');
 
+/** A lanchonete de demonstração (/demo) é um arquivo à parte: só baixa quando alguém abre. */
+const DemoStore = lazyPage(
+  () => import('./DemoStore'),
+  (m) => m.DemoStore,
+);
+
 /**
- * Site público do Comandou (comandou.com), refeito na 0.245 para ficar minimalista: muito
- * espaço, linha fina no lugar de cartão, laranja só na ação principal e três momentos em 3D (o
- * palco do topo, a tela do sistema que se endireita ao chegar e o prato de verdade que gira).
+ * Site público do Comandou (comandou.com). Minimalista, com movimento de propósito: os títulos
+ * com o Shuffle do React Bits, o celular do topo com o cardápio de uma lanchonete de verdade, o
+ * prato em 3D feito da própria foto e a lanchonete de demonstração (/demo) para testar na hora.
  * Tudo com os tokens do sistema; com "reduzir movimento" ligado, a página fica parada.
  */
+export function SiteApp() {
+  const path = useSitePath();
+  if (/^\/demo\/?$/.test(path)) return <DemoStore />;
+  return <Landing />;
+}
 
 /** Botão principal do site: afunda ao clicar (`.st-press`); com `arrow`, a seta anda no hover. */
 function CtaButton({
@@ -89,15 +110,6 @@ function CtaButton({
     </Button>
   );
 }
-
-const FIRST_LOOK: Look = {
-  name: 'Seu restaurante',
-  color: null,
-  icon: null,
-  cover: null,
-  items: SAMPLE_ITEMS,
-  typed: false,
-};
 
 /** Seções entram quando chegam na tela (uma vez só), com os filhos em cascata. */
 function useReveal() {
@@ -181,22 +193,6 @@ function EnterModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
-/** Título que entra palavra por palavra (só transform e opacity). */
-function Words({ text, from }: { text: string; from: number }) {
-  return (
-    <>
-      {text.split(' ').map((w, i, all) => (
-        <Fragment key={w + i}>
-          <span className="st-w" style={{ '--i': from + i } as React.CSSProperties}>
-            {w}
-          </span>
-          {i < all.length - 1 ? ' ' : ''}
-        </Fragment>
-      ))}
-    </>
-  );
-}
-
 /** Situação do pedido pela posição na fila: o de cima acabou de chegar. */
 const HERO_STATUS = [
   ['Novo', 'new'],
@@ -208,7 +204,7 @@ const HERO_STATUS = [
 /**
  * Quadro "Pedidos agora" do topo: a cada poucos segundos chega um pedido de um canal diferente
  * (mesa, balcão, cardápio online, aplicativos), os de baixo andam uma casa (FLIP, só transform)
- * e as vendas do dia sobem junto. Com "reduzir movimento", fica parado.
+ * e as vendas do dia rolam como um contador. Com "reduzir movimento", fica parado.
  */
 function LiveOrders() {
   const [head, setHead] = useState(0);
@@ -263,7 +259,7 @@ function LiveOrders() {
               key={key}
               data-k={key}
               className={i === 0 && head > 0 ? 'is-new' : undefined}
-              style={{ '--hue': `var(--cm-tint-${o.hue})` } as React.CSSProperties}
+              style={{ '--hue': `var(--cm-tint-${o.hue})` } as CSSProperties}
             >
               <span className="st-live__ch">{o.ch}</span>
               <span className="st-live__st" data-tone={st[1]}>
@@ -279,7 +275,9 @@ function LiveOrders() {
       </div>
       <div className="st-live__card st-live__day">
         <span>Vendas de hoje</span>
-        <strong key={head}>{brl(sold.toFixed(2))}</strong>
+        <strong>
+          <RollingValue text={brl(sold.toFixed(2))} />
+        </strong>
         <small>{count} pedidos no mesmo caixa</small>
       </div>
     </div>
@@ -287,21 +285,14 @@ function LiveOrders() {
 }
 
 /**
- * Cabeçalho de seção: título que sobe palavra por palavra de trás de uma máscara e uma frase
- * curta. Sem número nem rótulo em cima (a skill impeccable proíbe o "eyebrow").
+ * Cabeçalho de seção: título com o Shuffle (as letras correm na fita ao chegar e ao passar o
+ * mouse) e uma frase curta. Sem número nem rótulo em cima (a skill impeccable proíbe o "eyebrow").
  */
 function SectionHead({ title, text, center }: { title: string; text?: string; center?: boolean }) {
   return (
     <div className={`st-head st-reveal ${center ? 'st-head--center' : ''}`}>
-      <h2 className="st-split" aria-label={title}>
-        {title.split(' ').map((w, i) => (
-          <Fragment key={w + i}>
-            {i > 0 && ' '}
-            <span className="st-split__w" aria-hidden>
-              <span style={{ '--i': i } as React.CSSProperties}>{w}</span>
-            </span>
-          </Fragment>
-        ))}
+      <h2>
+        <Shuffle text={title} />
       </h2>
       {text && <p>{text}</p>}
     </div>
@@ -309,8 +300,8 @@ function SectionHead({ title, text, center }: { title: string; text?: string; ce
 }
 
 /**
- * O palco do topo em 3D: o celular da loja (mostra o que a pessoa digita) deitado em perspectiva,
- * com os pedidos e as vendas flutuando em camadas mais perto de quem olha. O conjunto gira de leve
+ * O palco do topo em 3D: o celular da loja (mostra o que a pessoa digita) em perspectiva, com os
+ * pedidos e as vendas flutuando em camadas mais perto de quem olha. O conjunto gira de leve
  * seguindo o mouse (`useTilt`) e se endireita um pouco ao rolar (`--p` do topo).
  */
 function Stage({ look, mood }: { look: Look; mood: PandaMood }) {
@@ -321,7 +312,7 @@ function Stage({ look, mood }: { look: Look; mood: PandaMood }) {
         <span className="st-stage__floor" aria-hidden />
         <div className="st-stage__phone">
           <div className="st-stage__peek">
-            <LivePanda size={88} mood={mood} title="Panda do Comandou" />
+            <LivePanda size={84} mood={mood} title="Panda do Comandou" />
           </div>
           <PhoneMock look={look} />
         </div>
@@ -459,14 +450,26 @@ const MODULE_ICONS: Record<string, LucideIcon> = {
   relatorios: ChartColumn,
 };
 
-/** Tudo o que vem junto: uma grade de linhas finas, ícone solto, nome e uma linha. */
+/**
+ * Tudo o que vem junto: uma grade de linhas finas, ícone solto, nome e uma linha. Uma luz bem
+ * fraca segue o mouse pela grade e acende as linhas por onde passa (no jeito do "MagicBento" do
+ * React Bits, só com CSS e duas variáveis).
+ */
 function Modules() {
+  const ref = useRef<HTMLUListElement>(null);
+  const move = (e: PointerEvent<HTMLUListElement>) => {
+    const el = ref.current;
+    if (!el || e.pointerType !== 'mouse') return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+    el.style.setProperty('--my', `${e.clientY - r.top}px`);
+  };
   return (
-    <ul className="st-mods st-reveal">
+    <ul className="st-mods st-reveal" ref={ref} onPointerMove={move}>
       {MODULES.map((m, i) => {
         const Icon = MODULE_ICONS[m.key] ?? Check;
         return (
-          <li key={m.key} style={{ '--k': i } as React.CSSProperties}>
+          <li key={m.key} style={{ '--k': i } as CSSProperties}>
             <Icon size={22} strokeWidth={1.6} aria-hidden />
             <h3>{m.title}</h3>
             <p>{m.text}</p>
@@ -486,7 +489,7 @@ const APP_FEATURE_ICONS = [Layers, CheckCheck, Bike, Store, Wallet];
  */
 function Apps() {
   const hue = (app: string) =>
-    ({ '--hue': `var(--cm-tint-${APP_HUE[app] ?? 'slate'})` }) as React.CSSProperties;
+    ({ '--hue': `var(--cm-tint-${APP_HUE[app] ?? 'slate'})` }) as CSSProperties;
   return (
     <div className="st-apps">
       <div className="st-apps__feed st-reveal" aria-hidden>
@@ -505,7 +508,7 @@ function Apps() {
         </div>
         <ul>
           {APP_ORDERS.map((o, k) => (
-            <li key={o.n} style={{ ...hue(o.app), '--k': k } as React.CSSProperties}>
+            <li key={o.n} style={{ ...hue(o.app), '--k': k } as CSSProperties}>
               <span className="st-apps__app">{o.app}</span>
               <span className="st-apps__who">
                 <strong>
@@ -532,7 +535,7 @@ function Apps() {
         {APP_FEATURES.map((f, i) => {
           const Icon = APP_FEATURE_ICONS[i] ?? Check;
           return (
-            <li key={f.title} style={{ '--k': i } as React.CSSProperties}>
+            <li key={f.title} style={{ '--k': i } as CSSProperties}>
               <Icon size={20} strokeWidth={1.7} aria-hidden />
               <div>
                 <h3>{f.title}</h3>
@@ -546,21 +549,84 @@ function Apps() {
   );
 }
 
+/** Fotos que se abrem em leque no convite da lanchonete de demonstração. */
+const DEMO_FAN = [
+  { src: '/site/food/combo-fumaca.webp', name: 'Combo Fumaça' },
+  { src: '/site/food/burger-smash.webp', name: 'Smash duplo' },
+  { src: '/site/food/shake-chocolate.webp', name: 'Milk-shake de chocolate' },
+  { src: '/site/food/porcao-cheddar-bacon.webp', name: 'Batata com cheddar e bacon' },
+];
+
+/**
+ * Convite para a lanchonete de demonstração: o leque de fotos (no jeito do "Bounce Cards" do React
+ * Bits, só com CSS) se abre quando a seção chega e se espalha mais ao passar o mouse.
+ */
+function DemoInvite() {
+  return (
+    <div className="st-demo st-reveal">
+      <div className="st-demo__text">
+        <h2>
+          <Shuffle text="Entre numa lanchonete de verdade." />
+        </h2>
+        <p>
+          A Fumaça Burger é uma loja de exemplo, com cardápio, fotos e preços de verdade. Peça um
+          lanche como cliente e veja o pedido chegar na cozinha, andar até pronto e sair para
+          entrega.
+        </p>
+        <ul className="st-demo__facts">
+          <li>
+            <Check size={16} aria-hidden /> Sem cadastro e sem pagar nada
+          </li>
+          <li>
+            <Check size={16} aria-hidden /> No celular e no computador
+          </li>
+          <li>
+            <Check size={16} aria-hidden /> Cliente e cozinha lado a lado
+          </li>
+        </ul>
+        <SiteLink to="/demo" className="cm-btn cm-btn--primary cm-btn--lg st-press st-arrow">
+          Testar a lanchonete
+          <ArrowRight size={16} className="st-arrow__i" aria-hidden />
+        </SiteLink>
+      </div>
+      <SiteLink to="/demo" className="st-fan" aria-label="Abrir a lanchonete de demonstração">
+        {DEMO_FAN.map((f, i) => (
+          <span key={f.src} className="st-fan__card" style={{ '--i': i } as CSSProperties}>
+            <img src={f.src} alt="" width={640} height={480} loading="lazy" decoding="async" />
+            <span>{f.name}</span>
+          </span>
+        ))}
+      </SiteLink>
+    </div>
+  );
+}
+
 /** Links do menu (e do rodapé). */
 const NAV: [string, string][] = [
   ['#sistema', 'O sistema'],
   ['#prato-3d', 'Prato em 3D'],
-  ['#aplicativos', 'Aplicativos'],
+  ['/demo', 'Demonstração'],
   ['#preco', 'Preço'],
   ['#perguntas', 'Perguntas'],
 ];
 
-export function SiteApp() {
+function NavLink({ href, label, onPick }: { href: string; label: string; onPick?: () => void }) {
+  return href.startsWith('/') ? (
+    <SiteLink to={href} onClick={onPick}>
+      {label}
+    </SiteLink>
+  ) : (
+    <a href={href} onClick={onPick}>
+      {label}
+    </a>
+  );
+}
+
+function Landing() {
   const [config, setConfig] = useState<SiteConfig | null>(null);
   const [plan, setPlan] = useState<PublicPlan | null>(null);
   const [look, setLook] = useState<Look>(FIRST_LOOK);
   const [mood, setMood] = useState<PandaMood>('idle');
-  const [dish, setDish] = useState(DISHES[0]!.key);
   const [enter, setEnter] = useState(false);
   const [menu, setMenu] = useState(false);
   // Menu solto: depois de rolar um pouco, fica mais compacto e com sombra.
@@ -633,9 +699,7 @@ export function SiteApp() {
           </a>
           <nav className="st-nav__links" aria-label="Seções">
             {NAV.map(([href, label]) => (
-              <a key={href} href={href}>
-                {label}
-              </a>
+              <NavLink key={href} href={href} label={label} />
             ))}
           </nav>
           <div className="st-nav__end">
@@ -659,9 +723,7 @@ export function SiteApp() {
         </div>
         <nav id="st-menu" className="st-nav__sheet" aria-label="Menu" hidden={!menu}>
           {NAV.map(([href, label]) => (
-            <a key={href} href={href} onClick={() => setMenu(false)}>
-              {label}
-            </a>
+            <NavLink key={href} href={href} label={label} onPick={() => setMenu(false)} />
           ))}
           <button
             type="button"
@@ -682,13 +744,16 @@ export function SiteApp() {
         <section className="st-hero" ref={hero}>
           <div className="st-hero__text">
             <h1 className="st-h1">
-              <span className="st-h1__row">
-                <Words text="Seu restaurante" from={0} />
-              </span>{' '}
-              <span className="st-h1__row">
-                <Words text="no ar" from={2} />{' '}
-                <span className="st-h1__soft">
-                  <Words text="em minutos." from={4} />
+              <span className="cm-sr-only">Seu restaurante no ar em minutos.</span>
+              <span className="st-h1__vis" aria-hidden>
+                <span className="st-h1__row st-h1__swap">
+                  <ShuffleWords words={HERO_WORDS} sr={false} />
+                </span>
+                <span className="st-h1__row">
+                  <Shuffle text="no ar" trigger="mount" delay={260} hover={false} sr={false} />{' '}
+                  <span className="st-h1__soft">
+                    <Shuffle text="em minutos." trigger="mount" delay={380} sr={false} />
+                  </span>
                 </span>
               </span>
             </h1>
@@ -717,6 +782,11 @@ export function SiteApp() {
           </div>
           <div className="st-hero__art">
             <Stage look={look} mood={mood} />
+            <SiteLink to="/demo" className="st-hero__try">
+              <span className="st-hero__try-dot" aria-hidden />
+              Testar esta lanchonete
+              <ArrowRight size={14} aria-hidden />
+            </SiteLink>
           </div>
         </section>
 
@@ -727,7 +797,9 @@ export function SiteApp() {
           <p>Recebe os pedidos de</p>
           <ul>
             {DELIVERY_APPS.map((a) => (
-              <li key={a}>{a}</li>
+              <li key={a}>
+                <Shuffle text={a} mode="sequence" stagger={24} />
+              </li>
             ))}
           </ul>
         </section>
@@ -752,25 +824,31 @@ export function SiteApp() {
         <section className="st-sec st-sec--3d" id="prato-3d">
           <div className="st-3d">
             <div className="st-3d__text st-reveal">
-              <h2>O prato gira na mão do cliente.</h2>
+              <h2>
+                <Shuffle text="O prato salta da tela." />
+              </h2>
               <p>
-                Envie o modelo 3D do item e o cardápio mostra o prato de todos os lados. No celular,
-                “Ver na sua mesa” abre a câmera e coloca o prato na mesa, do tamanho real.
+                Com a foto do item, o Comandou monta o prato em 3D. O cliente gira antes de pedir e,
+                no celular, “Ver na sua mesa” coloca o prato na mesa pela câmera, do tamanho real.
               </p>
               <ul className="st-3d__facts">
                 <li>
-                  <MousePointer2 size={16} aria-hidden /> Arraste o prato ao lado para girar
+                  <MousePointer2 size={16} aria-hidden /> Mexa o mouse ou arraste o prato ao lado
                 </li>
                 <li>
                   <Check size={16} aria-hidden /> iPhone e Android, sem instalar nada
                 </li>
                 <li>
-                  <Check size={16} aria-hidden /> O cadastro do item mostra como fazer o modelo
+                  <Sparkles size={16} aria-hidden /> A IA monta o 3D pela foto do item
                 </li>
               </ul>
             </div>
-            <Dish3D dish={dish} onPick={setDish} />
+            <Dish3D />
           </div>
+        </section>
+
+        <section className="st-sec" id="demo">
+          <DemoInvite />
         </section>
 
         <section className="st-sec" id="aplicativos">
@@ -785,7 +863,7 @@ export function SiteApp() {
           <SectionHead center title="No ar em três passos." />
           <ol className="st-steps st-reveal">
             {STEPS.map((s, i) => (
-              <li key={s.title} style={{ '--k': i } as React.CSSProperties}>
+              <li key={s.title} style={{ '--k': i } as CSSProperties}>
                 <span className="st-steps__n">{i + 1}</span>
                 <h3>{s.title}</h3>
                 <p>{s.text}</p>
@@ -797,11 +875,15 @@ export function SiteApp() {
         <section className="st-sec" id="preco">
           <div className="st-price st-reveal">
             <div className="st-price__main">
-              <h2>Um preço só. Tudo dentro.</h2>
+              <h2>
+                <Shuffle text="Um preço só. Tudo dentro." />
+              </h2>
               <div className="st-price__value">
                 {plan ? (
                   <>
-                    <strong>{brl(plan.priceMonthly).replace(/,00$/, '')}</strong>
+                    <strong>
+                      <RollIn text={brl(plan.priceMonthly).replace(/,00$/, '')} />
+                    </strong>
                     <span>por mês</span>
                   </>
                 ) : (
@@ -829,7 +911,7 @@ export function SiteApp() {
             </div>
             <ul className="st-price__list">
               {included.map((x, i) => (
-                <li key={x} style={{ '--i': i } as React.CSSProperties}>
+                <li key={x} style={{ '--i': i } as CSSProperties}>
                   <Check size={16} aria-hidden />
                   {x}
                 </li>
@@ -860,17 +942,17 @@ export function SiteApp() {
             <div className="st-end__panda" aria-hidden>
               <LivePanda size={96} mood="happy" />
             </div>
-            <h2>Vamos colocar o seu no ar?</h2>
+            <h2>
+              <Shuffle text="Vamos colocar o seu no ar?" />
+            </h2>
             <p>{free}, sem cartão. Hoje mesmo o primeiro pedido chega na cozinha.</p>
             <div className="st-end__cta">
               <CtaButton size="lg" arrow onClick={toBuilder}>
                 Criar meu restaurante
               </CtaButton>
-              {config?.demoUrl && (
-                <a className="cm-btn cm-btn--secondary cm-btn--lg" href={config.demoUrl}>
-                  Ver um cardápio de exemplo
-                </a>
-              )}
+              <SiteLink to="/demo" className="cm-btn cm-btn--secondary cm-btn--lg">
+                Testar a lanchonete
+              </SiteLink>
             </div>
           </div>
         </section>
@@ -890,11 +972,10 @@ export function SiteApp() {
           </div>
           <nav className="st-foot__col" aria-label="Produto">
             <h3>Produto</h3>
-            {NAV.slice(0, 4).map(([href, label]) => (
-              <a key={href} href={href}>
-                {label}
-              </a>
-            ))}
+            <a href="#sistema">O sistema</a>
+            <a href="#prato-3d">Prato em 3D</a>
+            <a href="#aplicativos">Aplicativos</a>
+            <SiteLink to="/demo">Lanchonete de demonstração</SiteLink>
           </nav>
           <nav className="st-foot__col" aria-label="Ajuda">
             <h3>Ajuda</h3>
@@ -905,6 +986,7 @@ export function SiteApp() {
                 Falar com a gente
               </a>
             )}
+            {config?.demoUrl && <a href={config.demoUrl}>Cardápio da Fumaça no ar</a>}
             <button type="button" onClick={() => setEnter(true)}>
               Entrar no meu restaurante
             </button>

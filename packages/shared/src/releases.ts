@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.253.0',
+    date: '2026-11-25',
+    title: 'Site novo: cardápio de dar fome, prato em 3D de verdade e lanchonete para testar',
+    summary:
+      'O site do Comandou ficou mais bonito e mais vivo: títulos com o efeito Shuffle, o celular do topo com o cardápio e as fotos da Fumaça Burger, o prato em 3D feito da própria foto, a criação do restaurante numa tela própria com a loja nascendo e a lanchonete de demonstração, onde dá para pedir como cliente e ver o pedido chegar na cozinha.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Lanchonete de demonstração no site (comandou.com/demo): cardápio com fotos de verdade, escolhas obrigatórias, sacola, entrega ou retirada e pagamento, e ao lado a cozinha recebendo o pedido. Aceitar, pronto e despachar andam sozinhos ou no toque, e o cliente acompanha. No celular, as abas Cliente e Cozinha. Nada é cobrado nem gravado.',
+      },
+      {
+        tag: 'novo',
+        text: 'Prato em 3D com foto real: a foto do prato ganha profundidade e gira com o mouse ou com o dedo, num estúdio escuro. Dá para trocar entre Clássico, Combo Fumaça, Batata frita e Chopp.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Criar o restaurante pelo site: os dados abrem numa tela própria com a prévia do endereço enquanto digita, avisos no próprio campo e, ao criar, a loja nascendo ao lado (endereço, capa e os módulos acendendo um a um) até mostrar o login.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Topo do site: o título troca entre restaurante, lanchonete, pizzaria e bar com o efeito Shuffle (React Bits), o celular mostra o cardápio da Fumaça Burger com destaques em foto grande e as vendas do dia rolam como contador.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Títulos das seções, nomes dos aplicativos e o preço com movimento leve; tudo pensado também para o celular e parado para quem pede menos movimento no aparelho.',
+      },
+    ],
+  },
+  {
     version: '0.252.0',
     date: '2026-11-25',
     title: 'Foto melhorada pela IA e 3D feito pela própria foto do item',

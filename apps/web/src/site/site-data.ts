@@ -1,3 +1,5 @@
+import { validateTenantSlug } from '@comandou/shared';
+
 /** Textos do site público (comandou.com). Tudo aqui descreve o que o sistema já faz hoje. */
 
 export interface TourTab {
@@ -152,12 +154,25 @@ export const MODULES: Module[] = [
   },
 ];
 
-/** Pratos da demonstração com modelo 3D de verdade (public/site/3d/<key>.glb). */
+/**
+ * Pratos do "Prato em 3D": foto de verdade com mapa de profundidade (public/site/3d/<key>.webp,
+ * <key>-depth.webp e a miniatura <key>-sm.webp, gerados por tools/site-images/build.py).
+ */
 export const DISHES: { key: string; name: string; price: string }[] = [
-  { key: 'fumaca', name: 'Fumaça (o da casa)', price: '44,90' },
+  { key: 'classico', name: 'Clássico', price: '34,90' },
+  { key: 'combo', name: 'Combo Fumaça', price: '62,90' },
   { key: 'batata', name: 'Batata frita', price: '22,90' },
-  { key: 'shake-chocolate', name: 'Milk-shake', price: '22,90' },
-  { key: 'brownie-sorvete', name: 'Brownie', price: '26,90' },
+  { key: 'chopp', name: 'Chopp pilsen', price: '14,90' },
+];
+
+/** O que troca no título do topo ("Seu restaurante no ar em minutos."), com o Shuffle. */
+export const HERO_WORDS = [
+  'Seu restaurante',
+  'Sua lanchonete',
+  'Sua pizzaria',
+  'Sua hamburgueria',
+  'Seu bar',
+  'Sua cafeteria',
 ];
 
 export const SITE_FAQ: { q: string; a: string }[] = [
@@ -302,33 +317,54 @@ export interface MockItem {
   desc?: string;
   price?: string;
   photo?: string;
+  /** Selo pequeno em cima da foto ("Mais pedido"). */
+  badge?: string;
 }
 
-/** Cardápio de exemplo do celular do topo (antes de a pessoa digitar o dela). */
+/**
+ * Loja de exemplo do celular do topo (antes de a pessoa colar o link dela): a Fumaça Burger, a
+ * mesma da lanchonete de demonstração (/demo), com as fotos de verdade (public/site/food).
+ */
+export const SAMPLE_STORE = {
+  name: 'Fumaça Burger & Co.',
+  tagline: 'Burger na brasa, do jeito certo',
+  logo: '/site/food/logo.webp',
+  cover: '/site/food/capa-sm.webp',
+  chips: ['Mais pedidos', 'Burgers', 'Porções', 'Shakes'],
+};
+
+/** Cardápio de exemplo do celular do topo. Os dois primeiros vão em destaque, com foto grande. */
 export const SAMPLE_ITEMS: MockItem[] = [
   {
-    name: 'Fumaça (o da casa)',
-    desc: 'Blend 160 g, cheddar, bacon e molho defumado',
-    price: '38,90',
-    photo: '/site/food-burger-fumaca.webp',
-  },
-  {
     name: 'Smash duplo',
-    desc: 'Dois smash de 80 g, queijo prato e picles',
-    price: '32,90',
-    photo: '/site/food-burger-smash.webp',
+    desc: 'Dois smash de 90 g, cheddar derretido e picles',
+    price: '36,90',
+    photo: '/site/food/burger-smash-sm.webp',
+    badge: 'Mais pedido',
   },
   {
-    name: 'Batata frita',
-    desc: 'Média, 250 g',
-    price: '18,00',
-    photo: '/site/food-porcao-batata.webp',
+    name: 'Fumaça (o da casa)',
+    desc: 'Blend de 160 g na brasa, cheddar e bacon',
+    price: '44,90',
+    photo: '/site/food/burger-fumaca-sm.webp',
   },
   {
-    name: 'Limonada suíça',
-    desc: '400 ml',
-    price: '12,00',
-    photo: '/site/food-bebida-limonada.webp',
+    name: 'Batata com cheddar e bacon',
+    desc: 'Cheddar cremoso e farofa de bacon',
+    price: '34,90',
+    photo: '/site/food/porcao-cheddar-bacon-sm.webp',
+  },
+  {
+    name: 'Milk-shake de chocolate',
+    desc: 'Chocolate belga batido na hora, 400 ml',
+    price: '22,90',
+    photo: '/site/food/shake-chocolate-sm.webp',
+  },
+  {
+    name: 'Brownie com sorvete',
+    desc: 'Quentinho, com sorvete de creme e calda',
+    price: '26,90',
+    photo: '/site/food/sobremesa-brownie-sorvete-sm.webp',
   },
 ];
 
@@ -350,4 +386,24 @@ export function parseItems(text: string): MockItem[] {
 /** Parece um endereço de site? (aceita sem https://) */
 export function looksLikeUrl(v: string): boolean {
   return /^(https?:\/\/)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(v.trim());
+}
+
+/**
+ * Prévia do endereço do restaurante enquanto a pessoa digita o nome: a mesma regra da API
+ * (`trialSlug` em apps/api/src/platform/site/site-util.ts). Se o endereço já tiver dono, a API
+ * acrescenta um número e a tela final mostra o certo.
+ */
+export function slugPreview(name: string): string {
+  let s = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 30)
+    .replace(/-+$/, '');
+  if (!s) return '';
+  if (s.length < 3) s = `restaurante-${s}`.replace(/-+$/, '');
+  if (!validateTenantSlug(s).ok) s = `meu-${s}`.slice(0, 34).replace(/-+$/, '');
+  return s;
 }

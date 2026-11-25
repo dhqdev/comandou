@@ -138,7 +138,7 @@ copiar da notificação). Passo a passo em [docs/email.md](docs/email.md).
 | **Atendimento com IA** | IA que responde os clientes no WhatsApp com o cardápio liberado pelo gerente, faz e cancela reservas de mesa (grava só depois do SIM do cliente), manda o cardápio que o restaurante sobe (PDF ou fotos) e o calendário de reservas em PDF, lembra das conversas antigas e se protege de golpe, assunto indevido e tentativas de tirá-la do papel |
 | **Aplicativos de delivery** | Pedidos do iFood, 99Food, Keeta, Rappi, aiqfome e de qualquer aplicativo Open Delivery chegam sozinhos e seguem o ciclo inteiro (aceitar, cozinha, pronto, saiu, entregue, cancelar com motivo) sem abrir o gestor de cada um; pago no app fora da gaveta, repasse na conciliação, nota com intermediador, aba **Aplicativos** em Pedidos e o relatório **Vendas por aplicativo**. iFood também com loja aberta/pausa, entregador, cardápio, repasse e avaliações. Guia em [docs/delivery-apps.md](docs/delivery-apps.md) |
 | **Integrações** | NFC-e pela Focus NFe, avisos ao cliente pelo WhatsApp (conexão por QR Code), e-mail próprio pelo Resend, filas com novas tentativas |
-| **Plataforma** | Painel Super Admin com dois fatores, banco de dados próprio por restaurante, planos e limites, domínio próprio, contratos com assinatura eletrônica, e-mail pelo Resend, site público com teste grátis, atualização pelo painel, backups cifrados no Backblaze B2 com teste de restauração |
+| **Plataforma** | Painel Super Admin com dois fatores, banco de dados próprio por restaurante, planos e limites, domínio próprio, contratos com assinatura eletrônica, e-mail pelo Resend, site público com teste grátis e uma lanchonete de demonstração para testar sem cadastro (`/demo`: pedir como cliente e ver o pedido chegar na cozinha), atualização pelo painel, backups cifrados no Backblaze B2 com teste de restauração |
 
 O histórico de versões aparece no próprio sistema, na tela **Novidades** (tela **Conta**, aberta pelo nome no pé do menu).
 
@@ -204,7 +204,7 @@ venda, usada como régua de acabamento abaixo da `comandou-design`.
 | Banco | PostgreSQL 16, um banco por restaurante, Row-Level Security, migrações SQL versionadas |
 | Cache e filas | Redis |
 | E-mail | Fila própria no PostgreSQL com novas tentativas; envio pela API do Resend |
-| Frontend | React 19 + Vite 7 + TypeScript, Design System próprio (claro e escuro), PWA; site público sempre claro, com rolagem suave (Lenis) e animações do React Bits e do Uiverse |
+| Frontend | React 19 + Vite 7 + TypeScript, Design System próprio (claro e escuro), PWA; site público sempre claro, com rolagem suave (Lenis), títulos com o Shuffle do React Bits, prato em 3D feito da foto (WebGL puro) e detalhes do Uiverse |
 | Borda | Traefik (TLS e roteamento por endereço) → Nginx (arquivos estáticos) e NestJS (`/api`) |
 | Infra | Docker, Compose (desenvolvimento), Swarm + Portainer (produção), imagens amd64 e arm64 |
 | Qualidade | Vitest, supertest, Playwright, GitHub Actions (testes → imagens → Release) |

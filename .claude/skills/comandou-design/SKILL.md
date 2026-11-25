@@ -207,16 +207,40 @@ exceções, só no site:
   grande e escuro com a segunda parte em cinza (`.st-h1__soft`, `--cm-gray-400`) e laranja só no
   botão principal e no passo 1. O 3D tem três lugares e só esses: o **palco do topo** (`Stage`,
   celular da loja e os cartões "Pedidos agora", vendas do dia e "Pix aprovado" em camadas com
-  `translateZ`, girando de leve com o mouse por `useTilt`; no celular só o celular e o Pix), a
-  **moldura das telas do sistema**, que chega deitada (`rotateX` pelo `--p`), e o **Prato em
-  3D** (`Dish3D.tsx`, os `.glb` da demonstração no `@google/model-viewer`, carregado só perto da
-  tela). Nada de three.js solto nem biblioteca nova para 3D: o model-viewer já vem com o sistema.
-  Cartão flutuante do palco balança com a propriedade `translate` (a `transform` é a camada 3D).
-- **Saíram na 0.245** e não voltam sem pedido: React Bits (`ClickSpark`, `Magnet`,
-  `SpotlightCard`, `StarBorder`, `GlareHover`; a pasta `site/reactbits/` foi apagada), a frase
-  que acende palavra por palavra, a faixa que passa, a pilha dos passos e os cartões de
-  detalhes com animação. Ficaram o botão físico `.st-press`, a seta que anda no hover e o + que
-  vira − nas perguntas.
+  `translateZ`, girando de leve com o mouse por `useTilt`; no celular só o celular e o Pix, este
+  em cima da capa), a **moldura das telas do sistema**, que chega deitada (`rotateX` pelo `--p`),
+  e o **Prato em 3D** (0.253: foto de verdade com mapa de profundidade, `Dish3D.tsx` +
+  `depth-photo.ts`, WebGL puro; o `model-viewer` e os `.glb` saíram do site). Nada de three.js
+  nem biblioteca nova para 3D. Cartão flutuante do palco balança com a propriedade `translate` (a
+  `transform` é a camada 3D).
+- **Celular do topo = cardápio de dar fome (0.253, pedido do dono)**: a loja de exemplo é a Fumaça
+  Burger com as fotos de verdade (`SAMPLE_STORE`/`SAMPLE_ITEMS`, fotos em `public/site/food`):
+  capa, logo redonda que sobe na capa (o nome fica embaixo dela, nunca em cima da foto), categorias
+  com a escolhida em preto, dois destaques com foto grande e o resto em linhas; a sacola tem um anel
+  branco que esconde o que rola por baixo. Mexeu no cartão de criar (link, Maps, itens, nome), o
+  celular vira a loja da pessoa.
+- **Efeitos que entraram na 0.253** (pedido do dono: "veja os efeitos do React Bits e do Uiverse,
+  minimalista e mais legal"), cada um num lugar só: **Shuffle** do React Bits nos títulos
+  (`Shuffle.tsx`, sem GSAP; toca ao chegar e de novo com o mouse em cima; o título do topo troca a
+  primeira linha com `ShuffleWords`; o texto de verdade fica num `cm-sr-only` e o desenho é
+  `aria-hidden`; use sempre dentro do título: `<h2><Shuffle text="…" /></h2>`), **número que rola**
+  (vendas do dia e preço, `RollingValue`/`RollIn` de `fx.tsx`), **luz nas linhas da grade** dos
+  módulos (só as linhas acendem, nunca o cartão), **leque de fotos** no convite da lanchonete,
+  **exemplos que se escrevem** no campo do site vazio e a **pílula que desliza** em Site/Maps/
+  Descrever. Continuam fora: faíscas no clique, botão que segue o mouse, holofote no cartão
+  inteiro, borda com luz, frase que acende palavra por palavra e faixa que passa sozinha.
+- **Um estúdio escuro, só no Prato em 3D**: as fotos têm fundo preto, então o painel `.st-3d` é
+  quase preto (`#050505`) e a foto some nas bordas (máscara radial). É exceção de direção de arte
+  (o site segue claro, sem tema escuro); não leve fundo escuro para outras seções.
+- **Janela de criar o restaurante** (`CreateFlow.tsx`): `<dialog>` próprio em tela cheia (no
+  computador, painel grande com a loja nascendo à esquerda; no celular, os dados primeiro e o
+  rodapé preso). Os rótulos "Nome do restaurante", "Seu nome", "E-mail", o botão "Criar e abrir",
+  o título "Seu restaurante está no ar", `.st-phone`, `.st-build__go`, `.st-cred` e
+  `.st-cred__pass` são lidos pelo e2e `site.spec.ts`: não troque sem mudar o teste.
+- **Lanchonete de demonstração** (`/demo`, `DemoStore.tsx`, `demo.css` com prefixo `dm-`): o
+  cardápio no jeito do cardápio de verdade e, ao lado (no celular, aba Cozinha), o painel da
+  cozinha. Pedido da pessoa com contorno laranja e anel que pisca só a opacidade; nada de escala
+  infinita em botão que se aperta.
 - **Rolagem** (`site/motion.ts` + `site/landing.css`): Lenis no computador (no toque, a rolagem
   do aparelho) e um laço por quadro que escreve `--p` nos elementos; o CSS só usa transform e
   opacity e, sem a variável, cai no estado final parado. Cena nova: `useScrollProgress(modo)` e
