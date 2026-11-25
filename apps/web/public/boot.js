@@ -30,12 +30,20 @@
 
   // Telas do cliente (cardápio, pedido, rastreio, mesa, entregador) e o site: esqueleto sem a
   // moldura da equipe (menu lateral e abas).
+  // Domínio base curto (comandou.com) ou com final de dois nomes (comandou.com.br): mesma regra
+  // de site/host.ts (siteCandidate).
   var host = location.hostname;
+  var names = host.split('.').length;
   var siteHost =
     !/^[\d.]+$/.test(host) &&
     host.indexOf(':') < 0 &&
     host.indexOf('admin.') !== 0 &&
-    (host.indexOf('www.') === 0 || host.split('.').length === 2);
+    (host.indexOf('www.') === 0 ||
+      names === 2 ||
+      (names === 3 &&
+        /\.(com|net|org|co|gov|edu|art|blog|app|dev|eco|ind|inf|adv|eng|med|tur|srv|biz|info|ltd|plc)\.[a-z]{2}$/.test(
+          host,
+        )));
   if (
     siteHost ||
     /^\/(pedir|pedido|mesa|rastreio|entregador|site|codigo|pre[cç]os)(\/|$)/.test(location.pathname)

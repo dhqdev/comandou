@@ -52,6 +52,14 @@ export const RELEASES: readonly Release[] = [
       },
       {
         tag: 'correção',
+        text: 'Migrações (comandou-migrate): se a leitura da lista de bancos dos restaurantes falhasse, ele seguia só com o banco central e dizia que tinha dado certo, deixando os restaurantes sem a migração. Agora ele migra o central primeiro, lê a lista com tudo no lugar e, se não conseguir, para com erro.',
+      },
+      {
+        tag: 'correção',
+        text: 'Instalação com domínio de final duplo (como comandou.com.br): o endereço principal abria como restaurante em vez do site. Agora ele é reconhecido como site, igual ao comandou.com.',
+      },
+      {
+        tag: 'correção',
         text: 'Trabalhos de banco: o de "Atualizar a versão" de um restaurante aparecia sem nome na aba Banco.',
       },
     ],
