@@ -8,12 +8,7 @@ import { api, ApiError } from '../../lib/api';
 /* Peças da tela de Reservas: tipos, cartão com as ações, formulário e configurações. */
 
 export type ReservationStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'seated'
-  | 'completed'
-  | 'cancelled'
-  | 'no_show';
+  'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show';
 
 export interface Reservation {
   id: string;
