@@ -20,6 +20,91 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.245.1',
+    date: '2026-11-25',
+    title: 'Varredura: cobrança em dobro, sessão vencida e mais 25 correções',
+    summary:
+      'Uma revisão de ponta a ponta do sistema, das telas da equipe ao cardápio do cliente e à API. O principal: o caixa não deixa mais cobrar um pedido que o cliente está pagando (ou já pagou) pelo app, a sessão vencida leva direto ao login e o comprovante do Pix precisa bater com o total.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Caixa: receber no balcão um pedido com Pix ou cartão do app esperando (ou pago e ainda fora do caixa) é recusado com o motivo. Antes o cliente podia pagar duas vezes e o valor do app ficava preso sem devolução.',
+      },
+      {
+        tag: 'correção',
+        text: 'Salão: ligar ou tirar a taxa de serviço da mesa não mexe mais em pedidos já concluídos e pagos, em fiado e a receber nem em retirada.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cardápio: o comprovante do Pix anexado sai sozinho se o total mudar depois (sacola, recompensa ou taxa de entrega), e o cliente paga o código novo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Sessão terminada no meio do uso (venceu, conta desligada) volta para o login, em vez de cada tela mostrar "Sessão inválida" e a fila sem internet ficar parada.',
+      },
+      {
+        tag: 'correção',
+        text: 'Detalhe do pedido: abrir um pedido logo depois de outro não mostra mais o anterior quando a rede está lenta (Receber e Cancelar agiam no pedido errado).',
+      },
+      {
+        tag: 'correção',
+        text: 'Nova venda e app do garçom: o cardápio se atualiza sozinho quando um item esgota ou muda de preço, e o aviso "já foi registrado com outros dados" não trava mais os envios seguintes.',
+      },
+      {
+        tag: 'correção',
+        text: 'Entregas: o código do cliente aceita no máximo 5 tentativas mesmo com toques ao mesmo tempo, e o GPS fraco não pede mais para mexer na permissão.',
+      },
+      {
+        tag: 'correção',
+        text: 'Fidelidade: dois vencimentos de pontos ao mesmo tempo não deixam mais o saldo negativo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Equipe › Pagamentos: tablet ou celular só aberto não conta mais dia de trabalho; conta quando a pessoa faz algo no sistema.',
+      },
+      {
+        tag: 'correção',
+        text: 'Reservas pelo WhatsApp acham a reserva mesmo quando o número vem sem o 9, e o limite de 3 reservas em aberto vale também por conta.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cozinha: trocar de setor não traz de volta o quadro do anterior, e o pedido avisa a situação certa depois de marcar item pronto.',
+      },
+      {
+        tag: 'correção',
+        text: 'Estoque: salvar de novo um insumo novo cujo saldo inicial falhou não cria um insumo repetido.',
+      },
+      {
+        tag: 'correção',
+        text: 'iFood: código de autorização digitado errado não obriga mais a gerar outro no Portal, e um aplicativo lento não atrasa mais o polling dos outros.',
+      },
+      {
+        tag: 'correção',
+        text: 'Site: cadastro do teste grátis que não deu certo agora tem "Tentar de novo" e não volta preso ao recarregar.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cardápio: dado antigo guardado no aparelho não quebra mais a abertura, o acompanhamento para de consultar quando o pedido termina e Enter no favorito não abre mais o produto.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Conversa do cliente com a loja: anexos de clientes nunca apagam arquivos recentes de outras conversas e têm limite diário por restaurante.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Acesso de suporte do Comandou: tudo o que é feito nele entra no histórico do restaurante com o nome de quem atendeu.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Links de acompanhamento, reserva, assinatura de contrato e teste grátis não aparecem mais inteiros nos logs. Sair da conta no cardápio apaga nome, telefone e CPF do aparelho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'E-mail: o Resend recebe uma chave por e-mail e não manda duas vezes quando a resposta se perde. Busca de endereço com fila cheia responde na hora (o cliente marca no mapa).',
+      },
+    ],
+  },
+  {
     version: '0.245.0',
     date: '2026-11-23',
     title: 'Site novo: mais limpo, com prato em 3D',
