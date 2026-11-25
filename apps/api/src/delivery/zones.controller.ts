@@ -21,7 +21,7 @@ import { DatabaseService } from '../database/database.service';
 import { StoreService } from '../store/store.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { GeocoderService } from './geocoder.service';
-import type { Zone } from './zones';
+import { locateContext } from './zones';
 import { ZonesService } from './zones.service';
 
 const lat = z.number().min(-90).max(90);
@@ -186,11 +186,7 @@ export class ZonesController {
     });
     // As áreas também dizem onde a loja atende: uma loja marcada longe das áreas não pode fazer a
     // busca jogar fora os endereços dentro delas.
-    const refs = zones
-      .map((z) => zoneCenter([z]))
-      .filter((p): p is { lat: number; lng: number } => !!p);
-    const at = near(s) ?? refs[0];
-    return this.geocoder.locate(f, { near: at, refs, city: region.city, state: region.state });
+    return this.geocoder.locate(f, locateContext(s, region, zones));
   }
 
   /** Cliente final: taxa e tempo de entrega para um ponto. A API recalcula no pedido. */
@@ -218,16 +214,4 @@ function near(s: { storeLat: string | null; storeLng: string | null }) {
   return s.storeLat && s.storeLng
     ? { lat: Number(s.storeLat), lng: Number(s.storeLng) }
     : undefined;
-}
-
-/** Centro da primeira área (quando a loja não marcou o próprio ponto no mapa). */
-function zoneCenter(zones: Zone[]) {
-  const z = zones[0];
-  if (!z) return undefined;
-  if (z.kind === 'radius' && z.centerLat && z.centerLng)
-    return { lat: Number(z.centerLat), lng: Number(z.centerLng) };
-  if (!z.polygon?.length) return undefined;
-  const lat = z.polygon.reduce((a, p) => a + p[0], 0) / z.polygon.length;
-  const lng = z.polygon.reduce((a, p) => a + p[1], 0) / z.polygon.length;
-  return { lat, lng };
 }

@@ -420,6 +420,58 @@ describe('Áreas de entrega e taxa por área', () => {
     expect(d).toMatchObject({ precision: 'district' });
     await pub.get('/store/locate?number=5').expect(400);
   });
+
+  it('pino longe do endereço digitado não barateia a entrega', async () => {
+    const near = ((await get('adminA', '/delivery-zones').expect(200)).body.zones as {
+      id: string;
+      name: string;
+    }[]).find((z) => z.name === 'Até 1 km')!;
+    const promo = (
+      await post('adminA', '/delivery-zones', {
+        name: 'Promo',
+        kind: 'polygon',
+        polygon: [
+          [-23.69, -46.81],
+          [-23.69, -46.79],
+          [-23.71, -46.79],
+          [-23.71, -46.81],
+        ],
+        fee: '0.50',
+        position: 5,
+      }).expect(201)
+    ).body;
+    // O cardápio achou o endereço digitado no mapa (dentro da área de 3,00).
+    await pub.get('/store/locate?street=Rua%20Teste&number=10&district=Centro').expect(200);
+    const tk = () => randomBytes(24).toString('base64url');
+    const order = (extra: object = {}) =>
+      pub.post(
+        '/store/orders',
+        {
+          customerName: 'Bia',
+          customerPhone: '(11) 96666-1212',
+          paymentMethod: 'cash',
+          channel: 'delivery',
+          items: [{ productId: fx.prodA, quantity: 1 }],
+          token: tk(),
+          address: { street: 'Rua Teste', number: '10', district: 'Centro', lat: -23.7, lng: -46.8 },
+          ...extra,
+        },
+        key(),
+      );
+    const ok = (await order().expect(201)).body;
+    const [o] = await ownerQuery<{ delivery_fee: string }>(
+      `SELECT delivery_fee::text FROM orders WHERE tenant_id = $1 AND number = $2`,
+      [fx.tenantA, ok.number],
+    );
+    expect(o!.delivery_fee).toBe('3.00');
+    // Endereço digitado fora das áreas e o pino dentro de uma: pede para conferir.
+    await patch('adminA', `/delivery-zones/${near.id}`, { active: false }).expect(200);
+    await pub.get('/store/locate?street=Rua%20Teste&number=10&district=Centro').expect(200);
+    const bad = await order().expect(422);
+    expect(bad.body.message).toContain('longe do endereço');
+    await patch('adminA', `/delivery-zones/${near.id}`, { active: true }).expect(200);
+    await del('adminA', `/delivery-zones/${promo.id}`).expect(200);
+  });
 });
 
 describe('Link do entregador (sem login)', () => {

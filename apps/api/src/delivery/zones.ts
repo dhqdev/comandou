@@ -78,3 +78,32 @@ export function findZoneFor(zones: Zone[], p: LatLng, district?: string | null):
     .sort((a, b) => a.position - b.position)
     .find((z) => zoneNamesDistrict(z.name, district));
 }
+
+/** Centro de uma área (onde a loja atende, para a busca de endereço). */
+export function zoneCenter(z: Zone | undefined): { lat: number; lng: number } | undefined {
+  if (!z) return undefined;
+  if (z.kind === 'radius' && z.centerLat && z.centerLng)
+    return { lat: Number(z.centerLat), lng: Number(z.centerLng) };
+  if (!z.polygon?.length) return undefined;
+  const lat = z.polygon.reduce((a, p) => a + p[0], 0) / z.polygon.length;
+  const lng = z.polygon.reduce((a, p) => a + p[1], 0) / z.polygon.length;
+  return { lat, lng };
+}
+
+/**
+ * Onde procurar o endereço do cliente: perto da loja e das áreas, na cidade dela. O mesmo
+ * contexto na busca do cardápio e na conferência do pedido (a busca guardada é achada de novo).
+ */
+export function locateContext(
+  s: { storeLat: string | null; storeLng: string | null },
+  region: { city: string | null; state: string | null },
+  zones: Zone[],
+) {
+  const refs = zones
+    .filter((z) => z.active)
+    .map((z) => zoneCenter(z))
+    .filter((p): p is { lat: number; lng: number } => !!p);
+  const store =
+    s.storeLat && s.storeLng ? { lat: Number(s.storeLat), lng: Number(s.storeLng) } : undefined;
+  return { near: store ?? refs[0], refs, city: region.city, state: region.state };
+}

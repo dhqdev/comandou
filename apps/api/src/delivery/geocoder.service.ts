@@ -19,6 +19,14 @@ export interface Located extends GeoResult {
   precision: GeoPrecision;
 }
 
+export interface LocateContext {
+  near?: { lat: number; lng: number };
+  /** Outros pontos onde a loja atende (centro das áreas de entrega). */
+  refs?: { lat: number; lng: number }[];
+  city?: string | null;
+  state?: string | null;
+}
+
 export interface AddressQuery {
   street: string;
   number?: string;
@@ -58,6 +66,23 @@ const clean = (s: string | undefined) =>
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 120);
+
+/** Endereço digitado, limpo, com a cidade da loja quando o cliente não disse. */
+function locateFields(input: AddressQuery, ctx: LocateContext) {
+  return {
+    street: clean(input.street),
+    number: clean(input.number).replace(/^(n[ºo°]?|num|número|numero)\.?\s*/i, ''),
+    district: clean(input.district),
+    city: clean(input.city) || clean(ctx.city ?? ''),
+    state: clean(input.state).toUpperCase() || (ctx.state ?? '').toUpperCase(),
+  };
+}
+
+function locateKey(input: AddressQuery, ctx: LocateContext) {
+  const a = locateFields(input, ctx);
+  const cepDigits = (input.cep ?? '').replace(/\D/g, '');
+  return `loc|${fold([a.street, a.number, a.district, a.city, a.state, cepDigits].join('|'))}|${nearKey(ctx.near)}|${(ctx.refs ?? []).map((r) => nearKey(r)).join(';')}`;
+}
 
 /** "Rua Doutor Herculano Gouvea Neto" → "Herculano Gouvea Neto" (sem tipo e sem títulos). */
 export function streetCore(street: string): string {
@@ -144,6 +169,14 @@ export class GeocoderService {
     @Optional() private readonly cep?: CepService,
   ) {}
 
+  /**
+   * O ponto que `locate` já achou para este endereço (sem buscar de novo, sem esperar): o pedido
+   * confere o pino do cliente com ele. Sem nada guardado, null.
+   */
+  peek(input: AddressQuery, ctx: LocateContext): Located | null {
+    return this.hit<Located | null>(locateKey(input, ctx))?.value ?? null;
+  }
+
   /** Busca solta (a equipe marcando a loja no mapa). Lança 503 se o serviço não responder. */
   async search(query: string, near?: { lat: number; lng: number }): Promise<GeoResult[]> {
     const q = query.trim().replace(/\s+/g, ' ').slice(0, 200);
@@ -167,28 +200,13 @@ export class GeocoderService {
    * bairro, a cidade. Nunca falha: sem nada, devolve o ponto da loja (`store`) para o cliente
    * marcar a casa no mapa. O CEP corrige a grafia da rua, do bairro e a cidade.
    */
-  async locate(
-    input: AddressQuery,
-    ctx: {
-      near?: { lat: number; lng: number };
-      /** Outros pontos onde a loja atende (centro das áreas de entrega). */
-      refs?: { lat: number; lng: number }[];
-      city?: string | null;
-      state?: string | null;
-    },
-  ): Promise<Located | null> {
+  async locate(input: AddressQuery, ctx: LocateContext): Promise<Located | null> {
     const deadline = Date.now() + LOCATE_BUDGET_MS;
-    let a = {
-      street: clean(input.street),
-      number: clean(input.number).replace(/^(n[ºo°]?|num|número|numero)\.?\s*/i, ''),
-      district: clean(input.district),
-      city: clean(input.city) || clean(ctx.city ?? ''),
-      state: clean(input.state).toUpperCase() || (ctx.state ?? '').toUpperCase(),
-    };
+    let a = locateFields(input, ctx);
     const cepDigits = (input.cep ?? '').replace(/\D/g, '');
     // Cidade que o cliente digitou ou que veio do CEP: o resultado tem de ser nela.
     let ownCity = !!clean(input.city);
-    const key = `loc|${fold([a.street, a.number, a.district, a.city, a.state, cepDigits].join('|'))}|${nearKey(ctx.near)}|${(ctx.refs ?? []).map((r) => nearKey(r)).join(';')}`;
+    const key = locateKey(input, ctx);
     const hit = this.hit<Located | null>(key);
     if (hit) return hit.value;
 

@@ -5,6 +5,7 @@ import {
   HttpException,
   Injectable,
   NotFoundException,
+  Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
@@ -28,7 +29,8 @@ import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { OnlinePayService } from '../online-pay/online-pay.service';
 import { ZonesService } from '../delivery/zones.service';
-import { distanceM } from '../delivery/zones';
+import { distanceM, locateContext } from '../delivery/zones';
+import { GeocoderService } from '../delivery/geocoder.service';
 import { customerMapOf } from '../delivery/delivery.service';
 import { menuTreeSql } from '../catalog/menu-sql';
 import { modelUrls } from '../catalog/models.controller';
@@ -288,6 +290,9 @@ const COLUMN: Record<keyof StoreSettings, string> = {
 /** Comprovantes por pedido (o cliente reenvia se a loja recusar). */
 export const MAX_PIX_RECEIPTS = 5;
 
+/** Pino mais longe que isso do endereço digitado (achado no mapa) é conferido. */
+export const PIN_DRIFT_M = 1_500;
+
 
 /**
  * Pedido pela mesa: até onde do ponto da loja o celular pode estar. O GPS dentro do salão erra, então
@@ -384,6 +389,7 @@ export class StoreService {
     private readonly realtime: RealtimeService,
     private readonly zones: ZonesService,
     private readonly onlinePay: OnlinePayService,
+    @Optional() private readonly geocoder?: GeocoderService,
   ) {
     realtime.onCacheClear((tenantId) => this.popularCache.delete(tenantId));
   }
@@ -1005,6 +1011,28 @@ export class StoreService {
       if (quote?.zone) {
         fee = quote.fee;
         if (quote.minOrder) minSubtotal = quote.minOrder;
+      }
+      // O pino escolhe a área e a taxa. Com o endereço digitado achado no mapa (a busca que o
+      // cardápio fez, guardada), o pino longe dele não barateia a entrega: vale a taxa maior, e o
+      // endereço fora das áreas pede para conferir.
+      if (quote?.zone && point && a) {
+        const typed = await this.db.withTenant(ctx, async (tx) => {
+          const found = this.geocoder?.peek(
+            a,
+            locateContext(s, await this.regionIn(tx, s), await this.zones.listIn(tx)),
+          );
+          if (!found || (found.precision !== 'house' && found.precision !== 'street')) return null;
+          if (distanceM([found.lat, found.lng], [point.lat, point.lng]) <= PIN_DRIFT_M) return null;
+          return this.zones.quoteIn(tx, [found.lat, found.lng], s.deliveryFee, a.district);
+        });
+        if (typed && !typed.covered)
+          throw new UnprocessableEntityException(
+            'O ponto no mapa está longe do endereço digitado. Confira o endereço e o ponto da entrega.',
+          );
+        if (typed?.zone && toCents(typed.fee) > toCents(fee)) {
+          fee = typed.fee;
+          if (typed.minOrder) minSubtotal = typed.minOrder;
+        }
       }
     }
     // Mesa: entra na comanda aberta dela (ou abre uma, no nome do cliente). Sem taxa de entrega
