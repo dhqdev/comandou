@@ -9,25 +9,19 @@ import type {
 } from './types';
 import type { CredentialItem } from './credentials/KeyInUse';
 import { ago, levelFor, type Level } from './ui';
+import { finished, serviceLevel, servicesWithProblem } from './service-health';
 
 /**
  * Leituras da tela Status do Super Admin, sem React (testadas em status-alerts.test.ts): o que
  * é problema de verdade e o que é o normal de cada coisa.
  */
 
+// Situação de cada serviço: a mesma regra de Infraestrutura › Servidor (service-health.ts).
+export { serviceLevel };
 /** Serviço de execução única (migração) que já terminou bem: 0 rodando é o esperado. */
-export const finishedService = (s: ServerService) => s.running === 0 && s.taskState === 'complete';
-
-export function serviceLevel(s: ServerService): Level {
-  if (s.desired === 0) return 'off';
-  if (finishedService(s)) return 'ok';
-  if (s.desired !== null && s.running < s.desired) return s.running === 0 ? 'bad' : 'warn';
-  return 'ok';
-}
-
+export const finishedService = finished;
 /** Serviços com problema de verdade (o migrate que terminou bem e o desligado não contam). */
-export const badServices = (list: ServerService[]) =>
-  list.filter((s) => serviceLevel(s) !== 'ok' && s.desired !== 0);
+export const badServices = servicesWithProblem;
 
 /** Idade do último sucesso: alerta se o backup passou de 26 h ou o teste de 8 dias. */
 export function ageLevel(at: string | null, warnHours: number): Level {

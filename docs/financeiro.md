@@ -37,9 +37,10 @@ Entregas (`courier-pay.service.ts`; o painel só mostra o que falta pagar a ele 
    do período, mês inteiro = salário inteiro, `prorateMonthly`), diária por dia trabalhado, % das
    vendas (itens com desconto, `subtotal - discount`) e % da taxa de serviço (`surcharge`) dos
    pedidos que ela lançou (`orders.created_by`, menos os cancelados). Tudo somado (`staffPay`).
-2. **Dia trabalhado** (`staff_workdays`): gravado pela sessão no login e no toque de 1 minuto da
-   `SessionService.validate` (`users/workdays.ts`, num SAVEPOINT: se falhar, a sessão segue).
-   Acesso do suporte não conta. Ao pagar, o gerente pode corrigir os dias.
+2. **Dia trabalhado** (`staff_workdays`): gravado pela sessão no login e quando a pessoa age
+   (requisição que grava, não GET; no máximo uma vez por hora por réplica) em
+   `SessionService.validate` (`users/workdays.ts`, num SAVEPOINT: se falhar, a sessão segue). Tela só
+   aberta (tablet, socket do tempo real) não conta desde a 0.245.3. Acesso do suporte não conta. Ao pagar, o gerente pode corrigir os dias.
 3. **A pagar**: do dia seguinte ao último período pago (ou do começo do mês / da entrada na
    equipe) até hoje. O mesmo período nunca é pago duas vezes (trava consultiva por pessoa e
    `from > último period_to`).

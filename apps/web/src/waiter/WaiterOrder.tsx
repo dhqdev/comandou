@@ -22,7 +22,9 @@ import {
   Skeleton,
 } from '../design-system';
 import { api, ApiError } from '../lib/api';
+import { useRealtime } from '../lib/realtime';
 import { newIdempotencyKey } from '../lib/idempotency';
+import { isIdempotencyMismatch } from '../pages/public/checkout-retry';
 import { isOfflineResult } from '../lib/offline';
 import { mediaUrl } from '../lib/media';
 import { brl, parseBrlInput } from '../lib/money';
@@ -104,6 +106,21 @@ export function WaiterOrder() {
   // Uma chave por pedido: reenvio depois de falha de rede não duplica.
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Cardápio mudou com a tela aberta (item esgotado, preço novo): lê de novo sem trocar a categoria.
+  useRealtime((e) => {
+    if (e.type !== 'menu.changed') return;
+    api<MenuCategory[]>(`/menu?channel=${channel}`).then(
+      (m) => {
+        const withProducts = m.filter((c) => c.products.length > 0);
+        setMenu(withProducts);
+        setActive((a) =>
+          a && withProducts.some((c) => c.id === a) ? a : (withProducts[0]?.id ?? null),
+        );
+      },
+      () => undefined,
+    );
+  });
 
   useEffect(() => {
     api<MenuCategory[]>(`/menu?channel=${channel}`).then(
@@ -288,6 +305,15 @@ export function WaiterOrder() {
       else navigate('/garcom/pedidos', { replace: true });
     } catch (e) {
       // Mantém a chave: se o servidor já gravou, o reenvio devolve o mesmo pedido.
+      // O primeiro envio já virou pedido e o carrinho mudou depois: chave nova (senão todo envio
+      // seguinte falha) e aviso para conferir antes de mandar de novo.
+      if (e instanceof ApiError && isIdempotencyMismatch(e)) {
+        setIdemKey(newIdempotencyKey());
+        setSendError(
+          'O primeiro envio já entrou como pedido. Confira em Pedidos antes de enviar de novo.',
+        );
+        return;
+      }
       setSendError(
         e instanceof ApiError && e.status === 0
           ? 'Sem conexão. Toque em enviar de novo: o pedido não será duplicado.'

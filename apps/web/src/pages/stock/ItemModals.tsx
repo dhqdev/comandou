@@ -1,5 +1,5 @@
 import { formatBRL, toCents } from '@comandou/shared';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, Button, Modal, Segmented, TextField, useToast } from '../../design-system';
 import {
   CheckField,
@@ -274,6 +274,9 @@ export function ItemModal({
     shelfOk &&
     (!item || !!code.trim());
 
+  // Insumo novo já criado numa tentativa anterior (o saldo inicial falhou): salvar de novo só
+  // manda o saldo, sem criar um segundo insumo igual.
+  const createdId = useRef<string | null>(null);
   async function save() {
     setBusy(true);
     setError(null);
@@ -292,9 +295,9 @@ export function ItemModal({
       };
       if (item) await api(`/stock/items/${item.id}`, { method: 'PATCH', json });
       else {
-        const created = await api<StockItem>('/stock/items', { method: 'POST', json });
+        createdId.current ??= (await api<StockItem>('/stock/items', { method: 'POST', json })).id;
         if (initialQty && toMilli(initialQty) > 0) {
-          await api(`/stock/items/${created.id}/movements`, {
+          await api(`/stock/items/${createdId.current}/movements`, {
             method: 'POST',
             json: {
               kind: 'purchase',

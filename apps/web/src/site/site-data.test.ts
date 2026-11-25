@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { siteCandidate } from './host';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { SECOND_LEVEL_SUFFIX, siteCandidate } from './host';
 import { looksLikeUrl, parseItems } from './site-data';
 
 describe('site público', () => {
@@ -30,5 +32,18 @@ describe('site público', () => {
     expect(siteCandidate('admin.comandou.com')).toBe(false);
     expect(siteCandidate('localhost')).toBe(false);
     expect(siteCandidate('192.168.0.10')).toBe(false);
+  });
+
+  it('domínio base com final de dois nomes (outra instalação em .com.br)', () => {
+    expect(siteCandidate('comandou.com.br')).toBe(true);
+    expect(siteCandidate('www.comandou.com.br')).toBe(true);
+    expect(siteCandidate('empresa.co.uk')).toBe(true);
+    expect(siteCandidate('fumaca.comandou.com.br')).toBe(false);
+    expect(siteCandidate('admin.comandou.com.br')).toBe(false);
+    // Restaurante num subdomínio de domínio comum continua sendo restaurante.
+    expect(siteCandidate('fumaca.comandou.com')).toBe(false);
+    // O boot.js (esqueleto antes do app) usa a mesma regra.
+    const boot = readFileSync(join(__dirname, '../../public/boot.js'), 'utf8');
+    expect(boot).toContain(SECOND_LEVEL_SUFFIX.source);
   });
 });

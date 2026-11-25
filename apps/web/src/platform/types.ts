@@ -88,7 +88,7 @@ export type TenantDatabaseStatus =
 /** Trabalho de banco (criar, mover para banco próprio, excluir) feito pelo serviço de backup. */
 export interface DbJob {
   id: string;
-  kind: 'create' | 'move' | 'delete' | 'transfer' | 'migrate' | 'receive';
+  kind: 'create' | 'move' | 'delete' | 'transfer' | 'migrate' | 'receive' | 'upgrade';
   status: 'queued' | 'running' | 'done' | 'failed';
   step: string | null;
   error: string | null;
@@ -638,6 +638,8 @@ export interface DbServerRestaurant {
   name: string;
   status: string;
   dbStatus: TenantDatabaseStatus;
+  /** Trabalho de banco na fila ou rodando (ex.: esperando a vez no "Mover todos"). */
+  busy?: boolean;
 }
 
 export interface DbServer {

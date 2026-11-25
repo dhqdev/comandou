@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { cpSync, existsSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runBackup } from '../src/backup/jobs';
 import { S3Client } from '../src/backup/s3-client';
 import { DatabaseService } from '../src/database/database.service';
+import { migrate, MIGRATIONS_DIR } from '../src/database/migrator';
 import { databaseUrl, TenantDatabaseUnavailable } from '../src/database/tenant-database';
 import { PlatformDb } from '../src/platform/platform-db.service';
 import { PlatformDatabasesService } from '../src/platform/platform-databases.service';
@@ -156,17 +157,45 @@ describe.skipIf(!PG_BIN || ROOT)('Servidores de banco: trocar um restaurante de 
     ).rejects.toThrow(/servidor principal/);
   });
 
-  it('leva o restaurante para o outro servidor com tudo conferido, sem acesso durante a cópia', async () => {
+  it('leva o restaurante para o outro servidor com tudo conferido, sem acesso só durante a cópia', async () => {
     await servers.transfer(fx.tenantA, serverId, actor);
+    // Na fila, o restaurante segue funcionando (no "Mover todos" cada um espera a vez no ar).
     db.router.forget();
-    await expect(db.router.poolFor(fx.tenantA)).rejects.toBeInstanceOf(TenantDatabaseUnavailable);
-    // O painel continua lendo do servidor de origem durante a cópia.
-    const h = await platformDb.tenantDb(fx.tenantA);
-    expect(
-      await h.query(`SELECT 1 FROM memberships WHERE tenant_id = $1`, [fx.tenantA]),
-    ).toHaveLength(2);
-
-    expect(await runQueuedDbJobs()).toEqual(['done']);
+    await expect(db.router.poolFor(fx.tenantA)).resolves.toBeDefined();
+    const queued = await servers.list();
+    expect(queued.main.restaurants.find((r) => r.id === fx.tenantA)).toMatchObject({
+      dbStatus: 'ready',
+      busy: true,
+    });
+    // Durante a cópia: sem acesso pela API; o painel continua lendo do servidor de origem.
+    let during: unknown = null;
+    let panelRows = -1;
+    const settle = {
+      log: (m: string) => {
+        if (during === null && /Esperando as conexões/.test(m)) during = 'pending';
+      },
+    };
+    const watcher = (async () => {
+      for (let i = 0; i < 200 && during !== 'checked'; i++) {
+        if (during === 'pending') {
+          db.router.forget();
+          during = await db.router.poolFor(fx.tenantA).then(
+            () => 'available',
+            (e) => e,
+          );
+          const h = await platformDb.tenantDb(fx.tenantA);
+          panelRows = (
+            await h.query(`SELECT 1 FROM memberships WHERE tenant_id = $1`, [fx.tenantA])
+          ).length;
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 25));
+      }
+    })();
+    expect(await runQueuedDbJobs({ ...settle, settleMs: 1_500 })).toEqual(['done']);
+    await watcher;
+    expect(during).toBeInstanceOf(TenantDatabaseUnavailable);
+    expect(panelRows).toBe(2);
     db.router.forget();
     expect(await db.router.locationOf(fx.tenantA)).toEqual({
       kind: 'dedicated',
@@ -251,6 +280,113 @@ describe.skipIf(!PG_BIN || ROOT)('Servidores de banco: trocar um restaurante de 
     });
     expect(n).toBe(1);
     await servers.remove(fake.id, actor);
+  });
+
+  /** Pedido de troca gravado direto na fila (simula um trabalho que o serviço já tinha começado). */
+  const queueTransfer = (from: string | null, to: string | null, result = {}) =>
+    ownerQuery(
+      `INSERT INTO tenant_db_jobs (tenant_id, tenant_slug, tenant_name, kind, payload, result)
+       VALUES ($1, 'tst-sv-a', 'Restaurante A', 'transfer', $2, $3)`,
+      [fx.tenantA, { fromServerId: from, toServerId: to }, result],
+    );
+  const products = () =>
+    db.withTenant({ tenantId: fx.tenantA }, async (tx) => {
+      const x = await tx.execute(sql`SELECT count(*)::int AS n FROM products`);
+      return (x.rows[0] as { n: number }).n;
+    });
+  const tenantStatus = async () =>
+    (
+      await ownerQuery<{ t: string; d: string; server: string | null }>(
+        `SELECT t.status AS t, d.status AS d, d.server_id AS server FROM tenants t
+           JOIN tenant_databases d ON d.tenant_id = t.id WHERE t.id = $1`,
+        [fx.tenantA],
+      )
+    )[0];
+
+  it('restaurante numa versão anterior troca de servidor e continua na mesma versão', async () => {
+    // O serviço de backup conhece uma migração a mais que o banco do restaurante (o restaurante
+    // ficou na versão anterior). Antes, o banco novo ganhava essa migração e a cópia falhava.
+    const newer = join(dir, 'migracoes-versao-nova');
+    cpSync(MIGRATIONS_DIR, newer, { recursive: true });
+    writeFileSync(join(newer, '9999_versao_nova.sql'), 'SELECT 1;\n');
+    await ownerQuery(
+      `INSERT INTO schema_migrations (version, checksum) VALUES ('9999_versao_nova.sql', 'x')`,
+    );
+    try {
+      await servers.transfer(fx.tenantA, serverId, actor);
+      expect(await runQueuedDbJobs({ migrationsDir: newer })).toEqual(['done']);
+    } finally {
+      await ownerQuery(`DELETE FROM schema_migrations WHERE version = '9999_versao_nova.sql'`);
+    }
+    const there = await query<{ version: string }>(
+      databaseUrl(OWNER_URL, dbName, second),
+      `SELECT version FROM schema_migrations WHERE version = '9999_versao_nova.sql'`,
+    );
+    expect(there).toEqual([]);
+    db.router.forget();
+    expect(await products()).toBe(1);
+  });
+
+  it('serviço reiniciado depois da troca: retoma e só apaga o banco antigo', async () => {
+    // O restaurante já está no servidor 2; o banco antigo ficou no principal.
+    await ownerQuery(`CREATE DATABASE ${dbName}`);
+    await queueTransfer(null, serverId);
+    expect(await runQueuedDbJobs()).toEqual(['done']);
+    expect(await ownerQuery(`SELECT 1 FROM pg_database WHERE datname = $1`, [dbName])).toEqual([]);
+    const [job] = await ownerQuery<{ result: { resumed?: boolean } }>(
+      `SELECT result FROM tenant_db_jobs WHERE tenant_id = $1 ORDER BY id DESC LIMIT 1`,
+      [fx.tenantA],
+    );
+    expect(job.result.resumed).toBe(true);
+    expect(await tenantStatus()).toEqual({ t: 'provisioned', d: 'ready', server: serverId });
+  });
+
+  it('serviço reiniciado antes da troca: refaz o banco novo que ele mesmo criou', async () => {
+    // Sobra no principal de uma tentativa que caiu depois da cópia (com dados).
+    await ownerQuery(`CREATE DATABASE ${dbName}`);
+    const leftover = databaseUrl(OWNER_URL, dbName);
+    await migrate(leftover, undefined, () => undefined);
+    await query(
+      leftover,
+      `INSERT INTO tenants (id, slug, name, status) VALUES ($1, 'tst-sv-a', 'Sobra', 'moving')`,
+      [fx.tenantA],
+    );
+    // Sem a marca de que foi este trabalho que criou: não mexe e o restaurante segue no ar.
+    await queueTransfer(serverId, null);
+    expect(await runQueuedDbJobs()).toEqual(['failed']);
+    expect(await tenantStatus()).toEqual({ t: 'provisioned', d: 'ready', server: serverId });
+    db.router.forget();
+    expect(await products()).toBe(1);
+    // Com a marca (o mesmo trabalho criou o banco antes de cair): apaga, refaz e termina.
+    await queueTransfer(serverId, null, { targetCreated: true });
+    expect(await runQueuedDbJobs()).toEqual(['done']);
+    expect(await tenantStatus()).toEqual({ t: 'provisioned', d: 'ready', server: null });
+    db.router.forget();
+    expect(await products()).toBe(1);
+    expect(await query(leftover, `SELECT name FROM tenants`)).toEqual([
+      { name: 'Restaurante A tst-sv' },
+    ]);
+  });
+
+  it('servidor de destino removido com a troca na fila: falha sem tirar o restaurante do ar', async () => {
+    const list = await servers.create(
+      {
+        name: 'Banco 3',
+        host: '127.0.0.1',
+        port: 1,
+        ssl: 'disable',
+        acceptsNew: false,
+        note: null,
+      },
+      actor,
+    );
+    const third = list.servers.find((x) => x.name === 'Banco 3')!;
+    await servers.transfer(fx.tenantA, third.id, actor);
+    await servers.remove(third.id, actor);
+    expect(await runQueuedDbJobs()).toEqual(['failed']);
+    expect(await tenantStatus()).toEqual({ t: 'provisioned', d: 'ready', server: null });
+    db.router.forget();
+    expect(await products()).toBe(1);
   });
 
   it('mover todos: esvazia o servidor, um restaurante por vez, e aí dá para remover', async () => {

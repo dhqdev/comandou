@@ -22,11 +22,7 @@ import {
 } from './ui';
 import { ConsumptionRanking } from './TenantInsights';
 import { UpdatePanel } from './UpdatePanel';
-import {
-  badServices as problemServices,
-  finishedService as finished,
-  serviceLevel,
-} from './status-alerts';
+import { finished, serviceLevel, servicesWithProblem } from './service-health';
 
 const rate = (bps: number | null) => (bps === null ? '—' : `${bytes(bps)}/s`);
 
@@ -98,7 +94,7 @@ export function ServerPage() {
   const containers = (docker?.containers.list ?? []).filter(
     (c) => !q || c.name.toLowerCase().includes(q) || c.image.toLowerCase().includes(q),
   );
-  const badServices = problemServices(docker?.services ?? []);
+  const badServices = servicesWithProblem(docker?.services ?? []);
 
   return (
     <>

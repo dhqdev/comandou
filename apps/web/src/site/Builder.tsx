@@ -394,6 +394,12 @@ export function Builder({
         if (s.state === 'failed') {
           setState('failed');
           onMood('sad');
+          // Não volta para este cadastro ao recarregar: a pessoa pode tentar de novo.
+          try {
+            sessionStorage.removeItem(STORE_KEY);
+          } catch {
+            /* sem armazenamento */
+          }
           return;
         }
       } catch {
@@ -621,6 +627,21 @@ export function Builder({
               </Button>
               <Button onClick={enter} loading={!reachable}>
                 {reachable ? 'Abrir meu restaurante' : 'Preparando o endereço'}
+              </Button>
+            </>
+          ) : state === 'failed' ? (
+            <>
+              <Button variant="ghost" onClick={() => setOpen(false)}>
+                Fechar
+              </Button>
+              <Button
+                onClick={() => {
+                  setCreated(null);
+                  setState('creating');
+                  setError(null);
+                }}
+              >
+                Tentar de novo
               </Button>
             </>
           ) : undefined

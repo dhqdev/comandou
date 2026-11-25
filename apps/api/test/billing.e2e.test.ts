@@ -929,6 +929,30 @@ describe('Página de preços, cartão automático e plano menor', () => {
     expect(pay.body.ok).toBe(true);
   });
 
+  it('restaurante migrado para outra instalação: daqui o cartão não é mais cobrado', async () => {
+    const today = spDate();
+    const r = await psend('post', `/billing/tenants/${fx.tenantA}/invoices`, {
+      description: 'Avulsa antes de migrar',
+      amount: '12.00',
+      dueDate: today,
+    }).expect(201);
+    const inv = r.body.invoices.find(
+      (i: { description: string }) => i.description === 'Avulsa antes de migrar',
+    );
+    await ownerQuery(`UPDATE tenants SET status = 'migrated' WHERE id = $1`, [fx.tenantA]);
+    try {
+      await billing.runCycle();
+    } finally {
+      await ownerQuery(`UPDATE tenants SET status = 'provisioned' WHERE id = $1`, [fx.tenantA]);
+    }
+    const [row] = await ownerQuery<{ status: string; tries: string | null }>(
+      `SELECT status, data->>'cardTries' AS tries FROM billing_invoices WHERE id = $1`,
+      [inv.id],
+    );
+    expect(row).toEqual({ status: 'pending', tries: null });
+    await psend('post', `/billing/invoices/${inv.id}/cancel`).expect(200);
+  });
+
   it('plano menor: agenda para o próximo período, a mensalidade sai com o preço novo', async () => {
     expect((await subRow()).plan_id).toBe(plans.pro);
     await tpost(HOST_A, ownerA, '/subscription/downgrade', { planId: plans.pro }).expect(409);

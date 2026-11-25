@@ -179,12 +179,19 @@ export function OrderDetailModal({
     | { cancelItem: OrderItem }
   >(null);
 
+  // Pedido aberto agora: resposta de um pedido aberto antes (rede lenta) não entra na tela, senão
+  // Receber/Cancelar agiriam no pedido errado.
+  const current = useRef(orderId);
+  current.current = orderId;
   const load = useCallback(async () => {
     if (!orderId) return;
     try {
-      setOrder(await api<Order>(`/orders/${orderId}`));
+      const o = await api<Order>(`/orders/${orderId}`);
+      if (current.current !== orderId) return;
+      setOrder(o);
       setError(null);
     } catch (e) {
+      if (current.current !== orderId) return;
       setError((e as Error).message);
     }
   }, [orderId]);

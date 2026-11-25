@@ -49,7 +49,12 @@ export class ChannelPoller implements OnApplicationBootstrap, OnModuleDestroy {
   readonly holder = `${hostname().slice(0, 60)}:${process.pid}:${randomUUID().slice(0, 8)}`;
   private timer?: NodeJS.Timeout;
   private sweepTimer?: NodeJS.Timeout;
-  private running = false;
+  /**
+   * Credenciais com uma rodada em andamento nesta réplica. Cada uma anda sozinha: um aplicativo
+   * lento ou fora do ar (Keeta com 20 lojas, por exemplo) não atrasa o polling do iFood, que tem
+   * de rodar a cada 30 s para a loja não ficar indisponível.
+   */
+  private readonly busy = new Set<string>();
   private readonly startedAt = Date.now() / 1000;
 
   constructor(
@@ -95,9 +100,7 @@ export class ChannelPoller implements OnApplicationBootstrap, OnModuleDestroy {
   /** Uma rodada de polling de todas as credenciais. */
   async tick(): Promise<PollSummary> {
     const sum: PollSummary = { credentials: 0, polled: 0, skipped: 0, events: 0, acked: 0 };
-    if (this.running) return sum;
-    this.running = true;
-    try {
+    {
       const targets = await this.db.queryUnscoped<Target>(
         'SELECT channel, store_id, tenant_id, store_ref, credential FROM app_channel_poll_targets()',
         [],
@@ -117,18 +120,32 @@ export class ChannelPoller implements OnApplicationBootstrap, OnModuleDestroy {
           this.metrics.lastPoll.set({ channel: a.id }, this.startedAt);
         }
       }
+      const runs: Promise<void>[] = [];
       for (const [credential, list] of byCred) {
         sum.credentials++;
-        const r = await this.pollCredential(credential, list);
-        if (r === null) sum.skipped++;
-        else {
-          sum.polled++;
-          sum.events += r.events;
-          sum.acked += r.acked;
+        if (this.busy.has(credential)) {
+          sum.skipped++;
+          continue;
         }
+        this.busy.add(credential);
+        runs.push(
+          this.pollCredential(credential, list)
+            .then((r) => {
+              if (r === null) sum.skipped++;
+              else {
+                sum.polled++;
+                sum.events += r.events;
+                sum.acked += r.acked;
+              }
+            })
+            .finally(() => this.busy.delete(credential)),
+        );
       }
-    } finally {
-      this.running = false;
+      // Espera as desta rodada (o resumo é delas), mas a próxima rodada não espera esta acabar:
+      // quem está livre roda de novo, quem ainda está ocupado fica de fora.
+      const done = await Promise.allSettled(runs);
+      const failed = done.find((d): d is PromiseRejectedResult => d.status === 'rejected');
+      if (failed) throw failed.reason;
     }
     return sum;
   }

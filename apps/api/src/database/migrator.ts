@@ -21,6 +21,11 @@ export async function migrate(
   ownerUrl: string,
   dir = MIGRATIONS_DIR,
   log = console.log,
+  /**
+   * Só estas migrações (as outras ficam de fora). Usado ao trocar um restaurante de servidor: o
+   * banco novo fica na mesma versão do antigo, mesmo que o restaurante esteja numa versão anterior.
+   */
+  only?: ReadonlySet<string>,
 ): Promise<MigrationResult> {
   const client = new Client({ connectionString: ownerUrl });
   await client.connect();
@@ -34,7 +39,7 @@ export async function migrate(
     );
     const applied = new Map(rows.map((r) => [r.version, r.checksum]));
     const files = readdirSync(dir)
-      .filter((f) => /^\d{4}_[a-z0-9_]+\.sql$/.test(f))
+      .filter((f) => /^\d{4}_[a-z0-9_]+\.sql$/.test(f) && (!only || only.has(f)))
       .sort();
     for (const file of files) {
       const sql = readFileSync(join(dir, file), 'utf8');
