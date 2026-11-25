@@ -101,6 +101,13 @@ As do painel se colam, testam e salvam ali mesmo, cifradas, e **Conferir todas a
 chave salva no fornecedor e mostra a que foi recusada. Lista completa em
 [docs/credenciais.md](docs/credenciais.md).
 
+**Painel de bolso pelo WhatsApp.** Os números cadastrados em **WhatsApp › Menu do admin** recebem
+um menu de opções ao escrever para o WhatsApp do painel: resumo do sistema, escolher um restaurante
+(visão geral, movimento, varredura completa, equipe, histórico, banco e backup, limpar cache),
+saúde do servidor, backups, bancos e servidores, restaurantes novos e cobrança. Os mesmos números
+recebem avisos automáticos (backup que falhou, serviço fora do ar, banco que não ficou pronto,
+restaurante novo, assinatura em atraso) e o resumo do dia. Guia em [docs/whatsapp.md](docs/whatsapp.md).
+
 **E-mail próprio, sem n8n.** Todo e-mail do sistema (boas-vindas do teste, login e senha do
 restaurante criado no painel, código de nova senha, avisos de fim do teste e de mensalidade,
 contratos) sai pelo **Resend**, com o panda do Comandou e modo escuro, por uma fila que tenta de

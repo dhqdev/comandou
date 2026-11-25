@@ -1,4 +1,12 @@
-import { ArrowLeft, ExternalLink, MessageCircle, Plus, Search, SendHorizontal } from 'lucide-react';
+import {
+  ArrowLeft,
+  Bot,
+  ExternalLink,
+  MessageCircle,
+  Plus,
+  Search,
+  SendHorizontal,
+} from 'lucide-react';
 import QRCode from 'qrcode';
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -14,7 +22,9 @@ import {
 } from '../design-system';
 import '../features/store-chat/support-inbox.css';
 import { api } from '../lib/api';
+import { AdminMenuModal } from './AdminMenuModal';
 import { Monogram, PageHead } from './ui';
+import { formatPhone } from './wa-phone';
 import './whatsapp-admin.css';
 
 /**
@@ -76,12 +86,7 @@ const KIND: Record<string, string> = {
   other: 'Mensagem',
 };
 
-/** +55 11 91234-5678 */
-export function formatPhone(d: string | null) {
-  if (!d) return '';
-  const m = /^55(\d{2})(\d{4,5})(\d{4})$/.exec(d);
-  return m ? `+55 ${m[1]} ${m[2]}-${m[3]}` : `+${d}`;
-}
+export { formatPhone };
 const titleOf = (c: Chat) =>
   c.name || (c.phone ? formatPhone(c.phone) : c.tenant?.name) || 'Contato';
 
@@ -481,6 +486,7 @@ export function WhatsAppAdminPage() {
   const [list, setList] = useState<Chat[] | null>(null);
   const [q, setQ] = useState('');
   const [creating, setCreating] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const qRef = useRef(q);
   qRef.current = q;
 
@@ -553,6 +559,14 @@ export function WhatsAppAdminPage() {
                   Nova conversa
                 </Button>
               )}
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Bot size={16} />}
+                onClick={() => setMenuOpen(true)}
+              >
+                Menu do admin
+              </Button>
               {(connected || s.status === 'qr' || s.status === 'connecting') && (
                 <Button size="sm" variant="ghost" loading={acting} onClick={() => call('logout')}>
                   Desconectar
@@ -647,6 +661,7 @@ export function WhatsAppAdminPage() {
           </div>
         </div>
       )}
+      {menuOpen && <AdminMenuModal onClose={() => setMenuOpen(false)} />}
       {creating && (
         <NewChat
           onClose={() => setCreating(false)}

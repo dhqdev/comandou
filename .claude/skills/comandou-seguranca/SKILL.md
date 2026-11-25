@@ -129,6 +129,11 @@ cookie, CSRF, corpo gigante e Host estranho.
   propõe: o servidor confere a proposta (sintaxe, largura) e a pessoa aplica e salva.
 - O que entra no prompt respeita a permissão de quem pergunta (`roleHas` antes de montar o
   contexto): dado que o perfil não vê na tela também não vai para a IA dele.
+- Menu do Super Admin pelo WhatsApp (`platform-whatsapp/admin-bot.service.ts`) só responde a
+  número cadastrado de Super Admin ativo (`operatorFor`); opção nova que muda algo pede SIM
+  (`PendingAction`), chama o serviço da tela com o `Actor` do dono do número e grava
+  `whatsapp.menu_action`. Nada destrutivo (suspender, excluir, senha, acesso de suporte) pelo
+  WhatsApp.
 - IA do WhatsApp só vê dados do **próprio número** que escreveu (reservas por `upcomingByPhone`,
   pedidos das últimas 24 h por `AiAgentService.ordersIn`, que compara DDD + 8 últimos dígitos).
 - Link que o assistente da equipe manda só vira botão para tela que existe (`isKnownAppPath` de
