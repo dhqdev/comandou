@@ -1428,12 +1428,19 @@ export const FUMACA: DemoCatalog = {
           'Um ano de Fumaça! Obrigado a cada um que fez parte. Olha esse burger que virou capa do cardápio. 🔥',
           true,
           'burger-fumaca',
+          [
+            ['kitchen', 12, 'Orgulho demais dessa chapa! 🍔'],
+            ['waiter', 40, 'Parabéns, equipe! Que venham mais anos.'],
+            ['manager', 95, 'Sexta tem bolo depois do fechamento, ninguém foge 🎂'],
+          ],
         ],
         [
           'manager',
           22,
           'Escala do fim de semana: Lucas e Mariana no salão, Anderson e Kaique nas entregas, Edson na chapa.',
           false,
+          null,
+          [['driver', 25, 'Fechado! Sábado eu pego a partir das 18h.']],
         ],
         [
           'kitchen',

@@ -6,8 +6,10 @@ import {
   Globe,
   LogIn,
   MessageCircle,
+  PanelRight,
   RotateCcw,
   Search,
+  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
@@ -70,6 +72,17 @@ const host = (slug: string) =>
     .replace(/\/$/, '');
 
 const POLL_MS = 8000;
+/** Conversa aberta e na tela: confere mais vezes (o painel não tem tempo real). */
+const OPEN_POLL_MS = 3000;
+/** Coluna do restaurante ao lado da conversa: fechada por padrão (a conversa fica maior). */
+const DETAILS_KEY = 'cm-admin-support-details';
+function savedDetails() {
+  try {
+    return localStorage.getItem(DETAILS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 export const SUPPORT_CHANGED_EVENT = 'cm:admin-support-changed';
 const changed = () => window.dispatchEvent(new Event(SUPPORT_CHANGED_EVENT));
 
@@ -136,6 +149,15 @@ function Conversation({
   const { open, busy, sheet } = useOpenTenant();
   const [d, setD] = useState<(Omit<Detail, 'messages'> & { messages: ChatMessage[] }) | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [details, setDetailsState] = useState(savedDetails);
+  const setDetails = (on: boolean) => {
+    setDetailsState(on);
+    try {
+      localStorage.setItem(DETAILS_KEY, on ? '1' : '0');
+    } catch {
+      /* sem armazenamento: só não lembra */
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -161,8 +183,13 @@ function Conversation({
   useEffect(() => {
     setD(null);
     void load();
-    const t = setInterval(() => !document.hidden && void load(), POLL_MS);
-    return () => clearInterval(t);
+    const t = setInterval(() => !document.hidden && void load(), OPEN_POLL_MS);
+    const onShow = () => document.visibilityState === 'visible' && void load();
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onShow);
+    };
   }, [load]);
 
   async function setStatus(status: 'open' | 'closed') {
@@ -189,26 +216,35 @@ function Conversation({
         <button type="button" className="sinbox__back" aria-label="Voltar" onClick={onBack}>
           <ArrowLeft size={18} />
         </button>
-        <Monogram name={t.name} size={38} src={t.iconUrl} />
-        <div className="sinbox__who">
-          <strong>{t.name}</strong>
-          <small>
-            <span className="sinbox__state" data-closed={closed || undefined}>
-              {closed ? 'Conversa encerrada' : 'Conversa aberta'}
-            </span>
-            {t.planName && <span className="sinbox__plan">{t.planName}</span>}
-            <span className="sinbox__host">{host(t.slug)}</span>
-          </small>
-        </div>
+        <button
+          type="button"
+          className="sinbox__whobtn"
+          onClick={() => setDetails(!details)}
+          title={details ? 'Fechar os dados do restaurante' : 'Ver os dados do restaurante'}
+        >
+          <Monogram name={t.name} size={38} src={t.iconUrl} />
+          <span className="sinbox__who">
+            <strong>{t.name}</strong>
+            <small>
+              <span className="sinbox__state" data-closed={closed || undefined}>
+                {closed ? 'Conversa encerrada' : 'Conversa aberta'}
+              </span>
+              {t.planName && <span className="sinbox__plan">{t.planName}</span>}
+              <span className="sinbox__host">{host(t.slug)}</span>
+            </small>
+          </span>
+        </button>
         <div className="sinbox__actions">
-          <Link
-            className="sinbox__btn sinbox__btn--narrow"
-            to={`/restaurantes/${t.id}`}
-            title="Abrir o restaurante"
+          <button
+            type="button"
+            className="sinbox__btn"
+            onClick={() => void open(t.id)}
+            disabled={!!busy}
+            title="Abre o sistema do restaurante já entrado, numa nova aba"
           >
-            <ExternalLink size={15} />
-            <span className="sinbox__btn-text">Restaurante</span>
-          </Link>
+            <LogIn size={15} />
+            <span className="sinbox__btn-text">{busy ? 'Abrindo…' : 'Entrar no sistema'}</span>
+          </button>
           {d.messages.length > 0 &&
             (!closed ? (
               <button
@@ -226,12 +262,21 @@ function Conversation({
                 <span className="sinbox__btn-text">Reabrir</span>
               </button>
             ))}
+          <button
+            type="button"
+            className="sinbox__btn sinbox__btn--icon"
+            aria-pressed={details}
+            aria-label="Dados do restaurante"
+            title={details ? 'Fechar os dados do restaurante' : 'Ver os dados do restaurante'}
+            onClick={() => setDetails(!details)}
+          >
+            <PanelRight size={16} />
+          </button>
         </div>
       </header>
-      <div className="sinbox__body">
+      <div className="sinbox__body" data-details={details || undefined}>
         <ChatPane
           key={tenantId}
-          bubbles
           side="staff"
           names={{ customer: t.name, staff: 'Suporte Comandou' }}
           messages={d.messages}
@@ -287,7 +332,15 @@ function Conversation({
             </div>
           }
         />
-        <aside className="sdesk" aria-label="Sobre o restaurante">
+        <aside className="sdesk" aria-label="Sobre o restaurante" hidden={!details}>
+          <button
+            type="button"
+            className="sdesk__close"
+            aria-label="Fechar os dados do restaurante"
+            onClick={() => setDetails(false)}
+          >
+            <X size={16} />
+          </button>
           <div className="sdesk__card sdesk__who">
             <Monogram name={t.name} size={52} src={t.iconUrl} />
             <strong>{t.name}</strong>

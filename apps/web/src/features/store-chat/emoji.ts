@@ -83,14 +83,22 @@ export function rememberEmoji(e: string) {
   }
 }
 
-/** Mensagem só com emojis (até 3) aparece grande, sem balão. */
-export function emojiOnly(text: string): boolean {
+/**
+ * Quantos emojis tem a mensagem, se ela for só de emojis (até 3): 1, 2 ou 3. Texto comum (ou
+ * mais de 3 emojis) dá 0. A conversa mostra a mensagem só de emojis grande, sem balão.
+ */
+export function emojiCount(text: string): number {
   const t = text.trim();
-  if (!t || t.length > 24) return false;
+  if (!t || t.length > 24) return 0;
   const seg =
     typeof Intl !== 'undefined' && 'Segmenter' in Intl
       ? [...new Intl.Segmenter('pt-BR', { granularity: 'grapheme' }).segment(t.replace(/\s+/g, ''))]
       : null;
-  if (!seg || seg.length > 3) return false;
-  return seg.every((s) => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(s.segment));
+  if (!seg || seg.length > 3) return 0;
+  return seg.every((s) => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(s.segment))
+    ? seg.length
+    : 0;
 }
+
+/** Mensagem só com emojis (até 3) aparece grande, sem balão. */
+export const emojiOnly = (text: string): boolean => emojiCount(text) > 0;

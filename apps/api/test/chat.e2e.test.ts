@@ -476,6 +476,59 @@ describe('Chat da equipe', () => {
     await send('waiterA', 'delete', `/chat/posts/${p.id}`).expect(200);
   });
 
+  it('mural: comentários com aviso para quem publicou; autor ou gestor apaga', async () => {
+    const p = (
+      await send('waiterA', 'post', '/chat/posts', { body: 'Bolo de aniversário na copa' }).expect(
+        201,
+      )
+    ).body;
+    // Publicar devolve o recado inteiro (a tela troca o que mostrou na hora pelo salvo).
+    expect(p).toMatchObject({ authorId: ids.waiterA, commentCount: 0, comments: [] });
+    await send('adminA', 'post', '/chat/notices/read', {}).expect(200);
+    await send('waiterA', 'post', '/chat/notices/read', {}).expect(200);
+    const c1 = (
+      await send('adminA', 'post', `/chat/posts/${p.id}/comments`, { body: 'Obrigado! 🎂' }).expect(
+        201,
+      )
+    ).body;
+    expect(c1).toMatchObject({ postId: p.id, authorId: ids.adminA, body: 'Obrigado! 🎂' });
+    await send('waiterA', 'post', `/chat/posts/${p.id}/comments`, { body: 'De nada' }).expect(201);
+    await send('adminA', 'post', `/chat/posts/${p.id}/comments`, { body: 'Tem de chocolate?' });
+    await send('adminA', 'post', `/chat/posts/${p.id}/comments`, { body: '  ' }).expect(400);
+    // O recado traz o total e os 2 últimos; a lista completa vem por /comments.
+    const post = (await get('waiterA', '/chat/posts').expect(200)).body.find(
+      (x: { id: string }) => x.id === p.id,
+    );
+    expect(post.commentCount).toBe(3);
+    expect(post.comments.map((c: { body: string }) => c.body)).toEqual([
+      'De nada',
+      'Tem de chocolate?',
+    ]);
+    const all = (await get('waiterA', `/chat/posts/${p.id}/comments`).expect(200)).body;
+    expect(all.map((c: { body: string }) => c.body)).toEqual([
+      'Obrigado! 🎂',
+      'De nada',
+      'Tem de chocolate?',
+    ]);
+    // Quem publicou recebe aviso do comentário dos outros, não do próprio.
+    const notices = (await get('waiterA', '/chat/notices').expect(200)).body as {
+      title: string;
+    }[];
+    expect(notices.filter((n) => n.title.includes('comentou no seu recado'))).toHaveLength(2);
+    expect((await get('adminA', '/chat/notices').expect(200)).body).toEqual([]);
+    // Outro restaurante não lê nem comenta.
+    await get('adminB', `/chat/posts/${p.id}/comments`).expect(404);
+    await send('adminB', 'post', `/chat/posts/${p.id}/comments`, { body: 'oi' }).expect(404);
+    // Garçom não apaga comentário dos outros; o gestor apaga qualquer um.
+    await send('waiterA', 'delete', `/chat/comments/${c1.id}`).expect(403);
+    await send('adminA', 'delete', `/chat/comments/${all[1].id}`).expect(200);
+    await send('adminA', 'delete', `/chat/comments/${c1.id}`).expect(200);
+    const after = (await get('waiterA', `/chat/posts/${p.id}/comments`).expect(200)).body;
+    expect(after.map((c: { body: string }) => c.body)).toEqual(['Tem de chocolate?']);
+    await send('waiterA', 'delete', `/chat/posts/${p.id}`).expect(200);
+    await get('waiterA', `/chat/posts/${p.id}/comments`).expect(404);
+  });
+
   it('foto no chat: qualquer pessoa da equipe envia', async () => {
     const png = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',

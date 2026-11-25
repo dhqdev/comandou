@@ -71,6 +71,7 @@ const NewPost = z.object({
   body: z.string().trim().min(1).max(2000),
   imageId: uuid.nullable().optional(),
 });
+const NewComment = z.object({ body: z.string().trim().min(1).max(1000) });
 const Pin = z.object({ pinned: z.boolean() });
 const ReadNotices = z.object({ ids: z.array(uuid).max(200).optional() });
 const Before = z.string().datetime({ offset: true }).optional();
@@ -348,6 +349,35 @@ export class ChatController {
     @CurrentUser() u: AuthenticatedUser,
   ) {
     return this.chat.pinPost(ctxOf(t, u), id, b.pinned);
+  }
+
+  @Get('posts/:id/comments')
+  comments(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.chat.comments(ctxOf(t, u), id);
+  }
+
+  @Post('posts/:id/comments')
+  @Throttle({ default: { ttl: 60_000, limit: 40 } })
+  comment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(NewComment)) b: z.infer<typeof NewComment>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.chat.comment(ctxOf(t, u), id, b.body);
+  }
+
+  @Delete('comments/:id')
+  removeComment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.chat.removeComment(ctxOf(t, u), id);
   }
 
   @Delete('posts/:id')

@@ -1491,18 +1491,37 @@ button.adm-card:hover {
   color: var(--cm-text-muted);
   font-size: var(--cm-text-xs);
 }
-/* Conversa aberta: cabeçalho, a conversa em balões (como nos Chamados) e, no computador largo,
-   a coluna com o restaurante ao lado. */
+/* Conversa aberta: cabeçalho, a conversa em balões (no jeito do WhatsApp, na largura toda) e a
+   coluna do restaurante, que abre pelo nome ou pelo botão do topo (fechada, a conversa cresce). */
 /* Só no computador: no celular vale a coluna única do support-inbox.css (lista na largura toda,
    conversa por cima). Sem o @media, esta regra ganhava e sobrava uma coluna vazia à direita. */
 @media (min-width: 761px) {
   .adm-support .sinbox {
-    grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
   }
 }
 .adm-support .sinbox__head {
   min-height: 60px;
-  padding: 10px 16px;
+  padding: 8px 12px 8px 14px;
+}
+.sinbox__whobtn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+  margin: -4px 0 -4px -6px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sinbox__whobtn:hover {
+  background: var(--cm-surface-sunken);
 }
 .adm-support .sinbox__who {
   gap: 2px;
@@ -1555,7 +1574,17 @@ button.adm-card:hover {
   opacity: 0.6;
   cursor: default;
 }
+.adm-support .sinbox__btn--icon {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+}
+.adm-support .sinbox__btn[aria-pressed='true'] {
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
+  color: var(--cm-brand-700);
+}
 .sinbox__body {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -1585,25 +1614,58 @@ button.adm-card:hover {
   margin: 0;
 }
 
-/* Coluna do restaurante (só com espaço: a partir de 1280 px). */
+/* Coluna do restaurante: só quando aberta. Em tela larga fica ao lado da conversa; mais estreita,
+   abre por cima, encostada à direita. */
 .sdesk {
+  position: relative;
+  flex: none;
+  width: 284px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-left: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+  overflow-y: auto;
+  animation: sdesk-in 0.2s var(--cm-ease) both;
+}
+.sdesk[hidden] {
   display: none;
 }
-@media (min-width: 1280px) {
-  .adm-support .sinbox__btn--narrow {
-    display: none;
+@keyframes sdesk-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
   }
+}
+@media (max-width: 1199px) {
   .sdesk {
-    flex: none;
-    width: 272px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-    border-left: 1px solid var(--cm-border);
-    background: var(--cm-surface);
-    overflow-y: auto;
+    position: absolute;
+    z-index: 4;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(300px, 100%);
+    box-shadow: var(--cm-shadow-lg);
   }
+}
+.sdesk__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.sdesk__close:hover {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
 }
 .sdesk__card {
   display: grid;
@@ -1677,6 +1739,18 @@ button.adm-card:hover {
   color: var(--cm-text-subtle);
   font-size: var(--cm-text-xs);
   line-height: 1.45;
+}
+@media (max-width: 1100px) {
+  .adm-support .sinbox__plan {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .sdesk {
+    width: 100%;
+    border-left: 0;
+    box-shadow: none;
+  }
 }
 @media (max-width: 760px) {
   .adm-support .sinbox__host,

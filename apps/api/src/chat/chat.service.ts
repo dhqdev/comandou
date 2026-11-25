@@ -771,36 +771,81 @@ export class ChatService {
   }
 
   // ---------- mural ----------
+  // Recados para a equipe toda, com reações e comentários (os 2 últimos já vêm com o recado; o
+  // resto abre por `comments`).
 
   async posts(ctx: Ctx, before?: string) {
-    return this.db.withTenant(ctx, (tx) =>
-      q<{
-        id: string;
-        authorId: string | null;
-        authorName: string | null;
-        authorRole: Role | null;
-        body: string;
-        imageId: string | null;
-        pinned: boolean;
-        reactions: Record<string, string[]>;
-        createdAt: Date;
-      }>(
+    return this.db.withTenant(ctx, (tx) => postRows(tx, before ?? null, null));
+  }
+
+  async comments(ctx: Ctx, postId: string): Promise<PostComment[]> {
+    return this.db.withTenant(ctx, async (tx) => {
+      const p = await one(tx, `SELECT 1 FROM chat_posts WHERE id = $1 AND deleted_at IS NULL`, [
+        postId,
+      ]);
+      if (!p) throw new NotFoundException('Recado não encontrado');
+      const rows = await q<CommentRow>(
         tx,
-        `SELECT p.id, p.author_id AS "authorId", u.name AS "authorName", ms.role AS "authorRole",
-                p.body, p.image_id AS "imageId", p.pinned, p.reactions, p.created_at AS "createdAt"
-           FROM chat_posts p
-           LEFT JOIN users u ON u.id = p.author_id
-           LEFT JOIN memberships ms ON ms.user_id = p.author_id
-          WHERE p.deleted_at IS NULL AND ($1::timestamptz IS NULL OR p.created_at < $1)
-          ORDER BY ${before ? '' : 'p.pinned DESC,'} p.created_at DESC LIMIT 30`,
-        [before ?? null],
-      ).then((rows) =>
-        rows.map((r) => ({
-          ...r,
-          authorRole: r.authorRole ? (ROLE_LABELS[r.authorRole] ?? r.authorRole) : null,
-        })),
-      ),
-    );
+        `SELECT ${COMMENT_COLS} FROM chat_post_comments c LEFT JOIN users cu ON cu.id = c.author_id
+          WHERE c.post_id = $1 AND c.deleted_at IS NULL
+          ORDER BY c.created_at LIMIT 300`,
+        [postId],
+      );
+      return rows.map(commentView);
+    });
+  }
+
+  async comment(ctx: Ctx, postId: string, body: string): Promise<PostComment> {
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      const p = await one<{ authorId: string | null }>(
+        tx,
+        `SELECT author_id AS "authorId" FROM chat_posts WHERE id = $1 AND deleted_at IS NULL`,
+        [postId],
+      );
+      if (!p) throw new NotFoundException('Recado não encontrado');
+      const c = await one<{ id: string }>(
+        tx,
+        `INSERT INTO chat_post_comments (tenant_id, post_id, author_id, body)
+         VALUES ($1, $2, $3, $4) RETURNING id`,
+        [ctx.tenantId, postId, ctx.userId, body.trim()],
+      );
+      const row = await one<CommentRow>(
+        tx,
+        `SELECT ${COMMENT_COLS} FROM chat_post_comments c LEFT JOIN users cu ON cu.id = c.author_id
+          WHERE c.id = $1`,
+        [c!.id],
+      );
+      // Quem publicou fica sabendo (menos quando comenta no próprio recado).
+      const notify = p.authorId && p.authorId !== ctx.userId ? [p.authorId] : [];
+      for (const id of notify)
+        await this.notice(tx, ctx, id, {
+          kind: 'post',
+          title: `${ctx.user.name} comentou no seu recado`,
+          body: body.trim().slice(0, 300),
+          postId,
+        });
+      return { comment: commentView(row!), notify };
+    });
+    this.realtime.publish(ctx.tenantId, { type: 'chat.mural' });
+    if (res.notify.length)
+      this.realtime.publishToUsers(ctx.tenantId, res.notify, { type: 'chat.notice' });
+    return res.comment;
+  }
+
+  async removeComment(ctx: Ctx, id: string) {
+    await this.db.withTenant(ctx, async (tx) => {
+      const c = await one<{ authorId: string | null }>(
+        tx,
+        `SELECT author_id AS "authorId" FROM chat_post_comments WHERE id = $1 AND deleted_at IS NULL`,
+        [id],
+      );
+      if (!c) throw new NotFoundException('Comentário não encontrado');
+      if (c.authorId !== ctx.userId && !roleHas(ctx.user.role, 'settings:manage'))
+        throw new ForbiddenException('Só quem escreveu (ou o gestor) pode apagar');
+      await q(tx, `UPDATE chat_post_comments SET deleted_at = now() WHERE id = $1`, [id]);
+    });
+    this.realtime.publish(ctx.tenantId, { type: 'chat.mural' });
+    return { ok: true };
   }
 
   async post(ctx: Ctx, input: { body: string; imageId?: string | null }) {
@@ -827,11 +872,13 @@ export class ChatService {
           body: input.body.trim().slice(0, 300),
           postId: p!.id,
         });
-      return { id: p!.id, others: others.map((o) => o.id) };
+      const [post] = await postRows(tx, null, p!.id);
+      return { post: post!, others: others.map((o) => o.id) };
     });
     this.realtime.publish(ctx.tenantId, { type: 'chat.mural' });
     this.realtime.publishToUsers(ctx.tenantId, res.others, { type: 'chat.notice' });
-    return { id: res.id };
+    // O recado inteiro volta: a tela troca o que mostrou na hora pelo que ficou salvo.
+    return res.post;
   }
 
   async reactPost(ctx: Ctx, id: string, emoji: string) {
@@ -937,6 +984,75 @@ export class ChatService {
       ],
     );
   }
+}
+
+interface CommentRow {
+  id: string;
+  postId: string;
+  authorId: string | null;
+  authorName: string | null;
+  body: string;
+  createdAt: Date;
+}
+
+export interface PostComment {
+  id: string;
+  postId: string;
+  authorId: string | null;
+  authorName: string | null;
+  body: string;
+  createdAt: string;
+}
+
+const COMMENT_COLS = `c.id, c.post_id AS "postId", c.author_id AS "authorId",
+  cu.name AS "authorName", c.body, c.created_at AS "createdAt"`;
+
+function commentView(r: CommentRow): PostComment {
+  return { ...r, createdAt: new Date(r.createdAt).toISOString() };
+}
+
+/**
+ * Recados do Mural (fixados primeiro na primeira página), com o total de comentários e os 2
+ * últimos. `id` busca um só (o que acabou de ser publicado).
+ */
+async function postRows(tx: Tx, before: string | null, id: string | null) {
+  const rows = await q<{
+    id: string;
+    authorId: string | null;
+    authorName: string | null;
+    authorRole: Role | null;
+    body: string;
+    imageId: string | null;
+    pinned: boolean;
+    reactions: Record<string, string[]>;
+    createdAt: Date;
+    commentCount: number;
+    comments: CommentRow[] | null;
+  }>(
+    tx,
+    `SELECT p.id, p.author_id AS "authorId", u.name AS "authorName", ms.role AS "authorRole",
+            p.body, p.image_id AS "imageId", p.pinned, p.reactions, p.created_at AS "createdAt",
+            (SELECT count(*)::int FROM chat_post_comments c
+              WHERE c.post_id = p.id AND c.deleted_at IS NULL) AS "commentCount",
+            (SELECT json_agg(x ORDER BY x."createdAt") FROM (
+               SELECT ${COMMENT_COLS}
+                 FROM chat_post_comments c LEFT JOIN users cu ON cu.id = c.author_id
+                WHERE c.post_id = p.id AND c.deleted_at IS NULL
+                ORDER BY c.created_at DESC LIMIT 2) x) AS comments
+       FROM chat_posts p
+       LEFT JOIN users u ON u.id = p.author_id
+       LEFT JOIN memberships ms ON ms.user_id = p.author_id
+      WHERE p.deleted_at IS NULL
+        AND ($1::timestamptz IS NULL OR p.created_at < $1)
+        AND ($2::uuid IS NULL OR p.id = $2)
+      ORDER BY ${before ? '' : 'p.pinned DESC,'} p.created_at DESC LIMIT 30`,
+    [before, id],
+  );
+  return rows.map((r) => ({
+    ...r,
+    authorRole: r.authorRole ? (ROLE_LABELS[r.authorRole] ?? r.authorRole) : null,
+    comments: (r.comments ?? []).map(commentView),
+  }));
 }
 
 function view(r: MessageRow) {

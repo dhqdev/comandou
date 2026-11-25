@@ -35,8 +35,8 @@ export interface DemoExtras {
       messages: [string, number, string, Record<string, string[]>?][];
     }[];
     directs: { a: string; b: string; messages: [string, number, string][] }[];
-    /** Mural: [autor, horas atrás, texto, fixado, foto?]. */
-    posts: [string, number, string, boolean, string?][];
+    /** Mural: [autor, horas atrás, texto, fixado, foto?, comentários: [autor, minutos depois, texto]]. */
+    posts: [string, number, string, boolean, (string | null)?, [string, number, string][]?][];
     /** Avisos de menção: [para, de, sala, texto]. */
     mentions: [string, string, string, string][];
   };
@@ -283,7 +283,7 @@ export async function seedDemoExtras(c: ClientBase, x: DemoExtras, ctx: ExtrasCo
       );
     await addMessages(id, d.messages);
   }
-  for (const [author, hoursAgo, body, pinned, image] of x.chat.posts) {
+  for (const [author, hoursAgo, body, pinned, image, comments = []] of x.chat.posts) {
     const reactions: Record<string, string[]> = {
       '❤️': userKeys.filter(() => r.chance(0.35)).map(U),
       '👍': userKeys.filter(() => r.chance(0.25)).map(U),
@@ -304,6 +304,12 @@ export async function seedDemoExtras(c: ClientBase, x: DemoExtras, ctx: ExtrasCo
         iso(now - hoursAgo * HOUR),
       ],
     );
+    for (const [who, minutesAfter, text] of comments)
+      await c.query(
+        `INSERT INTO chat_post_comments (tenant_id, post_id, author_id, body, created_at)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [T, id, U(who), text, iso(now - hoursAgo * HOUR + minutesAfter * MIN)],
+      );
     for (const k of userKeys)
       if (k !== author)
         await c.query(

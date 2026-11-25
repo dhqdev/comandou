@@ -1,7 +1,8 @@
 /*
- * Conversa do cliente com a loja (cardápio online e painel da equipe).
- * Mesmo visual dos dois lados: mensagens em linha (avatar, nome, hora e texto), sem balões.
- * Só variáveis --cm-*; funciona nos temas claro e escuro, no celular e no computador.
+ * Conversa em balões, no jeito do WhatsApp: as mensagens de quem vê à direita (na cor da loja),
+ * as do outro lado à esquerda, encostadas nas bordas da conversa (sem coluna estreita no meio).
+ * Vale no Super Admin › Conversas, nas abas Suporte e Clientes do chat do sistema e na conversa
+ * do cardápio. Só variáveis --cm-*; claro e escuro, celular e computador.
  */
 .scx {
   position: relative;
@@ -9,7 +10,7 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  background: var(--cm-bg);
+  background: var(--cm-chat-wall);
 }
 
 /* ---------------------------------------------------------------- mensagens */
@@ -22,15 +23,13 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
 }
+/* A conversa usa a largura toda: os balões encostam nas bordas, como no WhatsApp. */
 .scx-thread__inner {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding: 12px 16px 10px;
-  max-width: 820px;
-  margin: 0 auto;
   min-height: 100%;
   justify-content: flex-end;
+  padding: 14px clamp(10px, 2.4vw, 28px) 12px;
 }
 .scx-more {
   align-self: center;
@@ -40,7 +39,7 @@
 }
 .scx-greeting {
   align-self: center;
-  max-width: min(420px, 92%);
+  max-width: min(440px, 92%);
   margin: 8px 0 14px;
   padding: 14px 16px;
   border: 1px solid var(--cm-border);
@@ -57,27 +56,34 @@
   color: var(--cm-text);
   font-size: var(--cm-text-md);
 }
-.scx-day {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 14px 0 2px;
-  color: var(--cm-text-subtle);
+/* Dia e aviso do sistema: pílula no meio. */
+.scx-day,
+.scx-system {
+  align-self: center;
+  max-width: 92%;
+  padding: 4px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
   font-size: var(--cm-text-xs);
   font-weight: 600;
-  text-transform: capitalize;
+  text-align: center;
 }
-.scx-day::before,
-.scx-day::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--cm-border);
+.scx-day {
+  margin: 16px 0 6px;
+}
+.scx-day::first-letter {
+  text-transform: uppercase;
+}
+.scx-system {
+  margin: 10px 0 4px;
+  font-weight: 500;
 }
 /* Dia que flutua no topo enquanto a conversa rola (some quando ela para). */
 .scx-float {
   position: sticky;
-  top: 6px;
+  top: 8px;
   z-index: 3;
   display: flex;
   justify-content: center;
@@ -91,146 +97,123 @@
   transition-duration: 0.08s;
 }
 .scx-float .scx-day {
-  display: block;
   margin: 0;
-  padding: 3px 10px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-full);
-  background: var(--cm-surface);
-  color: var(--cm-text-muted);
-  box-shadow: var(--cm-shadow-sm);
-}
-.scx-float .scx-day::before,
-.scx-float .scx-day::after {
-  content: none;
-}
-.scx-system {
-  align-self: center;
-  margin: 6px 0;
-  font-size: var(--cm-text-xs);
-  color: var(--cm-text-subtle);
+  box-shadow: var(--cm-shadow-lg);
 }
 
-/* Linha de mensagem: avatar, nome e hora em cima, o texto logo abaixo, tudo alinhado à
- * esquerda (dos dois lados da conversa). Mensagens seguidas da mesma pessoa ficam juntas, sem
- * repetir o avatar; a hora delas aparece na margem ao passar o mouse. */
+/* Linha da mensagem: o balão encosta à esquerda (outro lado) ou à direita (quem vê). Mensagens
+ * seguidas da mesma pessoa ficam coladas; a primeira de cada sequência tem o canto de cima
+ * reto do lado de quem falou. */
 .scx-msg {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  column-gap: 10px;
-  margin: 12px -8px 0;
-  padding: 2px 8px;
-  border-radius: var(--cm-radius-sm);
-}
-.scx-msg[data-grouped] {
-  margin-top: 0;
-}
-@media (hover: hover) {
-  .scx-msg:hover {
-    background: color-mix(in oklab, var(--cm-text) 4%, transparent);
-  }
-}
-.scx-msg__side {
   display: flex;
-  justify-content: center;
-}
-.scx-avatar {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
+  flex-direction: column;
+  align-items: flex-start;
   margin-top: 2px;
-  border-radius: 50%;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-  user-select: none;
 }
-.scx-msg__at {
-  padding-top: 5px;
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  color: var(--cm-text-subtle);
-  opacity: 0;
+.scx-msg[data-first] {
+  margin-top: 8px;
 }
-.scx-msg:hover .scx-msg__at {
-  opacity: 1;
+.scx-msg[data-mine] {
+  align-items: flex-end;
 }
-.scx-msg__main {
-  min-width: 0;
+.scx-bubble {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-}
-.scx-msg__head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  max-width: 100%;
-  line-height: 1.3;
-}
-.scx-msg__who {
+  gap: 4px;
   min-width: 0;
-  overflow: hidden;
-  font-size: var(--cm-text-sm);
-  font-weight: 650;
-  color: var(--cm-text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.scx-msg[data-mine] .scx-msg__who {
-  color: var(--cm-brand-700, var(--cm-brand-600));
-}
-.scx-msg__time {
-  flex: none;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: var(--cm-text-subtle);
-}
-.scx-body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  max-width: 100%;
+  max-width: min(72%, 680px);
+  padding: 6px 10px 7px;
+  border: 1px solid var(--cm-chat-other-line);
+  border-radius: 14px;
+  background: var(--cm-chat-other);
   color: var(--cm-text);
   overflow-wrap: anywhere;
 }
-.scx-msg[data-pending] .scx-body {
-  opacity: 0.6;
+.scx-msg[data-first]:not([data-mine]) .scx-bubble {
+  border-top-left-radius: 4px;
+}
+.scx-msg[data-mine] .scx-bubble {
+  border-color: var(--cm-chat-mine-line);
+  background: var(--cm-chat-mine);
+}
+.scx-msg[data-mine][data-first] .scx-bubble {
+  border-top-right-radius: 4px;
+}
+.scx-who {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--who-fg, var(--cm-text-muted));
+  font-size: var(--cm-text-xs);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-theme='dark'] .scx-who {
+  color: var(--who-bg, var(--cm-text-muted));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .scx-who {
+    color: var(--who-bg, var(--cm-text-muted));
+  }
 }
 .scx-text {
   margin: 0;
   font-size: var(--cm-text-md);
-  line-height: 1.45;
+  line-height: 1.42;
   white-space: pre-wrap;
 }
 .scx-text a {
-  color: var(--cm-brand-700, var(--cm-brand-600));
+  color: var(--cm-link);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.scx-body--emoji .scx-text {
-  font-size: 2.4rem;
-  line-height: 1.15;
+/* Hora e risquinhos no canto de baixo do balão. O espaço no fim do texto deixa a hora na mesma
+ * linha quando cabe (e numa linha só dela quando não cabe), como no WhatsApp. */
+.scx-meta-gap {
+  display: inline-block;
+  width: 42px;
+  height: 1px;
+}
+.scx-msg[data-mine] .scx-meta-gap {
+  width: 60px;
+}
+.scx-meta {
+  position: absolute;
+  right: 9px;
+  bottom: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--cm-chat-meta);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* Sem texto (só o pedido ou o chamado): a hora vai embaixo, à direita. */
+.scx-bubble:not(:has(> .scx-text)) > .scx-meta {
+  position: static;
+  align-self: flex-end;
 }
 .scx-status {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--cm-text-subtle);
 }
 .scx-status[data-read] {
-  color: var(--cm-info, #2f7fd1);
+  color: var(--cm-info);
+}
+.scx-status[data-state='failed'] {
+  color: var(--cm-danger);
 }
 .scx-retry {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 2px;
-  padding: 2px 0;
+  margin-top: 3px;
+  padding: 2px 4px;
   border: 0;
   background: none;
   color: var(--cm-danger);
@@ -239,23 +222,120 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+/* Só emojis (até 3): grandes, sem balão. */
+.scx-msg[data-emoji] .scx-bubble {
+  padding: 0 2px;
+  border-color: transparent;
+  background: none;
+}
+.scx-msg[data-emoji] .scx-text {
+  font-size: 44px;
+  line-height: 1.12;
+  letter-spacing: 0.02em;
+}
+.scx-msg[data-emoji='1'] .scx-text {
+  font-size: 54px;
+}
+.scx-msg[data-emoji='3'] .scx-text {
+  font-size: 38px;
+}
+.scx-msg[data-emoji] .scx-meta {
+  position: static;
+  align-self: flex-end;
+  padding: 2px 7px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-chat-other);
+}
+.scx-msg[data-mine][data-emoji] .scx-meta {
+  background: var(--cm-chat-mine);
+}
+
+/* Foto e vídeo: o balão abraça a imagem com uma borda fina; sem legenda, a hora fica por cima
+ * da foto numa pílula escura. */
+.scx-bubble[data-media] {
+  padding: 3px;
+}
+.scx-bubble[data-media='caption'] .scx-text {
+  padding: 2px 7px 4px;
+}
+.scx-bubble[data-media='caption'] > .scx-meta {
+  right: 10px;
+  bottom: 7px;
+}
+.scx-bubble[data-media='solo'] > .scx-meta {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  padding: 3px 7px;
+  border-radius: var(--cm-radius-full);
+  background: rgb(0 0 0 / 45%);
+  color: #fff;
+}
+.scx-bubble[data-media='solo'] .scx-status[data-read] {
+  color: #9cc7ff;
+}
+.scx-media {
+  position: relative;
+  display: block;
+  width: min(300px, 62vw);
+  max-height: 360px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  overflow: hidden;
+  background: var(--cm-surface-sunken);
+  cursor: zoom-in;
+}
+.scx-media img,
+.scx-media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 360px;
+  object-fit: cover;
+}
+.scx-media--video {
+  cursor: default;
+}
+.scx-media__play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: rgb(0 0 0 / 22%);
+  color: #fff;
+  cursor: pointer;
+}
+.scx-media__play svg {
+  padding: 14px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 45%);
+}
 .scx-gone {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 6px 8px;
   font-size: var(--cm-text-sm);
   font-style: italic;
   opacity: 0.8;
 }
+
+/* Pedido citado: pílula dentro do balão. */
 .scx-order {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   align-self: flex-start;
   padding: 6px 10px;
-  border: 1px solid color-mix(in oklab, currentColor 25%, transparent);
+  border: 1px solid color-mix(in oklab, currentColor 22%, transparent);
   border-radius: var(--cm-radius-md);
-  background: color-mix(in oklab, currentColor 8%, transparent);
+  background: color-mix(in oklab, currentColor 6%, transparent);
   color: inherit;
   font: inherit;
   font-size: var(--cm-text-sm);
@@ -276,8 +356,8 @@
   max-width: 420px;
   padding: 8px 10px;
   border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-bg);
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--cm-text) 4%, transparent);
   color: var(--cm-text);
   font: inherit;
   text-align: left;
@@ -339,105 +419,19 @@ button.scx-ticket:active {
   flex: none;
   color: var(--cm-text-subtle);
 }
-.scx-attach__order > svg,
-.scx-attach__order > button {
-  flex: none;
-}
-/* "Sobre o chamado #CH-0001" numa linha só; o título é que encurta com reticências. */
-.scx-attach__label {
-  white-space: nowrap;
-}
-.scx-attach__title {
-  min-width: 0;
-  max-width: 220px;
-  overflow: hidden;
-  color: var(--cm-text-muted);
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.scx-menu--tickets {
-  width: min(340px, calc(100vw - 24px));
-  max-height: 320px;
-  overflow-y: auto;
-}
-.scx-menu__ticket {
-  min-width: 0;
-  display: grid;
-  text-align: left;
-}
-.scx-menu__ticket strong {
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.scx-menu__ticket small {
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-xs);
-}
-.scx-menu__empty {
-  margin: 0;
-  padding: 10px 12px;
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
-}
 
-/* Foto e vídeo dentro do balão */
-.scx-media {
-  position: relative;
-  display: block;
-  width: min(280px, 62vw);
-  max-height: 340px;
-  margin: 2px 0;
-  padding: 0;
-  border: 0;
-  border-radius: var(--cm-radius-md);
-  overflow: hidden;
-  background: var(--cm-surface-sunken);
-  cursor: zoom-in;
-}
-.scx-media img,
-.scx-media video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  max-height: 340px;
-  object-fit: cover;
-}
-.scx-media--video {
-  cursor: default;
-}
-.scx-media__play {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: rgb(0 0 0 / 22%);
-  color: #fff;
-  cursor: pointer;
-}
-.scx-media__play svg {
-  padding: 14px;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  background: rgb(0 0 0 / 45%);
-  backdrop-filter: blur(4px);
-}
-
-/* Digitando… */
+/* Digitando: balão do outro lado com três pontinhos. */
 .scx-typing {
-  display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
-  padding-left: 2px;
+}
+.scx-typing .scx-bubble {
+  padding: 11px 13px;
 }
 .scx-typing__dots {
   display: inline-flex;
-  gap: 3px;
+  gap: 4px;
 }
 .scx-typing__dots span {
   width: 6px;
@@ -471,14 +465,14 @@ button.scx-ticket:active {
 
 .scx-down {
   position: sticky;
-  bottom: 10px;
+  bottom: 12px;
   left: 100%;
   z-index: 2;
   display: grid;
   place-items: center;
   width: 40px;
   height: 40px;
-  margin: -50px 14px 10px auto;
+  margin: -52px 16px 12px auto;
   border: 1px solid var(--cm-border-strong);
   border-radius: 50%;
   background: var(--cm-surface);
@@ -499,6 +493,49 @@ button.scx-ticket:active {
   font-size: 11px;
   font-weight: 700;
   line-height: 18px;
+}
+
+/* ---------------------------------------------------------------- efeitos
+ * Só o que acabou de chegar (ou de sair) entra com efeito, curto e suave: a sua mensagem sobe do
+ * campo para o lugar dela, a do outro lado aparece de leve e o emoji grande dá um pulinho. */
+.scx-msg[data-fresh] .scx-bubble {
+  transform-origin: 0 100%;
+  animation: scx-in 0.22s var(--cm-ease) both;
+}
+.scx-msg[data-fresh][data-mine] .scx-bubble {
+  transform-origin: 100% 100%;
+  animation: scx-send var(--cm-spring-dur) var(--cm-spring) both;
+}
+.scx-msg[data-fresh][data-emoji] .scx-bubble {
+  animation: scx-pop 0.3s var(--cm-ease) both;
+}
+.scx-system[data-fresh] {
+  animation: scx-in 0.22s var(--cm-ease) both;
+}
+@keyframes scx-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.97);
+  }
+}
+@keyframes scx-send {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0) scale(0.94);
+  }
+}
+@keyframes scx-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* Visualizador em tela cheia: <dialog> na camada de cima, por cima de qualquer barra. */
@@ -591,18 +628,15 @@ button.scx-ticket:active {
   pointer-events: none;
 }
 
-/* ---------------------------------------------------------------- campo de mensagem */
+/* ---------------------------------------------------------------- campo de mensagem
+ * Clipe à esquerda, o campo em pílula (com o botão de emoji dentro) e o botão redondo de enviar
+ * na cor da loja, como no WhatsApp. */
 .scx-compose {
   position: relative;
   flex: none;
-  padding: 8px 10px calc(8px + var(--scx-safe, 0px));
+  padding: 8px clamp(8px, 2vw, 20px) calc(10px + var(--scx-safe, 0px));
   border-top: 1px solid var(--cm-border);
   background: var(--cm-surface);
-}
-.scx-compose > * {
-  max-width: 820px;
-  margin-left: auto;
-  margin-right: auto;
 }
 .scx-compose__off {
   padding: 10px;
@@ -621,10 +655,12 @@ button.scx-ticket:active {
   min-width: 0;
   display: flex;
   align-items: flex-end;
-  border: 1px solid var(--cm-border-strong);
+  border: 1px solid var(--cm-input-line);
   border-radius: 22px;
-  background: var(--cm-bg);
-  transition: border-color var(--cm-dur-fast);
+  background: var(--cm-input-bg);
+  transition:
+    border-color var(--cm-dur-fast),
+    box-shadow var(--cm-dur-fast);
 }
 .scx-field:focus-within {
   border-color: var(--cm-brand-500);
@@ -635,16 +671,31 @@ button.scx-ticket:active {
   min-width: 0;
   min-height: 42px;
   max-height: 150px;
-  padding: 10px 4px 10px 14px;
+  padding: 10px 4px 10px 16px;
   border: 0;
   outline: 0;
   resize: none;
   background: transparent;
-  color: var(--cm-text);
+  color: var(--cm-input-text, var(--cm-text));
   /* 16px: o iPhone não dá zoom ao focar. */
   font: inherit;
   font-size: 16px;
   line-height: 1.35;
+}
+@media (min-width: 900px) and (pointer: fine) {
+  .scx-field textarea {
+    font-size: var(--cm-text-md);
+  }
+}
+/* O contorno de foco fica no campo inteiro (não no texto nem no botão de emoji dentro dele). */
+.scx-field textarea:focus,
+.scx-field textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.scx-field .scx-icon:focus-visible {
+  outline: none;
+  background: var(--cm-surface-sunken);
 }
 .scx-icon {
   flex: none;
@@ -659,17 +710,24 @@ button.scx-ticket:active {
   cursor: pointer;
   transition:
     background var(--cm-dur-fast),
-    color var(--cm-dur-fast);
+    color var(--cm-dur-fast),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
 .scx-icon:hover,
 .scx-icon[data-on] {
   background: var(--cm-surface-sunken);
   color: var(--cm-text);
 }
+.scx-icon:active {
+  transform: scale(0.92);
+}
 .scx-icon--in {
-  width: 38px;
-  height: 38px;
-  margin: 2px 2px 2px 0;
+  width: 36px;
+  height: 36px;
+  margin: 2px 3px 2px 0;
+}
+.scx-icon--in[data-on] {
+  color: var(--cm-brand-600);
 }
 .scx-send {
   flex: none;
@@ -683,15 +741,40 @@ button.scx-ticket:active {
   color: var(--cm-on-brand);
   cursor: pointer;
   transition:
-    transform 0.15s var(--cm-ease),
-    opacity var(--cm-dur-fast);
+    background var(--cm-dur-fast),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.scx-send:hover:not(:disabled) {
+  background: var(--cm-brand-700);
 }
 .scx-send:active:not(:disabled) {
-  transform: scale(0.92);
+  transform: scale(0.9);
 }
 .scx-send:disabled {
-  opacity: 0.4;
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-subtle);
   cursor: default;
+}
+/* Enviou: o aviãozinho sai pelo canto e volta, bem rápido. */
+.scx-send__icon[data-fly] {
+  animation: scx-fly 0.3s var(--cm-ease) both;
+}
+@keyframes scx-fly {
+  0% {
+    transform: none;
+  }
+  45% {
+    opacity: 0;
+    transform: translate(10px, -10px) scale(0.6);
+  }
+  46% {
+    opacity: 0;
+    transform: translate(-8px, 8px) scale(0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .scx-attach {
@@ -708,10 +791,10 @@ button.scx-ticket:active {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 6px 6px 6px;
+  padding: 6px;
   border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-lg);
-  background: var(--cm-bg);
+  background: var(--cm-chat-wall);
   font-size: var(--cm-text-sm);
   font-weight: 600;
 }
@@ -752,16 +835,35 @@ button.scx-ticket:active {
   font-size: var(--cm-text-sm);
   font-weight: 600;
 }
+.scx-attach__order > svg,
+.scx-attach__order > button {
+  flex: none;
+}
+/* "Sobre o chamado #CH-0001" numa linha só; o título é que encurta com reticências. */
+.scx-attach__label {
+  white-space: nowrap;
+}
+.scx-attach__title {
+  min-width: 0;
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--cm-text-muted);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
+/* Emojis: recentes e grupos em abas, grade grande que rola, emoji cresce ao passar o mouse. */
 .scx-emoji {
   display: flex;
   flex-direction: column;
   margin-bottom: 8px;
   border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-lg);
-  background: var(--cm-bg);
+  background: var(--cm-surface);
   overflow: hidden;
-  animation: scx-fade 0.14s var(--cm-ease) both;
+  transform-origin: 20px 100%;
+  animation: scx-pop-in var(--cm-spring-snappy-dur) var(--cm-spring-snappy) both;
 }
 .scx-emoji__tabs {
   display: flex;
@@ -773,15 +875,22 @@ button.scx-ticket:active {
 }
 .scx-emoji__tabs button {
   flex: 1 0 auto;
-  min-width: 38px;
+  min-width: 40px;
   height: 36px;
   border: 0;
   border-radius: var(--cm-radius-md);
   background: transparent;
   font-size: 20px;
   cursor: pointer;
-  filter: grayscale(0.7);
-  opacity: 0.7;
+  filter: grayscale(0.8);
+  opacity: 0.6;
+  transition:
+    opacity var(--cm-dur-fast),
+    filter var(--cm-dur-fast);
+}
+.scx-emoji__tabs button:hover {
+  opacity: 0.9;
+  filter: none;
 }
 .scx-emoji__tabs button[aria-selected='true'] {
   background: var(--cm-surface-sunken);
@@ -790,29 +899,38 @@ button.scx-ticket:active {
 }
 .scx-emoji__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
-  max-height: min(240px, 34vh);
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  max-height: min(260px, 36vh);
   padding: 6px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 .scx-emoji__grid button {
-  height: 42px;
+  height: 44px;
   border: 0;
   border-radius: var(--cm-radius-md);
   background: transparent;
-  font-size: 26px;
+  font-size: 28px;
   line-height: 1;
   cursor: pointer;
-  transition: transform 0.12s var(--cm-ease);
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
-.scx-emoji__grid button:hover {
-  background: var(--cm-surface-sunken);
-  transform: scale(1.12);
+@media (hover: hover) {
+  .scx-emoji__grid button:hover {
+    background: var(--cm-surface-sunken);
+    transform: scale(1.18);
+  }
 }
 .scx-emoji__grid button:active {
-  transform: scale(0.9);
+  transform: scale(0.88);
 }
+@keyframes scx-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
 .scx-menu,
 .scx-quick {
   display: flex;
@@ -822,7 +940,7 @@ button.scx-ticket:active {
   padding: 4px;
   border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-lg);
-  background: var(--cm-bg);
+  background: var(--cm-surface);
   animation: scx-fade 0.14s var(--cm-ease) both;
 }
 /* Menu do clipe: flutua acima do botão (não empurra a conversa) e cresce a partir dele. */
@@ -840,12 +958,11 @@ button.scx-ticket:active {
   min-width: 228px;
   max-width: calc(100vw - 24px);
   margin: 0;
-  background: var(--cm-surface);
   box-shadow: var(--cm-shadow-lg);
   transform-origin: 20px 100%;
-  animation: scx-pop var(--cm-spring-snappy-dur, 0.28s) var(--cm-spring-snappy, ease) both;
+  animation: scx-pop-menu var(--cm-spring-snappy-dur, 0.28s) var(--cm-spring-snappy, ease) both;
 }
-@keyframes scx-pop {
+@keyframes scx-pop-menu {
   from {
     opacity: 0;
     transform: scale(0.94);
@@ -875,273 +992,58 @@ button.scx-ticket:active {
   max-height: 220px;
   overflow-y: auto;
 }
-
-@media (min-width: 900px) {
-  .scx-msg {
-    max-width: min(66%, 560px);
-  }
-  .scx-media {
-    width: 300px;
-  }
+.scx-menu--tickets {
+  width: min(340px, calc(100vw - 24px));
+  max-height: 320px;
+  overflow-y: auto;
+}
+.scx-menu__ticket {
+  min-width: 0;
+  display: grid;
+  text-align: left;
+}
+.scx-menu__ticket strong {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scx-menu__ticket small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.scx-menu__empty {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
 }
 
-/* O contorno de foco fica no campo inteiro (não no texto nem no botão de emoji dentro dele). */
-.scx-field textarea:focus,
-.scx-field textarea:focus-visible {
-  outline: none;
-  box-shadow: none;
-}
-.scx-field .scx-icon:focus-visible {
-  outline: none;
-  background: var(--cm-surface-sunken);
-}
-
-/* ---------------------------------------------------------------- campo numa caixa só
- * Anexo, texto, emoji e enviar dentro da mesma caixa de cantos suaves. */
-.scx-compose {
-  padding: 4px 16px calc(12px + var(--scx-safe, 0px));
-  border-top: 0;
-  background: inherit;
-}
-.scx-compose__row {
-  gap: 0;
-  padding: 2px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-lg);
-  background: var(--cm-surface);
-}
-.scx-compose__row:focus-within {
-  border-color: var(--cm-border-strong);
-}
-.scx-field,
-.scx-field:focus-within {
-  border: 0;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-}
-.scx-field textarea {
-  padding-left: 6px;
-}
-.scx-icon,
-.scx-send {
-  width: 40px;
-  height: 40px;
-  margin: 1px;
-  border-radius: var(--cm-radius-md);
-}
-.scx-send {
-  background: none;
-  color: var(--cm-brand-600);
-}
-.scx-send:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--cm-brand-500) 10%, transparent);
-}
-.scx-send:disabled {
-  color: var(--cm-text-subtle);
-}
+/* ---------------------------------------------------------------- celular */
 @media (max-width: 600px) {
   .scx-thread__inner {
-    padding-inline: 12px;
+    padding: 10px 8px 8px;
+  }
+  .scx-bubble {
+    max-width: 86%;
   }
   .scx-compose {
-    padding-inline: 10px;
+    padding-inline: 6px;
   }
-  .scx-msg {
-    grid-template-columns: 32px minmax(0, 1fr);
-    column-gap: 8px;
+  .scx-compose__row {
+    gap: 4px;
   }
-  .scx-avatar {
-    width: 32px;
-    height: 32px;
-    font-size: 12px;
+  .scx-icon {
+    width: 40px;
   }
 }
 
-/* ---------------------------------------------------------------- balões (Super Admin)
- * Mesmo desenho dos Chamados: fundo um tom abaixo, quem vê à direita em --cm-brand-50, o outro
- * lado à esquerda na superfície com o avatar, dia e aviso em pílula no meio, hora no balão. */
-.scx--bubbles {
-  background: var(--cm-surface-sunken, var(--cm-bg));
-}
-.scx-thread--bubbles .scx-thread__inner {
-  max-width: 1040px;
-  padding: 16px clamp(12px, 3vw, 32px) 12px;
-}
-.scx-thread--bubbles .scx-day {
-  display: block;
-  text-transform: none;
-  align-self: center;
-  margin: 16px 0 8px;
-  padding: 3px 12px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-full);
-  background: var(--cm-surface);
-  color: var(--cm-text-muted);
-}
-.scx-thread--bubbles .scx-day::first-letter {
-  text-transform: uppercase;
-}
-.scx-thread--bubbles .scx-thread__inner > .scx-day::before,
-.scx-thread--bubbles .scx-thread__inner > .scx-day::after {
-  content: none;
-}
-.scx-thread--bubbles .scx-system {
-  margin: 10px 0 2px;
-  padding: 5px 12px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-full);
-  background: var(--cm-surface);
-  color: var(--cm-text-muted);
-  text-align: center;
-}
-.scx-thread--bubbles .scx-msg {
-  grid-template-columns: 32px minmax(0, 1fr);
-  column-gap: 8px;
-  max-width: min(680px, 80%);
-  margin: 10px 0 0;
-  padding: 0;
-  animation: scx-bubble-in var(--cm-spring-dur) var(--cm-spring) both;
-}
-.scx-thread--bubbles .scx-msg[data-grouped] {
-  margin-top: 3px;
-}
-.scx-thread--bubbles .scx-msg:hover {
-  background: none;
-}
-.scx-thread--bubbles .scx-msg[data-mine] {
-  grid-template-columns: minmax(0, 1fr);
-  align-self: flex-end;
-}
-.scx-thread--bubbles .scx-msg[data-mine] .scx-msg__side,
-.scx-thread--bubbles .scx-msg__at,
-.scx-thread--bubbles .scx-msg__time {
-  display: none;
-}
-.scx-thread--bubbles .scx-avatar {
-  width: 32px;
-  height: 32px;
-  margin-top: 20px;
-  font-size: 12px;
-}
-.scx-thread--bubbles .scx-msg[data-mine] .scx-msg__main {
-  align-items: flex-end;
-}
-.scx-thread--bubbles .scx-msg__head {
-  padding: 0 4px 3px;
-}
-.scx-thread--bubbles .scx-msg__who,
-.scx-thread--bubbles .scx-msg[data-mine] .scx-msg__who {
-  font-size: var(--cm-text-xs);
-  font-weight: 600;
-  color: var(--cm-text-muted);
-}
-.scx-thread--bubbles .scx-body {
-  gap: 6px;
-  min-width: 72px;
-  padding: 8px 12px 6px;
-  border: 1px solid var(--cm-border);
-  border-radius: 16px;
-  background: var(--cm-surface);
-}
-.scx-thread--bubbles .scx-msg:not([data-mine]):not([data-grouped]) .scx-body {
-  border-top-left-radius: 4px;
-}
-.scx-thread--bubbles .scx-msg[data-mine] .scx-body {
-  border-color: var(--cm-brand-100);
-  background: var(--cm-brand-50);
-}
-.scx-thread--bubbles .scx-msg[data-mine]:not([data-grouped]) .scx-body {
-  border-top-right-radius: 4px;
-}
-/* Foto: o balão abraça a imagem, com uma borda fina em volta. */
-.scx-thread--bubbles .scx-body:has(> .scx-media) {
-  padding: 4px 4px 6px;
-}
-.scx-thread--bubbles .scx-body:has(> .scx-media) .scx-text {
-  padding: 2px 8px 0;
-}
-.scx-thread--bubbles .scx-media {
-  border-radius: 12px;
-}
-.scx-thread--bubbles .scx-body--emoji {
-  border-color: transparent;
-  background: none;
-  padding: 0 2px;
-}
-.scx-thread--bubbles .scx-msg[data-mine] .scx-body--emoji {
-  border-color: transparent;
-  background: none;
-}
-.scx-thread--bubbles .scx-text {
-  font-size: var(--cm-text-sm);
-  line-height: 1.5;
-}
-.scx-body__time {
-  align-self: flex-end;
-  margin: -2px 0 0 auto;
-  padding-right: 4px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: var(--cm-text-subtle);
-}
-.scx-thread--bubbles .scx-body:has(> .scx-media) .scx-body__time {
-  padding-right: 8px;
-}
-.scx-thread--bubbles .scx-status,
-.scx-thread--bubbles .scx-retry {
-  padding: 0 4px;
-}
-.scx--bubbles .scx-compose {
-  padding: 10px clamp(12px, 3vw, 32px) calc(12px + var(--scx-safe, 0px));
-  border-top: 1px solid var(--cm-border);
-  background: var(--cm-surface);
-}
-.scx--bubbles .scx-compose > * {
-  max-width: 1040px;
-}
-.scx--bubbles .scx-compose__row {
-  padding: 3px;
-  border-color: var(--cm-border-strong);
-  border-radius: 24px;
-  background: var(--cm-surface);
-}
-.scx--bubbles .scx-compose__row:focus-within {
-  border-color: var(--cm-brand-500);
-  box-shadow: var(--cm-focus);
-}
-.scx--bubbles .scx-icon {
-  border-radius: 50%;
-}
-.scx--bubbles .scx-send {
-  border-radius: 50%;
-  background: var(--cm-brand-600);
-  color: var(--cm-on-brand);
-}
-.scx--bubbles .scx-send:hover:not(:disabled) {
-  background: var(--cm-brand-700);
-}
-.scx--bubbles .scx-send:disabled {
-  background: var(--cm-surface-muted, var(--cm-surface-sunken));
-  color: var(--cm-text-subtle);
-  opacity: 1;
-}
-@keyframes scx-bubble-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  .scx-thread--bubbles .scx-msg {
+  .scx-msg[data-fresh] .scx-bubble,
+  .scx-system[data-fresh],
+  .scx-send__icon[data-fly],
+  .scx-emoji,
+  .scx-menu {
     animation: none;
-  }
-}
-@media (max-width: 600px) {
-  .scx-thread--bubbles .scx-msg {
-    max-width: 88%;
-  }
-  .scx-thread--bubbles .scx-msg[data-mine] {
-    max-width: 82%;
   }
 }

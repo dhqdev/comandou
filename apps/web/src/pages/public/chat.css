@@ -39,7 +39,6 @@ html.sf-chat-open .sf:not([data-layout='desktop']) {
 }
 .sfchat .scx {
   --scx-safe: env(safe-area-inset-bottom, 0px);
-  background: var(--cm-surface);
 }
 .sfchat__main {
   flex: 1;
