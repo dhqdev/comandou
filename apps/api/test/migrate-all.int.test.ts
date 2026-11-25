@@ -93,7 +93,12 @@ describe('Migrações em uma lista de bancos', () => {
         rows.map((r) => r.id),
       );
       try {
-        const names = (list: string[]) => list.map((u) => new URL(u).pathname.slice(1));
+        // Só os bancos deste teste: outros arquivos (platform.e2e, por exemplo) deixam bancos
+        // próprios prontos no mesmo registro, e a ordem entre arquivos muda a cada execução.
+        const names = (list: string[]) =>
+          list
+            .map((u) => new URL(u).pathname.slice(1))
+            .filter((n) => n.startsWith('comandou_tst_reg_'));
         // Sem versão conhecida: todos os prontos. Com versão: o preso à v0.1.0 fica de fora.
         expect(names(await registeredDatabases(OWNER_URL, ''))).toEqual([
           'comandou_tst_reg_a',
