@@ -84,5 +84,14 @@ import { PlatformCacheService } from './platform-cache.service';
     ServerAgentClient,
     ReleaseFeed,
   ],
+  // O menu do Super Admin pelo WhatsApp (platform-whatsapp) lê pelos mesmos serviços das telas.
+  exports: [
+    PlatformService,
+    PlatformBackupService,
+    PlatformCacheService,
+    PlatformDatabasesService,
+    PlatformDbServersService,
+    PlatformVersionsService,
+  ],
 })
 export class PlatformModule {}

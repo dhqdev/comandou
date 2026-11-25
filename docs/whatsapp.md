@@ -137,3 +137,38 @@ em `messaging/whatsapp-inbound.service.ts`). O gateway não muda nada: para ele 
   comparando DDD + 8 últimos dígitos.
 - Só texto por enquanto (foto, áudio e outros chegam como "Foto", "Áudio"...). Teste:
   `apps/api/test/platform-whatsapp.e2e.test.ts`.
+
+### Menu do Super Admin pelo WhatsApp
+
+Super Admin › WhatsApp › **Menu do admin** (`apps/web/src/platform/AdminMenuModal.tsx`) cadastra os
+números (`platform_wa_operators`, migração 0115, cada um de um Super Admin) que recebem o menu.
+Mensagem de texto de um desses números, depois de gravada na conversa, vai para
+`PlatformWaBot.handle` (`admin-bot.service.ts`); qualquer outro número segue só na conversa, sem
+resposta automática. A conversa do menu não fica como "não lida".
+
+- **Menu**: 1 resumo do sistema, 2 escolher restaurante, 3 saúde do servidor, 4 varredura geral,
+  5 backups (fazer agora, teste de restauração), 6 bancos e servidores, 7 restaurantes novos e
+  testes grátis, 8 cobrança, 9 ligar/desligar os próprios avisos. Texto solto busca um restaurante
+  pelo nome (um só encontrado já abre); `r` volta ao último; `menu` ou `0` ao começo; `ajuda`.
+- **Restaurante escolhido**: 1 visão geral, 2 movimento de 30 dias, 3 varredura completa, 4 equipe,
+  5 histórico do painel, 6 banco e backup, 7 limpar cache, 8 trocar.
+- **Onde parou**: `platform_wa_bot_state` (tela, restaurante, lista numerada, ação esperando o SIM);
+  30 min parado volta ao começo e esquece o SIM.
+- **Ações** (backup agora, teste de restauração, limpar cache) pedem SIM e chamam os mesmos serviços
+  das telas (`PlatformBackupService.request`, `PlatformCacheService.clear`) no nome do Super Admin
+  dono do número, mais a linha `whatsapp.menu_action` no histórico do painel. O menu não suspende,
+  não exclui e não mexe em senha: isso fica no painel.
+- **Dados**: `PlatformWaChecks` (`admin-checks.service.ts`) lê pelos serviços das telas
+  (`PlatformService.overview/tenant/insights/team`, `PlatformDatabasesService`,
+  `PlatformDbServersService`, `PlatformVersionsService`), então os números batem com o painel.
+  Textos e formatos puros em `admin-menu.ts` (teste `admin-menu.test.ts`).
+- **Avisos automáticos** (`PlatformWaAlerts`, a cada `PLATFORM_WA_ALERTS_SECONDS`, padrão 120; 0
+  desliga): os itens com `alert` da varredura geral (`PlatformWaChecks.issues`) e restaurante novo.
+  Cada aviso é reservado em `platform_wa_alerts` pela chave antes de sair (uma vez só, em qualquer
+  réplica); problema que some por 6 h é esquecido e, se voltar, avisa de novo. Com o WhatsApp do
+  painel desconectado nada é reservado (sai quando voltar). Problema novo na varredura: um `add`
+  com chave estável enquanto o problema dura.
+- **Resumo do dia**: na hora escolhida (`platform_wa_bot_settings.summary_hour`, Brasília) ou na
+  hora seguinte, uma vez por dia (`last_summary_on` travado no UPDATE).
+- Envio e registro na conversa: `PlatformWaOutbox.deliver` (o mesmo da tela; mensagem do menu fica
+  sem autor). Teste: `apps/api/test/platform-wa-menu.e2e.test.ts`.

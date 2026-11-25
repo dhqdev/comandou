@@ -317,6 +317,11 @@ const schema = z.object({
    */
   TENANT_UPDATE_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(60),
   ONLINE_PAY_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(60),
+  /**
+   * Avisos automáticos e resumo do dia do menu do Super Admin pelo WhatsApp do painel: de quanto
+   * em quanto tempo confere. 0 desliga.
+   */
+  PLATFORM_WA_ALERTS_SECONDS: z.coerce.number().int().min(0).default(120),
   /** Lembretes da Agenda pelo WhatsApp: de quanto em quanto tempo procura os que venceram. 0 desliga. */
   AGENDA_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(60),
   /**

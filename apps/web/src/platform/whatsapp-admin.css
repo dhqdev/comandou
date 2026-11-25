@@ -217,3 +217,83 @@
   font-size: 16px;
   resize: vertical;
 }
+
+/* Menu do admin: números que recebem o menu de opções e os avisos pelo WhatsApp. */
+.wadm-menu {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.wadm-menu__lead,
+.wadm-menu__note,
+.wadm-menu__empty {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.5;
+}
+.wadm-menu__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cm-space-4);
+}
+.wadm-menu__row .cm-field {
+  min-width: 240px;
+}
+.wadm-menu__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.wadm-menu__title {
+  margin: 0;
+  font-size: var(--cm-text-md);
+}
+.wadm-menu__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+}
+.wadm-menu__op {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: var(--cm-space-4);
+  padding: var(--cm-space-3) var(--cm-space-4);
+}
+.wadm-menu__op + .wadm-menu__op {
+  border-top: 1px solid var(--cm-border);
+}
+.wadm-menu__who {
+  display: grid;
+  min-width: 0;
+}
+.wadm-menu__who small {
+  color: var(--cm-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wadm-menu__actions {
+  display: flex;
+  gap: 4px;
+}
+.wadm-menu__add {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
+  gap: var(--cm-space-3);
+}
+@media (max-width: 640px) {
+  .wadm-menu__op {
+    grid-template-columns: 1fr 1fr;
+  }
+  .wadm-menu__who,
+  .wadm-menu__actions {
+    grid-column: 1 / -1;
+  }
+}

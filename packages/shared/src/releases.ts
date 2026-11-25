@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.246.0',
+    date: '2026-11-24',
+    title: 'Super Admin pelo WhatsApp: menu, varredura e avisos',
+    summary:
+      'O WhatsApp do painel virou um painel de bolso. Os números cadastrados em Super Admin › WhatsApp › Menu do admin recebem um menu de opções: resumo do sistema, escolher um restaurante e ver visão geral, movimento, varredura completa, equipe, histórico e banco, além de saúde do servidor, backups, bancos e servidores, restaurantes novos e cobrança. Avisos automáticos e o resumo do dia chegam sozinhos.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'WhatsApp do painel: menu do Super Admin. Responda o número da opção ou digite o nome de um restaurante para abrir direto; "r" volta ao último restaurante e "menu" ao começo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Varredura de um restaurante pelo WhatsApp: situação, assinatura, donos, banco próprio e último backup, versão, domínios, último pedido, notas com erro, mensagens que não saíram, estoque abaixo do mínimo e computador de impressão desligado, com os problemas primeiro.',
+      },
+      {
+        tag: 'novo',
+        text: 'Avisos automáticos (uma vez só por problema): banco, Redis ou gateway fora do ar, serviço de backup parado, backup que falhou ou atrasou, teste de restauração que falhou, disco dos backups quase cheio, restaurante que não terminou de ser criado, banco próprio que não ficou pronto, trabalho de banco ou migração que falhou, assinatura em atraso e restaurante novo. Com o WhatsApp do painel desconectado, os avisos esperam ele voltar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Resumo do dia no horário escolhido (horário de Brasília): restaurantes no ar e ativos, novos, assinaturas, receita mensal, pedidos do mês, serviços, último backup e o resultado da varredura geral.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O menu só responde aos números cadastrados de um Super Admin ativo. Backup agora, teste de restauração e limpar cache pedem SIM e entram no histórico do painel no nome dele; cadastrar, mudar e tirar números também.',
+      },
+    ],
+  },
+  {
     version: '0.245.0',
     date: '2026-11-23',
     title: 'Site novo: mais limpo, com prato em 3D',

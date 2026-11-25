@@ -25,6 +25,7 @@ export function testEnv(overrides: Partial<Record<string, string>> = {}): Env {
     // Polling e varredura dos aplicativos só quando o teste chama (resultado previsível).
     CHANNELS_POLL_SECONDS: '0',
     CHANNELS_SWEEP_SECONDS: '0',
+    PLATFORM_WA_ALERTS_SECONDS: '0',
     ...overrides,
   });
 }

@@ -10,13 +10,14 @@ import {
 } from '@nestjs/common';
 import { GatewayClient, GatewaySession } from '../messaging/gateway.client';
 import { normalizePhone } from '../messaging/messaging.service';
-import { WhatsAppUnavailableError } from '../messaging/whatsapp.client';
 import {
   PLATFORM_WA_ID,
   WhatsAppInbound,
   WhatsAppInboundService,
 } from '../messaging/whatsapp-inbound.service';
 import { PlatformDb, platformAudit } from '../platform/platform-db.service';
+import { PlatformWaBot } from './admin-bot.service';
+import { PlatformWaOutbox, preview } from './platform-wa-outbox.service';
 
 export interface PlatformWaChat {
   jid: string;
@@ -42,20 +43,6 @@ export interface PlatformWaMessage {
 }
 
 const PAGE = 60;
-
-/** O que aparece na lista quando a mensagem não é texto. */
-const KIND_LABEL: Record<string, string> = {
-  image: 'Foto',
-  audio: 'Áudio',
-  video: 'Vídeo',
-  document: 'Documento',
-  sticker: 'Figurinha',
-  location: 'Localização',
-  contact: 'Contato',
-  other: 'Mensagem',
-};
-const preview = (kind: string, body: string) =>
-  (body.trim() ? body.trim() : (KIND_LABEL[kind] ?? 'Mensagem')).replace(/\s+/g, ' ').slice(0, 200);
 
 /**
  * Telefone sem país e com só os 8 últimos dígitos depois do DDD: o WhatsApp às vezes guarda o
@@ -90,6 +77,8 @@ export class PlatformWhatsAppService implements OnModuleInit, OnModuleDestroy {
     private readonly pdb: PlatformDb,
     private readonly gateway: GatewayClient,
     private readonly inbound: WhatsAppInboundService,
+    private readonly outbox: PlatformWaOutbox,
+    private readonly bot: PlatformWaBot,
   ) {}
 
   onModuleInit() {
@@ -229,55 +218,16 @@ export class PlatformWhatsAppService implements OnModuleInit, OnModuleDestroy {
         );
       dest = phone;
     }
-    let jid = to.jid ?? null;
-    let status: 'sent' | 'failed' = 'sent';
-    let error: string | null = null;
-    let waId: string | null = null;
-    try {
-      const r = await this.gateway.send(PLATFORM_WA_ID, dest, body);
-      if (r.ok) {
-        waId = r.messageId ?? null;
-        if (!jid) jid = r.jid ?? `${phone}@s.whatsapp.net`;
-      } else {
-        status = 'failed';
-        error = r.error;
-      }
-    } catch (e) {
-      if (!(e instanceof WhatsAppUnavailableError) && !(e instanceof ServiceUnavailableException))
-        throw e;
-      status = 'failed';
-      error =
-        e instanceof ServiceUnavailableException
-          ? 'Serviço de WhatsApp não configurado no servidor'
-          : 'WhatsApp do painel desconectado';
-    }
+    const d = await this.outbox.deliver(dest, body, admin.id, to.jid ?? null, phone);
     // Número novo que não deu certo: não cria conversa vazia, só avisa.
-    if (!jid) throw new UnprocessableEntityException(error ?? 'Não foi possível enviar');
-    const jidPhone = /^([0-9]{5,20})@s\.whatsapp\.net$/.exec(jid)?.[1] ?? phone;
-    const message = await this.pdb.tx(async (c) => {
-      await c.query(
-        `INSERT INTO platform_wa_chats (jid, phone, last_at, last_preview, last_dir)
-         VALUES ($1, $2, now(), $3, 'out')
-         ON CONFLICT (jid) DO UPDATE SET last_at = now(), last_preview = $3, last_dir = 'out',
-           phone = coalesce(platform_wa_chats.phone, EXCLUDED.phone)`,
-        [jid, jidPhone, preview('text', body)],
-      );
-      const {
-        rows: [m],
-      } = await c.query<{ id: string }>(
-        `INSERT INTO platform_wa_messages (jid, direction, kind, body, wa_id, admin_id, status, error)
-         VALUES ($1, 'out', 'text', $2, $3, $4, $5, $6) RETURNING id`,
-        [jid, body.slice(0, 4000), waId, admin.id, status, error?.slice(0, 300) ?? null],
-      );
-      const {
-        rows: [row],
-      } = await c.query<PlatformWaMessage>(
-        `SELECT ${MSG_COLS} FROM platform_wa_messages m
-           LEFT JOIN platform_admins a ON a.id = m.admin_id WHERE m.id = $1`,
-        [m.id],
-      );
-      return row;
-    });
+    if (!d.jid || !d.messageId)
+      throw new UnprocessableEntityException(d.error ?? 'Não foi possível enviar');
+    const jid = d.jid;
+    const [message] = await this.pdb.query<PlatformWaMessage>(
+      `SELECT ${MSG_COLS} FROM platform_wa_messages m
+         LEFT JOIN platform_admins a ON a.id = m.admin_id WHERE m.id = $1`,
+      [d.messageId],
+    );
     const [chat] = await this.pdb.query<PlatformWaChat>(
       `SELECT ${CHAT_COLS} FROM platform_wa_chats c WHERE c.jid = $1`,
       [jid],
@@ -293,7 +243,7 @@ export class PlatformWhatsAppService implements OnModuleInit, OnModuleDestroy {
    */
   async receive(m: WhatsAppInbound) {
     if (!this.pdb.enabled) return;
-    await this.pdb.tx(async (c) => {
+    const got = await this.pdb.tx(async (c) => {
       const phone = m.from;
       const {
         rows: [hit],
@@ -319,13 +269,22 @@ export class PlatformWhatsAppService implements OnModuleInit, OnModuleDestroy {
          ON CONFLICT (jid, wa_id) WHERE direction = 'in' AND wa_id IS NOT NULL DO NOTHING`,
         [jid, m.kind, text, m.id, m.timestamp],
       );
-      if (!rowCount) return;
-      await c.query(
+      if (!rowCount) return null;
+      const {
+        rows: [chat],
+      } = await c.query<{ phone: string | null }>(
         `UPDATE platform_wa_chats SET unread = unread + 1,
            last_at = greatest(last_at, $2), last_preview = $3, last_dir = 'in'
-         WHERE jid = $1`,
+         WHERE jid = $1 RETURNING phone`,
         [jid, m.timestamp, preview(m.kind, text)],
       );
+      return { jid, phone: chat?.phone ?? phone };
     });
+    // Número de um Super Admin: o menu responde (depois de gravar, fora da transação). Falha do
+    // menu não perde a mensagem: ela já está na conversa do painel.
+    if (got && m.kind === 'text')
+      await this.bot
+        .handle({ jid: got.jid, phone: got.phone, waId: m.id }, m.text)
+        .catch((e: Error) => this.logger.warn(`menu do admin: ${e.message}`));
   }
 }
