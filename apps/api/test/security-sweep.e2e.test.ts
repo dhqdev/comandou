@@ -96,6 +96,10 @@ const PUBLIC_TENANT_ROUTES = [
   'POST /api/v1/store/account/password',
   'POST /api/v1/store/account/password/forgot',
   'POST /api/v1/store/account/password/reset',
+  // Reservas da conta: só as do cliente do cookie (de outra pessoa é 404).
+  'GET /api/v1/store/account/reservations',
+  'GET /api/v1/store/account/reservations/:id',
+  'POST /api/v1/store/account/reservations/:id/cancel',
   'DELETE /api/v1/store/account/photo',
   'GET /api/v1/store/account/photo',
   'PUT /api/v1/store/account/photo',

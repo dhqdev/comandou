@@ -15,20 +15,36 @@ import { StockCostsService, type CostChange } from './stock-costs.service';
 /**
  * Insumo com o consumo médio por dia das vendas dos últimos 30 dias ("dailyUsage"), que a tela
  * usa para estimar quantos dias o saldo ainda dura. Filtre e ordene sempre com o alias "s.".
+ *
+ * - O consumo é o das vendas menos o que voltou de pedido cancelado (`sale_reversal`): pedido
+ *   lançado e cancelado não conta como consumo (antes contava e o "dura X dias" encurtava).
+ * - O valor em estoque conta só o que existe: saldo negativo (insumo liberado para ficar
+ *   negativo) vale zero, em vez de descontar do valor dos outros insumos.
  */
 export const ITEM_SELECT = `
   SELECT s.id, s.code, s.barcode, s.name, s.unit, s.quantity::text, s.min_quantity::text AS "minQuantity",
          s.avg_cost::text AS "avgCost", s.allow_negative AS "allowNegative", s.active,
-         (s.quantity < s.min_quantity) AS low, round(s.quantity * s.avg_cost, 2)::text AS "stockValue",
+         (s.quantity < s.min_quantity) AS low,
+         round(greatest(s.quantity, 0) * s.avg_cost, 2)::text AS "stockValue",
          s.category, s.supplier, s.counted_at AS "countedAt", u.daily::text AS "dailyUsage",
          s.shelf_life_days AS "shelfLifeDays", s.recipe_yield::text AS "recipeYield",
          EXISTS (SELECT 1 FROM stock_item_recipes r WHERE r.stock_item_id = s.id) AS "hasPrep",
          s.last_cost::text AS "lastCost", s.cost_changed_at AS "costChangedAt"
     FROM stock_items s
     LEFT JOIN LATERAL (
-      SELECT round(-sum(m.quantity) / 30, 3) AS daily FROM stock_movements m
-       WHERE m.stock_item_id = s.id AND m.kind = 'sale' AND m.created_at >= now() - interval '30 days'
+      SELECT CASE WHEN -sum(m.quantity) > 0 THEN round(-sum(m.quantity) / 30, 3) END AS daily
+        FROM stock_movements m
+       WHERE m.stock_item_id = s.id AND m.kind IN ('sale', 'sale_reversal')
+         AND m.created_at >= now() - interval '30 days'
     ) u ON true`;
+
+/**
+ * Hoje no relógio do restaurante (o servidor do banco roda em UTC: à noite no Brasil o
+ * `current_date` já é amanhã). Recebimento, lote e validade usam o dia da casa.
+ */
+export const TZ_SQL = `coalesce((SELECT timezone FROM tenants WHERE id = app_current_tenant()),
+    'America/Sao_Paulo')`;
+export const TODAY_SQL = `(now() AT TIME ZONE ${TZ_SQL})::date`;
 
 export type StockEntryKind = 'purchase' | 'loss' | 'withdrawal' | 'count';
 

@@ -1,4 +1,5 @@
 import {
+  CalendarDays,
   ChevronRight,
   Eye,
   EyeOff,
@@ -44,6 +45,11 @@ import { AddressFields, addressPayload } from './AddressFields';
 import { movedAddress } from './AddressEdit';
 import type { PinnedQuote } from './store';
 import { nextGoal, useLoyalty } from './LoyaltyScreens';
+import {
+  nextAccountReservation,
+  useAccountReservations,
+  useReservationConfig,
+} from './ReservationScreens';
 import {
   AccountOrder,
   AccountState,
@@ -529,6 +535,9 @@ export function AccountScreen() {
   const toast = useToast();
   const me = account?.customer ?? null;
   const orders = useAccountOrders(!!me);
+  const reserveCfg = useReservationConfig();
+  const reservations = useAccountReservations(!!me && rules.reservations);
+  const nextReservation = nextAccountReservation(reservations);
   if (!account)
     return (
       <div className="sf-wrap sf-page">
@@ -588,6 +597,26 @@ export function AccountScreen() {
               label="Meus dados"
               hint={me.email ?? 'Nome e e-mail'}
             />
+            {/* Reservas da conta: as do cardápio e as que a loja anotou no cadastro. */}
+            {rules.reservations && (reserveCfg?.enabled || !!reservations?.length) && (
+              <Tile
+                i={n++}
+                to="/pedir/reservas"
+                icon={<CalendarDays />}
+                label="Reservas"
+                hint={
+                  nextReservation
+                    ? new Date(nextReservation.startsAt).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: nextReservation.timeZone,
+                      })
+                    : 'Nenhuma por vir'
+                }
+              />
+            )}
           </nav>
         </>
       )}

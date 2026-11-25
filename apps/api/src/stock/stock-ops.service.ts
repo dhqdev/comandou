@@ -10,7 +10,7 @@ import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { StockCostsService } from './stock-costs.service';
-import { StockService } from './stock.service';
+import { StockService, TODAY_SQL } from './stock.service';
 
 export interface ReceiptLineInput {
   stockItemId: string;
@@ -85,7 +85,7 @@ export class StockOpsService {
       const r = await one<{ id: string; code: string }>(
         tx,
         `INSERT INTO stock_receipts (tenant_id, supplier, invoice, received_on, note, created_by)
-         VALUES ($1,$2,$3,coalesce($4::date, current_date),$5,$6) RETURNING id, code`,
+         VALUES ($1,$2,$3,coalesce($4::date, ${TODAY_SQL}),$5,$6) RETURNING id, code`,
         [
           ctx.tenantId,
           b.supplier ?? null,
@@ -112,14 +112,14 @@ export class StockOpsService {
           const lot = await one<{ id: string }>(
             tx,
             `INSERT INTO stock_lots (tenant_id, stock_item_id, code, quantity, made_on, expires_on, origin, receipt_id, created_by)
-             VALUES ($1,$2,$3,$4,coalesce($5::date, $6::date),$7,'receipt',$8,$9) RETURNING id`,
+             VALUES ($1,$2,$3,$4,coalesce($5::date, $6::date, ${TODAY_SQL}),$7,'receipt',$8,$9) RETURNING id`,
             [
               ctx.tenantId,
               l.stockItemId,
               l.lotCode ?? null,
               conv!.qty,
               l.madeOn ?? null,
-              b.receivedOn ?? new Date().toISOString().slice(0, 10),
+              b.receivedOn ?? null,
               l.expiresOn ?? null,
               r!.id,
               ctx.userId,
@@ -254,7 +254,7 @@ export class StockOpsService {
           `INSERT INTO stock_lots (tenant_id, stock_item_id, code, quantity, expires_on, origin, production_id, created_by)
            VALUES ($1,$2,$3,$4,
                    CASE WHEN $5 THEN $6::date
-                        WHEN $7::int IS NULL THEN NULL ELSE current_date + $7::int END,
+                        WHEN $7::int IS NULL THEN NULL ELSE ${TODAY_SQL} + $7::int END,
                    'production',$8,$9) RETURNING id`,
           [
             ctx.tenantId,
@@ -317,7 +317,11 @@ export class StockOpsService {
    * Fecha um lote: "usado" só tira da lista de validade; "descartado" também registra a perda
    * do que o lote tinha (limitado ao saldo do insumo, que nunca fica negativo por isso).
    */
-  async closeLot(ctx: Ctx, id: string, b: { status: 'used' | 'discarded'; note?: string }) {
+  async closeLot(
+    ctx: Ctx,
+    id: string,
+    b: { status: 'used' | 'discarded'; note?: string; quantity?: string },
+  ) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       const lot = await one<{
         stock_item_id: string;
@@ -333,10 +337,13 @@ export class StockOpsService {
       if (lot.status !== 'available') throw new ConflictException('Este lote já foi encerrado');
       if (b.status === 'discarded') {
         await this.lock(tx, [lot.stock_item_id]);
+        // O que foi para o lixo (informado; sem número, o lote inteiro), nunca mais que o lote
+        // nem que o saldo do insumo.
         const d = await one<{ q: string }>(
           tx,
-          `SELECT least($2::numeric, greatest(quantity, 0))::text AS q FROM stock_items WHERE id = $1`,
-          [lot.stock_item_id, lot.quantity],
+          `SELECT least(coalesce($3::numeric, $2::numeric), $2::numeric, greatest(quantity, 0))::text AS q
+             FROM stock_items WHERE id = $1`,
+          [lot.stock_item_id, lot.quantity, b.quantity ?? null],
         );
         if (Number(d!.q) > 0) {
           await this.stock.move(tx, ctx, lot.stock_item_id, 'loss', `-${d!.q}`, {
@@ -358,7 +365,7 @@ export class StockOpsService {
         action: `stock.lot_${b.status}`,
         entity: 'stock_lot',
         entityId: id,
-        data: { code: lot.code, note: b.note ?? null },
+        data: { code: lot.code, note: b.note ?? null, quantity: b.quantity ?? null },
         ip: ctx.ip,
       });
       return { id, status: b.status };

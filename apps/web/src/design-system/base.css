@@ -175,6 +175,46 @@ svg {
     -webkit-touch-callout: none;
   }
 }
+/* Cara de aplicativo (pedido do David, 0.251): segurar e arrastar o mouse ou o dedo não pinta a
+   tela inteira de azul, e o toque longo do iPhone não abre o menu de copiar/compartilhar em cima
+   dos botões e dos cartões. Continua dando para selecionar o que as pessoas copiam: campos,
+   mensagens das conversas e do assistente, os dados do pedido e da reserva (dd), códigos e o
+   que levar a classe cm-selectable (ou data-selectable). O site público (.st) segue normal, e o
+   que já tem `user-select: all` (Pix copia e cola, chaves) também. Imagem não sai arrastada. */
+#root {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+#root
+  :is(
+    input,
+    textarea,
+    [contenteditable]:not([contenteditable='false']),
+    pre,
+    code,
+    kbd,
+    samp,
+    dd,
+    .cm-selectable,
+    [data-selectable],
+    .scx-text,
+    .tc-ai__text,
+    .tm-post__text,
+    .tm-c__bubble,
+    .st
+  ) {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+#root img {
+  -webkit-user-drag: none;
+}
+/* Foto das conversas: o toque longo do iPhone segue salvando a imagem. */
+#root :is(.scx-media img, .scx-viewer img, .tcm img) {
+  -webkit-touch-callout: default;
+}
 .cm-sr-only {
   position: absolute;
   width: 1px;

@@ -22,7 +22,7 @@ import { useStoreChat } from './chat';
 import { useStore } from './context';
 import { useLayout } from './sections';
 import { deliveryFeeText, StoreStatusLine } from './Shell';
-import { type AccountOrder, maskPhone, recentOrders, STEP_LABEL } from './store';
+import { type AccountOrder, chatOrderPath, maskPhone, recentOrders, STEP_LABEL } from './store';
 import { Field, Photo } from './ui';
 import './chat.css';
 
@@ -118,25 +118,22 @@ function ChatAside({
   open,
   canAsk,
   orderNumber,
+  mine,
   onAsk,
+  onOpen,
 }: {
   open: boolean;
   canAsk: boolean;
   orderNumber: number | null;
+  /** Pedidos da conta (null enquanto carrega ou sem conta). */
+  mine: AccountOrder[] | null;
   onAsk(n: number): void;
+  onOpen(n: number): void;
 }) {
   const { menu, account } = useStore();
   const me = account?.customer;
   const r = menu.restaurant;
   const s = menu.store;
-  const [mine, setMine] = useState<AccountOrder[] | null>(null);
-
-  useEffect(() => {
-    if (!me || !canAsk) return;
-    api<AccountOrder[]>('/store/account/orders')
-      .then(setMine)
-      .catch(() => setMine([]));
-  }, [me?.id, canAsk]);
 
   const orders = (
     me
@@ -189,26 +186,40 @@ function ChatAside({
       {canAsk && orders.length > 0 && (
         <section className="sfchat-card">
           <h2 className="sfchat-card__title">Falar sobre um pedido</h2>
-          <p className="sfchat-card__hint">Escolha um e a mensagem vai com o número dele.</p>
+          <p className="sfchat-card__hint">
+            Escolha um e a mensagem vai com o número dele. Tocar no pedido citado abre ele.
+          </p>
           <div className="sfchat-orders">
-            {orders.map((o) => (
-              <button
-                key={o.number}
-                type="button"
-                className="sfchat-order"
-                aria-pressed={orderNumber === o.number}
-                onClick={() => onAsk(o.number)}
-              >
-                <span className="sfchat-order__icon">
-                  <ReceiptText size={17} aria-hidden />
-                </span>
-                <span className="sfchat-order__txt">
-                  <strong>Pedido #{o.number}</strong>
-                  <small>{o.hint}</small>
-                </span>
-                <ChevronRight size={16} aria-hidden />
-              </button>
-            ))}
+            {orders.map((o) => {
+              const picked = orderNumber === o.number;
+              return (
+                <div key={o.number} className="sfchat-order__row" data-picked={picked || undefined}>
+                  <button
+                    type="button"
+                    className="sfchat-order"
+                    aria-pressed={picked}
+                    onClick={() => onAsk(o.number)}
+                  >
+                    <span className="sfchat-order__icon">
+                      <ReceiptText size={17} aria-hidden />
+                    </span>
+                    <span className="sfchat-order__txt">
+                      <strong>Pedido #{o.number}</strong>
+                      <small>{o.hint}</small>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="sfchat-order__open"
+                    aria-label={`Abrir o pedido #${o.number}`}
+                    title="Abrir o pedido"
+                    onClick={() => onOpen(o.number)}
+                  >
+                    <ChevronRight size={16} aria-hidden />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
@@ -258,10 +269,31 @@ export function ChatScreen() {
   const [error, setError] = useState<string | null>(null);
   const [typing, setTyping] = useState<string | null>(null);
   const typingTimer = useRef<number | undefined>(undefined);
-  const orderNumber = Number(params.get('pedido')) || null;
+  // O pedido citado mora no estado da tela (o endereço ?pedido= só abre a conversa com ele): ao
+  // enviar, ele sai junto com o texto, no mesmo quadro, sem esperar a troca do endereço (que vem
+  // depois, em segundo plano, e fazia o campo e o botão de enviar piscarem).
+  const urlOrder = Number(params.get('pedido')) || null;
+  const [orderNumber, setOrderNumber] = useState<number | null>(urlOrder);
+  useEffect(() => setOrderNumber(urlOrder), [urlOrder]);
   const r = menu.restaurant;
   const loggedIn = !!account?.customer;
+  const customerId = account?.customer?.id ?? null;
   const wide = useLayout() === 'desktop';
+  // Pedidos da conta: a coluna do notebook lista os mais novos e o pedido citado numa mensagem
+  // abre direto no acompanhamento dele.
+  const [mine, setMine] = useState<AccountOrder[] | null>(null);
+  useEffect(() => {
+    setMine(null);
+    if (!customerId) return;
+    let alive = true;
+    api<AccountOrder[]>('/store/account/orders')
+      .then((o) => alive && setMine(o))
+      .catch(() => alive && setMine([]));
+    return () => {
+      alive = false;
+    };
+  }, [customerId]);
+  const openOrder = (n: number) => navigate(chatOrderPath(n, mine, recentOrders()));
 
   const load = useCallback(async () => {
     try {
@@ -324,11 +356,14 @@ export function ChatScreen() {
   }, []);
 
   const clearOrder = () => {
+    setOrderNumber(null);
+    if (!params.has('pedido')) return;
     const p = new URLSearchParams(params);
     p.delete('pedido');
     setParams(p, { replace: true });
   };
   const askAbout = (n: number) => {
+    setOrderNumber(n);
     const p = new URLSearchParams(params);
     p.set('pedido', String(n));
     setParams(p, { replace: true });
@@ -436,6 +471,9 @@ export function ChatScreen() {
         }}
         orderNumber={orderNumber}
         onClearOrder={clearOrder}
+        // Pedido citado (na mensagem ou no campo): tocar abre o acompanhamento dele.
+        onOrder={(m) => m.orderNumber && openOrder(m.orderNumber)}
+        onOpenOrder={openOrder}
         initialText={orderNumber ? 'Olá! Sobre o meu pedido: ' : ''}
         uploadPath="/store/chat/files"
         send={(input) => api<ChatMessage>('/store/chat/messages', { method: 'POST', json: input })}
@@ -461,7 +499,14 @@ export function ChatScreen() {
         <div className="sfchat__body">{body}</div>
       </div>
       {wide && (
-        <ChatAside open={storeOpen} canAsk={chatting} orderNumber={orderNumber} onAsk={askAbout} />
+        <ChatAside
+          open={storeOpen}
+          canAsk={chatting}
+          orderNumber={orderNumber}
+          mine={mine}
+          onAsk={askAbout}
+          onOpen={openOrder}
+        />
       )}
     </div>
   );

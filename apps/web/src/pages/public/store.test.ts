@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  chatOrderPath,
   isTableId,
   mergeCarts,
   rememberPresence,
@@ -150,5 +151,26 @@ describe('QR Code da mesa lido pela câmera do cardápio', () => {
     expect(tableIdFromQr('https://loja.comandou.app/pedir', 'loja.comandou.app')).toBeNull();
     expect(tableIdFromQr('Mesa 4', 'loja.comandou.app')).toBeNull();
     expect(tableIdFromQr(`/mesa/${id}x`, 'loja.comandou.app')).toBeNull();
+  });
+});
+
+describe('Pedido citado na conversa com a loja', () => {
+  const mine = [
+    { id: 'aaaaaaaa-0000-4000-8000-000000000001', number: 41 },
+    { id: 'aaaaaaaa-0000-4000-8000-000000000002', number: 52 },
+  ];
+  const here = [{ number: 77, token: 'tk_abc' }];
+  it('abre o pedido da conta pelo número', () => {
+    expect(chatOrderPath(52, mine, here)).toBe(
+      '/pedir/pedidos/aaaaaaaa-0000-4000-8000-000000000002',
+    );
+  });
+  it('sem o pedido na conta, usa o link guardado no aparelho', () => {
+    expect(chatOrderPath(77, mine, here)).toBe('/pedido/tk_abc');
+    expect(chatOrderPath(77, null, here)).toBe('/pedido/tk_abc');
+  });
+  it('pedido que não está em nenhum dos dois leva à aba Pedidos', () => {
+    expect(chatOrderPath(99, mine, here)).toBe('/pedir/pedidos');
+    expect(chatOrderPath(99, null, [])).toBe('/pedir/pedidos');
   });
 });

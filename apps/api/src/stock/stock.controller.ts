@@ -26,7 +26,7 @@ import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { AVAILABILITY_SQL } from './availability-sql';
 import { StockCostsService } from './stock-costs.service';
-import { ITEM_SELECT, StockService } from './stock.service';
+import { ITEM_SELECT, StockService, TZ_SQL } from './stock.service';
 
 const UNITS = ['un', 'kg', 'g', 'l', 'ml'] as const;
 /** Texto opcional: vazio vira null (limpa o campo). */
@@ -286,7 +286,7 @@ export class StockController {
            LEFT JOIN stock_lots lt ON lt.id = m.lot_id
           WHERE ($1::uuid IS NULL OR m.stock_item_id = $1)
             AND ($3::text IS NULL OR ($3 = 'out' AND m.quantity < 0) OR ($3 = 'in' AND m.quantity > 0))
-            AND ($4::date IS NULL OR m.created_at >= $4::date)
+            AND ($4::date IS NULL OR m.created_at >= ($4::date::timestamp AT TIME ZONE ${TZ_SQL}))
           ORDER BY m.id DESC LIMIT $2`,
         [f.itemId ?? null, f.limit, f.direction ?? null, f.from ?? null],
       ),

@@ -9,6 +9,7 @@ import {
   Post,
   Query,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
@@ -64,6 +65,11 @@ const StaffFields = z.object({
   notes: optText(300),
   staffNotes: optText(300),
   tableId: uuid.nullable().optional(),
+  /**
+   * Cliente já cadastrado (conta do cardápio): a reserva aparece na conta dele, que acompanha e
+   * cancela pelo app. null desliga a reserva da conta.
+   */
+  customerId: uuid.nullable().optional(),
   /** Tempo do grupo na mesa; sem ele, vale o tempo médio das configurações. */
   durationMinutes: z.number().int().min(15).max(600).optional(),
   status: z.enum(RESERVATION_STATUSES).optional(),
@@ -169,6 +175,57 @@ export class PublicReservationsController {
   @HttpCode(200)
   cancel(@Param('token') token: string, @CurrentTenant() t: ResolvedTenant, @Req() req: Request) {
     return this.reservations.cancelByCustomer(t.id, token, req.ip);
+  }
+}
+
+/**
+ * Reservas na conta do cliente (cardápio › Conta): as que ele fez e as que a equipe lançou no
+ * cadastro dele. Cookie da conta conferido em cada chamada; reserva de outra pessoa é 404.
+ */
+@Controller({ path: 'store/account/reservations', version: '1' })
+export class AccountReservationsController {
+  constructor(
+    private readonly reservations: ReservationsService,
+    private readonly customers: CustomersService,
+  ) {}
+
+  private async who(t: ResolvedTenant, req: Request) {
+    const c = await this.customers.resolve(t.id, cookieOf(req, CUSTOMER_COOKIE));
+    if (!c) throw new UnauthorizedException('Entre na sua conta');
+    return c;
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  @Get()
+  async list(@CurrentTenant() t: ResolvedTenant, @Req() req: Request) {
+    const c = await this.who(t, req);
+    return this.reservations.accountList(t.id, c.id);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  @Get(':id')
+  async view(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    const c = await this.who(t, req);
+    return this.reservations.accountView(t.id, c.id, id);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post(':id/cancel')
+  @HttpCode(200)
+  async cancel(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    const c = await this.who(t, req);
+    return this.reservations.cancelByAccount(t.id, c.id, id, req.ip);
   }
 }
 

@@ -40,6 +40,7 @@ import {
   SearchArt,
   WaiterArt,
 } from './art';
+import { CustomerAvatar } from './avatars';
 import { useStore } from './context';
 import { reducedMotion, setMorph } from './morph';
 import {
@@ -419,7 +420,7 @@ function StoreHeader({ onInfo }: { onInfo(): void }) {
   const { menu, account, count, table, rules } = useStore();
   const r = menu.restaurant;
   const s = menu.store;
-  const first = account?.customer?.name.split(' ')[0];
+  const me = account?.customer ?? null;
   return (
     <section className="sf-store">
       <div className="sf-cover">
@@ -430,8 +431,19 @@ function StoreHeader({ onInfo }: { onInfo(): void }) {
         )}
         <div className="sf-cover__bar">
           {rules.accountLogin ? (
-            <Link className="sf-glass" to="/pedir/conta" aria-label="Minha conta">
-              {first ? first[0]!.toUpperCase() : <UserRound size={19} />}
+            // Com a conta aberta, a bolinha mostra a foto do perfil (ou o avatar escolhido), a
+            // mesma da aba Conta; sem conta, o bonequinho.
+            <Link
+              className="sf-glass"
+              data-me={me ? '' : undefined}
+              to="/pedir/conta"
+              aria-label="Minha conta"
+            >
+              {me ? (
+                <CustomerAvatar customer={me} size={36} className="sf-glass__me" decorative />
+              ) : (
+                <UserRound size={19} />
+              )}
             </Link>
           ) : (
             <span />

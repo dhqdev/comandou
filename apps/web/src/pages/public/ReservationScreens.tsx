@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, UserRound, Users } from 'lucide-react';
+import { CalendarDays, ChevronRight, Clock, UserRound, Users } from 'lucide-react';
 import { CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { StoreMark, useToast } from '../../design-system';
@@ -34,6 +34,8 @@ interface Availability {
   closedReason: string | null;
 }
 export interface PublicReservation {
+  /** Só nas reservas da conta (o link usa o token). */
+  id?: string;
   code: string;
   name: string;
   partySize: number;
@@ -43,10 +45,43 @@ export interface PublicReservation {
   status: 'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show';
   tableLabel: string | null;
   cancelReason: string | null;
-  note: string | null;
+  note?: string | null;
   canCancel: boolean;
   timeZone: string;
 }
+
+/** Reserva na conta do cliente (feita no cardápio ou lançada pela equipe no cadastro dele). */
+export type AccountReservation = PublicReservation & { id: string };
+
+/** Ainda vai acontecer (ou começou há pouco): o que a tela trata como "próxima". */
+const upcoming = (r: Pick<PublicReservation, 'startsAt' | 'status'>) =>
+  Date.parse(r.startsAt) > Date.now() - 2 * 3_600_000 &&
+  r.status !== 'cancelled' &&
+  r.status !== 'no_show' &&
+  r.status !== 'completed';
+
+/** Reservas da conta aberta neste aparelho (null enquanto carrega ou sem conta). */
+export function useAccountReservations(on: boolean) {
+  const [list, setList] = useState<AccountReservation[] | null>(null);
+  useEffect(() => {
+    setList(null);
+    if (!on) return;
+    let alive = true;
+    api<AccountReservation[]>('/store/account/reservations')
+      .then((l) => alive && setList(l))
+      .catch(() => alive && setList([]));
+    return () => {
+      alive = false;
+    };
+  }, [on]);
+  return list;
+}
+
+/** Próxima reserva da conta (a mais cedo que ainda vai acontecer). */
+export const nextAccountReservation = (list: AccountReservation[] | null) =>
+  (list ?? [])
+    .filter(upcoming)
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))[0] ?? null;
 
 const STATUS: Record<PublicReservation['status'], { label: string; hint: string }> = {
   pending: {
@@ -131,14 +166,20 @@ const when = (startsAt: string, timeZone?: string) =>
 /** Atalho "Reservar mesa" na tela inicial do cardápio (só se o restaurante aceita reservas). */
 export function ReserveCard() {
   const cfg = useReservationConfig();
-  const next = useMemo(upcomingReservation, []);
-  if (!cfg?.enabled) return null;
-  const opts = { timeZone: cfg.timeZone } as const;
+  const { account } = useStore();
+  const mine = useAccountReservations(!!account?.customer);
+  const own = nextAccountReservation(mine);
+  const device = useMemo(upcomingReservation, []);
+  // Reserva da conta (inclusive a que a equipe lançou no cadastro) vale antes da do aparelho.
+  const next = own
+    ? { to: `/pedir/reservas/${own.id}`, startsAt: own.startsAt }
+    : device
+      ? { to: `/pedir/reserva/${device.token}`, startsAt: device.startsAt }
+      : null;
+  if (!cfg?.enabled && !own) return null;
+  const opts = { timeZone: cfg?.timeZone ?? own?.timeZone } as const;
   return (
-    <Link
-      className="sf-tile rsv-tile"
-      to={next ? `/pedir/reserva/${next.token}` : '/pedir/reservar'}
-    >
+    <Link className="sf-tile rsv-tile" to={next ? next.to : '/pedir/reservar'}>
       <ReserveArt live className="sf-tile__art" />
       <span className="sf-tile__text">
         <strong>{next ? 'Sua reserva' : 'Reservar mesa'}</strong>
@@ -469,45 +510,61 @@ export function ReserveScreen() {
   );
 }
 
-/** Acompanhamento da reserva pelo link (token). Atualiza sozinho enquanto aguarda. */
+/**
+ * Acompanhamento da reserva: pelo link (`/pedir/reserva/:token`) ou pela conta
+ * (`/pedir/reservas/:id`, inclusive a que a equipe lançou no cadastro do cliente). Atualiza
+ * sozinho enquanto aguarda a confirmação.
+ */
 export function ReservationStatusScreen() {
-  const { token = '' } = useParams();
+  const { token = '', id = '' } = useParams();
   const { menu } = useStore();
   const toast = useToast();
   const [r, setR] = useState<PublicReservation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const base = id
+    ? `/store/account/reservations/${encodeURIComponent(id)}`
+    : `/store/reservations/${encodeURIComponent(token)}`;
 
   useEffect(() => {
     let alive = true;
     const load = () =>
-      api<PublicReservation>(`/store/reservations/${token}`)
+      api<PublicReservation>(base)
         .then((x) => {
           if (!alive) return;
           setR(x);
-          remember({ token, code: x.code, startsAt: x.startsAt });
+          setError(null);
+          if (token) remember({ token, code: x.code, startsAt: x.startsAt });
         })
         .catch(
           (e: ApiError) =>
-            alive && setError(e.status === 404 ? 'Reserva não encontrada.' : e.message),
+            alive &&
+            setError(
+              e.status === 404
+                ? 'Reserva não encontrada.'
+                : e.status === 401
+                  ? 'Entre na sua conta para ver esta reserva.'
+                  : e.message,
+            ),
         );
     void load();
     // Enquanto o restaurante não confirma, confere de tempos em tempos.
-    const id = window.setInterval(
+    const t = window.setInterval(
       () => document.visibilityState === 'visible' && void load(),
       20_000,
     );
     return () => {
       alive = false;
-      window.clearInterval(id);
+      window.clearInterval(t);
     };
-  }, [token]);
+  }, [base, token]);
 
   async function cancel() {
-    if (!window.confirm('Cancelar esta reserva?')) return;
     setBusy(true);
     try {
-      setR(await api<PublicReservation>(`/store/reservations/${token}/cancel`, { method: 'POST' }));
+      setR(await api<PublicReservation>(`${base}/cancel`, { method: 'POST' }));
+      setAsking(false);
       toast('Reserva cancelada', 'success');
     } catch (e) {
       toast((e as ApiError).message, 'danger');
@@ -575,17 +632,184 @@ export function ReservationStatusScreen() {
         {r.note && <p className="rsv-note">{r.note}</p>}
         {menu.restaurant.address && <p className="rsv-hint">{menu.restaurant.address}</p>}
       </div>
-      <div className="rsv-actions">
-        <Link className="cta" to="/pedir">
-          Ver o cardápio
-        </Link>
-        {r.canCancel && (
-          <button type="button" className="cta cta--ghost" disabled={busy} onClick={cancel}>
-            Cancelar reserva
-          </button>
-        )}
-      </div>
-      <p className="cm-hint sf-note">Guarde este link: é por ele que você acompanha a reserva.</p>
+      {asking ? (
+        // Confirmação dentro da própria tela (o confirm() do navegador some no app instalado).
+        <div className="rsv-confirm" role="alertdialog" aria-label="Cancelar a reserva?">
+          <strong>Cancelar esta reserva?</strong>
+          <p>O restaurante recebe o aviso na hora e libera a mesa.</p>
+          <div className="rsv-actions">
+            <button type="button" className="cta cta--danger" disabled={busy} onClick={cancel}>
+              {busy ? 'Cancelando…' : 'Sim, cancelar'}
+            </button>
+            <button
+              type="button"
+              className="cta cta--ghost"
+              disabled={busy}
+              onClick={() => setAsking(false)}
+            >
+              Manter a reserva
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="rsv-actions">
+          <Link className="cta" to="/pedir">
+            Ver o cardápio
+          </Link>
+          {r.canCancel && (
+            <button type="button" className="cta cta--ghost" onClick={() => setAsking(true)}>
+              Cancelar reserva
+            </button>
+          )}
+        </div>
+      )}
+      <p className="cm-hint sf-note">
+        {id
+          ? 'Esta reserva fica na sua conta: acompanhe por Conta › Reservas.'
+          : 'Guarde este link: é por ele que você acompanha a reserva.'}
+      </p>
+    </div>
+  );
+}
+
+/** Linha de uma reserva na lista (dia, hora, pessoas e situação). */
+function ReservationRow({ r, to }: { r: PublicReservation; to: string }) {
+  const st = STATUS[r.status];
+  const d = new Date(r.startsAt);
+  const opts = { timeZone: r.timeZone } as const;
+  return (
+    <li>
+      <Link className="rsv-row" to={to} data-status={r.status}>
+        <span className="rsv-row__day">
+          <small>
+            {d.toLocaleDateString('pt-BR', { weekday: 'short', ...opts }).replace('.', '')}
+          </small>
+          <strong>{d.toLocaleDateString('pt-BR', { day: '2-digit', ...opts })}</strong>
+          <small>
+            {d.toLocaleDateString('pt-BR', { month: 'short', ...opts }).replace('.', '')}
+          </small>
+        </span>
+        <span className="rsv-row__text">
+          <strong>
+            {d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', ...opts })} ·{' '}
+            {r.partySize} {r.partySize === 1 ? 'pessoa' : 'pessoas'}
+            {r.tableLabel ? ` · Mesa ${r.tableLabel}` : ''}
+          </strong>
+          <small className="rsv-row__status">{st.label}</small>
+        </span>
+        <ChevronRight size={18} aria-hidden />
+      </Link>
+    </li>
+  );
+}
+
+/**
+ * Conta › Reservas (/pedir/reservas): as reservas da conta (as do cardápio e as que a equipe
+ * lançou no cadastro do cliente), próximas primeiro. Sem conta, as guardadas neste aparelho.
+ */
+export function MyReservationsScreen() {
+  const { account } = useStore();
+  const cfg = useReservationConfig();
+  const me = account?.customer ?? null;
+  const mine = useAccountReservations(!!me);
+  const device = useMemo(
+    () =>
+      storedReservations()
+        .slice()
+        .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)),
+    [],
+  );
+  const next = (mine ?? []).filter(upcoming);
+  const past = (mine ?? []).filter((r) => !upcoming(r));
+  const reserve = cfg?.enabled ? (
+    <Link className="cta cta--inline" to="/pedir/reservar">
+      Reservar mesa
+    </Link>
+  ) : null;
+  return (
+    <div className="sf-wrap sf-page rsv">
+      <ScreenHeader title="Reservas" />
+      {me && mine === null ? (
+        <div aria-busy="true" className="rsv-list-sk">
+          {Array.from({ length: 3 }, (_, i) => (
+            <span key={i} className="sk rsv-row--sk" />
+          ))}
+        </div>
+      ) : me ? (
+        next.length || past.length ? (
+          <>
+            {next.length > 0 && (
+              <section className="rsv-sec">
+                <h2>
+                  <CalendarDays size={18} aria-hidden /> Próximas
+                </h2>
+                <ul className="rsv-list">
+                  {next.map((r) => (
+                    <ReservationRow key={r.id} r={r} to={`/pedir/reservas/${r.id}`} />
+                  ))}
+                </ul>
+              </section>
+            )}
+            {past.length > 0 && (
+              <section className="rsv-sec">
+                <h2>
+                  <Clock size={18} aria-hidden /> Últimas
+                </h2>
+                <ul className="rsv-list">
+                  {past.map((r) => (
+                    <ReservationRow key={r.id} r={r} to={`/pedir/reservas/${r.id}`} />
+                  ))}
+                </ul>
+              </section>
+            )}
+            {reserve && <div className="rsv-actions">{reserve}</div>}
+          </>
+        ) : (
+          <div className="empty-state">
+            <ReserveArt live className="empty-state__art" />
+            <strong>Nenhuma reserva por aqui</strong>
+            <p>
+              As reservas que você fizer (ou que o restaurante anotar no seu cadastro) aparecem
+              aqui.
+            </p>
+            {reserve}
+          </div>
+        )
+      ) : (
+        <>
+          {device.length > 0 && (
+            <ul className="rsv-list">
+              {device.map((d) => (
+                <li key={d.token}>
+                  <Link className="rsv-row" to={`/pedir/reserva/${d.token}`}>
+                    <span className="rsv-row__text">
+                      <strong>Reserva {d.code}</strong>
+                      <small>
+                        {new Date(d.startsAt).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          timeZone: cfg?.timeZone,
+                        })}
+                      </small>
+                    </span>
+                    <ChevronRight size={18} aria-hidden />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="empty-state">
+            <ReserveArt live className="empty-state__art" />
+            <strong>Entre para ver suas reservas</strong>
+            <p>Com a conta aberta, todas as suas reservas ficam aqui, até as anotadas na loja.</p>
+            <Link className="cta cta--inline" to="/pedir/conta">
+              Entrar ou criar conta
+            </Link>
+          </div>
+        </>
+      )}
     </div>
   );
 }

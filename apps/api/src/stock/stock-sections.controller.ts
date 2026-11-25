@@ -25,7 +25,7 @@ import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { StockCostsService } from './stock-costs.service';
 import { StockOpsService } from './stock-ops.service';
-import { StockService } from './stock.service';
+import { StockService, TODAY_SQL } from './stock.service';
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data no formato AAAA-MM-DD');
 const optText = (max: number) =>
@@ -89,6 +89,11 @@ const Lot = z.object({
 const CloseLot = z.object({
   status: z.enum(['used', 'discarded']),
   note: z.string().trim().min(3).max(300).optional(),
+  /**
+   * Descarte: quanto foi para o lixo. O lote guarda a quantidade de quando entrou e não sabe
+   * quanto já foi usado; sem este número, vale o lote inteiro (até o saldo do insumo).
+   */
+  quantity: positiveQty.optional(),
 });
 const LotsQuery = z.object({ itemId: uuid.optional() });
 const PrepRecipe = z.object({
@@ -253,7 +258,7 @@ export class StockSectionsController {
       const r = await one<{ id: string }>(
         tx,
         `INSERT INTO stock_lots (tenant_id, stock_item_id, code, quantity, made_on, expires_on, origin, note, created_by)
-         VALUES ($1,$2,$3,$4,coalesce($5::date, current_date),$6,'manual',$7,$8) RETURNING id`,
+         VALUES ($1,$2,$3,$4,coalesce($5::date, ${TODAY_SQL}),$6,'manual',$7,$8) RETURNING id`,
         [
           t.id,
           b.stockItemId,

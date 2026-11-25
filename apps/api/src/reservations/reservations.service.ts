@@ -80,8 +80,32 @@ const RES_COLS = `r.id, r.code, r.name, r.phone, r.email, r.party_size AS "party
   r.starts_at AS "startsAt", r.duration_minutes AS "durationMinutes", r.occasion, r.notes,
   r.staff_notes AS "staffNotes", r.status, r.table_id AS "tableId", t.label AS "tableLabel",
   r.source, r.cancel_reason AS "cancelReason", r.cancelled_by AS "cancelledBy",
-  r.customer_id AS "customerId", r.created_at AS "createdAt", r.status_changed_at AS "statusChangedAt"`;
-const RES_FROM = `reservations r LEFT JOIN dining_tables t ON t.id = r.table_id`;
+  r.customer_id AS "customerId", cu.name AS "customerName",
+  r.created_at AS "createdAt", r.status_changed_at AS "statusChangedAt"`;
+const RES_FROM = `reservations r LEFT JOIN dining_tables t ON t.id = r.table_id
+  LEFT JOIN customers cu ON cu.id = r.customer_id`;
+
+/** O que o cliente vê da reserva (link ou conta): nada da equipe (anotação, quem lançou). */
+const PUBLIC_COLS = `r.code, r.name, r.party_size AS "partySize", r.starts_at AS "startsAt", r.occasion,
+  r.notes, r.status, t.label AS "tableLabel", r.cancel_reason AS "cancelReason",
+  r.cancelled_by AS "cancelledBy"`;
+
+interface PublicRow {
+  code: string;
+  name: string;
+  partySize: number;
+  startsAt: Date;
+  occasion: string | null;
+  notes: string | null;
+  status: ReservationStatus;
+  tableLabel: string | null;
+  cancelReason: string | null;
+  cancelledBy: string | null;
+}
+
+/** Ainda dá para o cliente cancelar: pendente ou confirmada, e o horário não passou. */
+const customerCanCancel = (r: { status: ReservationStatus; startsAt: Date }) =>
+  (r.status === 'pending' || r.status === 'confirmed') && r.startsAt.getTime() > Date.now();
 
 export interface Slot {
   time: string;
@@ -113,6 +137,8 @@ export interface StaffReservationInput {
   notes?: string | null;
   staffNotes?: string | null;
   tableId?: string | null;
+  /** Cliente cadastrado: a reserva entra na conta dele (acompanha pelo app). */
+  customerId?: string | null;
   /** Tempo na mesa (minutos); sem ele, o tempo médio das configurações. */
   durationMinutes?: number;
   status?: ReservationStatus;
@@ -720,39 +746,100 @@ export class ReservationsService {
     throw new ConflictException('Não foi possível gerar o código da reserva; tente de novo');
   }
 
+  /** O que a tela de acompanhamento do cliente mostra (link ou conta). */
+  private async publicShape(tx: Tx, r: PublicRow) {
+    const s = await this.settingsIn(tx);
+    return {
+      ...r,
+      note: s.note,
+      // Horário mostrado sempre no relógio do restaurante, onde quer que o cliente esteja.
+      timeZone: await this.tz(tx),
+      canCancel: customerCanCancel(r),
+    };
+  }
+
   /** Acompanhamento da reserva pelo link do cliente (só o necessário, sem dados da equipe). */
   publicView(tenantId: string, token: string) {
     return this.db.withTenant({ tenantId }, async (tx) => {
-      const r = await one<{
-        code: string;
-        name: string;
-        partySize: number;
-        startsAt: Date;
-        occasion: string | null;
-        notes: string | null;
-        status: ReservationStatus;
-        tableLabel: string | null;
-        cancelReason: string | null;
-        cancelledBy: string | null;
-      }>(
+      const r = await one<PublicRow>(
         tx,
-        `SELECT r.code, r.name, r.party_size AS "partySize", r.starts_at AS "startsAt", r.occasion,
-                r.notes, r.status, t.label AS "tableLabel", r.cancel_reason AS "cancelReason",
-                r.cancelled_by AS "cancelledBy"
-           FROM ${RES_FROM} WHERE r.public_token_hash = $1`,
+        `SELECT ${PUBLIC_COLS} FROM ${RES_FROM} WHERE r.public_token_hash = $1`,
         [publicTokenHash(token)],
       );
       if (!r) throw new NotFoundException('Reserva não encontrada');
-      const s = await this.settingsIn(tx);
-      return {
-        ...r,
-        note: s.note,
-        // Horário mostrado sempre no relógio do restaurante, onde quer que o cliente esteja.
-        timeZone: await this.tz(tx),
-        canCancel:
-          (r.status === 'pending' || r.status === 'confirmed') && r.startsAt.getTime() > Date.now(),
-      };
+      return this.publicShape(tx, r);
     });
+  }
+
+  /**
+   * Reservas da conta do cliente (cardápio › Conta › Reservas): as que ele fez pelo cardápio e
+   * as que a equipe lançou escolhendo o cadastro dele. Próximas primeiro, depois as últimas 30
+   * dias. Só o que o cliente vê (nada da anotação da equipe).
+   */
+  accountList(tenantId: string, customerId: string) {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const tz = await this.tz(tx);
+      const rows = await q<PublicRow & { id: string }>(
+        tx,
+        `SELECT r.id, ${PUBLIC_COLS} FROM ${RES_FROM}
+          WHERE r.customer_id = $1 AND r.starts_at > now() - interval '30 days'
+          ORDER BY (r.starts_at > now() - interval '3 hours') DESC,
+                   CASE WHEN r.starts_at > now() - interval '3 hours' THEN r.starts_at END ASC,
+                   r.starts_at DESC
+          LIMIT 30`,
+        [customerId],
+      );
+      return rows.map((r) => ({ ...r, timeZone: tz, canCancel: customerCanCancel(r) }));
+    });
+  }
+
+  /** Uma reserva da conta do cliente (só se for dele: de outra pessoa é "não encontrada"). */
+  accountView(tenantId: string, customerId: string, id: string) {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const r = await one<PublicRow & { id: string }>(
+        tx,
+        `SELECT r.id, ${PUBLIC_COLS} FROM ${RES_FROM} WHERE r.id = $1 AND r.customer_id = $2`,
+        [id, customerId],
+      );
+      if (!r) throw new NotFoundException('Reserva não encontrada');
+      return this.publicShape(tx, r);
+    });
+  }
+
+  /** O cliente cancela pela conta: mesmas regras do link (pendente ou confirmada, por vir). */
+  async cancelByAccount(tenantId: string, customerId: string, id: string, ip?: string) {
+    const changed = await this.db.withTenant({ tenantId }, async (tx) => {
+      const r = await one<{ status: ReservationStatus; startsAt: Date }>(
+        tx,
+        `SELECT status, starts_at AS "startsAt" FROM reservations
+          WHERE id = $1 AND customer_id = $2 FOR UPDATE`,
+        [id, customerId],
+      );
+      if (!r) throw new NotFoundException('Reserva não encontrada');
+      if (r.status === 'cancelled') return false;
+      if (!customerCanCancel(r))
+        throw new ConflictException('Essa reserva não pode mais ser cancelada pelo app');
+      await q(
+        tx,
+        `UPDATE reservations SET status = 'cancelled', cancelled_by = 'customer',
+                cancel_reason = 'Cancelada pelo cliente', status_changed_at = now()
+          WHERE id = $1`,
+        [id],
+      );
+      await this.audit.record(tx, {
+        tenantId,
+        actorUserId: null,
+        action: 'reservation.cancelled_by_customer',
+        entity: 'reservation',
+        entityId: id,
+        data: { via: 'account' },
+        ip,
+      });
+      return true;
+    });
+    if (changed)
+      this.realtime.publish(tenantId, { type: 'reservation.changed', reservationId: id });
+    return this.accountView(tenantId, customerId, id);
   }
 
   async cancelByCustomer(tenantId: string, token: string, ip?: string) {
@@ -813,6 +900,15 @@ export class ReservationsService {
     if (!tableId) return;
     const t = await one(tx, `SELECT 1 FROM dining_tables WHERE id = $1 AND active`, [tableId]);
     if (!t) throw new UnprocessableEntityException('Mesa não encontrada');
+  }
+
+  /** Cadastro do cliente escolhido pela equipe: tem de existir e não estar bloqueado. */
+  private async checkCustomer(tx: Tx, customerId: string | null | undefined) {
+    if (!customerId) return;
+    const c = await one(tx, `SELECT 1 FROM customers WHERE id = $1 AND blocked_at IS NULL`, [
+      customerId,
+    ]);
+    if (!c) throw new UnprocessableEntityException('Cliente não encontrado');
   }
 
   /**
@@ -876,6 +972,7 @@ export class ReservationsService {
     if (!phoneOk(phone)) throw new UnprocessableEntityException('Telefone inválido (DDD + número)');
     const res = await this.db.withTenant(ctx, async (tx) => {
       await this.checkTable(tx, input.tableId);
+      await this.checkCustomer(tx, input.customerId);
       const s = await this.settingsIn(tx);
       const status = input.status ?? 'confirmed';
       const duration = input.durationMinutes ?? s.durationMinutes;
@@ -889,8 +986,9 @@ export class ReservationsService {
       const row = await one<{ id: string }>(
         tx,
         `INSERT INTO reservations (tenant_id, code, name, phone, email, party_size, starts_at,
-            duration_minutes, occasion, notes, staff_notes, table_id, status, source, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'staff',$14) RETURNING id`,
+            duration_minutes, occasion, notes, staff_notes, table_id, status, source, created_by,
+            customer_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'staff',$14,$15) RETURNING id`,
         [
           ctx.tenantId,
           code,
@@ -906,6 +1004,7 @@ export class ReservationsService {
           input.tableId ?? null,
           status,
           ctx.userId,
+          input.customerId ?? null,
         ],
       );
       await this.audit.record(tx, {
@@ -914,7 +1013,7 @@ export class ReservationsService {
         action: 'reservation.created',
         entity: 'reservation',
         entityId: row!.id,
-        data: { code, partySize: input.partySize },
+        data: { code, partySize: input.partySize, customerId: input.customerId ?? null },
         ip: ctx.ip,
       });
       return this.view(tx, row!.id);
@@ -943,6 +1042,7 @@ export class ReservationsService {
       );
       if (!cur) throw new NotFoundException('Reserva não encontrada');
       if (patch.tableId) await this.checkTable(tx, patch.tableId);
+      if (patch.customerId) await this.checkCustomer(tx, patch.customerId);
       const next = {
         status: patch.status ?? cur.status,
         tableId: patch.tableId !== undefined ? patch.tableId : cur.tableId,
@@ -980,6 +1080,7 @@ export class ReservationsService {
       if (patch.notes !== undefined) set('notes', patch.notes);
       if (patch.staffNotes !== undefined) set('staff_notes', patch.staffNotes);
       if (patch.tableId !== undefined) set('table_id', patch.tableId);
+      if (patch.customerId !== undefined) set('customer_id', patch.customerId);
       if (patch.status !== undefined && patch.status !== cur.status) {
         set('status', patch.status);
         sets.push('status_changed_at = now()');

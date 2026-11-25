@@ -20,6 +20,47 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.251.0',
+    date: '2026-11-25',
+    title: 'Conversa mais suave, reservas no cadastro do cliente e estoque certinho',
+    summary:
+      'A mensagem enviada entra sem piscar, o pedido citado na conversa do cardápio abre com um toque, a reserva pode ser lançada no cadastro do cliente (e ele acompanha pela conta), a foto do cliente aparece no topo do cardápio e o estoque passou a contar cancelamentos, datas e descartes do jeito certo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Conversa do cardápio: tocar no pedido citado (na mensagem, no campo de escrever ou na lista de pedidos do lado) abre o acompanhamento daquele pedido.',
+      },
+      {
+        tag: 'correção',
+        text: 'Enviar mensagem não pisca mais: o botão fica laranja enquanto o aviãozinho voa, a mensagem nova entra deslizando e as de cima sobem junto, sem salto. A foto enviada não recarrega e o nome de quem mandou não muda depois de salvar. Vale no cardápio, no Suporte, em Clientes e no chat da equipe.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cardápio no celular: com a conta aberta, a foto do cliente aparece no botão do topo da tela inicial.',
+      },
+      {
+        tag: 'novo',
+        text: 'Reservas: na Nova reserva dá para escolher um cliente já cadastrado. A reserva aparece na conta dele no cardápio (Conta › Reservas), onde ele acompanha e cancela. O cartão mostra "acompanha pelo app".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Reservas: cancelar pede o motivo no próprio cartão, sem a janela do navegador; e o cliente confirma o cancelamento na tela da reserva.',
+      },
+      {
+        tag: 'correção',
+        text: 'Estoque: o consumo por dia desconta as vendas canceladas; item com saldo negativo não soma valor negativo no total; datas de entrada, lote, produção e o filtro de movimentações seguem o fuso do restaurante (não viram o dia seguinte depois das 21h).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Estoque › Lotes: ao descartar, dá para dizer quanto foi para o lixo (antes ia o lote inteiro).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Segurar e arrastar o mouse não seleciona mais a tela toda. Campos, mensagens das conversas e códigos continuam selecionáveis para copiar.',
+      },
+    ],
+  },
+  {
     version: '0.250.0',
     date: '2026-11-25',
     title: 'Mais proteção: lojas de aplicativo, cadastro, PIN e suporte',

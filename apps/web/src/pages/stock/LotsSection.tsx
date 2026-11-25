@@ -306,14 +306,22 @@ function DiscardModal({
 }) {
   const toast = useToast();
   const [note, setNote] = useState(daysToExpiry(lot.expiresOn)! < 0 ? 'Vencido' : '');
+  // O lote guarda quanto entrou; se parte já foi usada, a pessoa diz quanto vai para o lixo
+  // (antes a perda era sempre o lote inteiro).
+  const [q, setQ] = useState(fmtQty(lot.quantity));
+  const quantity = parseQtyInput(q);
+  const tooMuch =
+    quantity !== null && Number(quantity) > Number(lot.quantity) ? 'Mais que o lote' : null;
+  const invalid = quantity === null || Number(quantity) <= 0 || !!tooMuch;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function save() {
+    if (invalid) return;
     setBusy(true);
     try {
       await api(`/stock/lots/${lot.id}/close`, {
         method: 'POST',
-        json: { status: 'discarded', note: note.trim() },
+        json: { status: 'discarded', note: note.trim(), quantity },
       });
       toast(`Lote ${lot.code} descartado`, 'success');
       onDone();
@@ -333,7 +341,12 @@ function DiscardModal({
           <Button variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="danger" loading={busy} disabled={note.trim().length < 3} onClick={save}>
+          <Button
+            variant="danger"
+            loading={busy}
+            disabled={note.trim().length < 3 || invalid}
+            onClick={save}
+          >
             Descartar
           </Button>
         </>
@@ -342,9 +355,22 @@ function DiscardModal({
       <div className="cm-form">
         {error && <Alert tone="danger">{error}</Alert>}
         <p className="cm-hint" style={{ margin: 0 }}>
-          Registra a perda de {fmtQty(lot.quantity)} {lot.unit} de {lot.itemName} (até o saldo que o
-          insumo tem) e fecha o lote.
+          O lote entrou com {fmtQty(lot.quantity)} {lot.unit} de {lot.itemName}. Registra como perda
+          o que vai para o lixo (até o saldo que o insumo tem) e fecha o lote.
         </p>
+        <TextField
+          label={`Quanto vai para o lixo (${lot.unit})`}
+          inputMode="decimal"
+          value={q}
+          error={
+            q && quantity === null
+              ? 'Use até 3 casas decimais'
+              : quantity !== null && Number(quantity) <= 0
+                ? 'Informe quanto'
+                : (tooMuch ?? undefined)
+          }
+          onChange={(e) => setQ(e.target.value)}
+        />
         <TextField
           label="Motivo"
           autoFocus

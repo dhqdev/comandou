@@ -380,6 +380,18 @@
   font-size: var(--cm-text-sm);
   color: var(--cm-text-muted);
 }
+/* Reserva na conta do cliente (cadastro escolhido): ele acompanha pelo cardápio. */
+.rv-card__app {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--cm-success);
+  font-weight: 600;
+}
+.rv-customer .cpick,
+.rv-customer .cpick__chosen {
+  width: 100%;
+}
 .rv-card__notes {
   display: grid;
   gap: 4px;
@@ -438,6 +450,19 @@
 }
 .rv-card__spacer {
   flex: 1;
+}
+/* Cancelar com o motivo no próprio cartão. */
+.rv-card__cancel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cm-border);
+}
+.rv-card__cancel .cm-input {
+  flex: 1 1 180px;
+  min-width: 0;
 }
 .rv-danger {
   color: var(--cm-danger) !important;

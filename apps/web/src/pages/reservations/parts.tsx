@@ -1,13 +1,19 @@
-import { Copy, MessageCircle, Phone, Users } from 'lucide-react';
+import { Copy, MessageCircle, Phone, Smartphone, Users } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { Alert, Badge, Button, Modal, TextField, useToast } from '../../design-system';
+import { CustomerPicker, maskPhone, type OrderCustomer } from '../../features/CustomerPicker';
 import { SelectField } from '../../features/forms';
 import { api, ApiError } from '../../lib/api';
 
 /* Peças da tela de Reservas: tipos, cartão com as ações, formulário e configurações. */
 
 export type ReservationStatus =
-  'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show';
+  | 'pending'
+  | 'confirmed'
+  | 'seated'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show';
 
 export interface Reservation {
   id: string;
@@ -27,6 +33,9 @@ export interface Reservation {
   source: 'online' | 'staff' | 'whatsapp';
   cancelReason: string | null;
   cancelledBy: 'customer' | 'staff' | null;
+  /** Cadastro do cliente (conta do cardápio): ele acompanha a reserva pelo app. */
+  customerId: string | null;
+  customerName: string | null;
   createdAt: string;
 }
 
@@ -130,6 +139,10 @@ export function ReservationCard({
   const st = RESERVATION_STATUS[r.status];
   const closed = isClosed(r.status);
   const wa = `https://wa.me/55${r.phone}`;
+  // Cancelar pede o motivo ali mesmo, no rodapé do cartão (antes era o prompt() do navegador,
+  // que no app instalado nem sempre aparece).
+  const [cancelling, setCancelling] = useState(false);
+  const [reason, setReason] = useState('');
   return (
     <article
       className={`rv-card ${plain ? 'rv-card--plain' : ''} ${fresh ? 'is-fresh' : ''}`}
@@ -155,6 +168,17 @@ export function ReservationCard({
               <>
                 <span aria-hidden>·</span>{' '}
                 {r.source === 'whatsapp' ? 'pelo WhatsApp' : 'pelo cardápio'}
+              </>
+            )}
+            {r.customerId && (
+              <>
+                <span aria-hidden>·</span>{' '}
+                <span
+                  className="rv-card__app"
+                  title={`Na conta de ${r.customerName ?? r.name}: acompanha pelo cardápio`}
+                >
+                  <Smartphone size={13} aria-hidden /> acompanha pelo app
+                </span>
               </>
             )}
           </span>
@@ -210,67 +234,91 @@ export function ReservationCard({
         </label>
       </div>
 
-      <footer className="rv-card__actions">
-        {r.status === 'pending' && (
-          <Button
-            size="sm"
-            variant="success"
-            onClick={() => onUpdate(r, { status: 'confirmed' }, 'Reserva confirmada')}
-          >
-            Confirmar
+      {cancelling ? (
+        <form
+          className="rv-card__cancel"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onUpdate(
+              r,
+              { status: 'cancelled', cancelReason: reason.trim() || null },
+              'Reserva cancelada',
+            );
+            setCancelling(false);
+            setReason('');
+          }}
+        >
+          <input
+            className="cm-input"
+            aria-label="Motivo do cancelamento"
+            placeholder="Motivo (opcional)"
+            maxLength={200}
+            value={reason}
+            autoFocus
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <Button size="sm" variant="danger" type="submit">
+            Cancelar reserva
           </Button>
-        )}
-        {(r.status === 'pending' || r.status === 'confirmed') && (
-          <Button size="sm" onClick={() => onUpdate(r, { status: 'seated' }, 'Grupo no salão')}>
-            Chegou
+          <Button size="sm" variant="ghost" onClick={() => setCancelling(false)}>
+            Voltar
           </Button>
-        )}
-        {r.status === 'seated' && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onUpdate(r, { status: 'completed' })}
-          >
-            Concluir
+        </form>
+      ) : (
+        <footer className="rv-card__actions">
+          {r.status === 'pending' && (
+            <Button
+              size="sm"
+              variant="success"
+              onClick={() => onUpdate(r, { status: 'confirmed' }, 'Reserva confirmada')}
+            >
+              Confirmar
+            </Button>
+          )}
+          {(r.status === 'pending' || r.status === 'confirmed') && (
+            <Button size="sm" onClick={() => onUpdate(r, { status: 'seated' }, 'Grupo no salão')}>
+              Chegou
+            </Button>
+          )}
+          {r.status === 'seated' && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => onUpdate(r, { status: 'completed' })}
+            >
+              Concluir
+            </Button>
+          )}
+          {(r.status === 'pending' || r.status === 'confirmed') && (
+            <Button size="sm" variant="ghost" onClick={() => onUpdate(r, { status: 'no_show' })}>
+              Não veio
+            </Button>
+          )}
+          {closed && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onUpdate(r, { status: 'confirmed' }, 'Reserva reaberta')}
+            >
+              Reabrir
+            </Button>
+          )}
+          <span className="rv-card__spacer" />
+          <Button size="sm" variant="ghost" onClick={onEdit}>
+            Editar
           </Button>
-        )}
-        {(r.status === 'pending' || r.status === 'confirmed') && (
-          <Button size="sm" variant="ghost" onClick={() => onUpdate(r, { status: 'no_show' })}>
-            Não veio
-          </Button>
-        )}
-        {closed && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onUpdate(r, { status: 'confirmed' }, 'Reserva reaberta')}
-          >
-            Reabrir
-          </Button>
-        )}
-        <span className="rv-card__spacer" />
-        <Button size="sm" variant="ghost" onClick={onEdit}>
-          Editar
-        </Button>
-        {!closed && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="rv-danger"
-            onClick={() => {
-              const reason = window.prompt('Motivo do cancelamento (opcional)');
-              if (reason === null) return;
-              onUpdate(
-                r,
-                { status: 'cancelled', cancelReason: reason || null },
-                'Reserva cancelada',
-              );
-            }}
-          >
-            Cancelar
-          </Button>
-        )}
-      </footer>
+          {!closed && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="rv-danger"
+              onClick={() => setCancelling(true)}
+            >
+              Cancelar
+            </Button>
+          )}
+        </footer>
+      )}
     </article>
   );
 }
@@ -299,8 +347,14 @@ export function ReservationForm({
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Cliente da reserva: escolhido no cadastro (com id, acompanha pela conta no cardápio) ou só o
+  // nome digitado, como no pedido.
+  const [customer, setCustomer] = useState<OrderCustomer>({
+    id: initial?.customerId ?? null,
+    name: initial?.customerId ? (initial.customerName ?? initial.name) : (initial?.name ?? ''),
+    phone: initial?.phone ?? '',
+  });
   const [f, setF] = useState({
-    name: initial?.name ?? '',
     phone: initial ? fmtPhone(initial.phone) : '',
     partySize: String(initial?.partySize ?? 2),
     date: initial ? isoDay(new Date(initial.startsAt)) : day,
@@ -316,11 +370,16 @@ export function ReservationForm({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (!customer.name.trim()) {
+      setError('Informe o nome do cliente (ou escolha um do cadastro).');
+      return;
+    }
     setBusy(true);
     setError(null);
     const body = {
-      name: f.name.trim(),
+      name: customer.name.trim(),
       phone: f.phone,
+      customerId: customer.id,
       partySize: Number(f.partySize),
       startsAt: new Date(`${f.date}T${f.time}:00`).toISOString(),
       durationMinutes: Number(f.duration),
@@ -360,14 +419,29 @@ export function ReservationForm({
       <form id="rv-form" className="cm-form" onSubmit={submit}>
         {error && <Alert tone="danger">{error}</Alert>}
         <h3 className="cm-form__section">Cliente</h3>
-        <TextField label="Nome" required maxLength={80} value={f.name} onChange={set('name')} />
+        <div className="cm-field cm-form__wide rv-customer">
+          <span className="cm-label">Nome</span>
+          <CustomerPicker
+            value={customer}
+            onChange={(c) => {
+              setCustomer(c);
+              // Escolheu do cadastro: o celular vem junto (dá para trocar).
+              if (c.id && c.phone) setF((x) => ({ ...x, phone: fmtPhone(c.phone) }));
+            }}
+          />
+          <span className="cm-hint">
+            {customer.id
+              ? 'Cliente com cadastro: a reserva aparece na conta dele no cardápio, que acompanha e cancela por lá.'
+              : 'Busque pelo nome ou telefone para ligar ao cadastro (o cliente acompanha pelo app), ou só digite o nome.'}
+          </span>
+        </div>
         <TextField
           label="Celular"
           required
           inputMode="tel"
           placeholder="(11) 98888-7777"
           value={f.phone}
-          onChange={set('phone')}
+          onChange={(e) => setF((x) => ({ ...x, phone: maskPhone(e.target.value) }))}
         />
         <TextField
           label="Pessoas"

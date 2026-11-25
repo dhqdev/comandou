@@ -345,6 +345,21 @@
 .scx-order:disabled {
   cursor: default;
 }
+.scx-order:not(:disabled) {
+  transition:
+    background var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.scx-order:not(:disabled):hover {
+  background: color-mix(in oklab, currentColor 11%, transparent);
+}
+.scx-order:not(:disabled):active {
+  transform: scale(0.97);
+}
+.scx-order__go {
+  margin-left: -2px;
+  opacity: 0.7;
+}
 
 /* Chamado citado na mensagem: cartão com número, situação e título. */
 .scx-ticket {
@@ -439,6 +454,7 @@ button.scx-ticket:active {
   border-radius: 50%;
   background: var(--cm-text-subtle);
   animation: scx-dot 1.2s infinite ease-in-out;
+  will-change: transform;
 }
 .scx-typing__dots span:nth-child(2) {
   animation-delay: 0.15s;
@@ -450,16 +466,16 @@ button.scx-ticket:active {
   font-size: var(--cm-text-xs);
   color: var(--cm-text-muted);
 }
+/* Só transform: opacidade que pisca sem parar fazia o Safari do iPhone esmaecer a conversa
+   inteira enquanto o outro lado digitava (o mesmo problema do acompanhamento do pedido). */
 @keyframes scx-dot {
   0%,
   60%,
   100% {
-    transform: translateY(0);
-    opacity: 0.45;
+    transform: translateY(0) scale(0.8);
   }
   30% {
-    transform: translateY(-4px);
-    opacity: 1;
+    transform: translateY(-4px) scale(1.05);
   }
 }
 
@@ -496,11 +512,13 @@ button.scx-ticket:active {
 }
 
 /* ---------------------------------------------------------------- efeitos
- * Só o que acabou de chegar (ou de sair) entra com efeito, curto e suave: a sua mensagem sobe do
- * campo para o lugar dela, a do outro lado aparece de leve e o emoji grande dá um pulinho. */
+ * Só o que acabou de chegar (ou de sair) entra com efeito, curto e na mola do sistema: a sua
+ * mensagem cresce do canto do campo para o lugar dela, a do outro lado nasce do canto dela e o
+ * emoji grande dá um pulinho. Enquanto isso a conversa sobe deslizando (glide.ts) em vez de pular.
+ * Nada aqui mexe em opacidade: balão que surgia do transparente piscava a conversa no iPhone. */
 .scx-msg[data-fresh] .scx-bubble {
   transform-origin: 0 100%;
-  animation: scx-in 0.22s var(--cm-ease) both;
+  animation: scx-in var(--cm-spring-dur) var(--cm-spring) both;
 }
 .scx-msg[data-fresh][data-mine] .scx-bubble {
   transform-origin: 100% 100%;
@@ -510,28 +528,24 @@ button.scx-ticket:active {
   animation: scx-pop 0.3s var(--cm-ease) both;
 }
 .scx-system[data-fresh] {
-  animation: scx-in 0.22s var(--cm-ease) both;
+  animation: scx-in var(--cm-spring-dur) var(--cm-spring) both;
 }
 @keyframes scx-in {
   from {
-    opacity: 0;
-    transform: translate3d(0, 8px, 0) scale(0.97);
+    transform: translate3d(0, 6px, 0) scale(0.92);
   }
 }
 @keyframes scx-send {
   from {
-    opacity: 0;
-    transform: translate3d(0, 16px, 0) scale(0.94);
+    transform: translate3d(0, 10px, 0) scale(0.86);
   }
 }
 @keyframes scx-pop {
   0% {
-    opacity: 0;
-    transform: scale(0.4);
+    transform: scale(0.55);
   }
   55% {
-    opacity: 1;
-    transform: scale(1.12);
+    transform: scale(1.1);
   }
   100% {
     transform: scale(1);
@@ -737,11 +751,14 @@ button.scx-ticket:active {
   height: 44px;
   border: 0;
   border-radius: 50%;
+  /* O aviãozinho sai e entra pelas bordas do círculo (cortado aqui, sem sumir de transparente). */
+  overflow: hidden;
   background: var(--cm-brand-600);
   color: var(--cm-on-brand);
   cursor: pointer;
   transition:
-    background var(--cm-dur-fast),
+    background-color 0.2s var(--cm-ease),
+    color 0.2s var(--cm-ease),
     transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
 .scx-send:hover:not(:disabled) {
@@ -755,24 +772,29 @@ button.scx-ticket:active {
   color: var(--cm-text-subtle);
   cursor: default;
 }
-/* Enviou: o aviãozinho sai pelo canto e volta, bem rápido. */
+/* Voando: segue na cor da loja até o aviãozinho voltar, e só então esmaece para o cinza. */
+.scx-send[data-flying],
+.scx-send[data-flying]:disabled {
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+/* Enviou: o aviãozinho sai pelo canto de cima e um novo chega pelo de baixo, bem rápido. */
 .scx-send__icon[data-fly] {
-  animation: scx-fly 0.3s var(--cm-ease) both;
+  animation: scx-fly 0.32s both;
 }
 @keyframes scx-fly {
   0% {
     transform: none;
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.45);
   }
-  45% {
-    opacity: 0;
-    transform: translate(10px, -10px) scale(0.6);
+  44% {
+    transform: translate(28px, -28px) scale(0.72);
   }
-  46% {
-    opacity: 0;
-    transform: translate(-8px, 8px) scale(0.6);
+  44.01% {
+    transform: translate(-24px, 24px) scale(0.72);
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
   }
   100% {
-    opacity: 1;
     transform: none;
   }
 }
@@ -842,6 +864,26 @@ button.scx-ticket:active {
 /* "Sobre o chamado #CH-0001" numa linha só; o título é que encurta com reticências. */
 .scx-attach__label {
   white-space: nowrap;
+}
+/* "Sobre o pedido #12" que abre o pedido (cardápio do cliente): texto com sublinhado leve. */
+.scx-attach__order .scx-attach__open {
+  display: inline;
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.scx-attach__order .scx-attach__open:hover {
+  text-decoration-color: currentColor;
 }
 .scx-attach__title {
   min-width: 0;
@@ -1042,6 +1084,7 @@ button.scx-ticket:active {
   .scx-msg[data-fresh] .scx-bubble,
   .scx-system[data-fresh],
   .scx-send__icon[data-fly],
+  .scx-typing__dots span,
   .scx-emoji,
   .scx-menu {
     animation: none;

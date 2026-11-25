@@ -83,6 +83,15 @@
 .sf-glass:active {
   transform: scale(0.92);
 }
+/* Conta aberta: a foto (ou o avatar) ocupa a bolinha inteira, com o aro de vidro em volta. */
+.sf-glass[data-me] {
+  padding: 2px;
+  overflow: hidden;
+}
+.sf-glass__me {
+  width: 100% !important;
+  height: 100% !important;
+}
 .sf-glass .cartpill__count {
   top: -4px;
   right: -4px;

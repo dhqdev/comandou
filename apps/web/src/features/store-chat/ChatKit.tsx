@@ -32,6 +32,7 @@ import {
   useState,
 } from 'react';
 import { runInfo, useFreshKeys } from '../chat/bubbles';
+import { glide, glideShift, topOf } from '../chat/glide';
 import { avatarColors } from '../chat/util';
 import {
   ChatMessage,
@@ -276,25 +277,41 @@ function Thread({
   const prevFirst = useRef<string | undefined>(undefined);
   const prevHeight = useRef(0);
   const atBottomRef = useRef(true);
+  const last = messages.at(-1);
+  const lastKey = last ? keyOf(last) : undefined;
+  // Antes da troca (aqui no render a tela ainda é a de antes): onde a última mensagem estava.
+  // Depois da troca, a conversa sobe deslizando dessa diferença (glide.ts).
+  const shownLast = useRef<string | undefined>(undefined);
+  const before = useRef<{ key: string; top: number } | null>(null);
+  if (lastKey !== shownLast.current && !before.current && shownLast.current) {
+    const top = topOf(inner.current, shownLast.current);
+    if (top !== null) before.current = { key: shownLast.current, top };
+  }
 
   // Mensagem nova: desce se já estava embaixo (ou se foi quem vê que mandou).
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
-    const last = messages.at(-1);
+    const was = before.current;
+    before.current = null;
+    shownLast.current = lastKey;
+    let stuck = false;
     if (prevFirst.current && firstId !== prevFirst.current && prevHeight.current) {
       // Carregou mensagens antigas no topo: mantém o lugar da leitura.
       scrollBox(el, el.scrollHeight - prevHeight.current + el.scrollTop);
     } else if (atBottom || !last || last.sender === side) {
       scrollBox(el, el.scrollHeight);
       setFresh(0);
+      stuck = true;
     } else {
       setFresh((n) => n + 1);
     }
     prevFirst.current = firstId;
     prevHeight.current = el.scrollHeight;
+    if (stuck && was)
+      glide(inner.current, glideShift(was.top, topOf(inner.current, was.key), el.clientHeight));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastId, firstId, messages.length]);
+  }, [lastId, lastKey, firstId, messages.length]);
 
   useLayoutEffect(() => {
     if (typing && atBottom && box.current) scrollBox(box.current, box.current.scrollHeight);
@@ -395,7 +412,7 @@ function Thread({
             return (
               <Fragment key={key}>
                 {run.newDay && <div className="scx-day">{dayLabel(m.createdAt)}</div>}
-                <div className="scx-system" data-fresh={isNew || undefined}>
+                <div className="scx-system" data-k={key} data-fresh={isNew || undefined}>
                   {m.body}
                 </div>
               </Fragment>
@@ -429,6 +446,7 @@ function Thread({
               {run.newDay && <div className="scx-day">{dayLabel(m.createdAt)}</div>}
               <div
                 className="scx-msg"
+                data-k={key}
                 data-mine={mine || undefined}
                 data-first={run.first || undefined}
                 data-pending={m.pending}
@@ -454,8 +472,10 @@ function Thread({
                       className="scx-order"
                       onClick={() => onOrder?.(m)}
                       disabled={!onOrder}
+                      title={onOrder ? 'Abrir o pedido' : undefined}
                     >
                       <ReceiptText size={15} /> Pedido #{m.orderNumber}
+                      {onOrder && <ChevronRight size={14} className="scx-order__go" aria-hidden />}
                     </button>
                   )}
                   {m.ticket && (
@@ -584,6 +604,63 @@ export function EmojiPanel({ onPick }: { onPick(e: string): void }) {
 
 /* ------------------------------------------------------------------ campo de mensagem */
 
+const reducedMotion = () =>
+  typeof window !== 'undefined' &&
+  !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Botão redondo de enviar. Tocar nele não tira o foco do campo (o teclado do celular fica
+ * aberto). A cada envio (`flights` sobe, pelo botão ou pelo Enter) o aviãozinho sai pelo canto
+ * e um novo entra pelo outro, só com transform, e o botão segue na cor da loja até o voo acabar;
+ * depois esmaece suave para o cinza do campo vazio. Antes ele ficava cinza no mesmo instante do
+ * toque e o ícone sumia e voltava: parecia uma piscada.
+ */
+export function SendButton({
+  flights,
+  disabled,
+  onSend,
+  label = 'Enviar',
+  title = 'Enviar (Enter)',
+  icon,
+}: {
+  flights: number;
+  disabled: boolean;
+  onSend(): void;
+  label?: string;
+  title?: string;
+  /** Ícone fixo no lugar do aviãozinho (ex.: o visto de "Salvar" na edição). */
+  icon?: ReactNode;
+}) {
+  const [landed, setLanded] = useState(flights);
+  const flying = !icon && flights > landed && !reducedMotion();
+  return (
+    <button
+      type="button"
+      className="scx-send"
+      aria-label={label}
+      title={title}
+      disabled={disabled}
+      data-flying={flying || undefined}
+      // Tocar em Enviar não tira o foco do campo: o teclado do celular fica aberto (antes ele
+      // fechava a cada envio e a conversa pulava para cima e voltava).
+      onPointerDown={(e) => e.preventDefault()}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onSend}
+    >
+      {icon ?? (
+        <SendHorizontal
+          key={flights}
+          size={20}
+          className="scx-send__icon"
+          data-fly={flights > 0 || undefined}
+          onAnimationEnd={() => setLanded(flights)}
+          aria-hidden
+        />
+      )}
+    </button>
+  );
+}
+
 export interface SendInput {
   body: string;
   fileId?: string | null;
@@ -605,6 +682,13 @@ export interface ChatPaneProps extends Omit<ThreadProps, 'onRetry'> {
   /** Pedido que vai junto da próxima mensagem. */
   orderNumber?: number | null;
   onClearOrder?(): void;
+  /** Tocar no "Sobre o pedido #N" do campo abre o pedido (cardápio do cliente). */
+  onOpenOrder?(orderNumber: number): void;
+  /**
+   * Nome de quem escreve (como o servidor devolve no balão): a mensagem que está indo já entra
+   * com ele e o balão não muda de grupo quando o servidor responde.
+   */
+  myName?: string | null;
   /** Chamados que dá para citar pelo clipe (conversa com a Comandou). */
   tickets?: ChatTicket[];
   /** Chamado que já vem citado na próxima mensagem. */
@@ -630,6 +714,8 @@ export function ChatPane(props: ChatPaneProps) {
     quickReplies,
     orderNumber,
     onClearOrder,
+    onOpenOrder,
+    myName = null,
     tickets,
     initialTicket = null,
     initialText = '',
@@ -654,6 +740,17 @@ export function ChatPane(props: ChatPaneProps) {
   // Mensagem enviada: a chave da tela continua a de quando ela estava indo (`local-N`), então o
   // balão fica no lugar quando o servidor responde (sem piscar nem repetir o efeito de envio).
   const sentKeys = useRef(new Map<string, string>());
+  // Foto ou vídeo que acabou de ir: o balão segue mostrando o arquivo do aparelho (trocar pelo
+  // endereço do servidor baixava de novo e a foto sumia e voltava).
+  const previews = useRef(new Map<string, string>());
+  // Prévias que foram junto de uma mensagem: só são liberadas ao sair da conversa.
+  const sentPreviews = useRef(new Set<string>());
+  useEffect(() => {
+    const sent = sentPreviews.current;
+    return () => sent.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+  // Nome com que o servidor grava as mensagens de quem escreve: a que está indo já entra com ele.
+  const selfName = useRef<string | null>(myName);
   // Cada envio faz o aviãozinho do botão sair e voltar (o ícone nasce de novo).
   const [flights, setFlights] = useState(0);
   // Mensagens mandadas em seguida chegam ao servidor na ordem em que foram escritas: a foto sobe
@@ -666,8 +763,10 @@ export function ChatPane(props: ChatPaneProps) {
   const video = useRef<HTMLInputElement>(null);
   const lastTyping = useRef(0);
 
+  // Texto pronto (ex.: "Sobre o meu pedido") só entra com o campo vazio: nunca apaga o que a
+  // pessoa já escreveu.
   useEffect(() => {
-    if (initialText) setText(initialText);
+    if (initialText) setText((t) => (t.trim() ? t : initialText));
   }, [initialText]);
 
   // Campo cresce com o texto (até ~6 linhas).
@@ -698,10 +797,10 @@ export function ChatPane(props: ChatPaneProps) {
     return () => document.removeEventListener('pointerdown', onDown);
   }, [panel]);
 
-  // Libera as prévias locais quando saem da tela.
+  // Libera a prévia que saiu do campo sem ser enviada (a enviada fica com a mensagem).
   useEffect(
     () => () => {
-      if (file) URL.revokeObjectURL(file.previewUrl);
+      if (file && !sentPreviews.current.has(file.previewUrl)) URL.revokeObjectURL(file.previewUrl);
     },
     [file],
   );
@@ -742,8 +841,10 @@ export function ChatPane(props: ChatPaneProps) {
       await turn;
       const saved = await send({ ...inputData, fileId });
       sentKeys.current.set(saved.id, id);
+      if (saved.authorName) selfName.current = saved.authorName;
+      // A prévia do aparelho fica com a mensagem salva (liberada ao sair da conversa).
+      if (prepared) previews.current.set(saved.id, prepared.previewUrl);
       setPending((p) => p.filter((m) => m.id !== id));
-      if (prepared) setTimeout(() => URL.revokeObjectURL(prepared.previewUrl), 30_000);
       onSent?.(saved);
     } catch (e) {
       setPending((p) => p.map((m) => (m.id === id ? { ...m, pending: 'failed' } : m)));
@@ -769,12 +870,13 @@ export function ChatPane(props: ChatPaneProps) {
       ticketId: ticket?.id ?? null,
     };
     const prepared = file ?? undefined;
+    if (prepared) sentPreviews.current.add(prepared.previewUrl);
     setPending((p) => [
       ...p,
       {
         id,
         sender: thread.side,
-        authorName: null,
+        authorName: selfName.current,
         body,
         file: null,
         fileGone: prepared ? prepared.kind : null,
@@ -844,7 +946,10 @@ export function ChatPane(props: ChatPaneProps) {
   }
 
   const shown: ChatMessage[] = [
-    ...thread.messages,
+    ...thread.messages.map((m) => {
+      const local = previews.current.get(m.id);
+      return local && !m.localUrl ? { ...m, localUrl: local } : m;
+    }),
     ...pending.map((p) => ({ ...p, body: p.body })),
   ];
   const canSend = !disabled && !preparing && (!!text.trim() || !!file || !!orderNumber || !!ticket);
@@ -914,7 +1019,19 @@ export function ChatPane(props: ChatPaneProps) {
                 )}
                 {orderNumber && (
                   <div className="scx-attach__order">
-                    <ReceiptText size={15} /> Sobre o pedido #{orderNumber}
+                    <ReceiptText size={15} />
+                    {onOpenOrder ? (
+                      <button
+                        type="button"
+                        className="scx-attach__open"
+                        title="Abrir o pedido"
+                        onClick={() => onOpenOrder(orderNumber)}
+                      >
+                        Sobre o pedido #{orderNumber}
+                      </button>
+                    ) : (
+                      <span className="scx-attach__label">Sobre o pedido #{orderNumber}</span>
+                    )}
                     {onClearOrder && (
                       <button type="button" aria-label="Não citar o pedido" onClick={onClearOrder}>
                         <X size={14} />
@@ -1062,26 +1179,7 @@ export function ChatPane(props: ChatPaneProps) {
                   <Smile size={20} />
                 </button>
               </div>
-              <button
-                type="button"
-                className="scx-send"
-                aria-label="Enviar"
-                title="Enviar (Enter)"
-                disabled={!canSend}
-                // Tocar em Enviar não tira o foco do campo: o teclado do celular fica aberto
-                // (antes ele fechava a cada envio e a conversa pulava para cima e voltava).
-                onPointerDown={(e) => e.preventDefault()}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={submit}
-              >
-                <SendHorizontal
-                  key={flights}
-                  size={20}
-                  className="scx-send__icon"
-                  data-fly={flights > 0 || undefined}
-                  aria-hidden
-                />
-              </button>
+              <SendButton flights={flights} disabled={!canSend} onSend={submit} />
             </div>
             <input
               ref={gallery}

@@ -17,7 +17,15 @@ describe('regras de cada cardápio', () => {
       installHint: false,
       tableService: true,
     });
-    for (const s of ['conversa', 'favoritos', 'fidelidade', 'reservar', 'conta/enderecos'])
+    for (const s of [
+      'conversa',
+      'favoritos',
+      'fidelidade',
+      'reservar',
+      'reservas',
+      'reservas/abc',
+      'conta/enderecos',
+    ])
       expect(storeScreenAllowed(r, s)).toBe(false);
     // Produto, sacola, pedidos, a conta (login do Pix) e a aba do garçom continuam abrindo.
     for (const s of [

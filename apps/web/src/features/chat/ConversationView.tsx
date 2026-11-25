@@ -13,7 +13,6 @@ import {
   Pencil,
   Pin,
   PinOff,
-  SendHorizontal,
   Smile,
   SmilePlus,
   Trash2,
@@ -35,9 +34,10 @@ import {
 import { useToast } from '../../design-system';
 import { mediaUrl } from '../../lib/media';
 import { useRealtimeEvents } from '../../lib/realtime';
-import { EmojiPanel, MediaViewer, Ticks } from '../store-chat/ChatKit';
+import { EmojiPanel, MediaViewer, SendButton, Ticks } from '../store-chat/ChatKit';
 import { emojiCount } from '../store-chat/emoji';
 import { runInfo, useFreshKeys } from './bubbles';
+import { glide, glideShift, topOf } from './glide';
 import {
   chatApi,
   ConversationDetail,
@@ -111,6 +111,7 @@ export function ConversationView({
   const [away, setAway] = useState(false);
   const [unseen, setUnseen] = useState(0);
   const scroller = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const prevHeight = useRef<number | null>(null);
   // A mensagem enviada mantém a chave de quando estava indo: o balão fica no lugar quando o
@@ -214,14 +215,26 @@ export function ConversationView({
   // Rolagem: fica no fim se já estava; ao carregar as antigas, mantém o lugar. Lendo mais acima,
   // o que chega conta no botão de descer.
   const lastKey = msgs.length ? keyOf(msgs[msgs.length - 1]!) : '';
+  // Antes da troca (no render a tela ainda é a de antes): onde estava a última mensagem. Depois,
+  // presa no fim, a conversa sobe deslizando dessa diferença em vez de pular (glide.ts).
+  const glideFrom = useRef<{ key: string; top: number } | null>(null);
+  if (lastKey !== seenLast.current && seenLast.current && !glideFrom.current) {
+    const top = topOf(inner.current, seenLast.current);
+    if (top !== null) glideFrom.current = { key: seenLast.current, top };
+  }
   useLayoutEffect(() => {
     const el = scroller.current;
+    const was = glideFrom.current;
+    glideFrom.current = null;
     if (!el) return;
     if (prevHeight.current !== null) {
       el.scrollTop = el.scrollHeight - prevHeight.current;
       prevHeight.current = null;
-    } else if (stick.current) el.scrollTop = el.scrollHeight;
-    else if (lastKey && seenLast.current && lastKey !== seenLast.current) setUnseen((n) => n + 1);
+    } else if (stick.current) {
+      el.scrollTop = el.scrollHeight;
+      if (was)
+        glide(inner.current, glideShift(was.top, topOf(inner.current, was.key), el.clientHeight));
+    } else if (lastKey && seenLast.current && lastKey !== seenLast.current) setUnseen((n) => n + 1);
     seenLast.current = lastKey;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [msgs, typing]);
@@ -469,7 +482,7 @@ export function ConversationView({
             if (stick.current) setUnseen(0);
           }}
         >
-          <div className="tc-msgs__inner">
+          <div className="tc-msgs__inner" ref={inner}>
             {more && (
               <button className="tc-more" onClick={loadOlder}>
                 Carregar mensagens anteriores
@@ -486,12 +499,13 @@ export function ConversationView({
                 <Fragment key={k}>
                   {run.newDay && <div className="scx-day">{dayLabel(m.createdAt)}</div>}
                   {m.system ? (
-                    <div className="scx-system" data-fresh={fresh.has(k) || undefined}>
+                    <div className="scx-system" data-k={k} data-fresh={fresh.has(k) || undefined}>
                       {m.body}
                     </div>
                   ) : (
                     <Bubble
                       m={m}
+                      k={k}
                       src={m.localUrl ?? previews.current.get(m.id) ?? mediaUrl(m.imageId)}
                       mine={mine}
                       first={run.first}
@@ -599,6 +613,7 @@ export function ConversationView({
 
 function Bubble({
   m,
+  k,
   src,
   mine,
   first,
@@ -616,6 +631,8 @@ function Bubble({
   onJump,
 }: {
   m: Message;
+  /** Chave da mensagem na tela (a de quando ela estava indo, depois de salva). */
+  k: string;
   /** Foto da mensagem (a do aparelho enquanto sobe). */
   src: string | null;
   mine: boolean;
@@ -661,6 +678,7 @@ function Bubble({
       ref={row}
       className="scx-msg tcm"
       data-msg={m.id}
+      data-k={k}
       data-active={active || undefined}
       data-mine={mine || undefined}
       data-first={first || undefined}
@@ -1041,27 +1059,14 @@ function Composer({
             <Smile size={21} />
           </button>
         </div>
-        <button
-          type="button"
-          className="scx-send"
-          onPointerDown={keepFocus}
-          onMouseDown={keepFocus}
-          onClick={() => submit()}
+        <SendButton
+          flights={flights}
           disabled={!text.trim()}
-          aria-label={editing ? 'Salvar' : 'Enviar'}
-        >
-          {editing ? (
-            <Check size={20} />
-          ) : (
-            <SendHorizontal
-              key={flights}
-              size={20}
-              className="scx-send__icon"
-              data-fly={flights > 0 || undefined}
-              aria-hidden
-            />
-          )}
-        </button>
+          onSend={() => submit()}
+          label={editing ? 'Salvar' : 'Enviar'}
+          title={editing ? 'Salvar a mudança' : 'Enviar (Enter)'}
+          icon={editing ? <Check size={20} /> : undefined}
+        />
       </div>
     </footer>
   );

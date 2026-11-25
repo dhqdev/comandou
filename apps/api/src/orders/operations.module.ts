@@ -39,6 +39,7 @@ import { KitchenController } from '../kitchen/kitchen.controller';
 import { KitchenService } from '../kitchen/kitchen.service';
 import { ReportsController } from '../reports/reports.controller';
 import {
+  AccountReservationsController,
   PublicReservationsController,
   ReservationsController,
 } from '../reservations/reservations.controller';
@@ -118,6 +119,7 @@ import { OrdersService } from './orders.service';
     SearchController,
     ReservationsController,
     PublicReservationsController,
+    AccountReservationsController,
     LoyaltyController,
     PublicStoreChatController,
     SupportChatController,

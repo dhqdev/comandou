@@ -79,7 +79,8 @@ export function storeScreenAllowed(rules: StoreRules, screen: string): boolean {
   if (screen.startsWith('conversa')) return rules.chat;
   if (screen.startsWith('favoritos')) return rules.favorites;
   if (screen.startsWith('fidelidade')) return rules.loyalty;
-  if (screen.startsWith('reservar')) return rules.reservations;
+  // Reservar e as reservas da conta (lista e acompanhamento pelo id).
+  if (screen.startsWith('reservar') || screen.startsWith('reservas')) return rules.reservations;
   if (screen === 'mesa' || screen.startsWith('mesa/')) return rules.tableService;
   // Endereços salvos só servem para a entrega (na mesa não há).
   if (screen.startsWith('conta/enderecos')) return rules.delivery;

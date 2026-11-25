@@ -42,3 +42,24 @@ lugares, até 3 em aberto por telefone). Ela só monta o pedido; o servidor grav
 cliente (`createWhatsApp`, `source = 'whatsapp'`, telefone da conversa) e o cartão mostra "pelo
 WhatsApp". O cliente cancela pela conversa só reserva do próprio número (`cancelWhatsApp`). Detalhes
 em [whatsapp.md](whatsapp.md#ia-que-atende-no-whatsapp).
+
+## Reserva no cadastro do cliente
+
+Na Nova reserva (e ao editar), o campo Cliente é o mesmo seletor do pedido (`CustomerPicker`): dá
+para buscar um cliente já cadastrado ou digitar só nome e telefone. Escolhido do cadastro, vai
+`customerId` (`StaffFields`, conferido em `checkCustomer`: existe e não está bloqueado, senão 422) e
+`reservations.customer_id` liga a reserva à conta dele. O cartão mostra "acompanha pelo app".
+Mandar `customerId: null` desliga.
+
+O cliente vê e cancela essas reservas pela conta do cardápio, em **Conta › Reservas**
+(`/pedir/reservas` e `/pedir/reservas/:id`), sem precisar do link da reserva:
+
+- `GET /store/account/reservations`: as dele dos últimos 30 dias, as próximas primeiro (sem notas
+  da equipe nem telefone).
+- `GET /store/account/reservations/:id`: só a dele (de outro cliente dá 404).
+- `POST /store/account/reservations/:id/cancel`: com as mesmas regras do link (`canCancel`); fica
+  como cancelada pelo cliente, com auditoria e aviso em tempo real.
+
+As três pedem a sessão do cliente (cookie da conta; sem ele, 401) e estão em `PUBLIC_TENANT_ROUTES`
+na varredura de segurança. O cancelamento na tela da equipe pede o motivo num campo do próprio
+cartão (não usa mais a janela do navegador).

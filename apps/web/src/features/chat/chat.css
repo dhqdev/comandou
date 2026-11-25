@@ -1003,16 +1003,15 @@
 .tc-typing i:nth-child(3) {
   animation-delay: 0.3s;
 }
+/* Só transform (sem opacidade piscando sem parar: no iPhone esmaecia a conversa inteira). */
 @keyframes tc-dot {
   0%,
   60%,
   100% {
-    transform: translateY(0);
-    opacity: 0.5;
+    transform: translateY(0) scale(0.8);
   }
   30% {
-    transform: translateY(-4px);
-    opacity: 1;
+    transform: translateY(-4px) scale(1.05);
   }
 }
 
@@ -2501,9 +2500,10 @@
   border-radius: 2px;
   animation: tc-caret 0.9s steps(2) infinite;
 }
+/* Pisca trocando a cor (não a opacidade): opacidade sem parar esmaecia a tela no iPhone. */
 @keyframes tc-caret {
   50% {
-    opacity: 0;
+    background: transparent;
   }
 }
 .tc-ai__note {

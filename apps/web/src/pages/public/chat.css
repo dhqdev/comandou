@@ -14,15 +14,9 @@
   display: flex;
   flex-direction: column;
   background: var(--cm-bg);
-  animation: sfchat-in 0.16s var(--cm-ease) backwards;
 }
-@keyframes sfchat-in {
-  from {
-    opacity: 0;
-  }
-}
-/* A tela da conversa não desliza com as outras: o deslize deixava a conversa por baixo do menu
-   que descia (a opacidade da animação prende o z-index dela dentro da tela). */
+/* A conversa entra parada, como as outras telas do cardápio: o esmaecer de entrada voltava a
+   rodar sozinho no iPhone (ao abrir o teclado, ao enviar) e a conversa inteira piscava. */
 .screen:has(> .sfchat) {
   animation: none;
 }
@@ -410,6 +404,47 @@ html.cm-kb-open .sfchat .scx {
 .sfchat-order > svg {
   flex: none;
   color: var(--cm-text-subtle);
+}
+/* Linha do pedido: escolher para citar (o cartão) e abrir o pedido (a seta, à direita). */
+.sfchat-order__row {
+  position: relative;
+  display: flex;
+}
+.sfchat-order__row .sfchat-order {
+  padding-right: 52px;
+}
+.sfchat-order__open {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cm-text-subtle);
+  cursor: pointer;
+  translate: 0 -50%;
+  transition:
+    background var(--cm-dur-fast) var(--cm-ease),
+    color var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.sfchat-order__open:hover {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+}
+.sfchat-order__open:active {
+  transform: scale(0.9);
+}
+.sfchat-order__open:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: 1px;
+}
+.sfchat-order__row[data-picked] .sfchat-order__open {
+  color: var(--cm-brand-700);
 }
 
 /* Como funciona: desenho do celular com a conversa e as dicas. */

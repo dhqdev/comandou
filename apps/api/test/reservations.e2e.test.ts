@@ -263,6 +263,117 @@ describe('Reservas', () => {
       startsAt: new Date().toISOString(),
     }).expect(422);
   });
+
+  it('equipe lança no cadastro do cliente e ele acompanha e cancela pela conta', async () => {
+    const [joana] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM customers WHERE tenant_id = $1 AND phone = '11977771234'`,
+      [fx.tenantA],
+    );
+    const [other] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM customers WHERE tenant_id = $1 AND phone <> '11977771234' LIMIT 1`,
+      [fx.tenantB],
+    );
+    const startsAt = new Date(Date.now() + 4 * 86_400_000).toISOString();
+    // Cliente de outro restaurante (ou que não existe) não entra.
+    if (other)
+      await post('adminA', '/reservations', {
+        name: 'Fulano',
+        phone: '11955550000',
+        partySize: 2,
+        startsAt,
+        customerId: other.id,
+      }).expect(422);
+    await post('adminA', '/reservations', {
+      name: 'Fulano',
+      phone: '11955550000',
+      partySize: 2,
+      startsAt,
+      customerId: '00000000-0000-4000-8000-000000000000',
+    }).expect(422);
+
+    const r = (
+      await post('adminA', '/reservations', {
+        name: 'Joana Cliente',
+        phone: '11977771234',
+        partySize: 3,
+        startsAt,
+        staffNotes: 'Cliente da casa',
+        customerId: joana!.id,
+      }).expect(201)
+    ).body;
+    expect(r).toMatchObject({ customerId: joana!.id, customerName: 'Joana Cliente' });
+
+    // Sem conta aberta: 401; com a conta, a reserva lançada pela equipe aparece.
+    await http.get('/api/v1/store/account/reservations').set('Host', HOST_A).expect(401);
+    const mine = (
+      await http
+        .get('/api/v1/store/account/reservations')
+        .set('Host', HOST_A)
+        .set('Cookie', shopper.cookie)
+        .expect(200)
+    ).body as { id: string; code: string; staffNotes?: string; phone?: string }[];
+    const item = mine.find((x) => x.id === r.id)!;
+    expect(item).toMatchObject({ code: r.code, partySize: 3, canCancel: true });
+    // O cliente não vê a anotação da equipe nem o telefone.
+    expect(item.staffNotes).toBeUndefined();
+    expect(item.phone).toBeUndefined();
+    const view = (
+      await http
+        .get(`/api/v1/store/account/reservations/${r.id}`)
+        .set('Host', HOST_A)
+        .set('Cookie', shopper.cookie)
+        .expect(200)
+    ).body;
+    expect(view).toMatchObject({ code: r.code, canCancel: true, timeZone: 'America/Sao_Paulo' });
+
+    // Reserva de outra pessoa (sem o cadastro dela) é 404 para a conta.
+    const stranger = (
+      await post('adminA', '/reservations', {
+        name: 'Outra pessoa',
+        phone: '11955551111',
+        partySize: 2,
+        startsAt,
+      }).expect(201)
+    ).body;
+    await http
+      .get(`/api/v1/store/account/reservations/${stranger.id}`)
+      .set('Host', HOST_A)
+      .set('Cookie', shopper.cookie)
+      .expect(404);
+    await http
+      .post(`/api/v1/store/account/reservations/${stranger.id}/cancel`)
+      .set('Host', HOST_A)
+      .set('Cookie', shopper.cookie)
+      .set(CSRF)
+      .expect(404);
+
+    // Cancela pela conta; a equipe vê "cancelada pelo cliente".
+    const c = (
+      await http
+        .post(`/api/v1/store/account/reservations/${r.id}/cancel`)
+        .set('Host', HOST_A)
+        .set('Cookie', shopper.cookie)
+        .set(CSRF)
+        .expect(200)
+    ).body;
+    expect(c).toMatchObject({ status: 'cancelled', canCancel: false });
+    const [row] = await ownerQuery<{ status: string; cancelled_by: string }>(
+      `SELECT status, cancelled_by FROM reservations WHERE id = $1`,
+      [r.id],
+    );
+    expect(row).toMatchObject({ status: 'cancelled', cancelled_by: 'customer' });
+
+    // A equipe tira a reserva da conta: some da lista do cliente.
+    await patch('adminA', `/reservations/${r.id}`, { customerId: null }).expect(200);
+    const after = (
+      await http
+        .get('/api/v1/store/account/reservations')
+        .set('Host', HOST_A)
+        .set('Cookie', shopper.cookie)
+        .expect(200)
+    ).body as { id: string }[];
+    expect(after.some((x) => x.id === r.id)).toBe(false);
+  });
 });
 
 describe('Reservas × mesas', () => {

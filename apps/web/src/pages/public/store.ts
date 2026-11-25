@@ -350,6 +350,23 @@ export function forgetOrders(tokens: string[]) {
     recentOrders().filter((x) => !tokens.includes(x.token)),
   );
 }
+/**
+ * Endereço do pedido citado na conversa com a loja: o da conta (histórico do cliente logado) ou
+ * o do link guardado neste aparelho. O número do pedido é único no restaurante, então acha sempre
+ * o mesmo pedido. Sem nenhum dos dois (pedido antigo, feito em outro aparelho), a aba Pedidos.
+ */
+export function chatOrderPath(
+  n: number,
+  mine: Pick<AccountOrder, 'id' | 'number'>[] | null,
+  here: Pick<RecentOrder, 'number' | 'token'>[],
+): string {
+  const own = mine?.find((o) => o.number === n);
+  if (own) return `/pedir/pedidos/${encodeURIComponent(own.id)}`;
+  const local = here.find((o) => o.number === n);
+  if (local) return `/pedido/${encodeURIComponent(local.token)}`;
+  return '/pedir/pedidos';
+}
+
 /** A API respondeu que a conta da mesa deste pedido já foi fechada (o pedido saiu do celular). */
 export const TABLE_CLOSED = 'table_closed';
 export const isTableClosed = (e: unknown) =>

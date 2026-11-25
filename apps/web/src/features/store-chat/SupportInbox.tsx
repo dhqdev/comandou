@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { useCan } from '../../app/auth';
+import { useAuth, useCan } from '../../app/auth';
 import { cachedBranding, useToast, Skeleton } from '../../design-system';
 import { api } from '../../lib/api';
 import { useRealtime } from '../../lib/realtime';
@@ -125,6 +125,9 @@ function Conversation({
   onChanged(): void;
 }) {
   const toast = useToast();
+  // Primeiro nome de quem responde, como o servidor grava no balão (a mensagem que está indo já
+  // entra com ele e não muda de grupo quando o servidor responde).
+  const myName = useAuth().me?.user.name.trim().split(/\s+/)[0] ?? null;
   const [d, setD] = useState<Detail | null>(null);
   const [typing, setTyping] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -282,6 +285,7 @@ function Conversation({
         typing={typing}
         autoFocus
         quickReplies={QUICK_REPLIES}
+        myName={myName}
         onOrder={(m) => m.orderId && setOrderId(m.orderId)}
         onLoadMore={async () => {
           const first = d.messages[0];

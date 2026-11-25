@@ -45,7 +45,7 @@ import { StoreProvider, useStore } from './context';
 import { FavoritesScreen, HomeScreen } from './HomeScreen';
 import { LoyaltyScreen } from './LoyaltyScreens';
 import { ProductScreen } from './ProductScreen';
-import { ReservationStatusScreen, ReserveScreen } from './ReservationScreens';
+import { MyReservationsScreen, ReservationStatusScreen, ReserveScreen } from './ReservationScreens';
 import { InstallHint, useHomeScreenMeta } from './InstallHint';
 import { TableHere } from './TableHere';
 import { TableBillScreen, TableServiceScreen } from './TableServiceScreen';
@@ -309,6 +309,14 @@ function Screens() {
           <Route path="pedidos/:id" element={<PublicOrderPage />} />
           <Route path="reservar" element={<Allowed screen="reservar" el={<ReserveScreen />} />} />
           <Route path="reserva/:token" element={<ReservationStatusScreen />} />
+          <Route
+            path="reservas"
+            element={<Allowed screen="reservas" el={<MyReservationsScreen />} />}
+          />
+          <Route
+            path="reservas/:id"
+            element={<Allowed screen="reservas" el={<ReservationStatusScreen />} />}
+          />
           <Route path="conversa" element={<Allowed screen="conversa" el={<ChatScreen />} />} />
           <Route path="conta" element={<AccountScreen />} />
           <Route path="conta/dados" element={<ProfileScreen />} />

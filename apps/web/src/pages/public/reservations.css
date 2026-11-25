@@ -271,6 +271,113 @@
 .rsv-actions .cta {
   text-decoration: none;
 }
+/* Cancelar: a confirmação aparece no lugar dos botões (sem o confirm() do navegador). */
+.rsv-confirm {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid color-mix(in oklab, var(--cm-danger) 30%, var(--cm-border));
+  border-radius: var(--sf-r-lg);
+  background: color-mix(in oklab, var(--cm-danger) 6%, var(--cm-surface));
+}
+.rsv-confirm p {
+  margin: 4px 0 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.rsv-confirm .rsv-actions {
+  margin-top: 12px;
+}
+.cta--danger {
+  background: var(--cm-danger);
+  color: #fff;
+}
+
+/* Conta › Reservas: uma linha por reserva (dia grande, hora e pessoas, situação). */
+.rsv-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rsv-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-r);
+  background: var(--cm-surface);
+  color: inherit;
+  text-decoration: none;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.rsv-row:active {
+  transform: scale(0.98);
+}
+.rsv-row > svg {
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+.rsv-row__day {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  min-width: 46px;
+  line-height: 1.1;
+}
+.rsv-row__day strong {
+  font-size: var(--cm-text-xl);
+  font-variant-numeric: tabular-nums;
+}
+.rsv-row__day small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.rsv-row__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.rsv-row__text strong {
+  font-size: var(--cm-text-md);
+}
+.rsv-row__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.rsv-row__status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cm-warning);
+}
+.rsv-row[data-status='confirmed'] .rsv-row__status::before,
+.rsv-row[data-status='seated'] .rsv-row__status::before {
+  background: var(--cm-success);
+}
+.rsv-row[data-status='completed'] .rsv-row__status::before {
+  background: var(--cm-text-subtle);
+}
+.rsv-row[data-status='cancelled'] .rsv-row__status::before,
+.rsv-row[data-status='no_show'] .rsv-row__status::before {
+  background: var(--cm-danger);
+}
+.rsv-list-sk {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.rsv-row--sk {
+  display: block;
+  min-height: 70px;
+  border-radius: var(--sf-r);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .rsv-day,
