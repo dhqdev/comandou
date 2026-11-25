@@ -7,6 +7,7 @@ import {
 import { fromCents, paymentStatusFor, toCents } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import {
+  assertNoOrderOnlinePending,
   assertNoTabOnlinePending,
   CashService,
   changeFor,
@@ -174,7 +175,15 @@ export class TabsService {
       const tab = await this.lockTab(tx, id);
       if (tab.status !== 'open') throw new ConflictException('Comanda não está aberta');
       const value = percent && toCents(percent) > 0 ? percent : null;
-      const orders = (await this.lockOrders(tx, id)).filter((o) => o.status !== 'cancelled');
+      // Pedido já encerrado (concluído e pago, fiado ou a receber) não muda mais de valor, e
+      // retirada nunca tem taxa de serviço: só os pedidos ainda em aberto da mesa entram na conta.
+      const orders = (await this.lockOrders(tx, id)).filter(
+        (o) =>
+          o.status !== 'cancelled' &&
+          !(o.status === 'completed' && toCents(o.paid_amount) >= toCents(o.total)) &&
+          o.channel !== 'pickup' &&
+          !o.on_account,
+      );
       for (const o of orders) {
         const base = toCents(o.subtotal) - toCents(o.discount);
         const surcharge = serviceFeeCents(base, value);
@@ -340,6 +349,8 @@ export class TabsService {
           throw new ConflictException(TAB_PIX_PENDING_MESSAGE);
         // A mesa está pagando (ou já pagou) a conta inteira pelo PagBank no celular.
         await assertNoTabOnlinePending(tx, id);
+        // Algum pedido da mesa sendo pago (ou já pago) pelo app, avulso, fora da conta da mesa.
+        for (const o of orders) await assertNoOrderOnlinePending(tx, o);
         const balance = orders.reduce((s, o) => s + toCents(o.total) - toCents(o.paid_amount), 0);
         let remaining = toCents(b.amount);
         if (remaining <= 0) throw new UnprocessableEntityException('Valor deve ser maior que zero');

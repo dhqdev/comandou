@@ -18,6 +18,8 @@ export type FileKind = 'image' | 'video';
 export const CHAT_FILES_QUOTA = 512 * 1024 * 1024;
 /** Quanto um cliente pode enviar por dia na conversa dele (evita encher o espaço da loja). */
 export const CUSTOMER_DAILY_BYTES = 80 * 1024 * 1024;
+/** Tudo o que os clientes de um restaurante mandam num dia, somando todas as conversas. */
+export const CUSTOMERS_DAILY_BYTES = 160 * 1024 * 1024;
 export const MAX_CHAT_IMAGE_BYTES = 3 * 1024 * 1024;
 export const MAX_CHAT_VIDEO_BYTES = 20 * 1024 * 1024;
 export const CHAT_IMAGE_TYPES = new Set(['image/webp', 'image/jpeg', 'image/png']);
@@ -311,6 +313,10 @@ export class StoreChatService {
     file: { mime: string; bytes: Buffer; width?: number; height?: number },
   ) {
     const kind: FileKind = file.mime.startsWith('video/') ? 'video' : 'image';
+    // Um envio de cada vez por restaurante: a conta do limite abaixo não erra com dois juntos.
+    await q(tx, `SELECT pg_advisory_xact_lock(hashtext('store_chat_files:' || $1::text))`, [
+      tenantId,
+    ]);
     if (by === 'customer') {
       const used = await one<{ n: string }>(
         tx,
@@ -322,6 +328,32 @@ export class StoreChatService {
         throw new UnprocessableEntityException(
           'Você já enviou muitos arquivos hoje. Mande por texto ou tente amanhã.',
         );
+      // Somando todas as conversas de clientes (quem abre conversa nova a cada envio não passa do
+      // limite do restaurante) e sem nunca apagar o arquivo de outra pessoa para caber o seu.
+      // Para caber, o envio do cliente só tira arquivos com mais de 30 dias (os recentes ficam).
+      await q(
+        tx,
+        `DELETE FROM store_chat_files WHERE id IN (
+           SELECT id FROM (
+             SELECT id, created_at, sum(size) OVER (ORDER BY created_at DESC, id) AS acc
+               FROM store_chat_files
+           ) s WHERE s.acc > $1 AND s.created_at < now() - interval '30 days')`,
+        [CHAT_FILES_QUOTA - file.bytes.length],
+      );
+      const all = await one<{ day: string; total: string }>(
+        tx,
+        `SELECT coalesce(sum(size) FILTER (WHERE uploaded_by = 'customer'
+                  AND created_at > now() - interval '1 day'), 0)::text AS day,
+                coalesce(sum(size), 0)::text AS total
+           FROM store_chat_files`,
+      );
+      if (
+        Number(all!.day) + file.bytes.length > CUSTOMERS_DAILY_BYTES ||
+        Number(all!.total) + file.bytes.length > CHAT_FILES_QUOTA
+      )
+        throw new UnprocessableEntityException(
+          'A loja recebeu muitos arquivos hoje. Mande por texto ou tente mais tarde.',
+        );
     }
     // Arquivo enviado e nunca usado numa mensagem some depois de um dia.
     await q(
@@ -329,7 +361,8 @@ export class StoreChatService {
       `DELETE FROM store_chat_files f WHERE f.created_at < now() - interval '1 day'
           AND NOT EXISTS (SELECT 1 FROM store_chat_messages m WHERE m.file_id = f.id)`,
     );
-    // Limite do restaurante: os mais antigos saem até caber o novo.
+    // Limite do restaurante: os mais antigos saem até caber o novo (só no envio da equipe; o do
+    // cliente já foi recusado acima se não coubesse).
     await q(
       tx,
       `DELETE FROM store_chat_files WHERE id IN (

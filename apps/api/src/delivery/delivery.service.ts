@@ -445,51 +445,47 @@ export class DeliveryService {
     opts: { viaLink?: string; code?: string; method?: PaymentMethod } = {},
   ) {
     let orderId = '';
-    let wrong = false;
     const byCourier = !!opts.viaLink || !this.canManage(ctx);
-    try {
-      const res = await this.db.withTenant(ctx, async (tx) => {
-        const { o, d } = await this.lockOut(tx, ctx, id, opts.viaLink);
-        // Corrida que saiu antes do código existir (migração 0026) conclui sem ele.
-        if (byCourier && d.confirm_code) {
-          if (d.confirm_attempts >= CONFIRM_MAX_ATTEMPTS)
-            throw new ConflictException(
-              'Código bloqueado depois de várias tentativas. Peça para o restaurante concluir.',
-            );
-          if (!opts.code) throw new UnprocessableEntityException('Digite o código do cliente');
-          if (opts.code !== d.confirm_code) {
-            wrong = true;
-            const left = CONFIRM_MAX_ATTEMPTS - d.confirm_attempts - 1;
-            throw new UnprocessableEntityException(
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      const { o, d } = await this.lockOut(tx, ctx, id, opts.viaLink);
+      // Corrida que saiu antes do código existir (migração 0026) conclui sem ele.
+      if (byCourier && d.confirm_code) {
+        if (d.confirm_attempts >= CONFIRM_MAX_ATTEMPTS)
+          throw new ConflictException(
+            'Código bloqueado depois de várias tentativas. Peça para o restaurante concluir.',
+          );
+        if (!opts.code) throw new UnprocessableEntityException('Digite o código do cliente');
+        if (opts.code !== d.confirm_code) {
+          // O erro conta nesta mesma transação (com a entrega travada), que segue até o COMMIT:
+          // tentativas juntas não leem o contador antigo e passam do limite.
+          await q(
+            tx,
+            `UPDATE deliveries SET confirm_attempts = confirm_attempts + 1 WHERE id = $1`,
+            [id],
+          );
+          const left = CONFIRM_MAX_ATTEMPTS - d.confirm_attempts - 1;
+          return {
+            wrong:
               left > 0
                 ? `Código errado. Confira com o cliente (${left} ${left === 1 ? 'tentativa' : 'tentativas'}).`
                 : 'Código errado. Peça para o restaurante concluir.',
-            );
-          }
+          };
         }
-        orderId = o.id;
-        await this.orders.transitionInTx(
-          tx,
-          ctx,
-          o,
-          'completed',
-          byCourier || !d.confirm_code ? 'Entrega concluída' : 'Entrega concluída pelo restaurante',
-          { collectMethod: opts.method ?? null },
-        );
-        return one(tx, `${DELIVERY_SELECT} WHERE d.id = $1`, [id]);
-      });
-      this.publish(ctx, id, orderId);
-      return res;
-    } catch (e) {
-      // A transação foi desfeita: o erro conta numa gravação à parte.
-      if (wrong)
-        await this.db.withTenant(ctx, (tx) =>
-          q(tx, `UPDATE deliveries SET confirm_attempts = confirm_attempts + 1 WHERE id = $1`, [
-            id,
-          ]),
-        );
-      throw e;
-    }
+      }
+      orderId = o.id;
+      await this.orders.transitionInTx(
+        tx,
+        ctx,
+        o,
+        'completed',
+        byCourier || !d.confirm_code ? 'Entrega concluída' : 'Entrega concluída pelo restaurante',
+        { collectMethod: opts.method ?? null },
+      );
+      return { row: await one(tx, `${DELIVERY_SELECT} WHERE d.id = $1`, [id]) };
+    });
+    if ('wrong' in res) throw new UnprocessableEntityException(res.wrong);
+    this.publish(ctx, id, orderId);
+    return res.row;
   }
 
   // ------------------------------------------------------------------ acerto do entregador

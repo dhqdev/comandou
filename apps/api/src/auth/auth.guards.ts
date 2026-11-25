@@ -63,7 +63,8 @@ export class SessionGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest<Request>();
     const token = (req.cookies as Record<string, string> | undefined)?.[SESSION_COOKIE];
     if (!req.tenant || !token) throw new UnauthorizedException('Sessão necessária');
-    const user = await this.sessions.validate(req.tenant.id, token, true);
+    const acted = req.method !== 'GET' && req.method !== 'HEAD';
+    const user = await this.sessions.validate(req.tenant.id, token, true, acted);
     if (!user) throw new UnauthorizedException('Sessão inválida ou expirada');
     const { renewedUntil, ...authenticated } = user;
     // "Manter conectado": o prazo andou, então o cookie também anda (senão o navegador o apagaria).

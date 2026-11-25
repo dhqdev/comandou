@@ -259,7 +259,7 @@ export function syncCart(cart: CartLine[], product: (id: string) => PublicProduc
 export const MAX_CART_LINES = 60;
 
 /** Linha vinda da sacola guardada na conta: só aceita o formato que o cardápio monta. */
-const isLine = (l: unknown): l is CartLine => {
+export const isLine = (l: unknown): l is CartLine => {
   const x = l as Partial<CartLine> | null;
   return (
     !!x &&
@@ -291,7 +291,15 @@ export function mergeCarts(local: CartLine[], saved: unknown[]): CartLine[] {
 function read<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
+    if (!raw) return fallback;
+    const v: unknown = JSON.parse(raw);
+    // Valor salvo por versão antiga ou mexido à mão com outro formato: volta ao padrão em vez de
+    // quebrar o cardápio toda vez que abre.
+    if (Array.isArray(fallback)) return (Array.isArray(v) ? v : fallback) as T;
+    if (fallback !== null && typeof fallback === 'object')
+      return (v && typeof v === 'object' && !Array.isArray(v) ? v : fallback) as T;
+    if (fallback !== null && typeof v !== typeof fallback) return fallback;
+    return v as T;
   } catch {
     return fallback;
   }
@@ -322,7 +330,13 @@ export interface RecentOrder {
 }
 const RECENT = 'cm-store-orders';
 export const recentOrders = () =>
-  read<RecentOrder[]>(RECENT, []).filter((o) => Date.now() - Date.parse(o.at) < 2 * 86_400_000);
+  read<RecentOrder[]>(RECENT, []).filter(
+    (o) =>
+      !!o &&
+      typeof o.token === 'string' &&
+      typeof o.at === 'string' &&
+      Date.now() - Date.parse(o.at) < 2 * 86_400_000,
+  );
 /** Pedidos deste aparelho para a mesa, do mais novo ao mais antigo. */
 export const tableOrders = (tableId: string) => recentOrders().filter((o) => o.tableId === tableId);
 export function rememberOrder(o: RecentOrder) {

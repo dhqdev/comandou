@@ -125,12 +125,17 @@ interface PhotonFeature {
  * para guardar em cache as buscas repetidas. O servidor pode trocar por instâncias próprias com
  * GEOCODER_URL e PHOTON_URL (vazio desliga o Photon).
  */
+/** Máximo de buscas esperando a vez no Nominatim (1 por segundo): ~15 s de espera no pior caso. */
+const GEOCODE_QUEUE_MAX = 15;
+
 @Injectable()
 export class GeocoderService {
   private readonly log = new Logger('Geocoder');
   private readonly cache = new Map<string, { at: number; ttl: number; value: unknown }>();
   private queue: Promise<unknown> = Promise.resolve();
   private last = 0;
+  /** Consultas esperando a vez (1/s). Fila cheia falha na hora, como o Nominatim fora do ar. */
+  private waiting = 0;
   /** Intervalo entre consultas ao Nominatim (os testes zeram). */
   intervalMs = MIN_INTERVAL_MS;
 
@@ -320,7 +325,14 @@ export class GeocoderService {
   }
 
   private throttled<T>(fn: () => Promise<T>): Promise<T> {
+    // Muitas buscas de endereço únicas (de propósito ou não) faziam a fila crescer sem fim e a
+    // finalização de todos os restaurantes esperava minutos. Passou do limite: o cliente marca o
+    // ponto no mapa, como quando o serviço não responde.
+    if (this.waiting >= GEOCODE_QUEUE_MAX)
+      return Promise.reject(new Error('Busca de endereço ocupada agora'));
+    this.waiting++;
     const run = this.queue.then(async () => {
+      this.waiting--;
       const wait = this.last + this.intervalMs - Date.now();
       if (wait > 0) await new Promise((r) => setTimeout(r, wait));
       this.last = Date.now();

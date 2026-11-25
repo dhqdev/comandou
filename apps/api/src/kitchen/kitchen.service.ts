@@ -197,7 +197,7 @@ export class KitchenService {
         orderId: o.id,
         itemId,
         status: action === 'ready' ? 'ready' : 'preparing',
-        orderStatus: o.status,
+        orderStatus: await this.statusOf(tx, o.id),
       };
     });
     this.realtime.publish(ctx.tenantId, { type: 'kitchen.changed', orderId });
@@ -231,7 +231,7 @@ export class KitchenService {
       );
       if (!updated.length) throw new ConflictException('Nada para avançar neste pedido');
       await this.afterItemChange(tx, ctx, o);
-      return { orderId, updated: updated.length, orderStatus: o.status };
+      return { orderId, updated: updated.length, orderStatus: await this.statusOf(tx, orderId) };
     });
     this.realtime.publish(ctx.tenantId, { type: 'kitchen.changed', orderId });
     this.realtime.publish(ctx.tenantId, {
@@ -240,5 +240,13 @@ export class KitchenService {
       status: res.orderStatus,
     });
     return res;
+  }
+
+  /** Situação do pedido depois da mudança (afterItemChange pode ter levado a pronto/em preparo). */
+  private async statusOf(tx: Tx, orderId: string): Promise<string> {
+    const r = await one<{ status: string }>(tx, `SELECT status FROM orders WHERE id = $1`, [
+      orderId,
+    ]);
+    return r!.status;
   }
 }
