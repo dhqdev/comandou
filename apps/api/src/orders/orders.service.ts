@@ -251,6 +251,25 @@ export function serviceFeeCents(baseCents: number, percent: string | null): numb
   return Math.round((baseCents * hundredths) / 10_000);
 }
 
+/**
+ * Acréscimo depois de mudar os itens (cancelar um item, tirar ou trocar itens). Retirada nunca tem
+ * taxa de serviço. Na comanda com taxa, a taxa acompanha os itens só se o acréscimo era a taxa
+ * automática: acréscimo que alguém mudou à mão (zerou porque o cliente não quis pagar os 10%, ou
+ * pôs outro valor) fica como está.
+ */
+export function surchargeAfterItems(o: {
+  channel: string;
+  surchargeCents: number;
+  oldBaseCents: number;
+  newBaseCents: number;
+  feePercent: string | null;
+}): number {
+  if (o.channel === 'pickup') return 0;
+  if (!o.feePercent) return o.surchargeCents;
+  const automatic = o.surchargeCents === serviceFeeCents(o.oldBaseCents, o.feePercent);
+  return automatic ? serviceFeeCents(o.newBaseCents, o.feePercent) : o.surchargeCents;
+}
+
 /** Aviso ao cliente pelo WhatsApp que a mudança de status gera (ou null). */
 export function statusEvent(
   from: OrderStatus,
@@ -1710,9 +1729,13 @@ export class OrdersService {
             [o.tab_id],
           )
         : null;
-      const surcharge = tab?.service_fee_percent
-        ? serviceFeeCents(subtotal - discount, tab.service_fee_percent)
-        : toCents(o.surcharge);
+      const surcharge = surchargeAfterItems({
+        channel: o.channel,
+        surchargeCents: toCents(o.surcharge),
+        oldBaseCents: toCents(o.subtotal) - discount,
+        newBaseCents: subtotal - discount,
+        feePercent: tab?.service_fee_percent ?? null,
+      });
       const total = subtotal - discount + surcharge + toCents(o.delivery_fee);
       const paid = toCents(o.paid_amount);
       if (total < paid)
@@ -1975,9 +1998,13 @@ export class OrdersService {
             [o.tab_id],
           )
         : null;
-      const surcharge = tab?.service_fee_percent
-        ? serviceFeeCents(subtotal - discount, tab.service_fee_percent)
-        : toCents(o.surcharge);
+      const surcharge = surchargeAfterItems({
+        channel: o.channel,
+        surchargeCents: toCents(o.surcharge),
+        oldBaseCents: toCents(o.subtotal) - discount,
+        newBaseCents: subtotal - discount,
+        feePercent: tab?.service_fee_percent ?? null,
+      });
       const total = subtotal - discount + surcharge + toCents(o.delivery_fee);
       const paid = toCents(o.paid_amount);
       if (total < paid)

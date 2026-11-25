@@ -288,6 +288,7 @@ const COLUMN: Record<keyof StoreSettings, string> = {
 /** Comprovantes por pedido (o cliente reenvia se a loja recusar). */
 export const MAX_PIX_RECEIPTS = 5;
 
+
 /**
  * Pedido pela mesa: até onde do ponto da loja o celular pode estar. O GPS dentro do salão erra, então
  * a precisão que o próprio celular informa entra na conta (até TABLE_SLACK_M a mais).
@@ -1009,6 +1010,14 @@ export class StoreService {
     // Mesa: entra na comanda aberta dela (ou abre uma, no nome do cliente). Sem taxa de entrega
     // nem pedido mínimo. O cliente paga no fim, com o garçom, ou já pelo Pix do cardápio (o
     // comprovante aprovado entra como pagamento deste pedido e baixa o saldo da comanda).
+    // Aceite automático só para quem não parece pedido falso: o mesmo telefone com pedidos em
+    // aberto, ou uma enxurrada de pedidos sem conta, cai em análise (uma pessoa aceita).
+    const autoAccept =
+      !atTable
+        ? (await this.db.withTenant(ctx, (tx) =>
+            this.autoAcceptAllowed(tx, input.customerPhone, !!input.customerId),
+          )) && s.autoAccept
+        : s.autoAccept;
     const order = await this.orders.create(
       ctx,
       {
@@ -1023,7 +1032,7 @@ export class StoreService {
         items: input.items,
         online: {
           tokenHash: publicTokenHash(input.token),
-          autoAccept: s.autoAccept,
+          autoAccept,
           paymentHint: atTable ? (pixNow ? 'pix' : undefined) : input.paymentMethod,
           // Pix pelo cardápio ligado: o pedido espera o comprovante do cliente.
           pix: pixNow,
@@ -1045,6 +1054,26 @@ export class StoreService {
       pixStatus: (order as unknown as { pixStatus: PixReceiptStatus | null }).pixStatus ?? null,
       payOnline: payOnline ?? null,
     };
+  }
+
+  /**
+   * Pedido online pode ir direto para a cozinha (aceite automático)? Não quando o mesmo telefone
+   * já tem 2 pedidos em aberto na última hora, ou quando chegaram 10 pedidos sem conta nos últimos
+   * 10 minutos. Em análise, a loja vê e recusa o que for falso antes de ir para a cozinha.
+   */
+  async autoAcceptAllowed(tx: Tx, phone: string | undefined, withAccount: boolean) {
+    const tail = (phone ?? '').replace(/\D/g, '').slice(-8);
+    const r = await one<{ open: number; burst: number }>(
+      tx,
+      `SELECT count(*) FILTER (WHERE $1 <> '' AND right(regexp_replace(coalesce(customer_phone, ''), '\\D', '', 'g'), 8) = $1
+                                 AND status NOT IN ('completed', 'cancelled'))::int AS open,
+              count(*) FILTER (WHERE customer_id IS NULL AND created_at > now() - interval '10 minutes')::int AS burst
+         FROM orders
+        WHERE source = 'online' AND tab_id IS NULL AND created_at > now() - interval '1 hour'`,
+      [tail.length === 8 ? tail : ''],
+    );
+    if ((r?.open ?? 0) >= 2) return false;
+    return withAccount || (r?.burst ?? 0) < 10;
   }
 
   /** Pedido pelo link do cliente (token), válido por 7 dias. */

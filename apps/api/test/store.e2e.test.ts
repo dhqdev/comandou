@@ -420,6 +420,29 @@ describe('Cardápio público e pedido do cliente', () => {
     expect(r.body.status).toBe('new');
   });
 
+  it('aceite automático: o mesmo telefone com 2 pedidos em aberto cai em análise', async () => {
+    await patch('adminA', '/store/settings', { isOpen: true, autoAccept: true }).expect(200);
+    const order = () =>
+      pub
+        .post(
+          '/store/orders',
+          {
+            ...customer,
+            customerPhone: '(11) 97777-1234',
+            channel: 'pickup',
+            token: token(),
+            items: [{ productId: fx.prodA, quantity: 1 }],
+          },
+          key(),
+        )
+        .expect(201);
+    expect((await order()).body.status).toBe('new');
+    expect((await order()).body.status).toBe('new');
+    // Terceiro em aberto do mesmo número: uma pessoa aceita antes de ir para a cozinha.
+    expect((await order()).body.status).toBe('awaiting');
+    await patch('adminA', '/store/settings', { autoAccept: false }).expect(200);
+  });
+
   it('ligar o aceite automático aceita quem já estava em análise', async () => {
     await patch('adminA', '/store/settings', { isOpen: true, autoAccept: false }).expect(200);
     const r = await pub
