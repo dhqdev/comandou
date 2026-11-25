@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAddress, normalizeMessageId } from './address';
+import { formatAddress, maskSubject, normalizeMessageId } from './address';
 import { MailSendError, sendThrough } from './providers';
 
 describe('endereços', () => {
@@ -14,6 +14,15 @@ describe('endereços', () => {
     expect(normalizeMessageId('<abc@x.com>')).toBe('<abc@x.com>');
     expect(normalizeMessageId('a b@x')).toBeNull();
     expect(normalizeMessageId(undefined)).toBeNull();
+  });
+});
+
+describe('assunto com código', () => {
+  it('mascara o código e mantém o resto do assunto', () => {
+    expect(maskSubject('482913 é o seu código do Comandou')).toBe('•••• é o seu código do Comandou');
+    expect(maskSubject('Código AB12-CD34 para entrar')).toBe('Código •••• para entrar');
+    expect(maskSubject('Pedido #12 saiu às 19h')).toBe('Pedido #12 saiu às 19h');
+    expect(maskSubject('Bem-vindo ao Comandou')).toBe('Bem-vindo ao Comandou');
   });
 });
 

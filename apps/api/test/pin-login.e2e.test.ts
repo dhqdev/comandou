@@ -231,6 +231,9 @@ describe('PIN da equipe', () => {
       current: PASSWORD,
     });
     expect(ok.status).toBe(204);
+    // A sessão aberta no outro restaurante (com a senha antiga) cai; a de quem trocou continua.
+    expect((await as(adminB, HOST_B).get('/auth/me')).status).toBe(401);
+    expect((await as(inA).get('/auth/me')).status).toBe(200);
     expect((await intoB('senha-nova-do-dono-b')).status).toBe(200);
     adminB = cookieOf(await intoB('senha-nova-do-dono-b'));
   });

@@ -19,7 +19,13 @@ export interface WhatsAppResult {
   ok: boolean;
   messageId?: string;
   error?: string;
+  /** Pode ter saído (prazo esgotado depois de mandar): não tentar de novo sozinho. */
+  uncertain?: true;
 }
+
+/** Mesmo texto do caminho do QR Code (gateway.client.ts). */
+const UNCERTAIN_SEND =
+  'Envio incerto: o WhatsApp não confirmou a tempo. Confira na conversa antes de reenviar.';
 
 /**
  * Envio de mensagem-modelo (template) pela WhatsApp Cloud API (oficial da Meta).
@@ -74,6 +80,10 @@ export class WhatsAppClient {
         signal: AbortSignal.timeout(20_000),
       });
     } catch (err) {
+      // Passou do prazo com o pedido já enviado: a Meta pode ter mandado. Tentar de novo
+      // repetiria a mensagem para o cliente; fica "incerto", como no caminho do QR Code.
+      if ((err as Error).name === 'TimeoutError')
+        return { ok: false, error: UNCERTAIN_SEND, uncertain: true };
       throw new WhatsAppUnavailableError(`WhatsApp indisponível: ${(err as Error).message}`);
     }
     if (res.status >= 500 || res.status === 429)

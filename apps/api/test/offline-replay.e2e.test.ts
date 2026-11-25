@@ -92,6 +92,18 @@ describe('reenvio da fila offline', () => {
     expect((await categories(HOST_B)).some((c) => c.id === a.body.id)).toBe(false);
   });
 
+  it('dois reenvios ao mesmo tempo gravam uma vez só', async () => {
+    const op = `op-${Date.now()}-e`;
+    const res = await Promise.all(
+      Array.from({ length: 4 }, () => post('/categories', { name: 'Offline 7' }, op)),
+    );
+    // Quem chegou com o primeiro ainda gravando recebe 429 (a fila tenta de novo depois).
+    for (const r of res) expect([201, 429]).toContain(r.status);
+    expect((await categories()).filter((c) => c.name === 'Offline 7')).toHaveLength(1);
+    const again = await post('/categories', { name: 'Offline 7' }, op).expect(201);
+    expect(again.body.id).toBe(res.find((r) => r.status === 201)!.body.id);
+  });
+
   it('chave inválida é recusada', async () => {
     await post('/categories', { name: 'Offline 5' }, 'x').expect(422);
   });

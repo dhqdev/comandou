@@ -37,8 +37,9 @@ html {
   background: var(--cm-frame);
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
-  /* Cara de app: nada de pinça/zoom nem página deslizando para os lados. */
-  touch-action: pan-x pan-y;
+  /* Pinça para ampliar continua valendo (quem enxerga pouco precisa); só o toque duplo não dá
+     zoom. */
+  touch-action: manipulation;
 }
 /* App instalado no iPhone (iOS 26): com a barra de status translúcida, a área visível fica mais
    curta que a tela pela altura dessa barra enquanto a página é mais baixa que a tela (WebKit

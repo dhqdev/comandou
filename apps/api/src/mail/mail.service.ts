@@ -11,7 +11,14 @@ import type { PoolClient } from 'pg';
 import { open, seal } from '../common/secret-box';
 import { ENV, Env } from '../config/env';
 import { PlatformDb } from '../platform/platform-db.service';
-import { Address, cleanHeader, domainOf, isEmail, normalizeMessageId } from './address';
+import {
+  Address,
+  cleanHeader,
+  domainOf,
+  isEmail,
+  maskSubject,
+  normalizeMessageId,
+} from './address';
 import { inlineImages } from './inline-images';
 import {
   Fetcher,
@@ -190,7 +197,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
       m.sensitive && this.env.INTEGRATIONS_KEY
         ? seal(
             this.env.INTEGRATIONS_KEY,
-            JSON.stringify({ html: m.html ?? null, text: m.text ?? null }),
+            JSON.stringify({ html: m.html ?? null, text: m.text ?? null, subject: m.subject }),
             MAIL_SECRET.body(id),
           )
         : null;
@@ -210,7 +217,9 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
           cleanHeader(m.from?.name ?? '').slice(0, 200),
           m.replyTo && isEmail(m.replyTo) ? m.replyTo : '',
           JSON.stringify(recipients),
-          cleanHeader(m.subject).slice(0, 998),
+          // Código no assunto (verificação, troca de senha): na fila fica mascarado; o assunto
+          // inteiro vai cifrado junto com o corpo e sai só no envio.
+          (sealed ? maskSubject(cleanHeader(m.subject)) : cleanHeader(m.subject)).slice(0, 998),
           sealed ? null : (m.html ?? null),
           sealed ? null : (m.text ?? null),
           sealed,
@@ -298,13 +307,19 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
         );
       let html = r.html ?? undefined;
       let text = r.body_text ?? undefined;
+      let subject = r.subject;
       if (r.body_enc) {
         const plain = this.reveal(r.body_enc, MAIL_SECRET.body(r.id));
         if (!plain)
           throw new MailSendError('Não deu para abrir o conteúdo cifrado do e-mail', true);
-        const body = JSON.parse(plain) as { html: string | null; text: string | null };
+        const body = JSON.parse(plain) as {
+          html: string | null;
+          text: string | null;
+          subject?: string;
+        };
         html = body.html ?? undefined;
         text = body.text ?? undefined;
+        if (body.subject) subject = cleanHeader(body.subject).slice(0, 998);
       }
       const attachments = await this.db.query<{
         filename: string;
@@ -330,7 +345,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
           to: r.recipients.to ?? [],
           cc: r.recipients.cc ?? [],
           bcc: r.recipients.bcc ?? [],
-          subject: r.subject,
+          subject,
           html,
           text,
           rfcId,

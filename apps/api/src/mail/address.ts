@@ -29,3 +29,12 @@ export function normalizeMessageId(v: string | null | undefined): string | null 
   if (!s || s.length > 990 || /[\s<>]/.test(s)) return null;
   return `<${s}>`;
 }
+
+/**
+ * Assunto guardado na fila de um e-mail com código: tira o que parece código (sequência de 4 a
+ * 12 letras/números com pelo menos um número) para não ficar em claro por 90 dias.
+ */
+export const maskSubject = (s: string) =>
+  s.replace(/[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*/gu, (w) =>
+    /\p{N}/u.test(w) && w.replace(/-/g, '').length >= 4 ? '••••' : w,
+  );
