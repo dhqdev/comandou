@@ -78,7 +78,7 @@ Libere a porta só para o IP da VM do Comandou e cadastre com **SSL obrigatório
 
 **Na fila o restaurante segue funcionando** (o painel mostra "na fila"). Ele só sai do ar quando
 chega a vez dele: no "Mover todos", cada um fica parado só durante a própria cópia (desde a
-0.245.1; antes, todos saíam do ar no clique e esperavam a fila inteira sem acesso).
+0.245.2; antes, todos saíam do ar no clique e esperavam a fila inteira sem acesso).
 
 O que acontece em cada um (trabalho `transfer`, `apps/api/src/backup/db-jobs.ts`):
 

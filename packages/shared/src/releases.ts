@@ -20,8 +20,8 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.245.1',
-    date: '2026-11-24',
+    version: '0.245.2',
+    date: '2026-11-25',
     title: 'Troca de servidor de banco sem derrubar todos',
     summary:
       'No "Mover todos" de Bancos, cada restaurante agora fica fora do ar só durante a própria cópia (antes todos saíam do ar no clique e esperavam a fila inteira). A troca ficou à prova de reinício do serviço de backup e de restaurante em versão anterior, e a tela Status parou de acusar a migração que terminou bem.',

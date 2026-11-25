@@ -74,7 +74,7 @@ o restaurante já estava liberado, só completa a virada aqui.
   o servidor novo.
 - **WhatsApp (QR)**: a sessão fica no gateway daqui; leia o QR de novo no servidor novo.
 - **Histórico da plataforma** (faturas, contratos, chamados, auditoria) fica aqui. Desde a
-  0.245.1 o cartão automático daqui não cobra mais um restaurante migrado (quem cobra é o servidor
+  0.245.2 o cartão automático daqui não cobra mais um restaurante migrado (quem cobra é o servidor
   novo). Faturas que ficaram em aberto aqui: cancele em Cobrança, para o cliente não receber a
   mesma mensalidade dos dois lados.
 - **Versão**: lá o banco chega com todas as migrações de lá, então o restaurante passa a
