@@ -4,9 +4,20 @@ import { createHash, randomInt } from 'node:crypto';
 import { one, q } from '../common/sql';
 import type { Tx } from '../database/database.service';
 
-/** Janela e limite de PINs errados no restaurante inteiro (de qualquer aparelho). */
+/** Janela e limite de PINs errados de aparelhos desconhecidos no restaurante inteiro. */
 export const PIN_LOCK_MINUTES = 15;
 export const PIN_LOCK_THRESHOLD = 10;
+/** PINs errados num mesmo aparelho, na mesma janela, que travam só ele. */
+export const PIN_DEVICE_LOCK_THRESHOLD = 5;
+/** Cookie que identifica o aparelho na entrada por PIN (sorteado, sem dado da pessoa). */
+export const PIN_DEVICE_COOKIE = 'cm_pdev';
+/** Tamanho do PIN novo (o de 4 números, de antes, continua entrando). */
+export const PIN_DIGITS = 6;
+
+/** Aparelho no restaurante (o cookie nunca vai para o banco como veio). */
+export function pinDeviceHash(tenantId: string, device: string): string {
+  return createHash('sha256').update(`comandou-pin-device:${tenantId}:${device}`).digest('hex').slice(0, 40);
+}
 
 /**
  * Hash do PIN no restaurante. O PIN identifica a pessoa na entrada (sem e-mail), então o hash é
@@ -62,15 +73,16 @@ export async function assignPin(
       throw new ConflictException('Este PIN já é de outra pessoa da equipe. Escolha outro.');
   } else {
     for (let i = 0; i < 50 && !pin; i++) {
-      const c = String(randomInt(0, 10_000)).padStart(4, '0');
+      const c = String(randomInt(0, 10 ** PIN_DIGITS)).padStart(PIN_DIGITS, '0');
       if (!isWeakPin(c) && !(await taken(tx, tenantId, c, userId))) pin = c;
     }
     if (!pin) throw new ConflictException('Não foi possível sortear um PIN livre. Tente de novo.');
   }
-  await q(tx, `UPDATE memberships SET pin_hash = $2, pin_set_at = now() WHERE user_id = $1`, [
-    userId,
-    pinHash(tenantId, pin),
-  ]).catch((err: { code?: string }) => {
+  await q(
+    tx,
+    `UPDATE memberships SET pin_hash = $2, pin_set_at = now(), pin_digits = $3 WHERE user_id = $1`,
+    [userId, pinHash(tenantId, pin), pin.length],
+  ).catch((err: { code?: string }) => {
     // Dois gerentes gravando o mesmo PIN ao mesmo tempo: o índice único decide.
     if (err.code === '23505')
       throw new ConflictException('Este PIN já é de outra pessoa da equipe. Escolha outro.');

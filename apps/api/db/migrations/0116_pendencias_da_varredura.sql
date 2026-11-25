@@ -58,3 +58,24 @@ CREATE POLICY platform_read ON online_refund_journal FOR SELECT TO comandou_plat
 GRANT SELECT, INSERT ON online_refund_journal TO comandou_app;
 GRANT UPDATE (status) ON online_refund_journal TO comandou_app;
 GRANT SELECT (tenant_id, status, created_at) ON online_refund_journal TO comandou_platform;
+
+-- 4) PIN da equipe com 6 números e trava por aparelho -------------------------------------------
+-- PIN novo tem 6 números (o de 4, de antes, continua entrando até o gerente gerar outro:
+-- pin_digits vazio = 4). PINs errados contam por aparelho (cookie sorteado) e, para aparelho que
+-- nunca entrou, no restaurante inteiro: um desconhecido errando não trava mais a equipe toda.
+ALTER TABLE memberships ADD COLUMN pin_digits smallint CHECK (pin_digits IN (4, 6));
+GRANT UPDATE (pin_digits) ON memberships TO comandou_app;
+
+CREATE TABLE pin_devices (
+  tenant_id      uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  -- sha256 do restaurante + cookie do aparelho (o cookie nunca é gravado como veio).
+  device_hash    text NOT NULL CHECK (device_hash ~ '^[0-9a-f]{40}$'),
+  trusted_until  timestamptz NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, device_hash)
+);
+ALTER TABLE pin_devices ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON pin_devices
+  USING (tenant_id = app_current_tenant()) WITH CHECK (tenant_id = app_current_tenant());
+GRANT SELECT, INSERT ON pin_devices TO comandou_app;
+GRANT UPDATE (trusted_until) ON pin_devices TO comandou_app;

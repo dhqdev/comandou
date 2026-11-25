@@ -1,17 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { isPinFormat, isPinOnlyEmail, isPinRole, isWeakPin } from './pin';
+import { isPinFormat, isPinLoginFormat, isPinOnlyEmail, isPinRole, isWeakPin } from './pin';
 
 describe('PIN da equipe', () => {
-  it('aceita só 4 números', () => {
-    expect(isPinFormat('0482')).toBe(true);
-    expect(isPinFormat('482')).toBe(false);
-    expect(isPinFormat('48a2')).toBe(false);
-    expect(isPinFormat('04821')).toBe(false);
+  it('PIN novo tem 6 números; a entrada aceita também o antigo, de 4', () => {
+    expect(isPinFormat('048213')).toBe(true);
+    expect(isPinFormat('0482')).toBe(false);
+    expect(isPinFormat('48a213')).toBe(false);
+    expect(isPinFormat('0482131')).toBe(false);
+    expect(isPinLoginFormat('0482')).toBe(true);
+    expect(isPinLoginFormat('048213')).toBe(true);
+    expect(isPinLoginFormat('04821')).toBe(false);
   });
   it('recusa PIN fácil de adivinhar', () => {
-    for (const p of ['0000', '7777', '1234', '6789', '9876', '3210', '1212', '0909'])
+    for (const p of ['000000', '777777', '123456', '456789', '987654', '121212', '123123', '0482'])
       expect(isWeakPin(p), p).toBe(true);
-    for (const p of ['0482', '1357', '2580', '1243', '9071']) expect(isWeakPin(p), p).toBe(false);
+    for (const p of ['048213', '135792', '258031', '124390', '907164'])
+      expect(isWeakPin(p), p).toBe(false);
   });
   it('só garçom e entregador entram com PIN', () => {
     expect(isPinRole('waiter')).toBe(true);

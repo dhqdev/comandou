@@ -15,7 +15,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
-import { channelInfo } from '@comandou/shared';
+import { channelInfo, PIN_LENGTH } from '@comandou/shared';
 import {
   Alert,
   Badge,
@@ -1033,7 +1033,7 @@ function CouriersCard({
           O jeito mais simples: gere o <strong>link do entregador</strong> e mande no WhatsApp dele.
           Pelo link ele vê só as próprias corridas, abre a rota, liga para o cliente e marca
           entregue, sem precisar de login. Ou cadastre a pessoa em <strong>Equipe</strong> com o
-          papel Entregador: ela entra em <strong>/entregas</strong> só com o PIN de 4 números e já
+          papel Entregador: ela entra em <strong>/entregas</strong> só com o PIN de 6 números e já
           aparece aqui.
         </p>
         {rows.length > 0 && (
@@ -1257,7 +1257,7 @@ function CourierCard({
   );
 }
 
-/** Troca o PIN de 4 números de quem entra com login (o novo aparece só agora). */
+/** Troca o PIN de 6 números de quem entra com login (o novo aparece só agora). */
 function CourierPin({ courier, onDone }: { courier: Courier; onDone(): void }) {
   const toast = useToast();
   const [pin, setPin] = useState('');
@@ -1300,22 +1300,22 @@ function CourierPin({ courier, onDone }: { courier: Courier; onDone(): void }) {
       }}
     >
       <p style={{ marginTop: 0 }}>
-        {courier.name.split(' ')[0]} entra em <strong>/entregas</strong> com esta senha de 4
-        números. Ao trocar, a antiga para de funcionar.
+        {courier.name.split(' ')[0]} entra em <strong>/entregas</strong> com esta senha de{' '}
+        {PIN_LENGTH} números. Ao trocar, a antiga para de funcionar.
       </p>
       <TextField
-        label="Senha nova (4 números)"
+        label={`Senha nova (${PIN_LENGTH} números)`}
         value={pin}
         inputMode="numeric"
         autoComplete="off"
-        maxLength={4}
-        onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+        maxLength={PIN_LENGTH}
+        onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, PIN_LENGTH))}
       />
       <div className="actions-row">
         <Button type="button" variant="ghost" disabled={busy} onClick={() => void save(null)}>
           Sortear uma
         </Button>
-        <Button type="submit" variant="primary" disabled={busy || pin.length !== 4}>
+        <Button type="submit" variant="primary" disabled={busy || pin.length !== PIN_LENGTH}>
           Salvar senha
         </Button>
       </div>

@@ -29,7 +29,7 @@ async function phone(browser: Browser, baseURL: string, gps = true) {
   });
 }
 
-/** Entregador e garçom: só o PIN, no teclado da tela (envia sozinho no 4º número). */
+/** Entregador e garçom: só o PIN, no teclado da tela (envia sozinho no 6º número). */
 async function signInPin(page: Page, path: string, pin: string) {
   await page.goto(path);
   for (const d of pin) await page.getByRole('button', { name: d, exact: true }).click();
@@ -64,7 +64,7 @@ test('entregador: só as corridas, localização obrigatória, conclui com o có
     name: `Moto ${tag}`,
     role: 'driver',
   });
-  expect(user.pin).toMatch(/^[0-9]{4}$/);
+  expect(user.pin).toMatch(/^[0-9]{6}$/);
   const couriers = await (await page.request.get('/api/v1/couriers')).json();
   const courier = couriers.find((c: { userId: string }) => c.userId === user.id) as { id: string };
   expect(courier).toBeTruthy();
@@ -105,7 +105,7 @@ test('entregador: só as corridas, localização obrigatória, conclui com o có
   const app = await phone(browser, baseURL!);
   moto = await app.newPage();
   // PIN errado: avisa e apaga para tentar de novo.
-  await signInPin(moto, '/entregas', user.pin === '9071' ? '9072' : '9071');
+  await signInPin(moto, '/entregas', user.pin === '907164' ? '907165' : '907164');
   await expect(moto.getByText('PIN incorreto. Confira e tente de novo.')).toBeVisible();
   for (const d of user.pin) await moto.getByRole('button', { name: d, exact: true }).click();
   await expect(moto.getByText(`Olá, Moto`)).toBeVisible();

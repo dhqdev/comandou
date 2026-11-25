@@ -9,7 +9,7 @@ import { APP_URL, testEnv } from './env';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
 /**
- * Entrada do garçom e do entregador pelo PIN de 4 números: cadastro só com nome, PIN único no
+ * Entrada do garçom e do entregador pelo PIN de 6 números: cadastro só com nome, PIN único no
  * restaurante, só vale no app do papel, não cruza restaurantes, troca derruba as sessões e o
  * restaurante pausa a entrada por PIN depois de muitos erros.
  */
@@ -28,8 +28,15 @@ const cookieOf = (res: request.Response) =>
     .find((c) => c.startsWith('cm_sid='))
     ?.split(';')[0] ?? '';
 
-const pinLogin = (pin: string, appName: 'waiter' | 'driver', host = HOST_A) =>
-  http.post('/api/v1/auth/pin').set('Host', host).set(CSRF).send({ pin, app: appName });
+const pinLogin = (pin: string, appName: 'waiter' | 'driver', host = HOST_A, device?: string) => {
+  const r = http.post('/api/v1/auth/pin').set('Host', host).set(CSRF);
+  if (device) r.set('Cookie', device);
+  return r.send({ pin, app: appName });
+};
+const deviceOf = (res: request.Response) =>
+  ((res.headers['set-cookie'] as unknown as string[]) ?? [])
+    .find((c) => c.startsWith('cm_pdev='))
+    ?.split(';')[0] ?? '';
 const as = (cookie: string, host = HOST_A) => ({
   get: (url: string) => http.get(`/api/v1${url}`).set('Host', host).set('Cookie', cookie),
   post: (url: string, body: object = {}) =>
@@ -59,20 +66,21 @@ afterAll(async () => {
 });
 
 describe('PIN da equipe', () => {
+  let pausedDevice = '';
   let waiter: { id: string; pin: string };
   let driver: { id: string; pin: string };
 
   it('garçom e entregador são cadastrados só com o nome e já recebem um PIN', async () => {
     const w = await as(admin).post('/users', { name: 'Garçom Pin', role: 'waiter' });
     expect(w.status).toBe(201);
-    expect(w.body.pin).toMatch(/^[0-9]{4}$/);
+    expect(w.body.pin).toMatch(/^[0-9]{6}$/);
     expect(w.body.hasPin).toBe(true);
     waiter = { id: w.body.id, pin: w.body.pin };
 
-    const d = await as(admin).post('/users', { name: 'Moto Pin', role: 'driver', pin: '4071' });
+    const d = await as(admin).post('/users', { name: 'Moto Pin', role: 'driver', pin: '407163' });
     expect(d.status).toBe(201);
-    expect(d.body.pin).toBe('4071');
-    driver = { id: d.body.id, pin: '4071' };
+    expect(d.body.pin).toBe('407163');
+    driver = { id: d.body.id, pin: '407163' };
     // Entregador já entra na lista de quem leva o pedido (Entregas).
     const couriers = await as(admin).get('/couriers');
     expect(couriers.body.find((c: { userId: string }) => c.userId === driver.id)).toBeTruthy();
@@ -80,17 +88,17 @@ describe('PIN da equipe', () => {
     // Outros papéis continuam pedindo e-mail e senha; PIN fraco ou repetido é recusado.
     expect((await as(admin).post('/users', { name: 'Caixa', role: 'cashier' })).status).toBe(400);
     expect(
-      (await as(admin).post('/users', { name: 'Xy', role: 'waiter', pin: '1234' })).status,
+      (await as(admin).post('/users', { name: 'Xy', role: 'waiter', pin: '123456' })).status,
     ).toBe(409);
     expect(
-      (await as(admin).post('/users', { name: 'Xy', role: 'waiter', pin: '4071' })).status,
+      (await as(admin).post('/users', { name: 'Xy', role: 'waiter', pin: '407163' })).status,
     ).toBe(409);
     // O PIN nunca vai para a auditoria. Olha só este restaurante e os campos de PIN: o banco de
-    // teste é compartilhado e um UUID ou IP de outro teste pode ter "4071" por acaso.
+    // teste é compartilhado e um UUID ou IP de outro teste pode ter "407163" por acaso.
     const [a] = await ownerQuery<{ n: number }>(
       `SELECT count(*)::int AS n FROM audit_log
         WHERE tenant_id = $1
-          AND (data->>'pin' = '4071' OR data::text ~ '(^|[^0-9a-f-])4071([^0-9a-f-]|$)')`,
+          AND (data->>'pin' = '407163' OR data::text ~ '(^|[^0-9a-f-])407163([^0-9a-f-]|$)')`,
       [fx.tenantA],
     );
     expect(a.n).toBe(0);
@@ -106,7 +114,7 @@ describe('PIN da equipe', () => {
     expect((await pinLogin(driver.pin, 'waiter')).status).toBe(401);
     const w = await pinLogin(waiter.pin, 'waiter');
     expect(w.status).toBe(200);
-    expect((await pinLogin('12a4', 'waiter')).status).toBe(400);
+    expect((await pinLogin('12a456', 'waiter')).status).toBe(400);
   });
 
   it('o PIN de um restaurante não entra no outro', async () => {
@@ -118,13 +126,13 @@ describe('PIN da equipe', () => {
   it('trocar o PIN tira a pessoa dos aparelhos e o antigo para de valer', async () => {
     const s = cookieOf(await pinLogin(waiter.pin, 'waiter'));
     expect((await as(s).get('/auth/me')).status).toBe(200);
-    const r = await as(admin).post(`/users/${waiter.id}/pin`, { pin: '5820' });
+    const r = await as(admin).post(`/users/${waiter.id}/pin`, { pin: '582031' });
     expect(r.status).toBe(201);
-    expect(r.body.pin).toBe('5820');
+    expect(r.body.pin).toBe('582031');
     expect((await as(s).get('/auth/me')).status).toBe(401);
     expect((await pinLogin(waiter.pin, 'waiter')).status).toBe(401);
-    expect((await pinLogin('5820', 'waiter')).status).toBe(200);
-    waiter.pin = '5820';
+    expect((await pinLogin('582031', 'waiter')).status).toBe(200);
+    waiter.pin = '582031';
   });
 
   it('desativado não entra; virar caixa apaga o PIN', async () => {
@@ -143,7 +151,7 @@ describe('PIN da equipe', () => {
       name: 'Vítima',
       password: 'senha-qualquer-1',
       role: 'waiter',
-      pin: '7392',
+      pin: '739204',
     });
     expect(chosen.status).toBe(409);
     expect(chosen.body.message).toMatch(/outro restaurante/);
@@ -157,7 +165,7 @@ describe('PIN da equipe', () => {
     expect(added.body).toMatchObject({ existingAccount: true, pin: null, hasPin: false });
     const victim = added.body.id as string;
     // Nem pelo botão Criar PIN.
-    const setPin = await as(admin).post(`/users/${victim}/pin`, { pin: '7392' });
+    const setPin = await as(admin).post(`/users/${victim}/pin`, { pin: '739204' });
     expect(setPin.status).toBe(409);
     expect(setPin.body.message).toMatch(/outro restaurante/);
 
@@ -165,9 +173,9 @@ describe('PIN da equipe', () => {
     await ownerQuery(`UPDATE memberships SET pin_hash = $3 WHERE tenant_id = $1 AND user_id = $2`, [
       fx.tenantA,
       victim,
-      pinHash(fx.tenantA, '7392'),
+      pinHash(fx.tenantA, '739204'),
     ]);
-    const viaPin = await pinLogin('7392', 'waiter');
+    const viaPin = await pinLogin('739204', 'waiter');
     expect(viaPin.status).toBe(403);
     expect(cookieOf(viaPin)).toBe('');
 
@@ -238,14 +246,46 @@ describe('PIN da equipe', () => {
     adminB = cookieOf(await intoB('senha-nova-do-dono-b'));
   });
 
+  it('PIN antigo, de 4 números, ainda entra; o aparelho que erra muito trava sozinho', async () => {
+    const d = await as(admin).post('/users', { name: 'Moto Antigo', role: 'driver' });
+    expect(d.status).toBe(201);
+    await ownerQuery(
+      `UPDATE memberships SET pin_hash = $3, pin_digits = NULL WHERE tenant_id = $1 AND user_id = $2`,
+      [fx.tenantA, d.body.id, pinHash(fx.tenantA, '4815')],
+    );
+    const list = (await as(admin).get('/users')).body as { id: string; pinDigits: number }[];
+    expect(list.find((m) => m.id === d.body.id)!.pinDigits).toBe(4);
+    const first = await pinLogin('4815', 'driver');
+    expect(first.status).toBe(200);
+    // Este aparelho (cookie próprio) erra 5 vezes: só ele trava.
+    const dev = deviceOf(first);
+    expect(dev).toMatch(/^cm_pdev=/);
+    for (let i = 0; i < 5; i++) expect((await pinLogin('000001', 'driver', HOST_A, dev)).status).toBe(401);
+    const locked = await pinLogin('4815', 'driver', HOST_A, dev);
+    expect(locked.status).toBe(429);
+    expect(locked.body.message).toMatch(/neste aparelho/);
+    // Outro aparelho segue entrando.
+    expect((await pinLogin('4815', 'driver')).status).toBe(200);
+    // Some os erros deste teste da janela (o próximo conta a pausa do restaurante do zero).
+    await ownerQuery(
+      `UPDATE audit_log SET created_at = now() - interval '1 hour'
+        WHERE tenant_id = $1 AND action = 'auth.pin_failed'`,
+      [fx.tenantA],
+    );
+    pausedDevice = deviceOf(await pinLogin(driver.pin, 'driver'));
+  });
+
   it('muitos PINs errados no restaurante pausam a entrada por PIN (só nele)', async () => {
     let last = 0;
-    for (let i = 0; i < 12; i++) last = (await pinLogin('9071', 'driver')).status;
+    for (let i = 0; i < 12; i++) last = (await pinLogin('907164', 'driver')).status;
     expect(last).toBe(429);
-    // Nem o PIN certo entra durante a pausa.
+    // Nem o PIN certo entra durante a pausa, de um aparelho que nunca entrou.
     expect((await pinLogin(driver.pin, 'driver')).status).toBe(429);
+    // O aparelho da equipe (já entrou com PIN) segue entrando.
+    expect(pausedDevice).toMatch(/^cm_pdev=/);
+    expect((await pinLogin(driver.pin, 'driver', HOST_A, pausedDevice)).status).toBe(200);
     // O outro restaurante não é afetado (responde 401 normal, não 429).
-    expect((await pinLogin('9071', 'driver', HOST_B)).status).toBe(401);
+    expect((await pinLogin('907164', 'driver', HOST_B)).status).toBe(401);
   });
 
   it('PINs errados ao mesmo tempo não passam do limite do restaurante', async () => {
@@ -260,7 +300,7 @@ describe('PIN da equipe', () => {
         )
       )[0].n;
     const before = await count();
-    const wrongPin = d.body.pin === '9071' ? '9072' : '9071';
+    const wrongPin = d.body.pin === '907164' ? '907165' : '907164';
     const res = await Promise.all(
       Array.from({ length: 30 }, () => pinLogin(wrongPin, 'driver', HOST_B)),
     );

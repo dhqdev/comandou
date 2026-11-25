@@ -32,7 +32,7 @@ import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types'
 import { PlanService } from '../plans/plan.service';
 
 const password = newPassword();
-const pin = z.string().regex(/^[0-9]{4}$/, 'PIN de 4 números');
+const pin = z.string().regex(/^[0-9]{6}$/, 'PIN de 6 números');
 /**
  * Garçom e entregador podem ser cadastrados só com o nome: entram pelo PIN (sorteado ou escolhido).
  * Os outros papéis continuam com e-mail e senha.
@@ -68,7 +68,8 @@ const MEMBER_SELECT = `
   SELECT u.id, u.name, u.email, m.role, m.status, m.created_at AS "createdAt",
          (SELECT max(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS "lastSeenAt",
          app_member_account_shared(u.id) AS "sharedAccount",
-         (m.pin_hash IS NOT NULL) AS "hasPin"
+         (m.pin_hash IS NOT NULL) AS "hasPin",
+         CASE WHEN m.pin_hash IS NOT NULL THEN coalesce(m.pin_digits, 4) END AS "pinDigits"
     FROM memberships m JOIN users u ON u.id = m.user_id`;
 
 /** A conta também entra em outro restaurante: só a pessoa (ou o suporte) troca a senha. */
@@ -261,7 +262,7 @@ export class UsersController {
   }
 
   /**
-   * PIN de 4 números do garçom ou do entregador: o informado ou um sorteado. Trocar um PIN que já
+   * PIN de 6 números do garçom ou do entregador: o informado ou um sorteado. Trocar um PIN que já
    * existia tira a pessoa dos aparelhos (quem sabia o antigo não continua dentro). O PIN volta em
    * claro só nesta resposta e nunca vai para a auditoria.
    */

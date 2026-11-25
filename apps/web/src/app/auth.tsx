@@ -36,7 +36,7 @@ interface AuthState {
   movedTo?: string;
   error?: string;
   login(email: string, password: string): Promise<void>;
-  /** Garçom e entregador: só o PIN de 4 números, no app do papel. */
+  /** Garçom e entregador: só o PIN (6 números, ou o antigo de 4), no app do papel. */
   loginWithPin(pin: string, app: 'waiter' | 'driver'): Promise<void>;
   logout(): Promise<void>;
   refresh(): Promise<void>;

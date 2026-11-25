@@ -1,6 +1,7 @@
 import {
   isPinOnlyEmail,
   isPinRole,
+  PIN_LENGTH,
   ROLE_HINTS,
   ROLE_LABELS,
   ROLES,
@@ -309,7 +310,13 @@ function MemberCard({
           <dd className="team-mc__row">
             <span className="team-mc__how">
               {pin ? <Hash size={14} aria-hidden /> : <KeyRound size={14} aria-hidden />}
-              {pin ? (m.hasPin ? 'PIN criado' : 'Sem PIN') : 'Senha'}
+              {pin
+                ? m.hasPin
+                  ? m.pinDigits === 4
+                    ? 'PIN antigo (4 números): gere um novo'
+                    : 'PIN criado'
+                  : 'Sem PIN'
+                : 'Senha'}
             </span>
             {change && (
               <button
@@ -430,7 +437,7 @@ function AddMemberModal({
   const valid =
     name.trim().length >= 2 &&
     (!needsEmail || (/\S+@\S+\.\S+/.test(email) && password.length >= 8)) &&
-    (!pinRole || !pin || (pin.length === 4 && !pinFieldError(pin)));
+    (!pinRole || !pin || (pin.length === PIN_LENGTH && !pinFieldError(pin)));
 
   function reset() {
     setName('');

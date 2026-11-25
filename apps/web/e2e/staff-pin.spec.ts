@@ -30,7 +30,7 @@ test('garçom: cadastro só com nome em Equipe e entrada pelo PIN', async ({
   await expect(add.getByLabel('E-mail')).toHaveCount(0);
   await add.getByRole('button', { name: 'Adicionar' }).click();
   const pin = (await page.getByTestId('staff-pin').innerText()).trim();
-  expect(pin).toMatch(/^[0-9]{4}$/);
+  expect(pin).toMatch(/^[0-9]{6}$/);
   await page.screenshot({ path: shot(`${info.project.name}-pin-criado`) });
   await page.getByRole('button', { name: 'Pronto' }).click();
   // Tabela no computador, cartões no celular: os dois têm data-search-id="membro-…".

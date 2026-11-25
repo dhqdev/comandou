@@ -110,7 +110,7 @@ export function welcomeEmail(i: WelcomeEmailInput): Mail {
           },
           {
             title: 'Chame a equipe',
-            text: 'Garçom e entregador entram com um PIN de 4 números. Cada um vê só o que precisa.',
+            text: 'Garçom e entregador entram com um PIN de 6 números. Cada um vê só o que precisa.',
           },
         ],
         'Para começar com o pé direito',

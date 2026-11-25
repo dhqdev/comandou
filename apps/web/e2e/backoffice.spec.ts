@@ -45,7 +45,7 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await dialog.getByRole('button', { name: 'Adicionar' }).click();
   // O PIN sorteado aparece uma vez.
   dialog = page.getByRole('dialog', { name: 'Pessoa adicionada' });
-  await expect(dialog.getByTestId('staff-pin')).toHaveText(/^\s*[0-9]{4}\s*$/);
+  await expect(dialog.getByTestId('staff-pin')).toHaveText(/^\s*[0-9]{6}\s*$/);
   await dialog.getByRole('button', { name: 'Pronto' }).click();
   // Tabela no computador, cartões no celular: os dois têm data-search-id="membro-…".
   const member = (who: string) => page.locator('[data-search-id^="membro-"]', { hasText: who });

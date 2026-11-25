@@ -351,6 +351,17 @@
 .pinpad__key--del:disabled {
   opacity: 0.35;
 }
+/* Confirmar o PIN antigo (4 números): só aparece com 4 números digitados. */
+.pinpad__key--ok {
+  background: none;
+  color: var(--cm-brand-600);
+  transition:
+    opacity 160ms ease,
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.pinpad__key--ok:disabled {
+  opacity: 0;
+}
 @keyframes pin-shake {
   0%,
   100% {

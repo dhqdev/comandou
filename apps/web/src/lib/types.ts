@@ -551,8 +551,10 @@ export interface Member {
   lastSeenAt: string | null;
   /** A mesma conta também entra em outro restaurante: só a pessoa troca a senha. */
   sharedAccount: boolean;
-  /** Garçom ou entregador com PIN de 4 números para entrar. */
+  /** Garçom ou entregador com PIN para entrar. */
   hasPin?: boolean;
+  /** 4 = PIN antigo (antes da 0.248), mais fácil de adivinhar: vale gerar um novo. */
+  pinDigits?: 4 | 6 | null;
 }
 
 export type StockUnit = 'un' | 'kg' | 'g' | 'l' | 'ml';

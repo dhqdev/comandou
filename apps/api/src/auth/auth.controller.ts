@@ -13,6 +13,7 @@ import {
 import { ThrottlerException } from '@nestjs/throttler';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
+import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { newPassword } from '../common/schemas';
 import { ROLE_LABELS, DEFAULT_ROLE_PERMISSIONS, PIN_ROLES } from '@comandou/shared';
@@ -26,7 +27,14 @@ import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types'
 import { DUMMY_HASH, verifyPassword } from './password';
 import { StaffPasswordResetService } from './password-reset.service';
 import { RESET_REQUEST_LIMIT, RESET_STEP_LIMIT } from './reset-code';
-import { PIN_LOCK_MINUTES, PIN_LOCK_THRESHOLD, pinHash } from './pin';
+import {
+  PIN_DEVICE_COOKIE,
+  PIN_DEVICE_LOCK_THRESHOLD,
+  PIN_LOCK_MINUTES,
+  PIN_LOCK_THRESHOLD,
+  pinDeviceHash,
+  pinHash,
+} from './pin';
 import { hashToken, SESSION_COOKIE, sessionCookieOptions, SessionService } from './session.service';
 
 const LoginSchema = z.object({
@@ -37,7 +45,8 @@ const LoginSchema = z.object({
 });
 type LoginInput = z.infer<typeof LoginSchema>;
 const PinLoginSchema = z.object({
-  pin: z.string().regex(/^[0-9]{4}$/, 'PIN de 4 números'),
+  // 6 números; o de 4 (antes da 0.248) continua entrando até o gerente gerar um novo.
+  pin: z.string().regex(/^[0-9]{4}([0-9]{2})?$/, 'PIN de 6 números'),
   /** Qual app está entrando: só aceita PIN de quem tem o papel daquele app. */
   app: z.enum(PIN_ROLES),
   remember: z.boolean().optional().default(true),
@@ -151,12 +160,13 @@ export class AuthController {
   }
 
   /**
-   * Entrada do garçom (/garcom) e do entregador (/entregas) só com o PIN de 4 números. O PIN é
-   * único no restaurante e identifica a pessoa; só vale no app do papel dela.
+   * Entrada do garçom (/garcom) e do entregador (/entregas) só com o PIN de 6 números (o de 4,
+   * de antes, ainda entra). O PIN é único no restaurante e identifica a pessoa; só vale no app do
+   * papel dela.
    *
-   * Como o PIN é curto, além do limite por aparelho (IP) há um limite do restaurante inteiro: com
-   * muitos PINs errados em pouco tempo (de qualquer lugar), a entrada por PIN pausa alguns
-   * minutos. Quem já está conectado continua (a sessão fica lembrada no aparelho).
+   * Limites: por IP, por aparelho (5 erros em 15 minutos travam só aquele aparelho) e, para
+   * aparelhos que nunca entraram, o restaurante inteiro (10 erros em 15 minutos pausam a entrada
+   * de aparelhos desconhecidos). O aparelho da equipe segue entrando durante a pausa.
    */
   @Public()
   @Post('pin')
@@ -173,20 +183,39 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    // Aparelho: cookie próprio, sorteado na primeira tentativa. O erro conta por aparelho (5 em
+    // 15 minutos trava só ele) e, para aparelho que nunca entrou, também no restaurante inteiro.
+    // Aparelho que já entrou com PIN segue entrando quando um desconhecido trava o restaurante.
+    let device = (req.cookies as Record<string, string> | undefined)?.[PIN_DEVICE_COOKIE];
+    if (!device || !/^[A-Za-z0-9_-]{32,64}$/.test(device)) {
+      device = randomBytes(24).toString('base64url');
+      res.cookie(PIN_DEVICE_COOKIE, device, {
+        ...sessionCookieOptions(this.env, new Date(Date.now() + 365 * 86_400_000)),
+      });
+    }
+    const dev = pinDeviceHash(tenant.id, device);
     // Contar, conferir e gravar o erro na MESMA transação, uma tentativa por vez no restaurante:
     // muitas tentativas juntas não passam do limite lendo a contagem antes das outras gravarem.
     const found = await this.db.withTenant({ tenantId: tenant.id }, async (tx) => {
       await one(tx, `SELECT pg_advisory_xact_lock(hashtext('comandou.pin:' || $1::text))`, [
         tenant.id,
       ]);
-      const f = await one<{ n: number }>(
+      const trusted = !!(await one(
         tx,
-        `SELECT count(*)::int AS n FROM audit_log
+        `SELECT 1 FROM pin_devices WHERE device_hash = $1 AND trusted_until > now()`,
+        [dev],
+      ));
+      const f = await one<{ device: number; unknown: number }>(
+        tx,
+        `SELECT count(*) FILTER (WHERE data->>'device' = $3)::int AS device,
+                count(*) FILTER (WHERE coalesce(data->>'trusted', 'false') <> 'true')::int AS unknown
+           FROM audit_log
           WHERE tenant_id = $1 AND action = 'auth.pin_failed'
             AND created_at > now() - make_interval(mins => $2)`,
-        [tenant.id, PIN_LOCK_MINUTES],
+        [tenant.id, PIN_LOCK_MINUTES, dev],
       );
-      if ((f?.n ?? 0) >= PIN_LOCK_THRESHOLD) return 'locked' as const;
+      if ((f?.device ?? 0) >= PIN_DEVICE_LOCK_THRESHOLD) return 'device_locked' as const;
+      if (!trusted && (f?.unknown ?? 0) >= PIN_LOCK_THRESHOLD) return 'locked' as const;
       const m = await one<{ user_id: string; name: string; role: string; shared: boolean }>(
         tx,
         `SELECT u.id AS user_id, u.name, m.role, app_member_account_shared(u.id) AS shared
@@ -200,13 +229,17 @@ export class AuthController {
           tenantId: tenant.id,
           action: 'auth.pin_failed',
           entity: 'user',
-          data: { app: body.app },
+          data: { app: body.app, device: dev, trusted },
           ip: req.ip,
         });
         return 'wrong' as const;
       }
       return m;
     });
+    if (found === 'device_locked')
+      throw new ThrottlerException(
+        'Muitos PINs errados neste aparelho. Aguarde 15 minutos ou peça ajuda ao gerente.',
+      );
     if (found === 'locked')
       throw new ThrottlerException(
         'Muitos PINs errados neste restaurante. Aguarde alguns minutos ou peça ajuda ao gerente.',
@@ -233,6 +266,15 @@ export class AuthController {
         data: { by: 'pin' },
         ip: req.ip,
       });
+      // Aparelho que entrou com PIN passa a ser conhecido do restaurante por 180 dias.
+      await one(
+        tx,
+        `INSERT INTO pin_devices (tenant_id, device_hash, trusted_until)
+         VALUES ($1, $2, now() + interval '180 days')
+         ON CONFLICT (tenant_id, device_hash) DO UPDATE SET trusted_until = EXCLUDED.trusted_until
+         RETURNING 1`,
+        [tenant.id, dev],
+      );
       res.cookie(SESSION_COOKIE, s.token, sessionCookieOptions(this.env, s.expiresAt));
       return {
         user: { id: found.user_id, name: found.name, role: found.role },

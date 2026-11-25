@@ -1,6 +1,7 @@
 import {
   challengeProgress,
   isPinOnlyEmail,
+  PIN_LENGTH,
   WAITER_DAILY_CHALLENGES,
   waiterLevel,
 } from '@comandou/shared';
@@ -380,7 +381,7 @@ function NewWaiterModal({
       setBusy(false);
     }
   }
-  const valid = name.trim().length >= 2 && (!pin || (pin.length === 4 && !pinFieldError(pin)));
+  const valid = name.trim().length >= 2 && (!pin || (pin.length === PIN_LENGTH && !pinFieldError(pin)));
   return (
     <Modal
       open={open}

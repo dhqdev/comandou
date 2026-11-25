@@ -1,4 +1,4 @@
-import { isPinFormat, isWeakPin } from '@comandou/shared';
+import { isPinFormat, isWeakPin, PIN_LENGTH } from '@comandou/shared';
 import { Copy, KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import { Alert, Button, Modal, TextField, useToast } from '../design-system';
@@ -8,7 +8,7 @@ import './staff-pin.css';
 /** Campo de PIN opcional do cadastro: vazio sorteia. Devolve a mensagem de erro, se houver. */
 export function pinFieldError(pin: string): string | undefined {
   if (!pin) return undefined;
-  if (!isPinFormat(pin)) return 'Use 4 números';
+  if (!isPinFormat(pin)) return `Use ${PIN_LENGTH} números`;
   if (isWeakPin(pin)) return 'Fácil demais (repetido ou em sequência)';
   return undefined;
 }
@@ -16,14 +16,14 @@ export function pinFieldError(pin: string): string | undefined {
 export function PinField({ value, onChange }: { value: string; onChange(v: string): void }) {
   return (
     <TextField
-      label="PIN de 4 números"
+      label={`PIN de ${PIN_LENGTH} números`}
       inputMode="numeric"
       autoComplete="off"
-      maxLength={4}
+      maxLength={PIN_LENGTH}
       placeholder="Vazio = sortear"
       value={value}
-      onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 4))}
-      error={value.length === 4 ? pinFieldError(value) : undefined}
+      onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, PIN_LENGTH))}
+      error={value.length === PIN_LENGTH ? pinFieldError(value) : undefined}
       hint="É com ele que a pessoa entra no app. Deixe vazio para o sistema sortear."
     />
   );
@@ -83,7 +83,7 @@ export function PinModal({
     setError(null);
   }
   const p = person ?? shown;
-  const invalid = wanted.length > 0 && (wanted.length < 4 || !!pinFieldError(wanted));
+  const invalid = wanted.length > 0 && (wanted.length < PIN_LENGTH || !!pinFieldError(wanted));
 
   async function save() {
     if (!p) return;
