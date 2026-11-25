@@ -18,7 +18,7 @@ import {
   RAPPI_SECRET,
   rappiSample,
 } from './fake-rappi';
-import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
+import { approveChannelStores, Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
 /**
  * Rappi de ponta a ponta (ADR 0015, Fase 12) contra uma Rappi falsa: o pedido novo só vem UMA vez
@@ -197,6 +197,7 @@ describe('Rappi: ligar a loja', () => {
       storeId: STORE,
       name: 'Loja Rappi Centro',
     }).expect(201);
+    await approveChannelStores();
     storeRef = r.body.id;
     expect(r.body).toMatchObject({ channel: 'rappi', store_id: STORE, receive_orders: false });
     // Ligar não busca pedidos: a busca da Rappi é única e marcaria os pedidos como lidos.

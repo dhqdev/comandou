@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { surchargeAfterItems } from './orders.service';
 
 describe('acréscimo depois de mudar os itens', () => {
-  const base = { channel: 'dine_in', oldBaseCents: 10_000, newBaseCents: 6_000, feePercent: '10.00' };
+  const base = {
+    channel: 'dine_in',
+    oldBaseCents: 10_000,
+    newBaseCents: 6_000,
+    feePercent: '10.00',
+  };
 
   it('taxa automática acompanha os itens', () => {
     expect(surchargeAfterItems({ ...base, surchargeCents: 1_000 })).toBe(600);

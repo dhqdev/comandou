@@ -24,6 +24,8 @@ import './integrations.css';
 
 interface StoreView extends ChannelStoreStateView {
   storeId: string;
+  /** Loja ligada só pelo código espera o Super Admin aprovar; sem aprovação, nada funciona. */
+  approval: 'approved' | 'pending' | 'rejected';
   receiveOrders: boolean;
   autoAccept: boolean;
   lastError: string | null;
@@ -85,6 +87,10 @@ function situation(c: ChannelView): { tone: 'ok' | 'warn' | 'off'; text: string 
   if (!c.available) return { tone: 'off', text: 'Em breve no Comandou' };
   if (!c.configured) return { tone: 'warn', text: 'Ainda não liberado' };
   if (!c.stores.length) return { tone: 'warn', text: 'Nenhuma loja ligada' };
+  if (c.stores.some((s) => s.approval === 'pending'))
+    return { tone: 'warn', text: 'Aguardando aprovação do Comandou' };
+  if (c.stores.some((s) => s.approval === 'rejected'))
+    return { tone: 'warn', text: 'Loja não aprovada' };
   if (c.stores.some((s) => s.status === 'revoked'))
     return { tone: 'warn', text: 'Loja sem autorização' };
   if (!c.stores.some((s) => s.receiveOrders))
@@ -583,7 +589,21 @@ function LiveChannel({
               <Store size={18} aria-hidden />
               <strong>{s.name}</strong>
               {s.status === 'revoked' && <Badge tone="danger">sem autorização</Badge>}
+              {s.approval === 'pending' && <Badge tone="warning">aguardando aprovação</Badge>}
+              {s.approval === 'rejected' && <Badge tone="danger">não aprovada</Badge>}
             </div>
+            {s.approval === 'pending' && (
+              <p className="cm-hint">
+                Para ninguém ligar a loja de outro restaurante, o suporte do Comandou confere se ela
+                é sua antes de liberar. Pedidos, pausa e cardápio começam assim que aprovada.
+              </p>
+            )}
+            {s.approval === 'rejected' && (
+              <p className="intg-error">
+                O suporte do Comandou não confirmou que esta loja é sua. Desligue e fale com o
+                suporte.
+              </p>
+            )}
             {has('storeStatus') && <StoreStateLine store={s} />}
             <dl className="intg-facts">
               <div>

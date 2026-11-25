@@ -8,10 +8,7 @@ export const SUPPORT_BLOCKED = 'support_blocked';
  * depois dele. Senha, PIN, e-mail de entrada, pessoa nova na equipe ou administrador novo ficam
  * com o dono do restaurante.
  */
-export function assertNotSupport(
-  u: { supportAdminName?: string | null },
-  what: string,
-): void {
+export function assertNotSupport(u: { supportAdminName?: string | null }, what: string): void {
   if (u.supportAdminName)
     throw new ForbiddenException({
       message: `No acesso de suporte não dá para ${what}. Peça ao administrador do restaurante.`,

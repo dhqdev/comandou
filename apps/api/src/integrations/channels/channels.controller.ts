@@ -146,7 +146,7 @@ export class ChannelsController {
       new Promise((r) => setTimeout(r, 3000)),
     ]);
     const data = await this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
-      const stores = await q<{ channel: string }>(
+      const stores = await q<{ channel: string; storeId: string; approval?: string }>(
         tx,
         `SELECT s.id, s.channel, s.store_id AS "storeId", s.name, s.status,
                 s.receive_orders AS "receiveOrders", s.auto_accept AS "autoAccept",
@@ -174,6 +174,12 @@ export class ChannelsController {
       );
       return { stores, problems, unlinked: unlinked?.n ?? 0 };
     });
+    // Loja ligada só pelo código espera o Super Admin; sem reserva, foi recusada.
+    const approvals = await this.stores.approvals(t.id);
+    for (const s of data.stores) {
+      const a = approvals.get(`${s.channel}|${s.storeId}`);
+      s.approval = a === undefined ? 'rejected' : a ? 'approved' : 'pending';
+    }
     const ids = [
       ...new Set([
         ...KNOWN_CHANNELS,

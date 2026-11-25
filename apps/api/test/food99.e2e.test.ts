@@ -10,7 +10,7 @@ import { ChannelOutboxService } from '../src/integrations/channels/channel-outbo
 import { ChannelPoller } from '../src/integrations/channels/channel-poller.service';
 import { PLATFORM_URL, testEnv } from './env';
 import { FOOD99_APP_ID, FOOD99_SECRET, Fake99FoodServer, food99Sample } from './fake-99food';
-import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
+import { approveChannelStores, Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
 /**
  * 99Food de ponta a ponta (ADR 0015, Fase 11) pela camada Open Delivery da Plataforma Aberta,
@@ -204,6 +204,7 @@ describe('99Food: ligar a loja', () => {
       storeId: STORE,
       name: 'Loja 99 Centro',
     }).expect(201);
+    await approveChannelStores();
     storeRef = r.body.id;
     expect(r.body).toMatchObject({ channel: '99food', store_id: STORE, receive_orders: false });
     await send('post', 'adminB', '/channels/stores', { channel: '99food', storeId: STORE }).expect(

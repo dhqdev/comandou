@@ -260,7 +260,8 @@ describe('PIN da equipe', () => {
     // Este aparelho (cookie próprio) erra 5 vezes: só ele trava.
     const dev = deviceOf(first);
     expect(dev).toMatch(/^cm_pdev=/);
-    for (let i = 0; i < 5; i++) expect((await pinLogin('000001', 'driver', HOST_A, dev)).status).toBe(401);
+    for (let i = 0; i < 5; i++)
+      expect((await pinLogin('000001', 'driver', HOST_A, dev)).status).toBe(401);
     const locked = await pinLogin('4815', 'driver', HOST_A, dev);
     expect(locked.status).toBe(429);
     expect(locked.body.message).toMatch(/neste aparelho/);

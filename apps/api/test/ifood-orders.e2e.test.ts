@@ -10,7 +10,7 @@ import { ChannelPoller } from '../src/integrations/channels/channel-poller.servi
 import { ChannelUsageService } from '../src/integrations/channels/channel-usage.service';
 import { testEnv } from './env';
 import { FakeIfoodServer, ifoodSample } from './fake-ifood';
-import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
+import { approveChannelStores, Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
 /**
  * Pedidos do iFood de ponta a ponta (ADR 0015, Fase 2) contra um iFood falso: a loja ligada no
@@ -170,6 +170,7 @@ afterAll(async () => {
 describe('iFood: loja nos canais', () => {
   it('a loja ligada no iFood aparece em Aplicativos de delivery, sem receber pedidos ainda', async () => {
     await send('post', 'adminA', '/ifood/connections', { merchantId: MERCHANT }).expect(201);
+    await approveChannelStores();
     const view = (await get('adminA', '/channels').expect(200)).body as {
       channels: {
         id: string;
@@ -198,6 +199,7 @@ describe('iFood: loja nos canais', () => {
 
   it('loja ligada antes (só cardápio) entra nos canais ao abrir a tela', async () => {
     await send('post', 'adminB', '/ifood/connections', { merchantId: OTHER_MERCHANT }).expect(201);
+    await approveChannelStores();
     // Simula uma loja de antes da Fase 2: some da camada de canais.
     await ownerQuery(`DELETE FROM channel_stores WHERE tenant_id = $1`, [fx.tenantB]);
     await ownerQuery(`DELETE FROM channel_store_claims WHERE tenant_id = $1`, [fx.tenantB]);

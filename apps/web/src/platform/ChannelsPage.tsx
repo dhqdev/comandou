@@ -90,7 +90,11 @@ export function ChannelsPage() {
   const [hours, setHours] = useState<'24' | '168' | '720'>('24');
   const usage = useLoad<UsageResponse>(`/platform/channels/usage?hours=${hours}`);
   const homolog = useLoad<ChannelSteps[]>('/platform/channels/homologation');
-  useInterval(() => usage.reload(), 60_000);
+  const pending = useLoad<PendingStore[]>('/platform/channels/stores/pending');
+  useInterval(() => {
+    usage.reload();
+    pending.reload();
+  }, 60_000);
 
   const error = usage.error ?? homolog.error;
   return (
@@ -114,6 +118,9 @@ export function ChannelsPage() {
         }
       />
       {error && <Alert tone="danger">{error}</Alert>}
+      {!!pending.data?.length && (
+        <PendingStores list={pending.data} onList={(l) => pending.setData(l)} />
+      )}
       {!usage.data || !homolog.data
         ? !error && <Skeleton variant="page" />
         : usage.data.channels.map((c) => (
@@ -128,6 +135,90 @@ export function ChannelsPage() {
             />
           ))}
     </>
+  );
+}
+
+interface PendingStore {
+  channel: string;
+  storeId: string;
+  storeName: string | null;
+  tenant: { id: string; name: string; slug: string };
+  createdAt: string;
+}
+
+/**
+ * Lojas ligadas só pelo código (sem provar que são do restaurante): ficam paradas até alguém
+ * conferir com o restaurante (CNPJ, portal do aplicativo) e aprovar. Recusar solta a loja.
+ */
+function PendingStores({
+  list,
+  onList,
+}: {
+  list: PendingStore[];
+  onList(l: PendingStore[]): void;
+}) {
+  const toast = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
+  async function decide(p: PendingStore, decision: 'approve' | 'reject') {
+    const key = `${p.channel}|${p.storeId}`;
+    setBusy(key);
+    try {
+      onList(
+        await api<PendingStore[]>(
+          `/platform/channels/stores/${encodeURIComponent(p.channel)}/${encodeURIComponent(p.storeId)}/${decision}`,
+          { method: 'POST' },
+        ),
+      );
+      toast(decision === 'approve' ? 'Loja aprovada' : 'Loja recusada e liberada', 'success');
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setBusy(null);
+    }
+  }
+  return (
+    <Section
+      title="Lojas esperando aprovação"
+      sub="Confira com o restaurante que a loja é dele antes de aprovar"
+    >
+      <div className="adm-panel">
+        <div className="adm-rows">
+          {list.map((p) => {
+            const key = `${p.channel}|${p.storeId}`;
+            return (
+              <div key={key} className="adm-row">
+                <Dot level="warn" />
+                <span className="adm-row__main">
+                  <span className="adm-row__title">
+                    {p.tenant.name} · {p.channel} {p.storeId}
+                  </span>
+                  <span className="adm-row__meta">
+                    {p.storeName ?? 'sem nome'} · {p.tenant.slug} · ligada {ago(p.createdAt)}
+                  </span>
+                </span>
+                <span className="adm-row__side">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy === key}
+                    onClick={() => void decide(p, 'reject')}
+                  >
+                    Recusar
+                  </Button>{' '}
+                  <Button
+                    size="sm"
+                    disabled={busy === key}
+                    onClick={() => void decide(p, 'approve')}
+                  >
+                    Aprovar
+                  </Button>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Section>
   );
 }
 

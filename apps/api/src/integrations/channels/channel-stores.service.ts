@@ -29,6 +29,10 @@ export interface StoreRow {
   status: 'connected' | 'revoked';
 }
 
+/** Loja ligada só pelo código, antes de o Super Admin aprovar. */
+export const STORE_PENDING_MESSAGE =
+  'Esta loja ainda espera a aprovação do suporte do Comandou. Assim que aprovada, ela começa a funcionar.';
+
 export const STORE_COLUMNS = `id, channel, store_id, name, ifood_connection_id, receive_orders, auto_accept, status`;
 
 /**
@@ -76,6 +80,11 @@ export class ChannelStoresService {
       name: string;
       credential: string;
       ifoodConnectionId?: string | null;
+      /**
+       * A loja provou que é deste restaurante no próprio aplicativo (OAuth do aiqfome, código do
+       * iFood distribuído). Sem isso, a loja ligada só pelo código espera o Super Admin aprovar.
+       */
+      ownerVerified?: boolean;
     },
   ) {
     const storeId = s.storeId.trim().toLowerCase();
@@ -83,7 +92,11 @@ export class ChannelStoresService {
       this.byStoreId(tx, s.channel, storeId),
     );
     const id = existing?.id ?? randomUUID();
-    await this.claim(tenantId, s.channel, storeId, id, s.credential);
+    const approved = await this.claim(tenantId, s.channel, storeId, id, {
+      credential: s.credential,
+      name: s.name.slice(0, 160) || null,
+      verified: !!s.ownerVerified,
+    });
     return this.db.withTenant({ tenantId, userId }, async (tx) => {
       const row = await one<StoreRow>(
         tx,
@@ -104,37 +117,55 @@ export class ChannelStoresService {
           userId,
         ],
       );
-      return row!;
+      return { ...row!, approved };
     });
   }
 
-  /** Reserva a loja no banco central (recusa se for de outro restaurante). */
+  /**
+   * Reserva a loja no banco central (recusa se for de outro restaurante). Devolve se a loja já
+   * está aprovada: só a loja que provou ser do restaurante nasce aprovada.
+   */
   private async claim(
     tenantId: string,
     channel: string,
     storeId: string,
     storeRef: string,
-    credential: string,
+    c: { credential: string; name: string | null; verified: boolean },
   ) {
     const mine = await this.db.withCentral({ tenantId }, async (tx) => {
       await q(
         tx,
         `INSERT INTO channel_store_claims (channel, store_id, tenant_id, store_ref, credential)
          VALUES ($1, $2, $3, $4, $5) ON CONFLICT (channel, store_id) DO NOTHING`,
-        [channel, storeId, tenantId, storeRef, credential],
+        [channel, storeId, tenantId, storeRef, c.credential],
       );
       // O RLS só deixa ver e mudar a reserva deste restaurante.
-      return one(
+      return one<{ approved: boolean }>(
         tx,
-        `UPDATE channel_store_claims SET store_ref = $3, credential = $4
-          WHERE channel = $1 AND store_id = $2 RETURNING 1`,
-        [channel, storeId, storeRef, credential],
+        `UPDATE channel_store_claims SET store_ref = $3, credential = $4,
+                store_name = COALESCE($5, store_name),
+                approved_at = COALESCE(approved_at, CASE WHEN $6 THEN now() END),
+                approved_by = COALESCE(approved_by, CASE WHEN $6 THEN 'Autorizada no aplicativo' END)
+          WHERE channel = $1 AND store_id = $2 RETURNING approved_at IS NOT NULL AS approved`,
+        [channel, storeId, storeRef, c.credential, c.name, c.verified],
       );
     });
     if (!mine)
       throw new ConflictException(
         'Essa loja do aplicativo já está ligada a outro restaurante. Fale com o suporte do Comandou.',
       );
+    return mine.approved;
+  }
+
+  /** Lojas deste restaurante e se cada uma já foi aprovada (sem reserva = recusada ou solta). */
+  async approvals(tenantId: string) {
+    const rows = await this.db.withCentral({ tenantId }, (tx) =>
+      q<{ channel: string; store_id: string; approved: boolean }>(
+        tx,
+        `SELECT channel, store_id, approved_at IS NOT NULL AS approved FROM channel_store_claims`,
+      ),
+    );
+    return new Map(rows.map((r) => [`${r.channel}|${r.store_id}`, r.approved]));
   }
 
   /** Ligar ou desligar o recebimento de pedidos e o aceite automático. */

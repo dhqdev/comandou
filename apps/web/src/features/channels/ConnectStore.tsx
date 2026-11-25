@@ -76,8 +76,16 @@ export function ConnectStore({
         window.location.assign(r.url);
         return;
       }
-      await api('/channels/stores', { method: 'POST', json: { channel, storeId, name } });
-      toast(`Loja ligada. Marque "Receber pedidos" para começar.`, 'success');
+      const r = await api<{ approved?: boolean }>('/channels/stores', {
+        method: 'POST',
+        json: { channel, storeId, name },
+      });
+      toast(
+        r.approved === false
+          ? 'Loja ligada. O suporte do Comandou confere se ela é sua e libera em seguida.'
+          : `Loja ligada. Marque "Receber pedidos" para começar.`,
+        'success',
+      );
       setOpen(false);
       setStoreId('');
       setName('');

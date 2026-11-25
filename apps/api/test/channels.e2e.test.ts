@@ -137,6 +137,7 @@ describe('Canais: lojas ligadas', () => {
         storeId: STORE_A,
         name: 'Loja A',
         credential,
+        ownerVerified: true,
       })
     ).id;
     storeB = (
@@ -145,6 +146,7 @@ describe('Canais: lojas ligadas', () => {
         storeId: STORE_B,
         name: 'Loja B',
         credential,
+        ownerVerified: true,
       })
     ).id;
     await expect(
@@ -155,6 +157,37 @@ describe('Canais: lojas ligadas', () => {
         credential,
       }),
     ).rejects.toThrow(/outro restaurante/);
+  });
+
+  it('loja ligada só pelo código espera a aprovação: fora do polling e das ações', async () => {
+    const r = await stores.connect(fx.tenantB, null, {
+      channel: FAKE_CHANNEL,
+      storeId: 'loja-sem-prova',
+      name: 'Loja sem prova',
+      credential: `${FAKE_CHANNEL}:central`,
+    });
+    expect(r.approved).toBe(false);
+    await ownerQuery(
+      `UPDATE channel_store_claims SET receive_orders = true
+        WHERE channel = $1 AND store_id = 'loja-sem-prova'`,
+      [FAKE_CHANNEL],
+    );
+    const targets = await ownerQuery<{ store_id: string }>(
+      `SELECT store_id FROM app_channel_poll_targets()`,
+    );
+    expect(targets.map((t) => t.store_id)).not.toContain('loja-sem-prova');
+    expect((await stores.approvals(fx.tenantB)).get(`${FAKE_CHANNEL}|loja-sem-prova`)).toBe(false);
+    // Religar não aprova sozinho; quem prova no aplicativo aprova.
+    const again = await stores.connect(fx.tenantB, null, {
+      channel: FAKE_CHANNEL,
+      storeId: 'loja-sem-prova',
+      name: 'Loja sem prova',
+      credential: `${FAKE_CHANNEL}:central`,
+    });
+    expect(again.approved).toBe(false);
+    await ownerQuery(`DELETE FROM channel_stores WHERE id = $1`, [r.id]);
+    await stores.release(fx.tenantB, FAKE_CHANNEL, 'loja-sem-prova');
+    expect((await stores.approvals(fx.tenantB)).has(`${FAKE_CHANNEL}|loja-sem-prova`)).toBe(false);
   });
 
   it('sem receber pedidos, a loja não entra no polling', async () => {
@@ -524,6 +557,7 @@ describe('Canais: polling com trava', () => {
         storeId: s,
         name: s,
         credential: `${FAKE_CHANNEL}:central`,
+        ownerVerified: true,
       });
       await stores.setOptions(fx.tenantB, (await adminOf(fx.tenantB))!, r.id, {
         receiveOrders: true,

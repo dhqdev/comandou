@@ -39,6 +39,11 @@ houve teste de invasão por terceiros; recomendamos um antes de abrir para muito
 | Dono de um restaurante tomar a conta que a pessoa usa em outro (mesmo banco) | conta compartilhada não ganha PIN (409) nem entra por PIN (403); trocar a própria senha de conta compartilhada pede a senha atual, conferida de novo no banco (`app_set_own_password`, migração 0101) | `pin-login.e2e.test.ts`, `backoffice.e2e.test.ts` |
 | Administrador agir em nome de alguém da equipe pela prévia (Equipe › Abrir) | a prévia do app do entregador é só leitura (`GET deliveries/preview/:userId`, só `users:manage`), não cria sessão e a tela não manda GPS nem pega ou conclui corrida | `waiter-delivery.e2e.test.ts` |
 | Adivinhar PIN com muitas tentativas ao mesmo tempo | contagem, conferência e registro do erro na mesma transação, uma por vez por restaurante (`pg_advisory_xact_lock`) | `pin-login.e2e.test.ts` |
+| Adivinhar PIN pelo aparelho, ou travar a equipe toda de fora | PIN novo de 6 números; erros contam por aparelho (`cm_pdev` → `pin_devices`) e, para aparelho que nunca entrou, no restaurante (0116) | `pin-login.e2e.test.ts` |
+| Ligar a loja de aplicativo de outro restaurante pelo código | loja sem prova de dono fica sem `approved_at` até o Super Admin aprovar; polling, ações e cardápio exigem a aprovação (0116) | `channels.e2e.test.ts`, `custom-od.e2e.test.ts` |
+| Cadastrar o celular de outra pessoa no cardápio | com o WhatsApp da loja, a conta só nasce com o código enviado ao número (`customer_phone_codes`, 0116) | `customer-signup-code.e2e.test.ts` |
+| Acesso de suporte virar acesso permanente | suporte não troca senha, PIN nem e-mail de login nem cria acesso/dono (`assertNotSupport`); a sessão dura até 2 horas | `platform.e2e.test.ts` |
+| Senha trocada num restaurante e a antiga ainda entrar nos outros | gatilho `users_password_changed_revoke` encerra as sessões nos outros restaurantes (0116) | `pin-login.e2e.test.ts` |
 | Segredo parar no log | log da requisição só com campos conhecidos (sem query), URL mascarada e cabeçalhos com segredo ocultos (`httpLogOptions`) | `log-redact.test.ts` |
 
 ## Achados desta revisão e o que foi feito

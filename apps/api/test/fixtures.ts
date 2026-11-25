@@ -98,3 +98,14 @@ export async function runQueuedDbJobs(
   }
   return out;
 }
+
+/**
+ * Loja de aplicativo ligada só pelo código espera o Super Admin aprovar (0116). Nos testes que não
+ * são sobre a aprovação, aprova as lojas que estão esperando.
+ */
+export async function approveChannelStores() {
+  await ownerQuery(
+    `UPDATE channel_store_claims SET approved_at = now(), approved_by = 'teste'
+      WHERE approved_at IS NULL`,
+  );
+}

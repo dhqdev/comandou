@@ -422,10 +422,12 @@ describe('Áreas de entrega e taxa por área', () => {
   });
 
   it('pino longe do endereço digitado não barateia a entrega', async () => {
-    const near = ((await get('adminA', '/delivery-zones').expect(200)).body.zones as {
-      id: string;
-      name: string;
-    }[]).find((z) => z.name === 'Até 1 km')!;
+    const near = (
+      (await get('adminA', '/delivery-zones').expect(200)).body.zones as {
+        id: string;
+        name: string;
+      }[]
+    ).find((z) => z.name === 'Até 1 km')!;
     const promo = (
       await post('adminA', '/delivery-zones', {
         name: 'Promo',
@@ -453,7 +455,13 @@ describe('Áreas de entrega e taxa por área', () => {
           channel: 'delivery',
           items: [{ productId: fx.prodA, quantity: 1 }],
           token: tk(),
-          address: { street: 'Rua Teste', number: '10', district: 'Centro', lat: -23.7, lng: -46.8 },
+          address: {
+            street: 'Rua Teste',
+            number: '10',
+            district: 'Centro',
+            lat: -23.7,
+            lng: -46.8,
+          },
           ...extra,
         },
         key(),

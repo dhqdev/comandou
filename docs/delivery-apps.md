@@ -47,6 +47,12 @@ Na tela, o cartão de cada aplicativo mostra "O que funciona com ..." com a mesm
 Primeiro a equipe da plataforma salva o cartão do aplicativo em Super Admin › Credenciais (cada
 cartão tem o passo a passo e os links). Depois, no restaurante:
 
+> **Aprovação (0.248):** loja ligada só pelo código (Keeta, 99Food, Rappi, outros Open Delivery e
+> iFood centralizado) aparece como "aguardando aprovação" e não faz nada (pedidos, pausa,
+> avaliações, repasses, cardápio) até alguém conferir com o restaurante que ela é dele e aprovar em
+> Super Admin › Aplicativos de delivery › Lojas esperando aprovação. Recusar solta a loja. aiqfome
+> (ID Magalu) e iFood distribuído (código no portal) já provam o dono e entram aprovados.
+
 - **iFood**: Cardápio › Cardápios › ligar a loja do iFood (modo centralizado: o id da loja;
   distribuído: o código do Portal do Parceiro). Ela aparece em Aplicativos de delivery.
 - **99Food**: a equipe vincula a loja ao app do Comandou no portal da 99Food (o app_shop_id é o

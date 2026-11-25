@@ -134,4 +134,67 @@ export class PlatformChannelsService {
     });
     return this.homologation();
   }
+
+  /**
+   * Lojas ligadas só pelo código (Keeta, 99Food, Rappi, Open Delivery, iFood centralizado), à
+   * espera de alguém conferir que são mesmo do restaurante. Até aprovar, nada acontece com elas.
+   */
+  async pendingStores() {
+    const rows = await this.db.query<{
+      channel: string;
+      store_id: string;
+      store_name: string | null;
+      tenant_id: string;
+      tenant_name: string;
+      slug: string;
+      created_at: Date;
+    }>(
+      `SELECT c.channel, c.store_id, c.store_name, c.tenant_id, t.name AS tenant_name, t.slug,
+              c.created_at
+         FROM channel_store_claims c JOIN tenants t ON t.id = c.tenant_id
+        WHERE c.approved_at IS NULL
+        ORDER BY c.created_at
+        LIMIT 200`,
+    );
+    return rows.map((r) => ({
+      channel: r.channel,
+      storeId: r.store_id,
+      storeName: r.store_name,
+      tenant: { id: r.tenant_id, name: r.tenant_name, slug: r.slug },
+      createdAt: r.created_at.toISOString(),
+    }));
+  }
+
+  /**
+   * Aprova (a loja passa a funcionar) ou recusa (a reserva sai: a loja fica livre para o dono de
+   * verdade e o restaurante vê "não aprovada"). Fica no registro do painel.
+   */
+  async decideStore(channel: string, storeId: string, approve: boolean, a: Actor) {
+    await this.db.tx(async (c) => {
+      const r = approve
+        ? await c.query<{ tenant_id: string }>(
+            `UPDATE channel_store_claims SET approved_at = now(), approved_by = $3
+              WHERE channel = $1 AND store_id = $2 AND approved_at IS NULL
+             RETURNING tenant_id`,
+            [channel, storeId, a.admin.name.slice(0, 160)],
+          )
+        : await c.query<{ tenant_id: string }>(
+            `DELETE FROM channel_store_claims
+              WHERE channel = $1 AND store_id = $2 AND approved_at IS NULL
+             RETURNING tenant_id`,
+            [channel, storeId],
+          );
+      const row = r.rows[0];
+      if (!row) throw new NotFoundException('Loja não está esperando aprovação');
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: approve ? 'platform.channel_store_approved' : 'platform.channel_store_rejected',
+        entity: 'tenant',
+        entityId: row.tenant_id,
+        data: { channel, storeId },
+        ip: a.ip,
+      });
+    });
+    return this.pendingStores();
+  }
 }

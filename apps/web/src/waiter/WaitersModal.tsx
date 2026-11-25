@@ -381,7 +381,8 @@ function NewWaiterModal({
       setBusy(false);
     }
   }
-  const valid = name.trim().length >= 2 && (!pin || (pin.length === PIN_LENGTH && !pinFieldError(pin)));
+  const valid =
+    name.trim().length >= 2 && (!pin || (pin.length === PIN_LENGTH && !pinFieldError(pin)));
   return (
     <Modal
       open={open}

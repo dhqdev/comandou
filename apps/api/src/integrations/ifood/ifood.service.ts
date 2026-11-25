@@ -16,7 +16,7 @@ import { QueueService, type TenantJob } from '../../queue/queue.service';
 import { RealtimeService } from '../../realtime/realtime.service';
 import { PRODUCT_STOCK_OUT } from '../../stock/availability-sql';
 import { ChannelCredentials } from '../channels/channel-credentials.service';
-import { ChannelStoresService } from '../channels/channel-stores.service';
+import { ChannelStoresService, STORE_PENDING_MESSAGE } from '../channels/channel-stores.service';
 import {
   type Fetcher,
   IfoodClient,
@@ -170,7 +170,20 @@ export class IfoodService implements OnModuleInit {
 
   /** Cliente para uma loja ligada (central ou com o refresh token dela). */
   async clientFor(tenantId: string, conn: ConnectionRow) {
-    if (conn.mode === 'centralized') return this.centralClient();
+    if (conn.mode === 'centralized') {
+      // Centralizado: a loja entra só pelo id, então mexer no cardápio dela espera a aprovação
+      // do Super Admin (a mesma dos pedidos, em channel_store_claims).
+      const ok = await this.db.withCentral({ tenantId }, (tx) =>
+        one(
+          tx,
+          `SELECT 1 FROM channel_store_claims
+            WHERE channel = 'ifood' AND store_id = $1 AND approved_at IS NOT NULL`,
+          [conn.merchant_id.toLowerCase()],
+        ),
+      );
+      if (!ok) throw new ConflictException(STORE_PENDING_MESSAGE);
+      return this.centralClient();
+    }
     const c = await this.creds();
     const ctx = `ifood:${tenantId}:${conn.id}`;
     return new IfoodClient(
@@ -304,6 +317,8 @@ export class IfoodService implements OnModuleInit {
       name: m.name || 'Loja iFood',
       credential: ifoodCredentialOf({ id: saved.id, mode }),
       ifoodConnectionId: saved.id,
+      // Distribuído: a loja digitou o código no Portal do Parceiro (prova que é dela).
+      ownerVerified: mode === 'distributed',
     });
     return saved;
   }
@@ -329,6 +344,7 @@ export class IfoodService implements OnModuleInit {
           name: c.merchant_name,
           credential: ifoodCredentialOf(c),
           ifoodConnectionId: c.id,
+          ownerVerified: c.mode === 'distributed',
         })
         .catch((e) =>
           this.logger.warn(`loja do iFood não entrou nos canais: ${(e as Error).message}`),

@@ -91,7 +91,13 @@ export class OpReplayInterceptor implements NestInterceptor {
           tx.$client.query(
             `UPDATE idempotency_keys SET status_code = $5, response = $4
               WHERE tenant_id=$1 AND scope=$2 AND key=$3 AND status_code = 0`,
-            [scope.tenantId, opScope, key, ok ? JSON.stringify(result ?? null) : null, ok ? 200 : -1],
+            [
+              scope.tenantId,
+              opScope,
+              key,
+              ok ? JSON.stringify(result ?? null) : null,
+              ok ? 200 : -1,
+            ],
           ),
         )
         // Guardar a resposta não pode derrubar uma gravação que já deu certo.
@@ -120,9 +126,7 @@ export class OpReplayInterceptor implements NestInterceptor {
             return result;
           }),
           catchError((e: unknown) =>
-            from(settle(null, false)).pipe(
-              mergeMap(() => throwError(() => e)),
-            ),
+            from(settle(null, false)).pipe(mergeMap(() => throwError(() => e))),
           ),
         );
       }),

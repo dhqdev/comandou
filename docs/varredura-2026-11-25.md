@@ -36,7 +36,29 @@ de entrar aqui.
 | `web/vite.config.ts` | Regra `NetworkOnly` da API no service worker nunca casava. | Compara o caminho. |
 | `.gitattributes` | Migração com CRLF (Windows) mudava o checksum. | `*.sql text eol=lf`. |
 
-## Fica para decidir (não mudei, precisa de escolha de produto ou de mais trabalho)
+## Feito na 0.248.0 (itens altos e médios abaixo, menos o 10, que já tinha saído na 0.246.0)
+
+Migração `0116_pendencias_da_varredura.sql`.
+
+| Item | O que mudou |
+| --- | --- |
+| 1 | `channel_store_claims.approved_at`: loja ligada só pelo código (Keeta, 99Food, Rappi, Open Delivery, iFood centralizado) nasce sem aprovação e fica fora do polling (`app_channel_poll_targets`), das ações (toda busca de `credential` exige `approved_at`) e do cardápio do iFood (`IfoodService.clientFor`). Super Admin › Aplicativos de delivery › "Lojas esperando aprovação" aprova ou recusa (recusar apaga a reserva e solta a loja). aiqfome (ID Magalu) e iFood distribuído (`ownerVerified`) nascem aprovados; as reservas antigas ficaram aprovadas. |
+| 2 | Pix com comprovante: o pedido é criado esperando pagamento e o comprovante vai no acompanhamento (`PixAfterHint`); aprovar lança o pagamento (`acceptPaidIn`). |
+| 3 | Cobrança do app paga com o pedido quitado ou cancelado vira `refund_due`; sobra de qualquer cobrança volta por `refundExcess`; varreduras com `ORDER BY`. |
+| 4 | Com o WhatsApp da loja mandando código, `POST /store/account/signup/code` + `code` no cadastro (422 `phone_code_required` sem ele). `customers.phone_verified_at`, `customer_phone_codes` (só o hash). |
+| 5 | Pino a mais de 1,5 km do endereço digitado (`PIN_DRIFT_M`) não escolhe a área. |
+| 6 | PIN novo de 6 números (`memberships.pin_digits`; o de 4 ainda entra). Erros contam por aparelho (cookie `cm_pdev`, `pin_devices`); aparelho desconhecido conta no restaurante. |
+| 7 | Escolha padrão (sem decisão do dono do produto): o acesso de suporte não troca senha, PIN nem e-mail de login, não cria acesso nem dono (`assertNotSupport`, 403 `support_blocked`) e dura no máximo 2 horas. |
+| 8 | `surchargeAfterItems`: mantém acréscimo zerado à mão e não recalcula na retirada. |
+| 9 | `online_refund_journal`: registro à parte antes de chamar o PagBank; parado em `sent` vira `orphan` e aparece no pedido. |
+| 11 | Aceite automático só para pedido pago ou sem Pix pendente (`autoAcceptAllowed`); o resto chega em análise. |
+| 12 | Tempo esgotado na Meta é "incerto" e não reenvia. |
+| 13 | `maskSubject`: o assunto gravado na fila esconde códigos; o real vai lacrado com o corpo. |
+| 14 | `op-replay.interceptor.ts` reserva a chave antes de executar (`OP_BUSY`, 429). |
+| 15 | Gatilho `users_password_changed_revoke` encerra as sessões nos outros restaurantes. |
+| 16 | Zoom liberado no `index.html`. |
+
+## Fica para decidir (lista original; altos e médios feitos acima)
 
 **Alta**
 

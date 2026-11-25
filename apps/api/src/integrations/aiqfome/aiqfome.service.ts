@@ -270,6 +270,8 @@ export class AiqfomeService implements OnModuleInit, StoreTokenSource {
         storeId: st.store_id,
         name: st.name,
         credential: odCredential('aiqfome'),
+        // A loja autorizou no ID Magalu: prova que é dela.
+        ownerVerified: true,
       })
       .catch((e: unknown) => {
         this.tokens.delete(`${ctx.tenantId}|${st.store_id}`);

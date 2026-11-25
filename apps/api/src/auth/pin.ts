@@ -16,7 +16,10 @@ export const PIN_DIGITS = 6;
 
 /** Aparelho no restaurante (o cookie nunca vai para o banco como veio). */
 export function pinDeviceHash(tenantId: string, device: string): string {
-  return createHash('sha256').update(`comandou-pin-device:${tenantId}:${device}`).digest('hex').slice(0, 40);
+  return createHash('sha256')
+    .update(`comandou-pin-device:${tenantId}:${device}`)
+    .digest('hex')
+    .slice(0, 40);
 }
 
 /**

@@ -1113,6 +1113,7 @@ export class PlatformReceiveController {
 
 const UsageQuery = z.object({ hours: z.coerce.number().int().min(1).max(720).default(24) });
 const HomologationChannel = z.enum(Object.keys(HOMOLOGATION) as [string, ...string[]]);
+const StoreIdParam = z.string().min(1).max(100);
 const HomologationStepParam = z.string().regex(/^[a-z0-9_]{1,40}$/);
 const HomologationBody = z.object({
   done: z.boolean(),
@@ -1148,5 +1149,21 @@ export class PlatformChannelsController {
     @Req() req: Request,
   ) {
     return this.svc.mark(channel, step, b, actor(req));
+  }
+
+  /** Lojas ligadas só pelo código, esperando a conferência (varredura 2026-11-25, item 1). */
+  @Get('stores/pending')
+  pendingStores() {
+    return this.svc.pendingStores();
+  }
+
+  @Post('stores/:channel/:storeId/:decision')
+  decideStore(
+    @Param('channel', new ZodPipe(ChannelParam)) channel: string,
+    @Param('storeId', new ZodPipe(StoreIdParam)) storeId: string,
+    @Param('decision', new ZodPipe(z.enum(['approve', 'reject']))) decision: 'approve' | 'reject',
+    @Req() req: Request,
+  ) {
+    return this.svc.decideStore(channel, storeId, decision === 'approve', actor(req));
   }
 }

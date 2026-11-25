@@ -293,7 +293,6 @@ export const MAX_PIX_RECEIPTS = 5;
 /** Pino mais longe que isso do endereço digitado (achado no mapa) é conferido. */
 export const PIN_DRIFT_M = 1_500;
 
-
 /**
  * Pedido pela mesa: até onde do ponto da loja o celular pode estar. O GPS dentro do salão erra, então
  * a precisão que o próprio celular informa entra na conta (até TABLE_SLACK_M a mais).
@@ -1040,12 +1039,11 @@ export class StoreService {
     // comprovante aprovado entra como pagamento deste pedido e baixa o saldo da comanda).
     // Aceite automático só para quem não parece pedido falso: o mesmo telefone com pedidos em
     // aberto, ou uma enxurrada de pedidos sem conta, cai em análise (uma pessoa aceita).
-    const autoAccept =
-      !atTable
-        ? (await this.db.withTenant(ctx, (tx) =>
-            this.autoAcceptAllowed(tx, input.customerPhone, !!input.customerId),
-          )) && s.autoAccept
-        : s.autoAccept;
+    const autoAccept = !atTable
+      ? (await this.db.withTenant(ctx, (tx) =>
+          this.autoAcceptAllowed(tx, input.customerPhone, !!input.customerId),
+        )) && s.autoAccept
+      : s.autoAccept;
     const order = await this.orders.create(
       ctx,
       {

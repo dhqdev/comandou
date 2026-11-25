@@ -107,3 +107,34 @@ CREATE POLICY tenant_isolation ON customer_phone_codes
   USING (tenant_id = app_current_tenant()) WITH CHECK (tenant_id = app_current_tenant());
 GRANT SELECT, INSERT ON customer_phone_codes TO comandou_app;
 GRANT UPDATE (attempts, used_at) ON customer_phone_codes TO comandou_app;
+
+-- 6) Loja de aplicativo ligada só pelo código espera a aprovação do Super Admin ------------------
+-- Keeta, 99Food, Rappi, outros Open Delivery e o iFood centralizado ligam a loja pelo código dela,
+-- sem provar que o restaurante é o dono. Agora a reserva nasce sem approved_at e nada acontece com
+-- a loja (pedidos, estado, avaliações, repasses, cardápio) até o Super Admin aprovar. Quem autoriza
+-- no próprio aplicativo (aiqfome pelo ID Magalu, iFood distribuído pelo código no portal) já nasce
+-- aprovado. As reservas que já existiam ficam aprovadas.
+ALTER TABLE channel_store_claims ADD COLUMN approved_at timestamptz;
+ALTER TABLE channel_store_claims ADD COLUMN approved_by text
+  CHECK (approved_by IS NULL OR length(approved_by) BETWEEN 1 AND 160);
+-- Nome que o restaurante deu à loja (para o Super Admin conferir antes de aprovar).
+ALTER TABLE channel_store_claims ADD COLUMN store_name text
+  CHECK (store_name IS NULL OR length(store_name) BETWEEN 1 AND 160);
+UPDATE channel_store_claims SET approved_at = created_at, approved_by = 'Antes da aprovação';
+CREATE INDEX channel_store_claims_pending_idx ON channel_store_claims(created_at)
+  WHERE approved_at IS NULL;
+GRANT UPDATE (store_name, approved_at, approved_by) ON channel_store_claims TO comandou_app;
+
+CREATE POLICY platform_all ON channel_store_claims TO comandou_platform USING (true) WITH CHECK (true);
+GRANT SELECT, DELETE ON channel_store_claims TO comandou_platform;
+GRANT UPDATE (approved_at, approved_by) ON channel_store_claims TO comandou_platform;
+
+CREATE OR REPLACE FUNCTION app_channel_poll_targets()
+  RETURNS TABLE (channel text, store_id text, tenant_id uuid, store_ref uuid, credential text)
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+  AS $$
+    SELECT c.channel, c.store_id, c.tenant_id, c.store_ref, c.credential
+      FROM channel_store_claims c JOIN tenants t ON t.id = c.tenant_id
+     WHERE c.receive_orders AND c.approved_at IS NOT NULL AND t.status = 'provisioned'
+     ORDER BY c.credential, c.store_id
+  $$;

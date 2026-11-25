@@ -14,6 +14,8 @@ import { ChannelPoller } from '../src/integrations/channels/channel-poller.servi
 import { OpenDeliveryService } from '../src/integrations/opendelivery/opendelivery.service';
 import { PLATFORM_URL, testEnv } from './env';
 import { aiqfomeSample } from './fake-aiqfome';
+import { PlatformChannelsService } from '../src/platform/platform-channels.service';
+import type { Actor } from '../src/platform/platform.service';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
 /**
@@ -185,6 +187,19 @@ describe('Outros aplicativos Open Delivery', () => {
       storeId: 'loja-anota-1',
       name: 'Loja no Anota AI',
     }).expect(201);
+    // Ligada só pelo código: espera o Super Admin conferir e aprovar.
+    expect(s.body.approved).toBe(false);
+    const panel = app.get(PlatformChannelsService);
+    const who = { admin: { id: adminId, name: 'Equipe' } } as unknown as Actor;
+    const pending = await panel.pendingStores();
+    expect(pending).toContainEqual(
+      expect.objectContaining({ channel: 'od-anotaai', storeId: 'loja-anota-1' }),
+    );
+    await expect(panel.decideStore('od-anotaai', 'nao-existe', true, who)).rejects.toThrow(
+      /esperando/,
+    );
+    await panel.decideStore('od-anotaai', 'loja-anota-1', true, who);
+    expect((await panel.pendingStores()).some((p) => p.storeId === 'loja-anota-1')).toBe(false);
     await send('patch', `/channels/stores/${s.body.id}`, { receiveOrders: true }).expect(200);
     events.push({
       eventId: 'od-ev-1',

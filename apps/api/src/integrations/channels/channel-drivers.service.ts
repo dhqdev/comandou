@@ -108,7 +108,8 @@ export class ChannelDriversService {
     const claim = await this.db.withCentral({ tenantId }, (tx) =>
       one<{ credential: string }>(
         tx,
-        `SELECT credential FROM channel_store_claims WHERE channel = $1 AND store_id = $2`,
+        `SELECT credential FROM channel_store_claims
+          WHERE channel = $1 AND store_id = $2 AND approved_at IS NOT NULL`,
         [l.channel, l.store_id],
       ),
     );

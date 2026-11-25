@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
 import { IfoodCatalogService } from '../src/integrations/ifood/ifood-catalog.service';
 import { testEnv } from './env';
-import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
+import { approveChannelStores, Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
 /**
  * Cardápio de integração com o iFood, com um servidor falso no lugar da Merchant API.
@@ -210,6 +210,7 @@ describe('iFood: lojas ligadas', () => {
     ).body;
     expect(c.merchantName).toBe('Teste - Loja iFood');
     connectionId = c.id;
+    await approveChannelStores();
     await send('post', 'adminB', '/ifood/connections', { merchantId: MERCHANT }).expect(409);
     const list = (await get('adminA', '/ifood/connections').expect(200)).body;
     expect(list).toHaveLength(1);
@@ -562,5 +563,6 @@ describe('iFood: cardápio de integração', () => {
       await send('post', 'adminB', '/ifood/connections', { merchantId: MERCHANT }).expect(201)
     ).body;
     expect(c.merchantId).toBe(MERCHANT);
+    await approveChannelStores();
   });
 });

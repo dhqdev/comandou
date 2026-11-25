@@ -10,7 +10,7 @@ import { ChannelOutboxService } from '../src/integrations/channels/channel-outbo
 import { ChannelPoller } from '../src/integrations/channels/channel-poller.service';
 import { PLATFORM_URL, testEnv } from './env';
 import { FakeKeetaServer, KEETA_CLIENT_ID, KEETA_SECRET, keetaSample } from './fake-keeta';
-import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
+import { approveChannelStores, Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
 /**
  * Keeta de ponta a ponta (ADR 0015, Fase 10) contra uma Keeta falsa que confere a assinatura de
@@ -185,6 +185,7 @@ describe('Keeta: ligar a loja', () => {
       storeId: STORE,
       name: 'Loja Keeta Centro',
     }).expect(201);
+    await approveChannelStores();
     storeRef = r.body.id;
     expect(r.body).toMatchObject({ channel: 'keeta', store_id: STORE, receive_orders: false });
     expect(keeta.onboarded.get(STORE)).toBe(900100);

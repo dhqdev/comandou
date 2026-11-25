@@ -111,6 +111,7 @@ beforeAll(async () => {
       storeId: STORE,
       name: 'Loja do estoque',
       credential: `${FAKE_CHANNEL}:central`,
+      ownerVerified: true,
     })
   ).id;
   await send('patch', `/channels/stores/${storeId}`, {

@@ -20,6 +20,51 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.248.0',
+    date: '2026-11-25',
+    title: 'Mais proteção: lojas de aplicativo, cadastro, PIN e suporte',
+    summary:
+      'Fechamos os pontos altos e médios da varredura de segurança: loja de aplicativo ligada só pelo código passa pela aprovação do Comandou, o cadastro do cliente confirma o celular pelo WhatsApp, o PIN da equipe tem 6 números e trava por aparelho, o Pix com comprovante só é pago depois do pedido existir, e o acesso de suporte não mexe mais em senhas nem cria donos.',
+    notes: [
+      {
+        tag: 'segurança',
+        text: 'Loja da Keeta, 99Food, Rappi, outros Open Delivery e iFood centralizado, ligada só pelo código, fica "aguardando aprovação" até o Super Admin conferir que é do restaurante (Super Admin › Aplicativos de delivery). Até lá, nada acontece com ela. aiqfome e iFood com código no portal seguem liberados na hora.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Cadastro do cliente no cardápio: com o WhatsApp da loja ligado, a conta só é criada com o código que chega no celular. Sem WhatsApp, segue como antes.',
+      },
+      {
+        tag: 'segurança',
+        text: 'PIN da equipe: os novos têm 6 números. PINs errados travam só o aparelho que errou; um aparelho que nunca entrou não trava mais a equipe toda. Os PINs de 4 números de antes continuam entrando até o gerente gerar outro.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Acesso de suporte: não troca senha, PIN nem e-mail de login, não cria acesso da equipe nem dono novo, e termina em no máximo 2 horas.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Trocar a senha encerra as sessões da conta nos outros restaurantes também.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pix com comprovante no cardápio online: o pedido é enviado primeiro e o comprovante vai no acompanhamento. Loja fechada ou item esgotado não deixam mais o cliente pagar por um pedido que não existe.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pagamento do app que chega com o pedido já pago ou mais barato: a diferença volta sozinha pelo PagBank. Estorno do PagBank que deu certo, mas sem registro no caixa, aparece no histórico do pedido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Assunto do e-mail guardado sem códigos nem números na fila de envio, e ação repetida do modo offline que chega duas vezes ao mesmo tempo só é feita uma vez.',
+      },
+      {
+        tag: 'correção',
+        text: 'Taxa de entrega: o pino muito longe do endereço digitado não escolhe mais a área. Cancelar ou editar item mantém o acréscimo zerado à mão e não cobra taxa na retirada.',
+      },
+    ],
+  },
+  {
     version: '0.247.0',
     date: '2026-11-25',
     title: 'Super Admin pelo WhatsApp: menu, varredura e avisos',
