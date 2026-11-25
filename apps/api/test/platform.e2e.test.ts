@@ -1050,6 +1050,30 @@ describe('Controle do restaurante e acesso de suporte', () => {
     expect(me.body.support).toEqual({ adminName: 'Raiz', adminHost: 'admin.comandou.test' });
     // Sessão de suporte dura no máximo 2 horas.
     expect(new Date(ok.body.expiresAt).getTime() - Date.now()).toBeLessThanOrEqual(2 * 3600_000);
+    // Nada que dure depois do suporte: senha, PIN, e-mail de entrada, gente nova, administrador.
+    const sup = raw.split(';')[0]!;
+    const blocked = async (r: Promise<{ status: number; body: { code?: string } }>) => {
+      const res = await r;
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('support_blocked');
+    };
+    await blocked(tsend(HOST_A, sup, 'post', '/auth/password', { next: 'senha-do-suporte-1' }));
+    await blocked(
+      tsend(HOST_A, sup, 'post', '/users', {
+        email: 'novo-dono@pf-a.test',
+        name: 'Dono Novo',
+        password: 'senha-do-suporte-1',
+        role: 'owner',
+      }),
+    );
+    await blocked(tsend(HOST_A, sup, 'post', '/users', { name: 'Garçom Novo', role: 'waiter' }));
+    await blocked(
+      tsend(HOST_A, sup, 'patch', '/account/me', {
+        name: 'Admin',
+        email: 'outro@pf-a.test',
+        currentPassword: PASSWORD,
+      }),
+    );
 
     await exchange(HOST_A, token).expect(401); // uso único
     const [log] = await ownerQuery<{ n: number }>(

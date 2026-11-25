@@ -20,6 +20,7 @@ import { ctxOf } from '../common/context';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { one } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
+import { assertNotSupport } from '../common/support-limits';
 import { DatabaseService } from '../database/database.service';
 import { PlatformDb, platformAudit } from '../platform/platform-db.service';
 import { TenantProfileBody } from '../platform/platform.schemas';
@@ -101,6 +102,7 @@ export class StaffAccountController {
       throw new ForbiddenException('Quem entra com PIN pede ao administrador para mudar os dados');
     const ctx = ctxOf(t, u);
     const emailChanged = b.email !== u.email.toLowerCase();
+    if (emailChanged) assertNotSupport(u, 'trocar o e-mail de entrada');
     if (emailChanged) {
       // O e-mail é o login da pessoa (em todos os restaurantes dela): pede a senha atual.
       const row = await this.db.withTenant(ctx, (tx) =>

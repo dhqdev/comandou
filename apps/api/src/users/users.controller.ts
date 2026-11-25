@@ -26,6 +26,7 @@ import { ctxOf } from '../common/context';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { one, q } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
+import { assertNotSupport } from '../common/support-limits';
 import { DatabaseService, Tx } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { PlanService } from '../plans/plan.service';
@@ -106,6 +107,8 @@ export class UsersController {
   ) {
     if (b.role === 'owner' && u.role !== 'owner')
       throw new ForbiddenException('Só um administrador pode criar outro administrador');
+    // Pessoa nova sempre leva senha ou PIN: acesso que duraria depois do suporte.
+    assertNotSupport(u, 'pôr pessoas na equipe');
     // Só PIN: conta com endereço interno (nunca recebe e-mail) e senha aleatória que ninguém sabe.
     const pinOnly = !b.email;
     const email = b.email ?? `${randomBytes(9).toString('hex')}@${PIN_ONLY_EMAIL_DOMAIN}`;
@@ -169,6 +172,8 @@ export class UsersController {
       const status = b.status ?? m.status;
       if ((m.role === 'owner' || role === 'owner') && u.role !== 'owner')
         throw new ForbiddenException('Só um administrador pode alterar administradores');
+      if (role === 'owner' && m.role !== 'owner') assertNotSupport(u, 'criar um administrador');
+      if (status === 'active' && m.status !== 'active') assertNotSupport(u, 'reativar acessos');
       const losesOwner =
         m.role === 'owner' && m.status === 'active' && (role !== 'owner' || status !== 'active');
       if (losesOwner && owners.filter((o) => o.user_id !== id).length === 0)
@@ -221,6 +226,7 @@ export class UsersController {
     @Req() req: Request,
   ) {
     if (id === u.id) throw new ConflictException('Para trocar a sua senha, use Trocar minha senha');
+    assertNotSupport(u, 'trocar senhas');
     const hash = await hashPassword(b.password);
     await this.db.withTenant(ctxOf(t, u), async (tx) => {
       const m = await one<{ email: string; role: string }>(
@@ -269,6 +275,7 @@ export class UsersController {
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
+    assertNotSupport(u, 'criar ou trocar PIN');
     return this.db.withTenant(ctxOf(t, u), async (tx) => {
       const m = await one<{ role: string; had: boolean }>(
         tx,
@@ -310,6 +317,7 @@ export class UsersController {
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
+    assertNotSupport(u, 'trocar a senha');
     const ctx = ctxOf(t, u);
     const row = await this.db.withTenant(ctx, (tx) =>
       one<{ hash: string | null; shared: boolean }>(
