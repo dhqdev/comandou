@@ -12,8 +12,8 @@ import { Fixture, ownerQuery, PASSWORD, seedTwoTenants } from './fixtures';
  * Cadastro do cliente no cardápio com o WhatsApp da loja ligado: a conta só nasce com o código
  * que chegou no celular (ninguém cadastra o número de outra pessoa). Sem WhatsApp, segue como era.
  */
-const HOST_A = 'sc-a.comandou.test';
-const HOST_B = 'sc-b.comandou.test';
+const HOST_A = 'cadcel-a.comandou.test';
+const HOST_B = 'cadcel-b.comandou.test';
 const CSRF = { 'X-Comandou-Request': '1' };
 const GW_TOKEN = 'token-interno-gateway-cadastro-123';
 
@@ -48,7 +48,7 @@ beforeAll(async () => {
     });
   });
   await new Promise<void>((r) => gateway.listen(0, '127.0.0.1', r));
-  fx = await seedTwoTenants('sc');
+  fx = await seedTwoTenants('cadcel');
   app = await createApp(
     testEnv({
       AUTH_LOGIN_RATE_LIMIT: '1000',
@@ -63,7 +63,7 @@ beforeAll(async () => {
     .post('/api/v1/auth/login')
     .set('Host', HOST_A)
     .set(CSRF)
-    .send({ email: 'admin@sc-a.test', password: PASSWORD });
+    .send({ email: 'admin@cadcel-a.test', password: PASSWORD });
   admin = (res.headers['set-cookie'] as unknown as string[])
     .find((c) => c.startsWith('cm_sid='))!
     .split(';')[0]!;
