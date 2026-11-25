@@ -2896,12 +2896,19 @@ html.sf-root {
   text-align: center;
   font-size: var(--cm-text-sm);
 }
-.auth__forgot a {
+.auth__forgot a,
+.auth__forgot button {
   color: var(--cm-text-muted);
   font-weight: 600;
   text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
 }
-.auth__forgot a:hover {
+.auth__forgot a:hover,
+.auth__forgot button:hover {
   color: var(--cm-brand-700);
 }
 .auth__perks {

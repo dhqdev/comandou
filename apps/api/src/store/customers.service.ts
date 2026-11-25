@@ -86,6 +86,10 @@ const RESET_TTL_MIN = 15;
 const RESET_MAX_ATTEMPTS = 5;
 const RESET_PER_HOUR = 3;
 const resetHash = (customerId: string, code: string) => hashToken(`reset:${customerId}:${code}`);
+const phoneCodeHash = (tenantId: string, phone: string, code: string) =>
+  hashToken(`phone:${tenantId}:${phone}:${code}`);
+/** Código pedido sem o WhatsApp da loja poder mandar: a conta nasce sem o telefone confirmado. */
+export const PHONE_CODE_REQUIRED = 'phone_code_required';
 
 /** Texto livre vindo do cliente vira padrão ILIKE seguro. */
 const likeOf = (s: string) => `%${s.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -117,6 +121,80 @@ export class CustomersService {
     return { token, expiresAt };
   }
 
+  /**
+   * Cadastro, passo 1: código de 6 números pelo WhatsApp da loja para confirmar que o telefone é
+   * de quem está cadastrando (senão alguém cadastra o número de outra pessoa e fica com os pedidos
+   * e pontos dela). Sem WhatsApp que mande código, responde `none` e o cadastro segue sem ele.
+   */
+  async requestSignupCode(tenantId: string, tenantName: string, phoneRaw: string, ip?: string) {
+    const phone = normalizePhone(phoneRaw);
+    if (!phoneOk(phone)) throw new UnprocessableEntityException('Telefone inválido');
+    const r = await this.db.withTenant({ tenantId }, async (tx) => {
+      if (!(await this.messaging.canSendCode(tx))) return null;
+      const recent = await one<{ n: number }>(
+        tx,
+        `SELECT count(*)::int AS n FROM customer_phone_codes
+          WHERE phone = $1 AND created_at > now() - interval '1 hour'`,
+        [phone],
+      );
+      if ((recent?.n ?? 0) >= RESET_PER_HOUR)
+        throw new ThrottlerException(
+          'Você já pediu vários códigos. Use o último que chegou ou aguarde uma hora.',
+        );
+      const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+      await q(
+        tx,
+        `UPDATE customer_phone_codes SET used_at = now() WHERE phone = $1 AND used_at IS NULL`,
+        [phone],
+      );
+      await q(
+        tx,
+        `INSERT INTO customer_phone_codes (tenant_id, phone, code_hash, expires_at)
+         VALUES ($1, $2, $3, now() + make_interval(mins => $4))`,
+        [tenantId, phone, phoneCodeHash(tenantId, phone, code), RESET_TTL_MIN],
+      );
+      await this.audit.record(tx, {
+        tenantId,
+        action: 'customer.phone_code_requested',
+        entity: 'customer',
+        data: { phone: `…${phone.slice(-4)}` },
+        ip,
+      });
+      return code;
+    });
+    if (!r) return { channel: 'none' as const };
+    const sent = await this.messaging.sendCode(tenantId, phone, r, tenantName, 'signup');
+    if (!sent)
+      throw new ServiceUnavailableException(
+        'Não conseguimos mandar o código agora. Tente de novo em alguns minutos.',
+      );
+    return { channel: 'whatsapp' as const, expiresInMinutes: RESET_TTL_MIN };
+  }
+
+  /** Confere o código do cadastro (erro conta em transação própria, como no "esqueci a senha"). */
+  private async checkSignupCode(tenantId: string, phone: string, codeRaw: string | undefined) {
+    const code = (codeRaw ?? '').replace(/\D/g, '');
+    const ok = await this.db.withTenant({ tenantId }, async (tx) => {
+      const r = await one<{ id: string; code_hash: Buffer; attempts: number }>(
+        tx,
+        `SELECT id, code_hash, attempts FROM customer_phone_codes
+          WHERE phone = $1 AND used_at IS NULL AND expires_at > now()
+          ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+        [phone],
+      );
+      if (!r || r.attempts >= RESET_MAX_ATTEMPTS) return false;
+      if (code.length !== 6 || !phoneCodeHash(tenantId, phone, code).equals(r.code_hash)) {
+        await q(tx, `UPDATE customer_phone_codes SET attempts = attempts + 1 WHERE id = $1`, [
+          r.id,
+        ]);
+        return false;
+      }
+      await q(tx, `UPDATE customer_phone_codes SET used_at = now() WHERE id = $1`, [r.id]);
+      return true;
+    });
+    if (!ok) throw new UnauthorizedException('Código inválido ou vencido. Peça um novo.');
+  }
+
   async signup(
     tenantId: string,
     input: {
@@ -125,11 +203,22 @@ export class CustomersService {
       email?: string;
       password: string;
       marketingOptIn?: boolean;
+      /** Código que chegou no WhatsApp (obrigatório quando a loja manda código). */
+      code?: string;
     },
     meta: { ip?: string; userAgent?: string },
   ) {
     const phone = normalizePhone(input.phone);
     if (!phoneOk(phone)) throw new ConflictException('Telefone inválido');
+    const confirm = await this.db.withTenant({ tenantId }, (tx) => this.messaging.canSendCode(tx));
+    if (confirm) {
+      if (!input.code)
+        throw new UnprocessableEntityException({
+          message: 'Confirme o celular com o código que chega no WhatsApp',
+          code: PHONE_CODE_REQUIRED,
+        });
+      await this.checkSignupCode(tenantId, phone, input.code);
+    }
     const hash = await hashPassword(input.password);
     return this.db.withTenant({ tenantId }, async (tx) => {
       const s = await one<{ enabled: boolean }>(
@@ -156,15 +245,25 @@ export class CustomersService {
       }
       const c = await one<Customer>(
         tx,
-        `INSERT INTO customers (tenant_id, name, phone, email, password_hash, marketing_opt_in, last_login_at)
-         VALUES ($1,$2,$3,$4,$5,$6, now()) RETURNING ${CUSTOMER_COLS}`,
-        [tenantId, input.name, phone, input.email ?? null, hash, input.marketingOptIn ?? false],
+        `INSERT INTO customers (tenant_id, name, phone, email, password_hash, marketing_opt_in, last_login_at,
+                                phone_verified_at)
+         VALUES ($1,$2,$3,$4,$5,$6, now(), CASE WHEN $7::boolean THEN now() END) RETURNING ${CUSTOMER_COLS}`,
+        [
+          tenantId,
+          input.name,
+          phone,
+          input.email ?? null,
+          hash,
+          input.marketingOptIn ?? false,
+          confirm,
+        ],
       );
       await this.audit.record(tx, {
         tenantId,
         action: 'customer.signup',
         entity: 'customer',
         entityId: c!.id,
+        data: { phoneVerified: confirm },
         ip: meta.ip,
       });
       const session = await this.newSession(tx, tenantId, c!.id, meta.userAgent);
@@ -495,9 +594,15 @@ export class CustomersService {
     const code = input.code.replace(/\D/g, '');
     const invalid = () => new UnauthorizedException('Código inválido ou vencido. Peça um novo.');
     const found = await this.db.withTenant({ tenantId }, async (tx) => {
-      const r = await one<{ id: string; customer_id: string; code_hash: Buffer; attempts: number }>(
+      const r = await one<{
+        id: string;
+        customer_id: string;
+        code_hash: Buffer;
+        attempts: number;
+        channel: string;
+      }>(
         tx,
-        `SELECT r.id, r.customer_id, r.code_hash, r.attempts
+        `SELECT r.id, r.customer_id, r.code_hash, r.attempts, r.channel
            FROM customer_password_resets r JOIN customers c ON c.id = r.customer_id
           WHERE c.phone = $1 AND c.blocked_at IS NULL AND r.used_at IS NULL AND r.expires_at > now()
           ORDER BY r.created_at DESC LIMIT 1 FOR UPDATE OF r`,
@@ -511,6 +616,13 @@ export class CustomersService {
         return null;
       }
       await q(tx, `UPDATE customer_password_resets SET used_at = now() WHERE id = $1`, [r.id]);
+      // Código que chegou no WhatsApp do número: o telefone é de quem está aqui.
+      if (r.channel === 'whatsapp')
+        await q(
+          tx,
+          `UPDATE customers SET phone_verified_at = coalesce(phone_verified_at, now()) WHERE id = $1`,
+          [r.customer_id],
+        );
       return r.customer_id;
     });
     if (!found) throw invalid();
@@ -752,7 +864,9 @@ export class CustomersService {
     return this.db.withTenant(ctx, async (tx) => {
       const created = await one<Customer>(
         tx,
-        `INSERT INTO customers (tenant_id, name, phone, password_hash) VALUES ($1,$2,$3,$4)
+        // A equipe cadastrou com o cliente na frente: o telefone vale como confirmado.
+        `INSERT INTO customers (tenant_id, name, phone, password_hash, phone_verified_at)
+         VALUES ($1,$2,$3,$4, now())
          ON CONFLICT (tenant_id, phone) DO NOTHING RETURNING ${CUSTOMER_COLS}`,
         [ctx.tenantId, input.name, phone, hash],
       );

@@ -372,7 +372,14 @@ export class MessagingService implements OnModuleInit {
    * Manda o código de redefinição de senha na hora (sem caixa de saída: o código não fica
    * guardado em texto em lugar nenhum). Devolve false se não deu para enviar.
    */
-  async sendCode(tenantId: string, phoneRaw: string, code: string, restaurant: string) {
+  async sendCode(
+    tenantId: string,
+    phoneRaw: string,
+    code: string,
+    restaurant: string,
+    /** Para que é o código: senha nova ou confirmar o celular no cadastro. */
+    purpose: 'reset' | 'signup' = 'reset',
+  ) {
     const phone = normalizePhone(phoneRaw);
     if (!phone) return false;
     const s = await this.db.withTenant({ tenantId }, (tx) => this.settingsRow(tx));
@@ -383,7 +390,9 @@ export class MessagingService implements OnModuleInit {
         const r = await this.gateway.send(
           tenantId,
           phone,
-          `${code} é o seu código para criar uma nova senha no ${restaurant}. Vale por 15 minutos. Não passe este código para ninguém.`,
+          purpose === 'signup'
+            ? `${code} é o seu código para confirmar o celular e criar a sua conta no ${restaurant}. Vale por 15 minutos. Não passe este código para ninguém.`
+            : `${code} é o seu código para criar uma nova senha no ${restaurant}. Vale por 15 minutos. Não passe este código para ninguém.`,
         );
         return r.ok;
       }

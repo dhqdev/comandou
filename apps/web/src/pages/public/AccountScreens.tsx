@@ -109,12 +109,32 @@ function AuthForms() {
     optIn: false,
   });
   const [showPass, setShowPass] = useState(false);
+  // Com o WhatsApp da loja ligado, a conta nova só nasce com o código que chegou no celular.
+  const [code, setCode] = useState<{ phone: string; value: string } | null>(null);
   const { busy, error, run, setError } = useAsync();
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: k === 'phone' ? maskPhone(e.target.value) : e.target.value }));
+  const codeStep = mode === 'signup' && code !== null && code.phone === form.phone;
+
+  async function askCode() {
+    const r = await run(() =>
+      api<{ channel: 'whatsapp' | 'none' }>('/store/account/signup/code', {
+        method: 'POST',
+        json: { phone: form.phone },
+      }),
+    );
+    if (!r) return false;
+    if (r.channel === 'whatsapp') {
+      setCode({ phone: form.phone, value: '' });
+      toast('Enviamos um código para o seu WhatsApp.', 'success');
+      return false;
+    }
+    return true;
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (mode === 'signup' && !codeStep && !(await askCode())) return;
     const acc = await run(() =>
       api<AccountState>(`/store/account/${mode}`, {
         method: 'POST',
@@ -127,6 +147,7 @@ function AuthForms() {
                 email: form.email.trim() || undefined,
                 password: form.password,
                 marketingOptIn: form.optIn,
+                code: codeStep ? code!.value : undefined,
               },
       }),
     );
@@ -251,6 +272,25 @@ function AuthForms() {
               />
             </label>
           )}
+          {codeStep && (
+            <Field
+              label="Código do WhatsApp"
+              hint="Mandamos 6 números para o seu WhatsApp. Vale por alguns minutos."
+            >
+              <input
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                required
+                pattern="[0-9]{6}"
+                maxLength={6}
+                autoFocus
+                value={code!.value}
+                onChange={(e) =>
+                  setCode((c) => c && { ...c, value: e.target.value.replace(/\D/g, '') })
+                }
+              />
+            </Field>
+          )}
           {error && (
             <p className="form-error" role="alert">
               {error}
@@ -265,6 +305,13 @@ function AuthForms() {
               'Criar minha conta'
             )}
           </button>
+          {codeStep && (
+            <p className="auth__forgot">
+              <button type="button" disabled={busy} onClick={() => void askCode()}>
+                Mandar outro código
+              </button>
+            </p>
+          )}
           {mode === 'login' && (
             <p className="auth__forgot">
               <Link to="/pedir/conta/esqueci-senha" state={{ phone: form.phone, back: after.back }}>

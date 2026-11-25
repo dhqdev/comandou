@@ -71,6 +71,8 @@ const Signup = z
     email: email.optional(),
     password,
     marketingOptIn: z.boolean().optional(),
+    /** Código de 6 números que chegou no WhatsApp (quando a loja manda). */
+    code: z.string().trim().max(12).optional(),
   })
   .superRefine(
     notPersonal((v) => ({ password: v.password, personal: [v.phone, v.email, v.name] })),
@@ -214,6 +216,19 @@ export class AccountController {
     const c = await this.customers.resolve(t.id, cookieOf(req, CUSTOMER_COOKIE));
     if (!c) return { customer: null, addresses: [] };
     return this.customers.account(t.id, c);
+  }
+
+  /** Cadastro, passo 1: código pelo WhatsApp da loja para confirmar o celular. */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Post('signup/code')
+  @HttpCode(200)
+  signupCode(
+    @Body(new ZodPipe(Forgot)) b: z.infer<typeof Forgot>,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    return this.customers.requestSignupCode(t.id, t.name, b.phone, req.ip);
   }
 
   @Public()

@@ -100,6 +100,7 @@ const PUBLIC_TENANT_ROUTES = [
   'GET /api/v1/store/account/photo',
   'PUT /api/v1/store/account/photo',
   'POST /api/v1/store/account/signup',
+  'POST /api/v1/store/account/signup/code',
   'GET /api/v1/store/branding',
   'GET /api/v1/store/cep',
   'GET /api/v1/store/cep/:cep',

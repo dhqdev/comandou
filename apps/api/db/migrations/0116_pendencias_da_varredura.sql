@@ -79,3 +79,31 @@ CREATE POLICY tenant_isolation ON pin_devices
   USING (tenant_id = app_current_tenant()) WITH CHECK (tenant_id = app_current_tenant());
 GRANT SELECT, INSERT ON pin_devices TO comandou_app;
 GRANT UPDATE (trusted_until) ON pin_devices TO comandou_app;
+
+-- 5) Cadastro do cliente confirma o celular pelo WhatsApp --------------------------------------
+-- Com o WhatsApp da loja mandando código, a conta nova só nasce com o código que chegou no
+-- número. phone_verified_at: quando o telefone foi confirmado (código no cadastro, "esqueci a
+-- senha" pelo WhatsApp ou cadastro feito pela equipe). Contas que já existiam ficam como
+-- confirmadas (não dá para conferir agora).
+ALTER TABLE customers ADD COLUMN phone_verified_at timestamptz;
+UPDATE customers SET phone_verified_at = created_at;
+GRANT UPDATE (phone_verified_at) ON customers TO comandou_app;
+
+CREATE TABLE customer_phone_codes (
+  id          uuid NOT NULL DEFAULT gen_random_uuid(),
+  tenant_id   uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  phone       text NOT NULL CHECK (phone ~ '^[0-9]{10,13}$'),
+  -- Só o hash (restaurante + telefone + código); o código nunca é gravado.
+  code_hash   bytea NOT NULL,
+  attempts    integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  expires_at  timestamptz NOT NULL,
+  used_at     timestamptz,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (id)
+);
+CREATE INDEX customer_phone_codes_phone_idx ON customer_phone_codes(tenant_id, phone, created_at DESC);
+ALTER TABLE customer_phone_codes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON customer_phone_codes
+  USING (tenant_id = app_current_tenant()) WITH CHECK (tenant_id = app_current_tenant());
+GRANT SELECT, INSERT ON customer_phone_codes TO comandou_app;
+GRANT UPDATE (attempts, used_at) ON customer_phone_codes TO comandou_app;
