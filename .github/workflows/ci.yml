@@ -383,6 +383,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.version.outputs.tag }}
           SHA: ${{ needs.version.outputs.sha }}
+        # O GitHub às vezes devolve HTTP 500 aqui (falha passageira, muitas vezes no --generate-notes).
+        # Por isso: se a Release já existe, não faz nada; senão tenta de novo com espera crescente e,
+        # nas últimas tentativas, cria sem as notas automáticas (o que mudou está em Novidades mesmo).
+        # Um 500 às vezes cria a Release mesmo assim: antes de cada nova tentativa confere se ela já existe.
         run: |
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "Comandou $TAG" --generate-notes \
-            --notes "Imagens: ghcr.io/${GITHUB_REPOSITORY_OWNER}/comandou-{api,web,whatsapp-gateway,backup}:$TAG (amd64 e arm64). O que mudou está na tela Novidades do sistema. Para colocar no ar: workflow Deploy (produção), botão Atualizar sistema ou curl -fsSL https://admin.comandou.com/instalar | sudo bash."
+          set -uo pipefail
+          repo="$GITHUB_REPOSITORY"
+          notes="Imagens: ghcr.io/${GITHUB_REPOSITORY_OWNER}/comandou-{api,web,whatsapp-gateway,backup}:$TAG (amd64 e arm64). O que mudou está na tela Novidades do sistema. Para colocar no ar: workflow Deploy (produção), botão Atualizar sistema ou curl -fsSL https://admin.comandou.com/instalar | sudo bash."
+          existe() { gh api "repos/$repo/releases/tags/$TAG" --silent >/dev/null 2>&1; }
+          for i in 1 2 3 4 5; do
+            if existe; then echo "ok: a Release $TAG existe"; exit 0; fi
+            extra=(--generate-notes)
+            (( i >= 4 )) && extra=()
+            echo "tentativa $i: criar a Release $TAG ${extra[*]:-(sem notas automáticas)}"
+            if gh release create "$TAG" --repo "$repo" --target "$SHA" --title "Comandou $TAG" "${extra[@]}" --notes "$notes"; then
+              echo "ok: Release $TAG criada"; exit 0
+            fi
+            sleep $(( i * 15 ))
+          done
+          if existe; then echo "ok: a Release $TAG existe"; exit 0; fi
+          echo "::error::não deu para criar a Release $TAG depois de 5 tentativas"; exit 1
