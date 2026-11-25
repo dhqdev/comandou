@@ -7,6 +7,7 @@ import { ChevronRight } from 'lucide-react';
 import { ago, bytes, Dot, Level, levelFor, PageHead, Section, Tile } from './ui';
 import { useNavigate } from 'react-router';
 import { SitesTable, SitesTiles, useSites, useSitesFilter } from './SitesStatus';
+import { servicesWithProblem } from './service-health';
 
 export { bytes };
 
@@ -106,8 +107,8 @@ export function OverviewPage() {
   const disk = s?.host.disks[0];
   const diskPct = disk ? ((disk.total - disk.free) / disk.total) * 100 : null;
   const memPct = s ? (s.host.memory.used / s.host.memory.total) * 100 : null;
-  const badServices =
-    docker?.services.filter((x) => x.desired !== null && x.running < x.desired) ?? [];
+  // O comandou-migrate roda uma vez e sai: "0/1 rodando" depois de terminar bem não é alerta.
+  const badServices = servicesWithProblem(docker?.services ?? []);
 
   const alerts: { level: Level; text: string; to?: string }[] = [];
   for (const [label, st] of [
@@ -140,7 +141,10 @@ export function OverviewPage() {
   for (const x of badServices)
     alerts.push({
       level: 'bad',
-      text: `${x.name}: ${x.running}/${x.desired} rodando`,
+      text:
+        x.running === 0 && (x.taskState === 'failed' || x.taskState === 'rejected')
+          ? `${x.name} falhou${x.lastError ? `: ${x.lastError}` : ''}`
+          : `${x.name}: ${x.running}/${x.desired} rodando`,
       to: '/servidor',
     });
   if (diskPct !== null && diskPct > 80)

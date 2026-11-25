@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.245.1',
+    version: '0.245.3',
     date: '2026-11-25',
     title: 'Varredura: cobrança em dobro, sessão vencida e mais 25 correções',
     summary:
@@ -101,6 +101,51 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'E-mail: o Resend recebe uma chave por e-mail e não manda duas vezes quando a resposta se perde. Busca de endereço com fila cheia responde na hora (o cliente marca no mapa).',
+      },
+    ],
+  },
+  {
+    version: '0.245.2',
+    date: '2026-11-25',
+    title: 'Troca de servidor de banco sem derrubar todos',
+    summary:
+      'No "Mover todos" de Bancos, cada restaurante agora fica fora do ar só durante a própria cópia (antes todos saíam do ar no clique e esperavam a fila inteira). A troca ficou à prova de reinício do serviço de backup e de restaurante em versão anterior, e a tela Status parou de acusar a migração que terminou bem.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Super Admin › Bancos: "Mover todos" e "Trocar de servidor" tiravam o restaurante do ar já no pedido, e ele ficava sem acesso enquanto esperava a vez na fila (e durante o backup da noite, se coincidisse). Agora ele segue funcionando na fila, aparece como "na fila" e só para durante a própria cópia, como a tela prometia.',
+      },
+      {
+        tag: 'correção',
+        text: 'Troca de servidor: um servidor de destino removido ou desativado com a troca na fila deixava o restaurante preso em manutenção. Agora o trabalho falha sem tirar o restaurante do ar.',
+      },
+      {
+        tag: 'correção',
+        text: 'Troca de servidor de um restaurante numa versão anterior (versão por restaurante) sempre falhava depois de tirar o restaurante do ar: o banco novo ganhava as migrações da versão nova. Agora o banco novo fica na mesma versão do antigo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Serviço de backup reiniciado no meio da troca (numa atualização, por exemplo): o trabalho retoma. Já trocado, só apaga o banco antigo (antes ele ficava esquecido e travava uma volta para aquele servidor); antes da troca, refaz o banco novo que ele mesmo criou.',
+      },
+      {
+        tag: 'correção',
+        text: 'Migrar cliente para outra instalação: o restaurante chegava lá com a versão presa daqui, e o migrate de lá pulava o banco dele nas atualizações seguintes. Agora ele acompanha o sistema de lá. Aqui, o cartão automático não cobra mais um restaurante migrado.',
+      },
+      {
+        tag: 'correção',
+        text: 'Tela Status: "comandou-migrate: 0/1 rodando" aparecia como alerta e o cartão Servidor contava "1 com problema", mas a migração roda uma vez a cada atualização e sai. Agora a Status usa a mesma regra de Infraestrutura › Servidor; só a migração que falhou vira alerta, com o erro.',
+      },
+      {
+        tag: 'correção',
+        text: 'Migrações (comandou-migrate): se a leitura da lista de bancos dos restaurantes falhasse, ele seguia só com o banco central e dizia que tinha dado certo, deixando os restaurantes sem a migração. Agora ele migra o central primeiro, lê a lista com tudo no lugar e, se não conseguir, para com erro.',
+      },
+      {
+        tag: 'correção',
+        text: 'Instalação com domínio de final duplo (como comandou.com.br): o endereço principal abria como restaurante em vez do site. Agora ele é reconhecido como site, igual ao comandou.com.',
+      },
+      {
+        tag: 'correção',
+        text: 'Trabalhos de banco: o de "Atualizar a versão" de um restaurante aparecia sem nome na aba Banco.',
       },
     ],
   },

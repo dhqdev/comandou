@@ -79,6 +79,13 @@ export class PlatformDbServersService {
          FROM tenant_databases d JOIN tenants t ON t.id = d.tenant_id
         WHERE d.status <> 'failed' ORDER BY t.name`,
     );
+    const pending = new Set(
+      (
+        await this.db.query<{ tenant_id: string }>(
+          `SELECT tenant_id FROM tenant_db_jobs WHERE status IN ('queued','running')`,
+        )
+      ).map((r) => r.tenant_id),
+    );
     const [w] = await this.db.query<{ worker_info: { mainServer?: unknown } | null }>(
       `SELECT worker_info FROM platform_backup_settings WHERE id`,
     );
@@ -92,6 +99,8 @@ export class PlatformDbServersService {
           name: t.name,
           status: t.status,
           dbStatus: t.db_status,
+          /** Trabalho na fila ou rodando (ex.: esperando a vez no "Mover todos"). */
+          busy: pending.has(t.id),
         }));
     const main = new URL(this.env.PLATFORM_DATABASE_URL ?? this.env.DATABASE_URL);
     return {
@@ -222,6 +231,7 @@ export class PlatformDbServersService {
         throw new ConflictException(
           `Ainda há ${used.rows[0].n} restaurante(s) neste servidor: mova todos antes de remover`,
         );
+
       await c.query(`DELETE FROM platform_db_servers WHERE id = $1`, [id]);
       await platformAudit(c, {
         adminId: a.admin.id,
@@ -334,21 +344,13 @@ export class PlatformDbServersService {
     if ((t.server_id ?? null) === to)
       throw new ConflictException('O restaurante já está neste servidor');
     await this.databases.activeJob(c, tenantId);
-    await c.query(
-      `UPDATE tenant_databases SET status = 'transferring', last_error = NULL WHERE tenant_id = $1`,
-      [tenantId],
-    );
-    await c.query(`UPDATE tenants SET status = 'moving' WHERE id = $1`, [tenantId]);
+    // O restaurante segue funcionando enquanto espera na fila: o serviço de backup só o tira do
+    // ar quando começa a cópia dele (no "Mover todos", um de cada vez).
+    await c.query(`UPDATE tenant_databases SET last_error = NULL WHERE tenant_id = $1`, [tenantId]);
     await c.query(
       `INSERT INTO tenant_db_jobs (tenant_id, tenant_slug, tenant_name, kind, payload, requested_by)
        VALUES ($1, $2, $3, 'transfer', $4, $5)`,
-      [
-        tenantId,
-        t.slug,
-        t.name,
-        { previousStatus: t.status, fromServerId: t.server_id, toServerId: to },
-        a.admin.id,
-      ],
+      [tenantId, t.slug, t.name, { fromServerId: t.server_id, toServerId: to }, a.admin.id],
     );
     await platformAudit(c, {
       adminId: a.admin.id,

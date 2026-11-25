@@ -1,6 +1,6 @@
 {
   "name": "@comandou/web",
-  "version": "0.245.1",
+  "version": "0.245.3",
   "private": true,
   "type": "module",
   "description": "Frontend React (PWA) do Comandou.",

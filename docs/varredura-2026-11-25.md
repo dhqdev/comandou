@@ -1,4 +1,4 @@
-# Varredura do sistema (25/11/2026, versão 0.245.1)
+# Varredura do sistema (25/11/2026, versão 0.245.3)
 
 Revisão de ponta a ponta: API (todos os módulos, menos Super Admin, WhatsApp do painel, migrador
 e servidores, que têm revisão própria), telas da equipe, app do garçom, entregador, cozinha,
