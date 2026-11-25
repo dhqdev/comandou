@@ -1,6 +1,6 @@
 import { AddressEdit } from './AddressEdit';
 import { AddressFields, addressPayload } from './AddressFields';
-import { fromCents, isValidCpf, pixBrCode, toCents } from '@comandou/shared';
+import { fromCents, isValidCpf, toCents } from '@comandou/shared';
 import {
   Bike,
   ChevronRight,
@@ -21,7 +21,6 @@ import { MotoboyArt, PickupArt, WaiterArt } from './art';
 import { CustomerAvatar } from './avatars';
 import { reducedMotion } from './morph';
 import { OrderSent } from './OrderSent';
-import { PixPay, ReceiptPicker, sendReceipt, type ReceiptFile } from './PixPay';
 import {
   CardFields,
   cardMissing,
@@ -135,8 +134,6 @@ export function CartScreen() {
     awaiting: boolean;
     note?: string;
   } | null>(null);
-  // Comprovante do Pix pago agora (só na memória: vai junto logo depois do pedido).
-  const [receipt, setReceipt] = useState<ReceiptFile | null>(null);
   // Tocou em "Fazer pedido" com algo faltando: marca o que falta e treme o primeiro bloco.
   const [tried, setTried] = useState(false);
   const sections = {
@@ -221,25 +218,6 @@ export function CartScreen() {
   const pixChosen = pixOnline && (atTable ? tablePay === 'pix' : customer.paymentMethod === 'pix');
   // O Pix pelo cardápio pede a conta aberta: o comprovante fica com quem pagou.
   const pixLogin = pixChosen && !me;
-  const feePending = zones && !pinned?.quote.covered;
-  const pixCode =
-    pixChosen && menu.pix && !feePending && total > 0
-      ? pixBrCode(menu.pix, fromCents(total))
-      : null;
-  // O comprovante vale só para o total que ele pagou: mudou a sacola, a recompensa ou a taxa
-  // de entrega depois de anexar, o comprovante sai e o cliente paga o código novo.
-  const receiptFor = useRef<number | null>(null);
-  const attachReceipt = (file: ReceiptFile | null) => {
-    receiptFor.current = file ? total : null;
-    setReceipt(file);
-  };
-  useEffect(() => {
-    if (receipt && receiptFor.current !== null && receiptFor.current !== total) {
-      receiptFor.current = null;
-      setReceipt(null);
-      setError('O total mudou. Pague o código novo do Pix e anexe o comprovante de novo.');
-    }
-  }, [receipt, total]);
   const changeCents = toCents(parseBrlInput(changeFor) ?? '0');
   const changeOk =
     atTable || customer.paymentMethod !== 'cash' || !changeFor || changeCents >= total;
@@ -272,9 +250,6 @@ export function CartScreen() {
       : []),
     ...(cardApp && !appLogin && cardMissing(card)
       ? [{ key: 'pay' as const, text: cardMissing(card)! }]
-      : []),
-    ...(pixChosen && !pixLogin && !receipt
-      ? [{ key: 'pay' as const, text: 'o comprovante do Pix' }]
       : []),
   ];
   const canSend = !blocked && missing.length === 0;
@@ -401,19 +376,11 @@ export function CartScreen() {
           presence: atTable && table?.confirmLocation && here ? here : undefined,
         },
       });
-      // Pix: o comprovante vai logo depois. Se falhar, o cliente manda pelo acompanhamento.
+      // Pix com comprovante: o pedido já existe; o cliente paga o código e manda o comprovante
+      // pelo acompanhamento (loja fechada ou item esgotado não levam o dinheiro antes).
       let note: string | undefined;
-      if (pixChosen && receipt) {
-        try {
-          await sendReceipt(`/store/orders/${token}/pix-receipt`, receipt);
-          note = 'Comprovante do Pix enviado. A loja confere e confirma o pagamento.';
-        } catch {
-          note = 'O comprovante não foi. Mande de novo pelo acompanhamento do pedido.';
-        }
-        if (r.total && toCents(r.total) !== total)
-          note = `O total ficou ${brl(r.total)}. Confira o Pix no acompanhamento do pedido.`;
-        setReceipt(null);
-      }
+      if (pixChosen)
+        note = `Agora pague o Pix${r.total ? ` de ${brl(r.total)}` : ''} pelo acompanhamento do pedido e mande o comprovante.`;
       // Pago pelo app: o pagamento vai logo depois do pedido. Recusou ou caiu: o cliente paga pelo
       // acompanhamento (o pedido espera o pagamento).
       if (payApp) {
@@ -766,16 +733,7 @@ export function CartScreen() {
                 </p>
               )}
               {pixLogin && <PixLogin />}
-              {pixChosen && !pixLogin && menu.pix && (
-                <PixPay code={pixCode} amount={fromCents(total)} payee={menu.pix}>
-                  <ReceiptPicker
-                    value={receipt}
-                    onChange={attachReceipt}
-                    invalid={invalid('pay') && !receipt}
-                    disabled={busy}
-                  />
-                </PixPay>
-              )}
+              {pixChosen && !pixLogin && menu.pix && <PixAfterHint />}
               {(menu.store.acceptsDelivery || menu.store.acceptsPickup) && (
                 <button type="button" className="link ck-table__leave" onClick={leaveTable}>
                   Não estou nesta mesa
@@ -988,25 +946,7 @@ export function CartScreen() {
                 </p>
               )}
               {pixLogin && <PixLogin />}
-              {pixChosen && !pixLogin && menu.pix && (
-                <PixPay
-                  code={pixCode}
-                  amount={fromCents(total)}
-                  payee={menu.pix}
-                  pending={
-                    feePending
-                      ? 'Confirme o endereço no mapa: o código Pix aparece com o valor da entrega.'
-                      : undefined
-                  }
-                >
-                  <ReceiptPicker
-                    value={receipt}
-                    onChange={attachReceipt}
-                    invalid={invalid('pay') && !receipt}
-                    disabled={busy}
-                  />
-                </PixPay>
-              )}
+              {pixChosen && !pixLogin && menu.pix && <PixAfterHint />}
               {customer.paymentMethod === 'cash' && (
                 <Field label="Troco para quanto? (opcional)">
                   <input
@@ -1181,5 +1121,15 @@ function PixLogin({
         Entrar
       </Link>
     </div>
+  );
+}
+
+/** Pix com comprovante: o código aparece depois de enviar, no acompanhamento do pedido. */
+function PixAfterHint() {
+  return (
+    <p className="form-hint ck-pay-when">
+      Depois de enviar, o código do Pix com o valor certo aparece no acompanhamento do pedido. Você
+      paga e manda o comprovante por lá.
+    </p>
   );
 }

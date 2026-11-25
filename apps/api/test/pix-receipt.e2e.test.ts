@@ -317,6 +317,29 @@ describe('Pix pelo cardápio com comprovante', () => {
     expect(JSON.stringify(cash)).toContain('51.80');
   });
 
+  it('com aceite automático, o pedido do Pix espera em análise e vai para a cozinha ao conferir', async () => {
+    await patch('adminA', '/store/settings', { autoAccept: true }).expect(200);
+    const body = pickup();
+    const r = await pub.post('/store/orders', body, key()).expect(201);
+    // Nada na cozinha antes do Pix: o cliente paga pelo acompanhamento.
+    expect(r.body).toMatchObject({ status: 'awaiting', pixStatus: 'waiting' });
+    await pub.upload(`/store/orders/${body.token}/pix-receipt`, PNG, 'image/png').expect(200);
+    const list = (await get('cashierA', '/orders?active=true').expect(200)).body as {
+      id: string;
+      number: number;
+    }[];
+    const id = list.find((x) => x.number === r.body.number)!.id;
+    const o = (await get('cashierA', `/orders/${id}`).expect(200)).body;
+    const ok = await post(
+      'cashierA',
+      `/orders/${id}/pix-receipts/${o.pixReceipt.id}/approve`,
+      { cashSessionId: sessionId },
+      key(),
+    ).expect(200);
+    expect(ok.body).toMatchObject({ pixStatus: 'approved', status: 'new' });
+    await patch('adminA', '/store/settings', { autoAccept: false }).expect(200);
+  });
+
   it('na mesa: paga pelo Pix do cardápio e a comanda só cobra o que falta', async () => {
     const tk2 = token();
     const r = await pub

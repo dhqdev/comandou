@@ -693,8 +693,12 @@ export class OrdersService {
           )?.id ?? null)
         : null;
     const number = await nextNumber(tx, ctx.tenantId, 'order');
+    // Em análise até pagar: pelo app (PagBank) e pelo Pix com comprovante fora da mesa (o pedido
+    // existe antes do Pix: loja fechada ou item esgotado não deixam o cliente pagar à toa).
     const status: OrderStatus =
-      online && (!online.autoAccept || online.payOnline) ? 'awaiting' : 'new';
+      online && (!online.autoAccept || online.payOnline || (online.pix && !tabId))
+        ? 'awaiting'
+        : 'new';
     const order = await one<{ id: string }>(
       tx,
       `INSERT INTO orders (tenant_id, number, channel, status, tab_id, customer_name, customer_phone, delivery_address,

@@ -151,6 +151,19 @@ export class PixService {
     return { status: 'submitted' as const, at: res.receipt.at };
   }
 
+  /** Pix conferido de pedido em análise, com aceite automático: vai para a cozinha. */
+  private async acceptPaidIn(tx: Tx, ctx: Ctx, orderId: string) {
+    const s = await one<{ auto_accept: boolean }>(
+      tx,
+      `SELECT auto_accept FROM tenant_store_settings`,
+    );
+    if (!s?.auto_accept) return false;
+    const o = await this.orders.lock(tx, orderId);
+    if (o.status !== 'awaiting' || o.tab_id) return false;
+    await this.orders.transitionInTx(tx, ctx, o, 'new', 'Pix conferido');
+    return true;
+  }
+
   /** Arquivo do comprovante, para a equipe (privado: nunca vai para o cache público). */
   async file(ctx: Ctx, orderId: string, receiptId: string) {
     const f = await this.db.withTenant(ctx, (tx) =>
@@ -253,6 +266,8 @@ export class PixService {
             data: { receiptId, paymentId, amount: fromCents(Math.max(due, 0)) },
             ip: ctx.ip,
           });
+          // Pedido em análise esperando o Pix: com o aceite automático, conferido vai para a cozinha.
+          await this.acceptPaidIn(tx, ctx, orderId);
           // Pedido de mesa que já chegou na mesa: pago agora, conclui (e a comanda pode fechar).
           const settled = await this.orders.settleServedIn(tx, ctx, orderId);
           return {
