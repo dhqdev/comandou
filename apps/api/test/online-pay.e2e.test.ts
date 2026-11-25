@@ -475,6 +475,44 @@ describe('Cartão pelo app', () => {
       [card.id],
     );
     expect(ch!.status).toBe('refunded');
+    // O registro do estorno só fica "feito" junto com o estorno do caixa.
+    const journal = await ownerQuery<{ status: string }>(
+      `SELECT j.status FROM online_refund_journal j JOIN online_charges c ON c.id = j.charge_id
+        WHERE c.order_id = $1`,
+      [card.id],
+    );
+    expect(journal.map((j) => j.status)).toEqual(['done']);
+  });
+
+  it('estorno que o PagBank fez e o caixa não gravou: a varredura acerta a cobrança', async () => {
+    const [c] = await ownerQuery<{ id: string; tenant_id: string; payment_id: string }>(
+      `SELECT id, tenant_id, payment_id FROM online_charges WHERE order_id = $1 AND paid_at IS NOT NULL`,
+      [card.id],
+    );
+    await ownerQuery(
+      `UPDATE online_charges SET status = 'paid', refunded_amount = 0 WHERE id = $1`,
+      [c!.id],
+    );
+    await ownerQuery(
+      `INSERT INTO online_refund_journal (tenant_id, charge_id, payment_id, amount, idem_key, created_at)
+       VALUES ($1, $2, $3, 1.00, 'perdido-1', now() - interval '11 minutes')`,
+      [c!.tenant_id, c!.id, c!.payment_id],
+    );
+    await pay.sweep();
+    const [after] = await ownerQuery<{ refunded_amount: string }>(
+      `SELECT refunded_amount::text FROM online_charges WHERE id = $1`,
+      [c!.id],
+    );
+    expect(after!.refunded_amount).toBe('1.00');
+    const [j] = await ownerQuery<{ status: string }>(
+      `SELECT status FROM online_refund_journal WHERE idem_key = 'perdido-1'`,
+    );
+    expect(j!.status).toBe('orphan');
+    const [a] = await ownerQuery(
+      `SELECT 1 FROM audit_log WHERE action = 'online_pay.refund_without_cash' AND entity_id = $1`,
+      [card.id],
+    );
+    expect(a).toBeTruthy();
   });
 });
 

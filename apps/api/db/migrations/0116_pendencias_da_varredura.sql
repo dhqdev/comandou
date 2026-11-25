@@ -21,3 +21,40 @@ CREATE FUNCTION app_password_changed_revoke() RETURNS trigger
 REVOKE ALL ON FUNCTION app_password_changed_revoke() FROM PUBLIC;
 CREATE TRIGGER users_password_changed_revoke AFTER UPDATE OF password_hash ON users
   FOR EACH ROW EXECUTE FUNCTION app_password_changed_revoke();
+
+-- 2) Cobrança do app paga acima do que o pedido devia --------------------------------------------
+-- Pedido já quitado (ou cancelado) quando o pagamento do app chega: a cobrança vira refund_due e
+-- volta inteira. Pedido que baixou de total enquanto o cliente pagava: entra o saldo e a sobra
+-- volta pelo PagBank (applied < amount), como já era na conta da mesa (0114).
+CREATE INDEX online_charges_excess_any_idx ON online_charges(tenant_id, created_at)
+  WHERE status = 'paid' AND applied IS NOT NULL AND excess_refunded_at IS NULL;
+
+-- 3) Estorno do PagBank dentro da transação do caixa ---------------------------------------------
+-- O PagBank é chamado no meio da transação do estorno do caixa. Se ele devolveu e a transação do
+-- caixa não gravou, o dinheiro saiu sem ninguém saber. Este registro é gravado à parte antes da
+-- chamada ('sent'); vira 'done' junto com o estorno do caixa e 'failed' quando o PagBank recusa.
+-- 'sent' parado é acertado pela varredura ('orphan': a cobrança mostra o devolvido e o histórico
+-- do pedido avisa).
+CREATE TABLE online_refund_journal (
+  id          uuid NOT NULL DEFAULT gen_random_uuid(),
+  tenant_id   uuid NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+  charge_id   uuid NOT NULL,
+  payment_id  uuid NOT NULL,
+  amount      numeric(14,2) NOT NULL CHECK (amount > 0),
+  idem_key    text NOT NULL CHECK (length(idem_key) BETWEEN 1 AND 120),
+  status      text NOT NULL DEFAULT 'sent' CHECK (status IN ('sent','done','failed','orphan')),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  -- Sem chave estrangeira para online_charges: é gravado à parte enquanto a transação do caixa
+  -- trava a cobrança (a chave pediria uma trava na mesma linha e uma esperaria a outra).
+  PRIMARY KEY (id)
+);
+CREATE INDEX online_refund_journal_sent_idx ON online_refund_journal(tenant_id, created_at)
+  WHERE status = 'sent';
+CREATE INDEX online_refund_journal_key_idx ON online_refund_journal(tenant_id, idem_key);
+ALTER TABLE online_refund_journal ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON online_refund_journal
+  USING (tenant_id = app_current_tenant()) WITH CHECK (tenant_id = app_current_tenant());
+CREATE POLICY platform_read ON online_refund_journal FOR SELECT TO comandou_platform USING (true);
+GRANT SELECT, INSERT ON online_refund_journal TO comandou_app;
+GRANT UPDATE (status) ON online_refund_journal TO comandou_app;
+GRANT SELECT (tenant_id, status, created_at) ON online_refund_journal TO comandou_platform;

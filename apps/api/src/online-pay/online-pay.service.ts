@@ -1270,10 +1270,27 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
         `SELECT amount::text FROM online_charges WHERE id = $1 AND status = 'paid' AND payment_id IS NULL FOR UPDATE`,
         [chargeId],
       );
-      if (!c || o.status === 'cancelled') return null;
+      if (!c) return null;
       const due = toCents(o.total) - toCents(o.paid_amount);
       const cents = Math.min(due, toCents(c.amount));
-      if (cents <= 0) return null;
+      if (o.status === 'cancelled' || cents <= 0) {
+        // Cancelado ou já quitado de outro jeito enquanto o cliente pagava: sem lançamento, o
+        // pagamento volta inteiro (antes ficava "pago" sem caixa e a varredura tentava sempre).
+        await q(tx, `UPDATE online_charges SET status = 'refund_due' WHERE id = $1`, [chargeId]);
+        await this.audit.record(tx, {
+          tenantId,
+          actorUserId: by?.userId ?? null,
+          action: 'online_pay.refund_due',
+          entity: 'order',
+          entityId: o.id,
+          data: {
+            chargeId,
+            amount: c.amount,
+            reason: o.status === 'cancelled' ? 'pedido cancelado' : 'pedido já pago',
+          },
+        });
+        return { refund: true as const, orderId: o.id };
+      }
       const opener = await one<{ opened_by: string }>(
         tx,
         `SELECT opened_by FROM cash_sessions WHERE id = $1`,
@@ -1290,23 +1307,48 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
         method: pre.method === 'card' ? 'credit' : 'pix',
         amountCents: cents,
       });
-      await q(tx, `UPDATE online_charges SET payment_id = $2 WHERE id = $1`, [chargeId, p.id]);
+      // O que passou do saldo (o total baixou enquanto o cliente pagava) volta pelo PagBank.
+      await q(tx, `UPDATE online_charges SET payment_id = $2, applied = $3 WHERE id = $1`, [
+        chargeId,
+        p.id,
+        fromCents(cents),
+      ]);
+      const excess = toCents(c.amount) - cents;
       await this.audit.record(tx, {
         tenantId,
         actorUserId: by?.userId ?? null,
         action: 'online_pay.launched',
         entity: 'order',
         entityId: o.id,
-        data: { chargeId, paymentId: p.id, sessionId: sess.id, amount: fromCents(cents) },
+        data: {
+          chargeId,
+          paymentId: p.id,
+          sessionId: sess.id,
+          amount: fromCents(cents),
+          ...(excess > 0 ? { excess: fromCents(excess) } : {}),
+        },
       });
       const paid = await one<{ payment_status: string }>(
         tx,
         `SELECT payment_status FROM orders WHERE id = $1`,
         [o.id],
       );
-      return { orderId: o.id, sessionId: sess.id, paid: paid?.payment_status === 'paid', ctx };
+      return {
+        refund: false as const,
+        orderId: o.id,
+        sessionId: sess.id,
+        paid: paid?.payment_status === 'paid',
+        excess: excess > 0,
+        ctx,
+      };
     });
     if (!res) return false;
+    if (res.refund) {
+      this.publishOrder(tenantId, res.orderId);
+      await this.refundDue(tenantId, chargeId).catch((e) => this.warn(e));
+      return true;
+    }
+    if (res.excess) await this.refundExcess(tenantId, chargeId).catch((e) => this.warn(e));
     this.publishOrder(tenantId, res.orderId);
     this.realtime.publish(tenantId, { type: 'cash.changed', sessionId: res.sessionId });
     if (res.paid) this.cash.notifyPaid(res.ctx, res.orderId);
@@ -1573,16 +1615,35 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
       );
     const token = await this.sellerTokenIn(tx, ctx.tenantId, a, cfg);
     const refunded = toCents(c.refunded_amount) + cents;
+    const idemKey = `${c.id}-${refunded}`;
+    // O estorno no PagBank acontece dentro da transação do caixa (se ele recusar, o caixa não
+    // estorna). Se o PagBank devolveu e o caixa não chegou a gravar (queda, erro depois), o
+    // registro abaixo, gravado à parte, fica "enviado" e a varredura acerta a cobrança e avisa.
+    const journal = await this.db.withTenant({ tenantId: ctx.tenantId }, (j) =>
+      one<{ id: string }>(
+        j,
+        `INSERT INTO online_refund_journal (tenant_id, charge_id, payment_id, amount, idem_key)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [ctx.tenantId, c.id, paymentId, fromCents(cents), idemKey],
+      ),
+    );
     try {
-      await this.client(c.environment).cancelCharge(
-        token,
-        c.pagbank_charge_id,
-        cents,
-        `${c.id}-${refunded}`,
-      );
+      await this.client(c.environment).cancelCharge(token, c.pagbank_charge_id, cents, idemKey);
     } catch (e) {
+      await this.db
+        .withTenant({ tenantId: ctx.tenantId }, (j) =>
+          q(j, `UPDATE online_refund_journal SET status = 'failed' WHERE id = $1`, [journal!.id]),
+        )
+        .catch(() => undefined);
       throw new ConflictException(`O PagBank não estornou: ${(e as Error).message}`);
     }
+    // Junto com o estorno do caixa: só vale se ele gravar. Tentativas antigas com a mesma chave
+    // (o caixa caiu e a pessoa tentou de novo) são a mesma devolução no PagBank.
+    await q(
+      tx,
+      `UPDATE online_refund_journal SET status = 'done' WHERE idem_key = $1 AND status <> 'failed'`,
+      [idemKey],
+    );
     await q(
       tx,
       `UPDATE online_charges SET refunded_amount = $2,
@@ -1645,8 +1706,8 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
   }
 
   /**
-   * Conta da mesa paga acima do saldo (um item cancelado enquanto o cliente pagava): a sobra volta
-   * ao cliente pelo PagBank; o resto já entrou no caixa.
+   * Cobrança paga acima do saldo (da conta da mesa ou de um pedido: um item cancelado enquanto o
+   * cliente pagava): a sobra volta ao cliente pelo PagBank; o resto já entrou no caixa.
    */
   private async refundExcess(tenantId: string, chargeId: string) {
     const cfg = await this.platformCfg();
@@ -1656,7 +1717,7 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
         tx,
         `SELECT id, order_id, tab_id, environment, amount::text, applied::text, pagbank_charge_id
            FROM online_charges
-          WHERE id = $1 AND tab_id IS NOT NULL AND status = 'paid' AND applied IS NOT NULL
+          WHERE id = $1 AND status = 'paid' AND applied IS NOT NULL
             AND applied < amount AND excess_refunded_at IS NULL
           FOR UPDATE SKIP LOCKED`,
         [chargeId],
@@ -1750,18 +1811,19 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
       ),
       launch: await q<{ id: string }>(
         tx,
-        `SELECT id FROM online_charges WHERE status = 'paid' AND payment_id IS NULL LIMIT 50`,
+        `SELECT id FROM online_charges WHERE status = 'paid' AND payment_id IS NULL
+          ORDER BY created_at LIMIT 50`,
       ),
       refund: await q<{ id: string }>(
         tx,
-        `SELECT id FROM online_charges WHERE status = 'refund_due' LIMIT 50`,
+        `SELECT id FROM online_charges WHERE status = 'refund_due' ORDER BY created_at LIMIT 50`,
       ),
       excess: await q<{ id: string }>(
         tx,
         `SELECT id FROM online_charges
-          WHERE tab_id IS NOT NULL AND status = 'paid' AND applied IS NOT NULL
+          WHERE status = 'paid' AND applied IS NOT NULL
             AND applied < amount AND excess_refunded_at IS NULL
-          LIMIT 50`,
+          ORDER BY created_at LIMIT 50`,
       ),
     }));
     for (const l of work.lost)
@@ -1772,6 +1834,64 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     for (const c of work.excess) await this.refundExcess(tenantId, c.id).catch((e) => this.warn(e));
     for (const o of work.expired) await this.expireOrder(tenantId, o.id).catch((e) => this.warn(e));
     await this.expireTabPix(tenantId).catch((e) => this.warn(e));
+    await this.settleOrphanRefunds(tenantId).catch((e) => this.warn(e));
+  }
+
+  /**
+   * Estorno que o PagBank fez e o caixa não gravou (a transação do caixa caiu depois da resposta
+   * do PagBank): o dinheiro já voltou ao cliente. A cobrança passa a mostrar o devolvido e o
+   * histórico do pedido avisa para estornar o pagamento no caixa (o PagBank não devolve de novo:
+   * a mesma chave dá a mesma devolução).
+   */
+  private async settleOrphanRefunds(tenantId: string) {
+    const ctx = onlineCtx(tenantId);
+    const orphans = await this.db.withTenant(ctx, async (tx) => {
+      const rows = await q<{
+        id: string;
+        charge_id: string;
+        payment_id: string;
+        amount: string;
+        idem_key: string;
+      }>(
+        tx,
+        `UPDATE online_refund_journal SET status = 'orphan'
+          WHERE status = 'sent' AND created_at < now() - interval '10 minutes'
+        RETURNING id, charge_id, payment_id, amount::text, idem_key`,
+      );
+      const out: string[] = [];
+      for (const r of rows) {
+        // Outra tentativa com a mesma chave já gravou: nada a acertar.
+        const done = await one(
+          tx,
+          `SELECT 1 FROM online_refund_journal WHERE idem_key = $1 AND status = 'done'`,
+          [r.idem_key],
+        );
+        if (done) continue;
+        const c = await one<ChargeRow>(
+          tx,
+          `UPDATE online_charges SET refunded_amount = LEAST(amount, refunded_amount + $2::numeric),
+                  status = CASE WHEN refunded_amount + $2::numeric >= amount THEN 'refunded' ELSE status END
+            WHERE id = $1
+          RETURNING id, order_id, tab_id, environment, status, amount::text, refunded_amount::text,
+                    pagbank_charge_id`,
+          [r.charge_id, r.amount],
+        );
+        if (!c) continue;
+        await this.audit.record(tx, {
+          tenantId,
+          actorUserId: null,
+          action: 'online_pay.refund_without_cash',
+          ...subjectOf(c),
+          data: { chargeId: c.id, paymentId: r.payment_id, amount: r.amount },
+        });
+        if (c.order_id) out.push(c.order_id);
+        this.logger.warn(
+          `estorno ${r.id} feito no PagBank sem o estorno no caixa: estorne o pagamento ${r.payment_id} no caixa`,
+        );
+      }
+      return out;
+    });
+    for (const id of orphans) this.publishOrder(tenantId, id);
   }
 
   /**
@@ -1801,8 +1921,10 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     if (!this.platformDb.enabled) return [];
     const sql = `SELECT DISTINCT tenant_id FROM online_charges
                   WHERE status IN ('pending','refund_due') OR (status = 'paid' AND payment_id IS NULL)
-                     OR (tab_id IS NOT NULL AND status = 'paid' AND applied < amount
-                         AND excess_refunded_at IS NULL)
+                     OR (status = 'paid' AND applied < amount AND excess_refunded_at IS NULL)
+                 UNION
+                 SELECT DISTINCT tenant_id FROM online_refund_journal
+                  WHERE status = 'sent' AND created_at < now() - interval '10 minutes'
                  UNION
                  SELECT DISTINCT tenant_id FROM online_pay_accounts WHERE connected_at IS NOT NULL`;
     const ids = new Set<string>();
