@@ -110,7 +110,12 @@ function ProductCard({ p, i = 0, rank }: { p: PublicProduct; i?: number; rank?: 
       role="button"
       tabIndex={0}
       onClick={() => open(p, ref.current)}
-      onKeyDown={(e) => e.key === 'Enter' && open(p, ref.current)}
+      onKeyDown={(e) => {
+        // Enter ou espaço no próprio cartão; nos botões de dentro (favorito, Adicionar) não abre.
+        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        open(p, ref.current);
+      }}
       aria-label={`${p.name}, ${p.soldOut ? 'esgotado' : `${brl(p.price)}${p.soldByWeight ? ' o quilo' : ''}`}`}
     >
       <div className="pcard__media">

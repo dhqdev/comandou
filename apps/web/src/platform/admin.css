@@ -538,6 +538,10 @@ a.adm-row:hover {
 .adm-grid--2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+/* Seis números em duas linhas iguais (Status › Negócio), em vez de 5 + 1. */
+.adm-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 .adm-row--bar .adm-row__main {
   gap: 6px;
 }

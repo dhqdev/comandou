@@ -23,6 +23,11 @@ export interface OutgoingMail {
   text?: string;
   /** Message-ID já com < >. */
   rfcId?: string;
+  /**
+   * Mesma chave em toda tentativa do mesmo e-mail: o provedor não manda duas vezes quando a resposta
+   * do primeiro envio se perdeu (tempo esgotado depois de aceitar).
+   */
+  idempotencyKey?: string;
   /** In-Reply-To, References e cabeçalhos X-. */
   headers: Record<string, string>;
   attachments: OutgoingAttachment[];
@@ -72,7 +77,11 @@ async function viaResend(
   try {
     res = await fetcher('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${cfg.apiKey}`,
+        'Content-Type': 'application/json',
+        ...(m.idempotencyKey ? { 'Idempotency-Key': m.idempotencyKey } : {}),
+      },
       body: JSON.stringify({
         from: formatAddress(m.from),
         to: m.to.map((a) => a.email),

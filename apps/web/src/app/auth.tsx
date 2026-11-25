@@ -1,10 +1,19 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   api,
   ApiError,
   isSuspended,
   Me,
   movedTo,
+  SESSION_CHECK_EVENT,
   TENANT_MOVED_EVENT,
   TENANT_SUSPENDED_EVENT,
   warmOfflineCache,
@@ -95,6 +104,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener(TENANT_SUSPENDED_EVENT, onSuspended);
       window.removeEventListener(TENANT_MOVED_EVENT, onMoved);
     };
+  }, []);
+
+  // Uma tela recebeu 401: confere a sessão (no máximo a cada 15 s). Acabou mesmo? Volta ao login,
+  // em vez de cada tela seguir mostrando "Sessão inválida" e a fila offline ficar parada.
+  const status = useRef(state.status);
+  status.current = state.status;
+  useEffect(() => {
+    let last = 0;
+    const onCheck = () => {
+      if (status.current !== 'authenticated' || Date.now() - last < 15_000) return;
+      last = Date.now();
+      api('/auth/me').catch((e) => {
+        if (!(e instanceof ApiError) || e.status !== 401) return;
+        closeRealtime();
+        void forgetMe();
+        void disableOffline();
+        setState({ status: 'anonymous', error: 'Sua sessão terminou. Entre de novo.' });
+      });
+    };
+    window.addEventListener(SESSION_CHECK_EVENT, onCheck);
+    return () => window.removeEventListener(SESSION_CHECK_EVENT, onCheck);
   }, []);
 
   const login = useCallback(

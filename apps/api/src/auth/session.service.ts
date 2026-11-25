@@ -32,6 +32,17 @@ export function hashToken(token: string): Buffer {
  * A tabela sessions tem RLS, então um token emitido para o restaurante A não é encontrado
  * quando a requisição chega pelo host do restaurante B.
  */
+/** Última hora em que o dia de trabalho de cada pessoa foi gravado nesta réplica. */
+const workdayMarked = new Map<string, number>();
+function workdayDue(tenantId: string, userId: string): boolean {
+  const key = `${tenantId}:${userId}`;
+  const hour = Math.floor(Date.now() / 3_600_000);
+  if (workdayMarked.get(key) === hour) return false;
+  if (workdayMarked.size > 20_000) workdayMarked.clear();
+  workdayMarked.set(key, hour);
+  return true;
+}
+
 @Injectable()
 export class SessionService {
   constructor(
@@ -77,6 +88,8 @@ export class SessionService {
     tenantId: string,
     token: string,
     renew = false,
+    /** A pessoa fez algo (não só olhou): conta o dia de trabalho. */
+    acted = false,
   ): Promise<(AuthenticatedUser & { renewedUntil?: Date }) | null> {
     if (!token || token.length > 100) return null;
     return this.db.withTenant({ tenantId }, async (tx) => {
@@ -124,9 +137,12 @@ export class SessionService {
               : { lastSeenAt: new Date() },
           )
           .where(eq(sessions.id, row.sessionId));
-        // Dia de trabalho da pessoa (diárias em Equipe › Pagamentos). Acesso do suporte não conta.
-        if (!row.supportAdminName) await markWorkday(tx, tenantId, row.userId);
       }
+      // Dia de trabalho da pessoa (diárias em Equipe › Pagamentos): só quando ela age (gravação
+      // pela API). Tela aberta sozinha (tablet da cozinha, socket do tempo real, leitura que se
+      // repete) contava todo dia, até folga. Acesso do suporte não conta. Uma vez por hora.
+      if (acted && !row.supportAdminName && workdayDue(tenantId, row.userId))
+        await markWorkday(tx, tenantId, row.userId);
       return {
         renewedUntil,
         id: row.userId,

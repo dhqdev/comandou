@@ -22,7 +22,27 @@ export interface Overview {
   health: { database: HealthState; redis: HealthState; whatsappGateway: HealthState };
   queue: Record<string, number> | null;
   tenants: Record<string, number>;
+  /** Assinaturas por situação, fora a demonstração e quem saiu desta instalação. */
   subscriptions: Record<string, number>;
+  /** Negócio: valores em texto decimal ("400.00"); a demonstração não conta. */
+  business?: {
+    mrr: string;
+    paying: number;
+    pastDue: number;
+    trialing: number;
+    trialEndingSoon: number;
+    trialEnded: number;
+    courtesy: number;
+    blocked: number;
+    demo: number;
+    newLast30: number;
+    cancelledLast30: number;
+    overdue: string;
+    overdueCount: number;
+    paidMonth: string;
+  };
+  support?: { chatsWaiting: number; ticketsOpen: number; ticketsWaiting: number };
+  usage?: { ordersMonth: number; sellingLast7: number; live: number; unreadable: string[] };
   backups: Record<'backup' | 'restoreTest', { last: BackupRun | null; lastOkAt: string | null }>;
   last7Days: { fiscalErrors: number; messageFailures: number };
   databases?: Partial<Record<TenantDatabaseStatus, number>>;
@@ -68,7 +88,7 @@ export type TenantDatabaseStatus =
 /** Trabalho de banco (criar, mover para banco próprio, excluir) feito pelo serviço de backup. */
 export interface DbJob {
   id: string;
-  kind: 'create' | 'move' | 'delete' | 'transfer' | 'migrate' | 'receive';
+  kind: 'create' | 'move' | 'delete' | 'transfer' | 'migrate' | 'receive' | 'upgrade';
   status: 'queued' | 'running' | 'done' | 'failed';
   step: string | null;
   error: string | null;
@@ -618,6 +638,8 @@ export interface DbServerRestaurant {
   name: string;
   status: string;
   dbStatus: TenantDatabaseStatus;
+  /** Trabalho de banco na fila ou rodando (ex.: esperando a vez no "Mover todos"). */
+  busy?: boolean;
 }
 
 export interface DbServer {

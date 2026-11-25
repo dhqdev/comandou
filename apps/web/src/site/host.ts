@@ -18,9 +18,21 @@ export interface SiteConfig {
   ai?: boolean;
 }
 
+/**
+ * Final de domínio com dois nomes (comandou.com.br, empresa.co.uk): aí o domínio base tem três
+ * nomes. A mesma expressão está no public/boot.js (o teste confere).
+ */
+export const SECOND_LEVEL_SUFFIX =
+  /\.(com|net|org|co|gov|edu|art|blog|app|dev|eco|ind|inf|adv|eng|med|tur|srv|biz|info|ltd|plc)\.[a-z]{2}$/;
+
 export function siteCandidate(hostname = window.location.hostname): boolean {
   if (/^[\d.]+$/.test(hostname) || hostname.includes(':')) return false;
-  return hostname.startsWith('www.') || hostname.split('.').length === 2;
+  const names = hostname.split('.').length;
+  return (
+    hostname.startsWith('www.') ||
+    names === 2 ||
+    (names === 3 && SECOND_LEVEL_SUFFIX.test(hostname))
+  );
 }
 
 const cached = (): boolean | null => {

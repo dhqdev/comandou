@@ -226,6 +226,20 @@ export function CartScreen() {
     pixChosen && menu.pix && !feePending && total > 0
       ? pixBrCode(menu.pix, fromCents(total))
       : null;
+  // O comprovante vale só para o total que ele pagou: mudou a sacola, a recompensa ou a taxa
+  // de entrega depois de anexar, o comprovante sai e o cliente paga o código novo.
+  const receiptFor = useRef<number | null>(null);
+  const attachReceipt = (file: ReceiptFile | null) => {
+    receiptFor.current = file ? total : null;
+    setReceipt(file);
+  };
+  useEffect(() => {
+    if (receipt && receiptFor.current !== null && receiptFor.current !== total) {
+      receiptFor.current = null;
+      setReceipt(null);
+      setError('O total mudou. Pague o código novo do Pix e anexe o comprovante de novo.');
+    }
+  }, [receipt, total]);
   const changeCents = toCents(parseBrlInput(changeFor) ?? '0');
   const changeOk =
     atTable || customer.paymentMethod !== 'cash' || !changeFor || changeCents >= total;
@@ -756,7 +770,7 @@ export function CartScreen() {
                 <PixPay code={pixCode} amount={fromCents(total)} payee={menu.pix}>
                   <ReceiptPicker
                     value={receipt}
-                    onChange={setReceipt}
+                    onChange={attachReceipt}
                     invalid={invalid('pay') && !receipt}
                     disabled={busy}
                   />
@@ -987,7 +1001,7 @@ export function CartScreen() {
                 >
                   <ReceiptPicker
                     value={receipt}
-                    onChange={setReceipt}
+                    onChange={attachReceipt}
                     invalid={invalid('pay') && !receipt}
                     disabled={busy}
                   />

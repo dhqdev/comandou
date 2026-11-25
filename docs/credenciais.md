@@ -17,6 +17,28 @@ Código: `apps/web/src/platform/credentials/` (texto de cada uma em `catalog.tsx
 `editors.tsx`) e `apps/api/src/platform/platform-credentials.service.ts`
 (`GET /api/v1/platform/credentials`, nunca devolve um valor).
 
+A **Situação** do topo separa as **necessárias** (sem elas o sistema não funciona) das
+**opcionais em uso** (aplicativos de delivery, PagBank, Backblaze, GitHub): "salva" não é o
+mesmo que "faltando". O webhook do Asaas só conta depois da chave do Asaas.
+
+**Conferir todas agora** (`POST /api/v1/platform/credentials/check`, no máximo 4 por minuto,
+auditado como `credentials.checked`) usa cada chave **salva** no próprio fornecedor, sem cobrar
+nem mandar nada a ninguém, e marca no cartão "funcionando" ou "recusada" com o motivo:
+
+| Credencial | Como confere |
+| --- | --- |
+| Focus NFe | lista as empresas da conta (`GET /v2/empresas`) |
+| OpenRouter (restaurantes e a sua) | lê os dados da chave (`GET /key`, não gasta) |
+| OpenRouter de gerenciamento | lê o saldo da conta (`GET /credits`) |
+| Resend | lê os domínios e confere se o do remetente está verificado; chave "só envio" (a recomendada) responde `restricted_api_key` e conta como válida |
+| Asaas | lê a conta (o mesmo Testar do cartão) |
+| PagBank | pede a chave pública da conta com o token da plataforma |
+| Backblaze B2 | grava, lê, lista e apaga um arquivo de teste no bucket |
+| GitHub da esteira | o mesmo teste do cartão (repositório, push, branch base, Actions) |
+| GitHub das atualizações | lê a última versão publicada |
+
+Os aplicativos de delivery não entram: o teste de cada um é ligar a primeira loja.
+
 ## Ordem para subir o sistema
 
 1. **DNS**: registros A de `@`, `*` e `admin` para o IP do servidor.
@@ -58,7 +80,9 @@ instalação que já usava a variável continua funcionando sem fazer nada.
 
 Cada aplicativo de delivery tem um cartão no painel (`platform_credentials`, nomes `channel_<id>`,
 JSON cifrado com o Client ID, o Client Secret, o modo do iFood e o segredo do webhook quando o
-aplicativo usa um diferente). Vale na hora em todas as réplicas (cache de 30 s). O iFood ainda
+aplicativo usa um diferente). Vale na hora em todas as réplicas (cache de 30 s). Salvar de novo
+sem preencher o segredo do webhook ou o endereço da API mantém os que já estavam salvos (só o
+Client Secret é sempre pedido). O iFood ainda
 aceita `IFOOD_CLIENT_ID`/`IFOOD_CLIENT_SECRET`/`IFOOD_APP_MODE` do servidor como reserva: o cartão
 mostra "vindo do servidor" até você salvar no painel. O token de cada loja (iFood distribuído e
 aiqfome) fica no banco do restaurante, cifrado com o contexto da loja (ADR 0015).

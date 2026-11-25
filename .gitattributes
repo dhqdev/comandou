@@ -1,0 +1,3 @@
+# Migrações sempre com fim de linha LF: o checksum muda com CRLF (checkout no Windows) e o
+# migrador acusa "Migração ... foi alterada".
+*.sql text eol=lf

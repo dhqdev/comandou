@@ -189,7 +189,21 @@ export class ChannelCredentials {
       throw new UnprocessableEntityException(
         'Servidor sem INTEGRATIONS_KEY: não é possível guardar a credencial com segurança',
       );
-    const enc = seal(key, JSON.stringify(body), contextOf(channel));
+    // Segredo do webhook e endereço da API são opcionais no formulário: salvar de novo sem
+    // redigitar (trocar só o Client Secret, por exemplo) mantém os que já estavam salvos.
+    // Antes o JSON inteiro era trocado e a Rappi perdia o segredo, recusando todo webhook.
+    this.forget(channel);
+    const prev = await this.get(channel);
+    const merged: ChannelCredentialInput = {
+      ...body,
+      ...(prev?.source === 'panel' && body.webhookSecret === undefined && prev.webhookSecret
+        ? { webhookSecret: prev.webhookSecret }
+        : {}),
+      ...(prev?.source === 'panel' && body.baseUrl === undefined && prev.baseUrl
+        ? { baseUrl: prev.baseUrl }
+        : {}),
+    };
+    const enc = seal(key, JSON.stringify(merged), contextOf(channel));
     await this.platform.tx(async (c) => {
       await c.query(
         `INSERT INTO platform_credentials (name, value_enc, last4, updated_by)

@@ -73,7 +73,16 @@ o restaurante já estava liberado, só completa a virada aqui.
 - **Domínios próprios** do restaurante vão junto no cadastro, mas o DNS deles precisa apontar para
   o servidor novo.
 - **WhatsApp (QR)**: a sessão fica no gateway daqui; leia o QR de novo no servidor novo.
-- **Histórico da plataforma** (faturas, contratos, chamados, auditoria) fica aqui.
+- **Histórico da plataforma** (faturas, contratos, chamados, auditoria) fica aqui. Desde a
+  0.245.2 o cartão automático daqui não cobra mais um restaurante migrado (quem cobra é o servidor
+  novo). Faturas que ficaram em aberto aqui: cancele em Cobrança, para o cliente não receber a
+  mesma mensalidade dos dois lados.
+- **Versão**: lá o banco chega com todas as migrações de lá, então o restaurante passa a
+  acompanhar o sistema de lá (a versão presa daqui não vai junto; antes ela fazia o migrate de lá
+  pular o banco dele nas atualizações seguintes).
+- **Domínio diferente**: o app Comandou Impressão do restaurante e os webhooks da Rappi
+  apontam para o endereço daqui; com outro domínio, configure de novo lá. Credenciais dos
+  aplicativos de delivery e do PagBank são da instalação: cadastre as mesmas no painel de lá.
 
 ## Rotas (para quem mantém)
 

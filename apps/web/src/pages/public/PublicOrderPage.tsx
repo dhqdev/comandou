@@ -178,6 +178,8 @@ export function PublicOrderPage() {
   const [error, setError] = useState<string | null>(null);
   // Pedido da mesa cuja conta já foi paga: sai deste celular (não mostra mais o que foi pedido).
   const [ended, setEnded] = useState(false);
+  // Link que não acha mais o pedido: para de perguntar (não adianta e gasta o limite do Wi-Fi).
+  const [gone, setGone] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [picking, setPicking] = useState(false);
 
@@ -194,6 +196,7 @@ export function PublicOrderPage() {
         return;
       }
       const err = e as ApiError;
+      if (err.status === 404) setGone(true);
       setError(
         err.status === 404
           ? 'Não encontramos este pedido. O link pode ter expirado.'
@@ -202,9 +205,12 @@ export function PublicOrderPage() {
     }
   }, [base]);
 
+  // Pedido concluído não muda mais: lê uma vez e para de atualizar sozinho.
+  const finished = o?.step === 'completed';
   useEffect(() => {
-    if (ended) return;
+    if (ended || gone) return;
     void load();
+    if (finished) return;
     // Atualiza a cada 8 s e na hora em que o cliente volta para a aba.
     const id = window.setInterval(() => document.visibilityState === 'visible' && load(), 8_000);
     const onVis = () => document.visibilityState === 'visible' && load();
@@ -213,7 +219,7 @@ export function PublicOrderPage() {
       window.clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [load, ended]);
+  }, [load, ended, gone, finished]);
 
   useEffect(() => {
     if (o) document.title = `Pedido #${o.number} · ${o.restaurant.name}`;

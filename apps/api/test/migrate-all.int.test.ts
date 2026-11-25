@@ -1,8 +1,13 @@
 import { Client } from 'pg';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { databaseList, describeDatabase, migrateAll } from '../src/database/migrate-all';
+import {
+  databaseList,
+  describeDatabase,
+  migrateAll,
+  registeredDatabases,
+} from '../src/database/migrate-all';
 import { migrate } from '../src/database/migrator';
-import { DEDICATED_OWNER_URL, OWNER_URL } from './env';
+import { APP_URL, DEDICATED_OWNER_URL, OWNER_URL } from './env';
 
 async function count(url: string): Promise<number> {
   const c = new Client({ connectionString: url });
@@ -67,5 +72,50 @@ describe('Migrações em uma lista de bancos', () => {
     expect(oneDown.map((r) => r.status)).toEqual(['ok', 'failed', 'ok']);
     expect(oneDown[1]!.error).toContain('quebrado:5432/x');
     expect(oneDown[1]!.error).not.toContain('senha-secreta');
+  });
+
+  it('lista os bancos dos restaurantes pelo registro e respeita a versão de cada um', async () => {
+    const c = new Client({ connectionString: OWNER_URL });
+    await c.connect();
+    try {
+      const { rows } = await c.query<{ id: string }>(
+        `INSERT INTO tenants (slug, name, status, app_version) VALUES
+           ('tst-reg-a', 'Reg A', 'provisioned', NULL),
+           ('tst-reg-b', 'Reg B', 'provisioned', 'v0.1.0'),
+           ('tst-reg-c', 'Reg C', 'provisioned', NULL)
+         RETURNING id`,
+      );
+      await c.query(
+        `INSERT INTO tenant_databases (tenant_id, db_name, status) VALUES
+           ($1, 'comandou_tst_reg_a', 'ready'),
+           ($2, 'comandou_tst_reg_b', 'ready'),
+           ($3, 'comandou_tst_reg_c', 'creating')`,
+        rows.map((r) => r.id),
+      );
+      try {
+        const names = (list: string[]) => list.map((u) => new URL(u).pathname.slice(1));
+        // Sem versão conhecida: todos os prontos. Com versão: o preso à v0.1.0 fica de fora.
+        expect(names(await registeredDatabases(OWNER_URL, ''))).toEqual([
+          'comandou_tst_reg_a',
+          'comandou_tst_reg_b',
+        ]);
+        expect(names(await registeredDatabases(OWNER_URL, '0.2.0'))).toEqual([
+          'comandou_tst_reg_a',
+        ]);
+        expect(names(await registeredDatabases(OWNER_URL, 'v0.1.0'))).toEqual([
+          'comandou_tst_reg_a',
+          'comandou_tst_reg_b',
+        ]);
+        // Não conseguiu ler o registro: é erro (antes virava lista vazia e ninguém migrava).
+        await expect(registeredDatabases(APP_URL, '')).rejects.toThrow(/permission denied/);
+      } finally {
+        await c.query(`DELETE FROM tenant_databases WHERE tenant_id = ANY($1::uuid[])`, [
+          rows.map((r) => r.id),
+        ]);
+        await c.query(`DELETE FROM tenants WHERE id = ANY($1::uuid[])`, [rows.map((r) => r.id)]);
+      }
+    } finally {
+      await c.end();
+    }
   });
 });

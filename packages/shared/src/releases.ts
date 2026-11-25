@@ -21,7 +21,7 @@ export interface Release {
 export const RELEASES: readonly Release[] = [
   {
     version: '0.247.0',
-    date: '2026-11-24',
+    date: '2026-11-25',
     title: 'Super Admin pelo WhatsApp: menu, varredura e avisos',
     summary:
       'O WhatsApp do painel virou um painel de bolso. Os números cadastrados em Super Admin › WhatsApp › Menu do admin recebem um menu de opções: resumo do sistema, escolher um restaurante e ver visão geral, movimento, varredura completa, equipe, histórico e banco, além de saúde do servidor, backups, bancos e servidores, restaurantes novos e cobrança. Avisos automáticos e o resumo do dia chegam sozinhos.',
@@ -45,6 +45,181 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'segurança',
         text: 'O menu só responde aos números cadastrados de um Super Admin ativo. Backup agora, teste de restauração e limpar cache pedem SIM e entram no histórico do painel no nome dele; cadastrar, mudar e tirar números também.',
+      },
+    ],
+  },
+  {
+    version: '0.246.0',
+    date: '2026-11-25',
+    title: 'Super Admin: Status com números certos e Credenciais conferidas de verdade',
+    summary:
+      'A tela Status do Super Admin foi revisada número a número: a migração que terminou bem não aparece mais como serviço com problema, a demonstração não conta como cliente pagante e cada número diz de quantos. Entraram receita por mês, testes grátis, faturas vencidas, atendimento, pedidos e versão nova. Em Credenciais, o botão Conferir todas agora usa cada chave salva no fornecedor e mostra a que foi recusada.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Status: o serviço de migração (comandou-migrate) roda uma vez e termina; "0 de 1 rodando" depois de terminar bem é o normal e deixou de pintar Containers de vermelho e de virar alerta.',
+      },
+      {
+        tag: 'correção',
+        text: 'Status: a demonstração (Fumaça) não conta mais como assinatura ativa, receita nem pedidos; quem foi para outra instalação ou está sendo excluído também não.',
+      },
+      {
+        tag: 'correção',
+        text: 'Status: "WhatsApp ok" na Saúde agora se chama Serviço do WhatsApp e diz quantos restaurantes estão conectados e se o seu número do painel está conectado, em vez de parecer que estava tudo certo com 0 conectados.',
+      },
+      {
+        tag: 'correção',
+        text: 'Status: a fila de tarefas aparece em português ("81 feitas", "2 com falha") e tarefa com falha vira aviso; as falhas de 7 dias e o uso são lidos no banco de cada restaurante, sem contar restos do banco central.',
+      },
+      {
+        tag: 'novo',
+        text: 'Status: seção Negócio com receita por mês, recebido no mês e vencido, testes grátis acabando, clientes novos e cancelados em 30 dias, pedidos do mês e atendimento (conversas esperando e chamados com você).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Status: "Pede atenção" no topo junta tudo o que precisa de você, do mais grave ao menos (sites fora do ar, backup, credenciais faltando, WhatsApp do painel desconectado, faturas vencidas, testes acabados, chamados esperando, versão nova), e cada linha leva à tela que resolve.',
+      },
+      {
+        tag: 'novo',
+        text: 'Credenciais: botão Conferir todas agora. Usa cada chave salva no próprio fornecedor sem cobrar nem enviar nada (Focus, OpenRouter, Resend com o domínio do remetente, Asaas, PagBank, Backblaze, GitHub) e marca no cartão a que foi recusada e o motivo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Credenciais: a situação separa as necessárias das opcionais. Antes o "8 de 26" misturava os seis aplicativos de delivery e outras chaves que você não usa.',
+      },
+      {
+        tag: 'correção',
+        text: 'Credenciais: salvar a credencial de um aplicativo de delivery sem redigitar o segredo do webhook mantém o salvo. Antes ele era apagado e a Rappi passava a recusar os pedidos.',
+      },
+    ],
+  },
+  {
+    version: '0.245.3',
+    date: '2026-11-25',
+    title: 'Varredura: cobrança em dobro, sessão vencida e mais 25 correções',
+    summary:
+      'Uma revisão de ponta a ponta do sistema, das telas da equipe ao cardápio do cliente e à API. O principal: o caixa não deixa mais cobrar um pedido que o cliente está pagando (ou já pagou) pelo app, a sessão vencida leva direto ao login e o comprovante do Pix precisa bater com o total.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Caixa: receber no balcão um pedido com Pix ou cartão do app esperando (ou pago e ainda fora do caixa) é recusado com o motivo. Antes o cliente podia pagar duas vezes e o valor do app ficava preso sem devolução.',
+      },
+      {
+        tag: 'correção',
+        text: 'Salão: ligar ou tirar a taxa de serviço da mesa não mexe mais em pedidos já concluídos e pagos, em fiado e a receber nem em retirada.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cardápio: o comprovante do Pix anexado sai sozinho se o total mudar depois (sacola, recompensa ou taxa de entrega), e o cliente paga o código novo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Sessão terminada no meio do uso (venceu, conta desligada) volta para o login, em vez de cada tela mostrar "Sessão inválida" e a fila sem internet ficar parada.',
+      },
+      {
+        tag: 'correção',
+        text: 'Detalhe do pedido: abrir um pedido logo depois de outro não mostra mais o anterior quando a rede está lenta (Receber e Cancelar agiam no pedido errado).',
+      },
+      {
+        tag: 'correção',
+        text: 'Nova venda e app do garçom: o cardápio se atualiza sozinho quando um item esgota ou muda de preço, e o aviso "já foi registrado com outros dados" não trava mais os envios seguintes.',
+      },
+      {
+        tag: 'correção',
+        text: 'Entregas: o código do cliente aceita no máximo 5 tentativas mesmo com toques ao mesmo tempo, e o GPS fraco não pede mais para mexer na permissão.',
+      },
+      {
+        tag: 'correção',
+        text: 'Fidelidade: dois vencimentos de pontos ao mesmo tempo não deixam mais o saldo negativo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Equipe › Pagamentos: tablet ou celular só aberto não conta mais dia de trabalho; conta quando a pessoa faz algo no sistema.',
+      },
+      {
+        tag: 'correção',
+        text: 'Reservas pelo WhatsApp acham a reserva mesmo quando o número vem sem o 9, e o limite de 3 reservas em aberto vale também por conta.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cozinha: trocar de setor não traz de volta o quadro do anterior, e o pedido avisa a situação certa depois de marcar item pronto.',
+      },
+      {
+        tag: 'correção',
+        text: 'Estoque: salvar de novo um insumo novo cujo saldo inicial falhou não cria um insumo repetido.',
+      },
+      {
+        tag: 'correção',
+        text: 'iFood: código de autorização digitado errado não obriga mais a gerar outro no Portal, e um aplicativo lento não atrasa mais o polling dos outros.',
+      },
+      {
+        tag: 'correção',
+        text: 'Site: cadastro do teste grátis que não deu certo agora tem "Tentar de novo" e não volta preso ao recarregar.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cardápio: dado antigo guardado no aparelho não quebra mais a abertura, o acompanhamento para de consultar quando o pedido termina e Enter no favorito não abre mais o produto.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Conversa do cliente com a loja: anexos de clientes nunca apagam arquivos recentes de outras conversas e têm limite diário por restaurante.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Acesso de suporte do Comandou: tudo o que é feito nele entra no histórico do restaurante com o nome de quem atendeu.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Links de acompanhamento, reserva, assinatura de contrato e teste grátis não aparecem mais inteiros nos logs. Sair da conta no cardápio apaga nome, telefone e CPF do aparelho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'E-mail: o Resend recebe uma chave por e-mail e não manda duas vezes quando a resposta se perde. Busca de endereço com fila cheia responde na hora (o cliente marca no mapa).',
+      },
+    ],
+  },
+  {
+    version: '0.245.2',
+    date: '2026-11-25',
+    title: 'Troca de servidor de banco sem derrubar todos',
+    summary:
+      'No "Mover todos" de Bancos, cada restaurante agora fica fora do ar só durante a própria cópia (antes todos saíam do ar no clique e esperavam a fila inteira). A troca ficou à prova de reinício do serviço de backup e de restaurante em versão anterior, e a tela Status parou de acusar a migração que terminou bem.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Super Admin › Bancos: "Mover todos" e "Trocar de servidor" tiravam o restaurante do ar já no pedido, e ele ficava sem acesso enquanto esperava a vez na fila (e durante o backup da noite, se coincidisse). Agora ele segue funcionando na fila, aparece como "na fila" e só para durante a própria cópia, como a tela prometia.',
+      },
+      {
+        tag: 'correção',
+        text: 'Troca de servidor: um servidor de destino removido ou desativado com a troca na fila deixava o restaurante preso em manutenção. Agora o trabalho falha sem tirar o restaurante do ar.',
+      },
+      {
+        tag: 'correção',
+        text: 'Troca de servidor de um restaurante numa versão anterior (versão por restaurante) sempre falhava depois de tirar o restaurante do ar: o banco novo ganhava as migrações da versão nova. Agora o banco novo fica na mesma versão do antigo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Serviço de backup reiniciado no meio da troca (numa atualização, por exemplo): o trabalho retoma. Já trocado, só apaga o banco antigo (antes ele ficava esquecido e travava uma volta para aquele servidor); antes da troca, refaz o banco novo que ele mesmo criou.',
+      },
+      {
+        tag: 'correção',
+        text: 'Migrar cliente para outra instalação: o restaurante chegava lá com a versão presa daqui, e o migrate de lá pulava o banco dele nas atualizações seguintes. Agora ele acompanha o sistema de lá. Aqui, o cartão automático não cobra mais um restaurante migrado.',
+      },
+      {
+        tag: 'correção',
+        text: 'Tela Status: "comandou-migrate: 0/1 rodando" aparecia como alerta e o cartão Servidor contava "1 com problema", mas a migração roda uma vez a cada atualização e sai. Agora a Status usa a mesma regra de Infraestrutura › Servidor; só a migração que falhou vira alerta, com o erro.',
+      },
+      {
+        tag: 'correção',
+        text: 'Migrações (comandou-migrate): se a leitura da lista de bancos dos restaurantes falhasse, ele seguia só com o banco central e dizia que tinha dado certo, deixando os restaurantes sem a migração. Agora ele migra o central primeiro, lê a lista com tudo no lugar e, se não conseguir, para com erro.',
+      },
+      {
+        tag: 'correção',
+        text: 'Instalação com domínio de final duplo (como comandou.com.br): o endereço principal abria como restaurante em vez do site. Agora ele é reconhecido como site, igual ao comandou.com.',
+      },
+      {
+        tag: 'correção',
+        text: 'Trabalhos de banco: o de "Atualizar a versão" de um restaurante aparecia sem nome na aba Banco.',
       },
     ],
   },

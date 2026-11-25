@@ -44,7 +44,31 @@ export const pixPendingMessage = (number: number) =>
 export async function assertNoPixPending(tx: Tx, o: { id: string; number: number }) {
   if (await one(tx, `SELECT 1 FROM orders WHERE id = $1 AND pix_status = 'submitted'`, [o.id]))
     throw new ConflictException(pixPendingMessage(o.number));
+  await assertNoOrderOnlinePending(tx, o);
   await assertNoTabPixPending(tx, o.id);
+}
+
+/**
+ * Cobrança do PagBank do próprio pedido esperando (Pix válido, cartão sem resposta) ou paga e ainda
+ * fora do caixa: receber no balcão faria o cliente pagar duas vezes, e o que chegasse pelo app
+ * ficaria preso como pago sem lançamento (o pedido já estaria quitado).
+ */
+export async function assertNoOrderOnlinePending(tx: Tx, o: { id: string; number: number }) {
+  const c = await one<{ status: string }>(
+    tx,
+    `SELECT status FROM online_charges
+      WHERE order_id = $1
+        AND ((status = 'pending' AND NOT (method = 'pix' AND pix_expires_at < now()))
+             OR (status = 'paid' AND payment_id IS NULL))
+      ORDER BY status = 'paid' DESC LIMIT 1`,
+    [o.id],
+  );
+  if (!c) return;
+  throw new ConflictException(
+    c.status === 'paid'
+      ? `O cliente já pagou o pedido #${o.number} pelo app. O valor entra no caixa sozinho; para lançar agora, toque em "Conferir no PagBank" no pedido.`
+      : `O cliente está pagando o pedido #${o.number} pelo app. Espere o pagamento confirmar (ou o Pix vencer) antes de cobrar de outro jeito.`,
+  );
 }
 
 /** A mesa mandou o comprovante do Pix da conta inteira (tab_pix_receipts) e o caixa ainda não viu. */

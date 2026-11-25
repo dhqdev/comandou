@@ -47,6 +47,13 @@ export function followMove(url: string): boolean {
   }
 }
 
+/**
+ * Resposta 401 fora do login: a sessão pode ter acabado (expirou, foi desligada pelo dono). O app
+ * da equipe confere em /auth/me e, se acabou mesmo, volta para o login em vez de seguir dando erro
+ * em toda tela.
+ */
+export const SESSION_CHECK_EVENT = 'cm:session-check';
+
 /** Gravação recusada porque o restaurante está bloqueado pela cobrança. */
 export const BILLING_BLOCKED_EVENT = 'cm:billing-blocked';
 
@@ -168,6 +175,8 @@ export async function api<T>(
     const moved = movedTo(body);
     if (moved !== null && !followMove(moved))
       window.dispatchEvent(new CustomEvent(TENANT_MOVED_EVENT, { detail: moved }));
+    if (res.status === 401 && !path.startsWith('/auth/'))
+      window.dispatchEvent(new Event(SESSION_CHECK_EVENT));
     if ((body as { code?: string } | undefined)?.code === 'billing_blocked')
       window.dispatchEvent(new Event(BILLING_BLOCKED_EVENT));
     throw new ApiError(res.status, msg, body);

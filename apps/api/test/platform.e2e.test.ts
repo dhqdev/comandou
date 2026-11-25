@@ -834,6 +834,33 @@ describe('Monitoramento e visão geral', () => {
     expect(o.body.tenants.provisioned).toBeGreaterThanOrEqual(3);
     expect(o.body.backups.backup.lastOkAt).toBeTruthy();
     expect(o.body.backups.restoreTest.last).toBeNull();
+    // Negócio, atendimento e uso: o pedido do pf-a conta, valores em texto decimal.
+    expect(o.body.business).toMatchObject({ mrr: expect.stringMatching(/^\d+\.\d{2}$/) });
+    expect(o.body.business.paying).toBeGreaterThanOrEqual(1);
+    expect(o.body.support).toMatchObject({ chatsWaiting: expect.any(Number) });
+    expect(o.body.usage.ordersMonth).toBeGreaterThanOrEqual(1);
+    expect(o.body.usage.unreadable).toEqual([]);
+    // A demonstração (assinatura "Demonstração: …") não é cliente: sai da receita e do uso.
+    const [pfA] = await ownerQuery<{ id: string }>(`SELECT id FROM tenants WHERE slug = 'pf-a'`);
+    await ownerQuery(
+      `UPDATE subscriptions SET notes = 'Demonstração: teste' WHERE tenant_id = $1
+                       AND status <> 'cancelled'`,
+      [pfA!.id],
+    );
+    try {
+      const d = (await pget('/overview').expect(200)).body;
+      expect(d.business.demo).toBe(1);
+      expect(d.business.paying).toBe(o.body.business.paying - 1);
+      expect(Number(d.business.mrr)).toBeCloseTo(Number(o.body.business.mrr) - 99.9, 2);
+      expect(d.usage.ordersMonth).toBe(o.body.usage.ordersMonth - 1);
+      expect(d.subscriptions.active ?? 0).toBe((o.body.subscriptions.active ?? 0) - 1);
+    } finally {
+      await ownerQuery(
+        `UPDATE subscriptions SET notes = NULL WHERE tenant_id = $1
+                         AND status <> 'cancelled'`,
+        [pfA!.id],
+      );
+    }
     const l = await pget('/tenants?search=pf-').expect(200);
     const a = l.body.find((t: { slug: string }) => t.slug === 'pf-a');
     expect(a).toMatchObject({ planName: 'Plano pf-completo', subscriptionStatus: 'active' });
@@ -1454,6 +1481,134 @@ describe('Credenciais (painel)', () => {
     expect(after.items.find((i: { id: string }) => i.id === 'openrouter_owner')).toMatchObject({
       configured: false,
     });
+  });
+});
+
+describe('Credenciais › Conferir todas', () => {
+  it('usa cada chave salva no fornecedor e diz o que foi recusado, sem mostrar a chave', async () => {
+    const base = {
+      enabled: false,
+      model: 'google/gemini-2.5-flash-lite',
+      assistantName: 'Comandinho',
+      defaultMonthlyTokens: 1000,
+      lowBalanceUsd: 2,
+    };
+    await psend('put', '/ai/settings', { ...base, ownerApiKey: 'sk-or-v1-recusada-zz99' }).expect(
+      200,
+    );
+    await psend('put', '/credentials/focus-master', { token: 'focus-master-conferir-1234' }).expect(
+      200,
+    );
+    const { PlatformCredentialsService } =
+      await import('../src/platform/platform-credentials.service');
+    const { PlatformAiService } = await import('../src/platform/platform-ai.service');
+    const { FocusClient } = await import('../src/fiscal/focus.client');
+    const ai = app.get(PlatformAiService);
+    const focus = app.get(FocusClient);
+    const origKey = ai.checkKey.bind(ai);
+    const origFocus = focus.testMaster.bind(focus);
+    // A internet fica de fora: OpenRouter recusa a chave e a Focus aceita o token.
+    ai.checkKey = async (kind) =>
+      kind === 'owner' ? { ok: false, detail: 'OpenRouter recusou a chave (401)' } : origKey(kind);
+    focus.testMaster = async () => ({ ok: true as const, companies: 2 });
+    try {
+      await http
+        .post('/api/v1/platform/credentials/check')
+        .set('Host', ADMIN_HOST)
+        .set(CSRF)
+        .expect(401);
+      const r = (await psend('post', '/credentials/check', {}).expect(200)).body;
+      const by = Object.fromEntries(
+        r.results.map((x: { id: string; ok: boolean | null; detail: string }) => [x.id, x]),
+      );
+      expect(by.focus_master).toMatchObject({
+        ok: true,
+        detail: expect.stringContaining('2 empresa'),
+      });
+      expect(by.openrouter_owner).toMatchObject({ ok: false });
+      // Só as salvas são conferidas (o Resend não tem chave neste teste).
+      expect(by.resend).toBeUndefined();
+      expect(JSON.stringify(r)).not.toContain('recusada-zz99');
+      expect(JSON.stringify(r)).not.toContain('focus-master-conferir');
+      const audit = (await pget('/audit?scope=platform').expect(200)).body as {
+        action: string;
+        data: { failed?: string[] };
+      }[];
+      const row = audit.find((x) => x.action === 'credentials.checked');
+      expect(row?.data.failed).toContain('openrouter_owner');
+      void PlatformCredentialsService;
+    } finally {
+      ai.checkKey = origKey;
+      focus.testMaster = origFocus;
+      await psend('put', '/ai/settings', { ...base, clearOwnerKey: true }).expect(200);
+      await psend('post', '/credentials/focus-master/remove', {}).expect(200);
+    }
+  });
+
+  it('aplicativo de delivery: salvar sem redigitar o segredo do webhook mantém o salvo', async () => {
+    await psend('put', '/credentials/channels/rappi', {
+      clientId: 'rappi-cliente',
+      clientSecret: 'segredo-do-cliente-1111',
+      webhookSecret: 'segredo-do-webhook-abcd',
+    }).expect(200);
+    // Troca só o Client Secret (o formulário não manda o segredo do webhook em branco).
+    await psend('put', '/credentials/channels/rappi', {
+      clientId: 'rappi-cliente',
+      clientSecret: 'segredo-do-cliente-2222',
+    }).expect(200);
+    const { ChannelCredentials } =
+      await import('../src/integrations/channels/channel-credentials.service');
+    const cred = app.get(ChannelCredentials);
+    cred.forget('rappi');
+    expect(await cred.get('rappi')).toMatchObject({
+      clientSecret: 'segredo-do-cliente-2222',
+      webhookSecret: 'segredo-do-webhook-abcd',
+      last4: '2222',
+    });
+    await psend('post', '/credentials/channels/rappi/remove', {}).expect(200);
+  });
+
+  it('Resend: chave só de envio vale; domínio do remetente não verificado é recusado', async () => {
+    const { PlatformCredentialsService } =
+      await import('../src/platform/platform-credentials.service');
+    const svc = app.get(PlatformCredentialsService);
+    const resend = (
+      svc as unknown as { checkResend: () => Promise<{ ok: boolean | null; detail: string }> }
+    ).checkResend.bind(svc);
+    const { MailService } = await import('../src/mail/mail.service');
+    const mail = app.get(MailService);
+    const origRow = mail.settingsRow.bind(mail);
+    const origProvider = mail.providerOf.bind(mail);
+    const origFetch = svc.fetcher;
+    mail.settingsRow = async () =>
+      ({ provider: 'resend', from_address: 'contato@comandou.test' }) as Awaited<
+        ReturnType<typeof origRow>
+      >;
+    mail.providerOf = () => ({ provider: 'resend', apiKey: 're_teste' });
+    const reply = (status: number, body: unknown) => async () =>
+      new Response(JSON.stringify(body), { status });
+    try {
+      svc.fetcher = reply(401, { name: 'restricted_api_key', message: 'only send' });
+      expect(await resend()).toMatchObject({ ok: true });
+      svc.fetcher = reply(200, { data: [{ name: 'comandou.test', status: 'verified' }] });
+      expect(await resend()).toMatchObject({
+        ok: true,
+        detail: expect.stringContaining('verificado'),
+      });
+      svc.fetcher = reply(200, { data: [{ name: 'comandou.test', status: 'pending' }] });
+      expect(await resend()).toMatchObject({ ok: false });
+      svc.fetcher = reply(200, { data: [] });
+      expect((await resend()).detail).toContain('não está cadastrado');
+      svc.fetcher = reply(400, { name: 'validation_error', message: 'API key is invalid' });
+      expect(await resend()).toMatchObject({
+        ok: false,
+        detail: expect.stringContaining('invalid'),
+      });
+    } finally {
+      mail.settingsRow = origRow;
+      mail.providerOf = origProvider;
+      svc.fetcher = origFetch;
+    }
   });
 });
 

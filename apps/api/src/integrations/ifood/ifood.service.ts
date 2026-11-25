@@ -388,9 +388,11 @@ export class IfoodService implements OnModuleInit {
     const c = await this.creds();
     const key = this.key();
     const pending = await this.db.withTenant({ tenantId, userId }, (tx) =>
+      // Só lê: um código digitado errado (ou a rede caindo na troca) não obriga a gerar outro e
+      // autorizar de novo no Portal. Sai depois que a troca deu certo.
       one<{ verifier_enc: Buffer }>(
         tx,
-        `DELETE FROM ifood_pending_auth WHERE expires_at > now() RETURNING verifier_enc`,
+        `SELECT verifier_enc FROM ifood_pending_auth WHERE expires_at > now()`,
       ),
     );
     if (!pending)
@@ -411,6 +413,9 @@ export class IfoodService implements OnModuleInit {
     } catch (e) {
       throw this.http(e);
     }
+    await this.db.withTenant({ tenantId, userId }, (tx) =>
+      q(tx, `DELETE FROM ifood_pending_auth WHERE tenant_id = $1`, [tenantId]),
+    );
     if (!merchants.length) throw new BadRequestException('Nenhuma loja veio nessa autorização');
     const out = [];
     for (const m of merchants)

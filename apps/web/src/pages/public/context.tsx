@@ -17,6 +17,7 @@ import {
   CartLine,
   CustomerInfo,
   EMPTY_CUSTOMER,
+  isLine,
   lineCount,
   lineTotal,
   mergeCarts,
@@ -168,7 +169,12 @@ export function StoreProvider({
   enterTable(tableId: string): void;
   children: ReactNode;
 }) {
-  const [cart, setCart] = useStored<CartLine[]>('cm-cart', []);
+  const [rawCart, setCart] = useStored<CartLine[]>('cm-cart', []);
+  // Linha guardada por uma versão antiga (sem `optionIds`…) quebraria as contas da sacola.
+  const cart = useMemo<CartLine[]>(() => {
+    const lines: unknown[] = rawCart;
+    return lines.every((l) => isLine(l)) ? rawCart : lines.filter(isLine);
+  }, [rawCart]);
   const [stored, setCustomer] = useStored<CustomerInfo>('cm-customer', EMPTY_CUSTOMER);
   // Dados salvos por versões antigas não têm os campos novos (CEP, cidade…).
   const customer = useMemo(() => ({ ...EMPTY_CUSTOMER, ...stored }), [stored]);
@@ -344,6 +350,14 @@ export function StoreProvider({
       // A sacola fica guardada na conta; o aparelho volta vazio para o próximo cliente.
       setCart(() => []);
       setCartSync(null);
+      // Aparelho dividido (tablet da mesa, celular emprestado): o próximo cliente não vê nome,
+      // telefone, CPF nem a observação de quem saiu.
+      setCustomer(() => EMPTY_CUSTOMER);
+      try {
+        localStorage.removeItem('cm-cart-notes');
+      } catch {
+        /* modo privado: nada guardado */
+      }
       setAccount({ customer: null, addresses: [] });
     },
     customer,

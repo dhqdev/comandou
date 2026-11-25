@@ -1006,6 +1006,14 @@ export class PlatformCredentialsController {
     return this.svc.removeFocusMaster(actor(req));
   }
 
+  /** Conferir todas: usa cada chave salva no fornecedor agora (nada é cobrado nem enviado). */
+  @Post('check')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 4 } })
+  check(@Req() req: Request) {
+    return this.svc.check(actor(req));
+  }
+
   @Post('focus-master/test')
   @HttpCode(200)
   @Throttle({ default: { ttl: 60_000, limit: 10 } })

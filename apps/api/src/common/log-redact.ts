@@ -7,11 +7,19 @@ import type { Options } from 'pino-http';
  */
 export function maskSecretsInUrl(url: string | undefined): string | undefined {
   if (!url) return url;
-  return url
-    .replace(/(\/track\/)[^/?#]+/g, '$1[oculto]')
-    .replace(/(\/courier-app\/)[^/?#]+/g, '$1[oculto]')
-    .replace(/(entregador(?:\/|%2F))[A-Za-z0-9_-]+/gi, '$1[oculto]')
-    .replace(/([?&]token=)[^&#]+/g, '$1[oculto]');
+  return (
+    url
+      .replace(/(\/track\/)[^/?#]+/g, '$1[oculto]')
+      .replace(/(\/courier-app\/)[^/?#]+/g, '$1[oculto]')
+      .replace(/(entregador(?:\/|%2F))[A-Za-z0-9_-]+/gi, '$1[oculto]')
+      // Acompanhamento do pedido, reserva, assinatura de contrato e teste grátis: o token do link é
+      // a senha de quem abre (nome, endereço, telefone).
+      .replace(
+        /(\/(?:store\/orders|store\/reservations|platform\/sign|public\/site\/trials)\/)[^/?#]+/g,
+        '$1[oculto]',
+      )
+      .replace(/([?&]token=)[^&#]+/g, '$1[oculto]')
+  );
 }
 
 /**

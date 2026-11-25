@@ -350,6 +350,8 @@ export function KitchenPage({
   }, [accent, theme]);
 
   function pick(id: string) {
+    // Leitura do setor anterior ainda em andamento não volta a aparecer no quadro novo.
+    epoch.current++;
     setKdsPrefs({ kitchen: id });
     setChannel('all');
     setChoosing(false);

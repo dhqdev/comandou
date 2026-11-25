@@ -73,14 +73,18 @@ export function useSites() {
   return { data, error, loading, reload: () => load(true) };
 }
 
-/** Os números do topo da tela inicial. */
+/**
+ * Os números dos restaurantes no ar, na tela Status. Suspensos e em criação não entram nas
+ * contas de WhatsApp e backup (não estão funcionando de propósito).
+ */
 export function SitesTiles({
   report,
-  alerts,
+  offsite,
   onFilter,
 }: {
   report: SitesReport | null;
-  alerts: number;
+  /** Backblaze configurado? false = os backups só existem neste servidor. */
+  offsite?: boolean | null;
   onFilter: (f: Filter) => void;
 }) {
   const navigate = useNavigate();
@@ -93,64 +97,71 @@ export function SitesTiles({
   const s = report.sites;
   const count = (st: SiteState) => s.filter((x) => x.state === st).length;
   const live = s.filter((x) => x.state !== 'suspended' && x.state !== 'setup');
-  const dbBad = s.filter((x) => x.database.check && !x.database.check.ok).length;
+  const dbChecked = s.filter((x) => x.database.check).length;
   const dbOk = s.filter((x) => x.database.check?.ok).length;
   const waOn = live.filter((x) => x.whatsapp?.status === 'connected').length;
   const waOff = live.filter(waProblem).length;
   const bkOk = live.filter((x) => backupLevel(x.backup.lastOkAt) === 'ok').length;
   const offline = count('offline');
+  const up = count('online') + count('attention');
   return (
     <div className="adm-grid">
       <Tile
         label="Sites"
-        value={offline ? `${offline} fora do ar` : `${count('online') + count('attention')} online`}
+        value={offline ? `${offline} fora do ar` : `${up} no ar`}
         sub={
-          offline
-            ? `${count('online') + count('attention')} online · ${count('suspended')} suspenso(s)`
-            : `0 fora do ar · ${count('suspended')} suspenso(s)`
+          [
+            offline ? `${up} no ar` : null,
+            count('attention') ? `${count('attention')} com atenção` : null,
+            count('suspended') ? `${count('suspended')} suspenso(s)` : null,
+            count('setup') ? `${count('setup')} em criação` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ') || 'nenhum fora do ar'
         }
-        level={offline ? 'bad' : undefined}
-        onClick={() => onFilter(offline ? 'offline' : 'all')}
+        level={offline ? 'bad' : count('attention') ? 'warn' : undefined}
+        onClick={() => onFilter(offline ? 'offline' : count('attention') ? 'attention' : 'all')}
       />
       <Tile
-        label="Bancos"
-        value={`${dbOk} ok`}
-        sub={dbBad ? `${dbBad} sem resposta` : 'todos respondendo'}
-        level={dbBad ? 'bad' : undefined}
+        label="Bancos dos restaurantes"
+        value={`${dbOk} de ${dbChecked}`}
+        sub={dbChecked - dbOk ? `${dbChecked - dbOk} sem resposta` : 'todos respondendo'}
+        level={dbChecked - dbOk ? 'bad' : undefined}
         onClick={() => navigate('/servidor/bancos')}
       />
       <Tile
-        label="WhatsApp"
+        label="WhatsApp dos restaurantes"
         value={
           report.whatsappGateway === 'disabled'
             ? 'desligado'
             : report.whatsappGateway === 'error'
               ? 'fora do ar'
-              : `${waOn} conectado(s)`
+              : `${waOn} de ${live.length}`
         }
         sub={
           report.whatsappGateway === 'ok'
-            ? `${waOff} desconectado(s)`
+            ? waOff
+              ? `${waOff} sem conexão (veja na lista)`
+              : 'todos conectados'
             : report.whatsappGateway === 'disabled'
-              ? 'serviço não configurado'
-              : 'serviço sem resposta'
+              ? 'serviço não configurado no servidor'
+              : 'o serviço do WhatsApp não respondeu'
         }
-        level={report.whatsappGateway === 'error' ? 'bad' : undefined}
+        level={report.whatsappGateway === 'error' ? 'bad' : waOff ? 'warn' : undefined}
         onClick={() => onFilter('whatsapp')}
       />
       <Tile
-        label="Backups"
-        value={`${bkOk} em dia`}
-        sub={`${live.length - bkOk} com atenção`}
-        level={live.length - bkOk ? 'warn' : undefined}
+        label="Backups dos restaurantes"
+        value={`${bkOk} de ${live.length}`}
+        sub={
+          live.length - bkOk
+            ? `${live.length - bkOk} atrasado(s)`
+            : offsite === false
+              ? 'em dia, só neste servidor'
+              : 'em dia'
+        }
+        level={live.length - bkOk ? 'warn' : offsite === false ? 'warn' : undefined}
         onClick={() => navigate('/servidor/backups')}
-      />
-      <Tile
-        label="Alertas"
-        value={alerts + count('attention')}
-        sub={alerts + count('attention') ? 'veja abaixo' : 'tudo certo'}
-        level={alerts + count('attention') ? 'warn' : undefined}
-        onClick={() => onFilter('attention')}
       />
     </div>
   );

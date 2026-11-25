@@ -24,6 +24,19 @@ describe('maskSecretsInUrl', () => {
   });
   it('não mexe nas outras rotas', () => {
     expect(maskSecretsInUrl('/api/v1/orders/123')).toBe('/api/v1/orders/123');
+    expect(maskSecretsInUrl('/api/v1/store/orders/tok_ABC-123/pix-receipt')).toBe(
+      '/api/v1/store/orders/[oculto]/pix-receipt',
+    );
+    expect(maskSecretsInUrl('/api/v1/store/reservations/tok123/cancel')).toBe(
+      '/api/v1/store/reservations/[oculto]/cancel',
+    );
+    expect(maskSecretsInUrl('/api/v1/platform/sign/tok123')).toBe('/api/v1/platform/sign/[oculto]');
+    expect(maskSecretsInUrl('/api/v1/public/site/trials/tok123')).toBe(
+      '/api/v1/public/site/trials/[oculto]',
+    );
+    expect(maskSecretsInUrl('/api/v1/store/account/orders/123')).toBe(
+      '/api/v1/store/account/orders/123',
+    );
     expect(maskSecretsInUrl(undefined)).toBeUndefined();
   });
 });
