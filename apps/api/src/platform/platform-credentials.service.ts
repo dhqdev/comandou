@@ -267,9 +267,7 @@ export class PlatformCredentialsService {
    */
   async check(a: Actor): Promise<{ checkedAt: string; results: CredentialCheck[] }> {
     const st = await this.status();
-    const saved = new Set(
-      st.items.filter((i) => i.configured && !i.unreadable).map((i) => i.id),
-    );
+    const saved = new Set(st.items.filter((i) => i.configured && !i.unreadable).map((i) => i.id));
     const run = async (
       id: string,
       fn: () => Promise<{ ok: boolean | null; detail: string }>,
@@ -317,16 +315,16 @@ export class PlatformCredentialsService {
           return r.ok
             ? {
                 ok: true,
-                detail: [r.accountName && `conta ${r.accountName}`, st.items.find((i) => i.id === 'asaas')?.detail]
-                  .filter(Boolean)
-                  .join(' · ') || 'chave aceita pelo Asaas',
+                detail:
+                  [
+                    r.accountName && `conta ${r.accountName}`,
+                    st.items.find((i) => i.id === 'asaas')?.detail,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'chave aceita pelo Asaas',
               }
             : { ok: false, detail: r.error ?? 'o Asaas recusou a chave' };
         }),
-        run('asaas_webhook', async () => ({
-          ok: null,
-          detail: 'O Asaas avisa aqui a cada pagamento; confira os últimos avisos em Cobrança',
-        })),
         run('pagbank', () => this.checkPagBank()),
         run('backblaze', async () => {
           const r = await this.backup.testSaved();

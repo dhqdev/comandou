@@ -1169,10 +1169,17 @@ export function ChannelEditor({
           </SelectField>
         ) : polling ? null : (
           <TextField
-            label={channel === 'rappi' ? 'Segredo do webhook' : 'Segredo do webhook (opcional)'}
+            label={
+              saved
+                ? 'Trocar o segredo do webhook'
+                : channel === 'rappi'
+                  ? 'Segredo do webhook'
+                  : 'Segredo do webhook (opcional)'
+            }
             type="password"
             autoComplete="new-password"
             value={webhookSecret}
+            placeholder={saved ? 'em branco = mantém o salvo' : undefined}
             onChange={(e) => setWebhookSecret(e.target.value.trim())}
           />
         )}

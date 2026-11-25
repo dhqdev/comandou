@@ -54,11 +54,24 @@ const CRED_NAMES: Record<string, string> = {
   asaas: 'Asaas',
   asaas_webhook: 'webhook do Asaas',
   integrations_key: 'chave mestra',
+  traefik_provider: 'token do Traefik',
+  whatsapp_gateway: 'token do WhatsApp',
+  host_agent: 'token do agente do servidor',
+  crowdsec: 'chave do CrowdSec',
 };
 
-/** Credenciais necessárias que faltam ou não abrem (salvas com outra chave mestra). */
+/**
+ * Credenciais necessárias que faltam ou não abrem (salvas com outra chave mestra). O webhook do
+ * Asaas só conta depois da chave do Asaas (é cadastrado junto).
+ */
 export function missingCredentials(items: CredentialItem[]) {
-  return items.filter((i) => i.required && (i.configured === false || i.unreadable));
+  const asaas = items.find((i) => i.id === 'asaas');
+  return items.filter(
+    (i) =>
+      i.required &&
+      (i.configured === false || i.unreadable) &&
+      (i.id !== 'asaas_webhook' || (!!asaas?.configured && !asaas.unreadable)),
+  );
 }
 
 /** Fila de tarefas (BullMQ) em português; "feitas" é o histórico guardado, não um problema. */

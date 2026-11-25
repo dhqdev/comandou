@@ -20,6 +20,51 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.246.0',
+    date: '2026-11-25',
+    title: 'Super Admin: Status com números certos e Credenciais conferidas de verdade',
+    summary:
+      'A tela Status do Super Admin foi revisada número a número: a migração que terminou bem não aparece mais como serviço com problema, a demonstração não conta como cliente pagante e cada número diz de quantos. Entraram receita por mês, testes grátis, faturas vencidas, atendimento, pedidos e versão nova. Em Credenciais, o botão Conferir todas agora usa cada chave salva no fornecedor e mostra a que foi recusada.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Status: o serviço de migração (comandou-migrate) roda uma vez e termina; "0 de 1 rodando" depois de terminar bem é o normal e deixou de pintar Containers de vermelho e de virar alerta.',
+      },
+      {
+        tag: 'correção',
+        text: 'Status: a demonstração (Fumaça) não conta mais como assinatura ativa, receita nem pedidos; quem foi para outra instalação ou está sendo excluído também não.',
+      },
+      {
+        tag: 'correção',
+        text: 'Status: "WhatsApp ok" na Saúde agora se chama Serviço do WhatsApp e diz quantos restaurantes estão conectados e se o seu número do painel está conectado, em vez de parecer que estava tudo certo com 0 conectados.',
+      },
+      {
+        tag: 'correção',
+        text: 'Status: a fila de tarefas aparece em português ("81 feitas", "2 com falha") e tarefa com falha vira aviso; as falhas de 7 dias e o uso são lidos no banco de cada restaurante, sem contar restos do banco central.',
+      },
+      {
+        tag: 'novo',
+        text: 'Status: seção Negócio com receita por mês, recebido no mês e vencido, testes grátis acabando, clientes novos e cancelados em 30 dias, pedidos do mês e atendimento (conversas esperando e chamados com você).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Status: "Pede atenção" no topo junta tudo o que precisa de você, do mais grave ao menos (sites fora do ar, backup, credenciais faltando, WhatsApp do painel desconectado, faturas vencidas, testes acabados, chamados esperando, versão nova), e cada linha leva à tela que resolve.',
+      },
+      {
+        tag: 'novo',
+        text: 'Credenciais: botão Conferir todas agora. Usa cada chave salva no próprio fornecedor sem cobrar nem enviar nada (Focus, OpenRouter, Resend com o domínio do remetente, Asaas, PagBank, Backblaze, GitHub) e marca no cartão a que foi recusada e o motivo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Credenciais: a situação separa as necessárias das opcionais. Antes o "8 de 26" misturava os seis aplicativos de delivery e outras chaves que você não usa.',
+      },
+      {
+        tag: 'correção',
+        text: 'Credenciais: salvar a credencial de um aplicativo de delivery sem redigitar o segredo do webhook mantém o salvo. Antes ele era apagado e a Rappi passava a recusar os pedidos.',
+      },
+    ],
+  },
+  {
     version: '0.245.0',
     date: '2026-11-23',
     title: 'Site novo: mais limpo, com prato em 3D',

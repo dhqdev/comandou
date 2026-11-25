@@ -109,14 +109,16 @@ export function SitesTiles({
       <Tile
         label="Sites"
         value={offline ? `${offline} fora do ar` : `${up} no ar`}
-        sub={[
-          offline ? `${up} no ar` : null,
-          count('attention') ? `${count('attention')} com atenção` : null,
-          count('suspended') ? `${count('suspended')} suspenso(s)` : null,
-          count('setup') ? `${count('setup')} em criação` : null,
-        ]
-          .filter(Boolean)
-          .join(' · ') || 'nenhum fora do ar'}
+        sub={
+          [
+            offline ? `${up} no ar` : null,
+            count('attention') ? `${count('attention')} com atenção` : null,
+            count('suspended') ? `${count('suspended')} suspenso(s)` : null,
+            count('setup') ? `${count('setup')} em criação` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ') || 'nenhum fora do ar'
+        }
         level={offline ? 'bad' : count('attention') ? 'warn' : undefined}
         onClick={() => onFilter(offline ? 'offline' : count('attention') ? 'attention' : 'all')}
       />

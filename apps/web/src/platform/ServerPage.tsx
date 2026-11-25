@@ -22,10 +22,13 @@ import {
 } from './ui';
 import { ConsumptionRanking } from './TenantInsights';
 import { UpdatePanel } from './UpdatePanel';
-import { badServices as problemServices, finishedService as finished, serviceLevel } from './status-alerts';
+import {
+  badServices as problemServices,
+  finishedService as finished,
+  serviceLevel,
+} from './status-alerts';
 
 const rate = (bps: number | null) => (bps === null ? '—' : `${bytes(bps)}/s`);
-
 
 const CLEANUP: { key: string; title: string; text: string }[] = [
   {
