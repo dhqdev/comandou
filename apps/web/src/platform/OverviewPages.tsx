@@ -2,12 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Skeleton } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
-import type { BackupSettings, HealthState, Overview, PendingContract, ServerStatus } from './types';
+import { brl } from '../lib/money';
+import type {
+  BackupSettings,
+  HealthState,
+  Overview,
+  PendingContract,
+  ServerStatus,
+  UpdateInfo,
+} from './types';
 import { ChevronRight } from 'lucide-react';
 import { ago, bytes, Dot, Level, levelFor, PageHead, Section, Tile } from './ui';
 import { useNavigate } from 'react-router';
-import { SitesTable, SitesTiles, useSites, useSitesFilter } from './SitesStatus';
-import { servicesWithProblem } from './service-health';
+import { SitesTable, SitesTiles, useSites, useSitesFilter, type SitesFilter } from './SitesStatus';
+import type { CredentialItem } from './credentials/KeyInUse';
+import { ageLevel, badServices, newerVersion, queueText, statusAlerts } from './status-alerts';
 
 export { bytes };
 
@@ -52,30 +61,49 @@ const HEALTH: Record<HealthState, [string, Level]> = {
   disabled: ['desligado', 'off'],
 };
 
-/** Idade do último sucesso: alerta se o backup passou de 26 h ou o teste de 8 dias. */
-function backupLevel(at: string | null, warnHours: number): Level {
-  if (!at) return 'bad';
-  return (Date.now() - new Date(at).getTime()) / 3_600_000 > warnHours ? 'warn' : 'ok';
+const WA_STATUS: Record<string, string> = {
+  connected: 'conectado',
+  connecting: 'conectando',
+  qr: 'esperando o QR Code',
+  disconnected: 'desconectado',
+  logged_out: 'desconectado',
+};
+
+interface PlatformWa {
+  configured: boolean;
+  status: string;
+  phone?: string;
 }
 
+/**
+ * Tela inicial do Super Admin: o que pede ação agora (alertas), o negócio (receita, testes,
+ * inadimplência, atendimento), os restaurantes no ar e a saúde do servidor. Cada número leva à
+ * tela que explica ou resolve.
+ */
 export function OverviewPage() {
-  const { data, error } = useLoad<Overview>('/platform/overview');
+  const { data, error, reload } = useLoad<Overview>('/platform/overview');
   const server = useLoad<ServerStatus>('/platform/server');
   const backup = useLoad<BackupSettings>('/platform/backups/settings');
   const contracts = useLoad<PendingContract[]>('/platform/contracts/pending');
+  const creds = useLoad<{ items: CredentialItem[] }>('/platform/credentials');
+  const wa = useLoad<PlatformWa>('/platform/whatsapp/session');
+  const update = useLoad<UpdateInfo>('/platform/server/update');
+  useAutoReload(() => {
+    reload();
+    server.reload();
+    wa.reload();
+  }, 30_000);
   const navigate = useNavigate();
   const sites = useSites();
   const [filter, setFilter] = useSitesFilter();
-  const sitesBlock = (alertCount: number) => (
-    <>
-      <SitesTiles
-        report={sites.data}
-        alerts={alertCount}
-        onFilter={(f) => {
-          setFilter(f);
-          document.querySelector('.adm-sites__bar')?.scrollIntoView({ block: 'start' });
-        }}
-      />
+  const showSites = (f: SitesFilter) => {
+    setFilter(f);
+    document.querySelector('.adm-sites__bar')?.scrollIntoView({ block: 'start' });
+  };
+  const offsite = backup.data ? backup.data.enabled && backup.data.configured : null;
+  const sitesBlock = (
+    <Section title="Restaurantes no ar" sub="cada site testado pelo endereço público">
+      <SitesTiles report={sites.data} offsite={offsite} onFilter={showSites} />
       <SitesTable
         report={sites.data}
         error={sites.error}
@@ -84,108 +112,83 @@ export function OverviewPage() {
         setFilter={setFilter}
         onReload={() => void sites.reload()}
       />
-    </>
+    </Section>
   );
   if (error)
     return (
       <>
         <Alert tone="danger">{error}</Alert>
-        {sitesBlock(0)}
+        {sitesBlock}
       </>
     );
   if (!data)
     return (
       <>
         <PageHead page title="Status" />
-        {sitesBlock(0)}
+        <Skeleton variant="cards" />
+        {sitesBlock}
       </>
     );
-  const b = backupLevel(data.backups.backup.lastOkAt, 26);
-  const r = backupLevel(data.backups.restoreTest.lastOkAt, 24 * 8);
+  const alerts = statusAlerts({
+    data,
+    server: server.data,
+    backup: backup.data,
+    contracts: contracts.data,
+    sites: sites.data,
+    credentials: creds.data?.items,
+    platformWa: wa.data,
+    update: update.data,
+  });
+  const b = ageLevel(data.backups.backup.lastOkAt, 26);
+  const r = ageLevel(data.backups.restoreTest.lastOkAt, 24 * 8);
   const s = server.data?.enabled ? server.data : null;
   const docker = s && !('error' in s.docker) ? s.docker : null;
   const disk = s?.host.disks[0];
   const diskPct = disk ? ((disk.total - disk.free) / disk.total) * 100 : null;
   const memPct = s ? (s.host.memory.used / s.host.memory.total) * 100 : null;
-  // O comandou-migrate roda uma vez e sai: "0/1 rodando" depois de terminar bem não é alerta.
-  const badServices = servicesWithProblem(docker?.services ?? []);
-
-  const alerts: { level: Level; text: string; to?: string }[] = [];
-  for (const [label, st] of [
-    ['Banco de dados', data.health.database],
-    ['Redis (filas e tempo real)', data.health.redis],
-    ['Serviço de WhatsApp', data.health.whatsappGateway],
-  ] as const)
-    if (st === 'error') alerts.push({ level: 'bad', text: `${label} com falha` });
-  const bk = backup.data;
-  if (bk && !(bk.enabled && bk.configured))
-    alerts.push({
-      level: 'warn',
-      text: 'Backup no Backblaze não configurado',
-      to: '/servidor/backups',
-    });
-  else if (bk && !bk.worker.alive)
-    alerts.push({ level: 'bad', text: 'Serviço de backup parado', to: '/servidor/backups' });
-  if (b !== 'ok')
-    alerts.push({
-      level: b,
-      text: `Backup: último bom ${ago(data.backups.backup.lastOkAt)}`,
-      to: '/servidor/backups',
-    });
-  if (r !== 'ok')
-    alerts.push({
-      level: r,
-      text: `Teste de restauração: último bom ${ago(data.backups.restoreTest.lastOkAt)}`,
-      to: '/servidor/backups',
-    });
-  for (const x of badServices)
-    alerts.push({
-      level: 'bad',
-      text:
-        x.running === 0 && (x.taskState === 'failed' || x.taskState === 'rejected')
-          ? `${x.name} falhou${x.lastError ? `: ${x.lastError}` : ''}`
-          : `${x.name}: ${x.running}/${x.desired} rodando`,
-      to: '/servidor',
-    });
-  if (diskPct !== null && diskPct > 80)
-    alerts.push({
-      level: levelFor(diskPct, 80, 90),
-      text: `Disco em ${diskPct.toFixed(0)}%`,
-      to: '/servidor',
-    });
-  for (const c of contracts.data ?? [])
-    alerts.push({
-      level: new Date(c.deadline).getTime() - Date.now() < 2 * 86400_000 ? 'bad' : 'warn',
-      text: `Falta a sua assinatura no contrato ${c.number} (${c.tenantName}), até ${new Date(c.deadline).toLocaleDateString('pt-BR')}`,
-      to: `/restaurantes/${c.tenantId}?aba=contrato&contrato=${c.id}`,
-    });
-  if (data.tenants.failed)
-    alerts.push({
-      level: 'warn',
-      text: `${data.tenants.failed} restaurante(s) com cadastro incompleto`,
-      to: '/restaurantes',
-    });
+  const bad = badServices(docker?.services ?? []);
+  const queue = queueText(data.queue);
+  const biz = data.business;
+  const support = data.support;
+  const usage = data.usage;
+  const live = (sites.data?.sites ?? []).filter(
+    (x) => x.state !== 'suspended' && x.state !== 'setup',
+  );
+  const waOn = live.filter((x) => x.whatsapp?.status === 'connected').length;
+  const newer = newerVersion(update.data?.latest?.version, data.version);
 
   const health: { label: string; level: Level; value: string; to?: string; sub?: string }[] = [
-    ...(
-      [
-        ['Banco de dados', data.health.database],
-        ['Redis (filas e tempo real)', data.health.redis],
-        ['WhatsApp', data.health.whatsappGateway],
-      ] as const
-    ).map(([label, st]) => ({ label, level: HEALTH[st][1], value: HEALTH[st][0] })),
+    {
+      label: 'Banco de dados central',
+      level: HEALTH[data.health.database][1],
+      value: HEALTH[data.health.database][0],
+      sub: 'cadastro, assinaturas e o painel',
+    },
+    {
+      label: 'Redis (filas e tempo real)',
+      level: HEALTH[data.health.redis][1],
+      value: HEALTH[data.health.redis][0],
+    },
+    {
+      label: 'Serviço do WhatsApp',
+      level: HEALTH[data.health.whatsappGateway][1],
+      value: HEALTH[data.health.whatsappGateway][0],
+      // "ok" aqui é o serviço respondendo; quantos números estão conectados é outra coisa.
+      sub: [
+        sites.data && data.health.whatsappGateway === 'ok'
+          ? `${waOn} de ${live.length} restaurante(s) conectado(s)`
+          : null,
+        wa.data?.configured ? `seu número: ${WA_STATUS[wa.data.status] ?? wa.data.status}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      to: '/whatsapp',
+    },
     {
       label: 'Fila de tarefas',
-      level: data.queue ? ('ok' as Level) : ('off' as Level),
-      value: data.queue
-        ? `${(data.queue.waiting ?? 0) + (data.queue.active ?? 0)} na fila`
-        : 'sem Redis',
-      sub: data.queue
-        ? Object.entries(data.queue)
-            .filter(([, v]) => v)
-            .map(([k, v]) => `${k} ${v}`)
-            .join(' · ') || undefined
-        : undefined,
+      level: queue.level,
+      value: queue.value,
+      sub: queue.sub,
     },
     {
       label: 'Falhas em 7 dias',
@@ -193,13 +196,15 @@ export function OverviewPage() {
         ? 'warn'
         : 'ok') as Level,
       value: String(data.last7Days.fiscalErrors + data.last7Days.messageFailures),
-      sub: `${data.last7Days.fiscalErrors} NFC-e · ${data.last7Days.messageFailures} WhatsApp`,
+      sub: `${data.last7Days.fiscalErrors} nota(s) fiscal(is) recusada(s) · ${data.last7Days.messageFailures} WhatsApp não enviado(s)`,
     },
     {
-      label: 'Último backup',
+      label: 'Backup do banco central',
       level: b,
       value: ago(data.backups.backup.lastOkAt),
-      sub: data.backups.backup.lastOkAt ? dateTime(data.backups.backup.lastOkAt) : undefined,
+      sub: data.backups.backup.lastOkAt
+        ? `${dateTime(data.backups.backup.lastOkAt)}${offsite === false ? ' · só neste servidor' : ''}`
+        : 'nenhum backup bom ainda',
       to: '/servidor/backups',
     },
     {
@@ -208,7 +213,7 @@ export function OverviewPage() {
       value: ago(data.backups.restoreTest.lastOkAt),
       sub: data.backups.restoreTest.lastOkAt
         ? dateTime(data.backups.restoreTest.lastOkAt)
-        : undefined,
+        : 'nenhum teste ainda',
       to: '/servidor/backups',
     },
   ];
@@ -220,45 +225,124 @@ export function OverviewPage() {
         title="Status"
         sub={
           <>
-            <span>Comandou v{data.version}</span>
             <span>
-              {data.subscriptions.active ?? 0} assinatura(s) ativa(s)
-              {data.subscriptions.past_due ? ` · ${data.subscriptions.past_due} pendente(s)` : ''}
+              Comandou v{data.version}
+              {newer && ` · ${update.data!.latest!.version} disponível`}
             </span>
             <span>
               {alerts.length === 0
                 ? 'tudo certo'
                 : alerts.length === 1
-                  ? '1 alerta'
-                  : `${alerts.length} alertas`}
+                  ? '1 coisa pede atenção'
+                  : `${alerts.length} coisas pedem atenção`}
             </span>
           </>
         }
       />
-      {sitesBlock(alerts.length)}
 
       {alerts.length > 0 && (
-        <Section title="Alertas da plataforma">
+        <Section title="Pede atenção">
           <div className="adm-panel">
             <div className="adm-rows">
-              {alerts.map((a, i) =>
-                a.to ? (
-                  <button key={i} className="adm-row" onClick={() => navigate(a.to!)}>
+              {alerts.map((a, i) => {
+                const body = (
+                  <>
                     <Dot level={a.level} />
                     <span className="adm-row__main">{a.text}</span>
-                    <ChevronRight size={16} className="adm-row__go" />
+                    {(a.to || a.sites) && <ChevronRight size={16} className="adm-row__go" />}
+                  </>
+                );
+                return a.to || a.sites ? (
+                  <button
+                    key={i}
+                    className="adm-row"
+                    onClick={() => (a.sites ? showSites(a.sites) : navigate(a.to!))}
+                  >
+                    {body}
                   </button>
                 ) : (
                   <div key={i} className="adm-row">
-                    <Dot level={a.level} />
-                    <span className="adm-row__main">{a.text}</span>
+                    {body}
                   </div>
-                ),
-              )}
+                );
+              })}
             </div>
           </div>
         </Section>
       )}
+
+      {biz && (
+        <Section
+          title="Negócio"
+          sub={biz.demo ? 'a demonstração (Fumaça) não entra nestas contas' : undefined}
+        >
+          <div className="adm-grid adm-grid--3">
+            <Tile
+              label="Receita por mês"
+              value={brl(biz.mrr)}
+              sub={`${biz.paying} assinatura(s) paga(s)${biz.courtesy ? ` · ${biz.courtesy} cortesia(s)` : ''}`}
+              onClick={() => navigate('/cobranca')}
+            />
+            <Tile
+              label="Recebido no mês"
+              value={brl(biz.paidMonth)}
+              level={biz.overdueCount ? 'warn' : undefined}
+              sub={
+                biz.overdueCount
+                  ? `${brl(biz.overdue)} vencido (${biz.overdueCount} fatura(s))`
+                  : 'nada vencido'
+              }
+              onClick={() => navigate('/cobranca')}
+            />
+            <Tile
+              label="Em teste grátis"
+              value={biz.trialing}
+              level={biz.trialEnded ? 'warn' : undefined}
+              sub={
+                [
+                  biz.trialEndingSoon ? `${biz.trialEndingSoon} acaba(m) em 7 dias` : null,
+                  biz.trialEnded ? `${biz.trialEnded} já acabou(aram)` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || 'nenhum acabando'
+              }
+              onClick={() => navigate('/cobranca')}
+            />
+            <Tile
+              label="Clientes em 30 dias"
+              value={`+${biz.newLast30}`}
+              level={biz.blocked || biz.pastDue ? 'warn' : undefined}
+              sub={[
+                `${biz.cancelledLast30} cancelaram`,
+                biz.pastDue ? `${biz.pastDue} pendente(s)` : null,
+                biz.blocked ? `${biz.blocked} bloqueado(s)` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              onClick={() => navigate('/restaurantes')}
+            />
+            {usage && (
+              <Tile
+                label="Pedidos no mês"
+                value={usage.ordersMonth.toLocaleString('pt-BR')}
+                sub={`${usage.sellingLast7} de ${usage.live} vendeu(ram) nos últimos 7 dias`}
+                onClick={() => navigate('/restaurantes')}
+              />
+            )}
+            {support && (
+              <Tile
+                label="Atendimento"
+                value={support.chatsWaiting ? `${support.chatsWaiting} esperando` : 'em dia'}
+                level={support.chatsWaiting || support.ticketsWaiting ? 'warn' : undefined}
+                sub={`${support.ticketsOpen} chamado(s) aberto(s)${support.ticketsWaiting ? ` · ${support.ticketsWaiting} com você` : ''}`}
+                onClick={() => navigate(support.chatsWaiting ? '/conversas' : '/chamados')}
+              />
+            )}
+          </div>
+        </Section>
+      )}
+
+      {sitesBlock}
 
       <div className="adm-two">
         <Section title="Servidor" sub={s ? s.host.hostname : undefined}>
@@ -295,27 +379,29 @@ export function OverviewPage() {
                 label="Disco /"
                 value={diskPct === null ? '—' : `${diskPct.toFixed(1)}%`}
                 level={levelFor(diskPct, 80, 90)}
-                sub={disk ? `${bytes(disk.free)} livres` : ''}
+                sub={disk ? `${bytes(disk.free)} livres de ${bytes(disk.total)}` : ''}
                 meter={diskPct}
                 onClick={() => navigate('/servidor')}
               />
               <Tile
-                label="Containers"
+                label="Serviços"
                 value={
                   docker ? (
                     <>
-                      {docker.containers.running}
-                      <small>/{docker.containers.total}</small>
+                      {docker.services.length - bad.length}
+                      <small>/{docker.services.length}</small>
                     </>
                   ) : (
                     '—'
                   )
                 }
-                level={badServices.length ? 'bad' : undefined}
+                level={!docker ? 'off' : bad.length ? 'bad' : undefined}
                 sub={
-                  docker
-                    ? `${docker.services.length} serviços · ${badServices.length} com problema`
-                    : 'Docker indisponível'
+                  !docker
+                    ? 'Docker indisponível'
+                    : bad.length
+                      ? `${bad.length} com problema: ${bad.map((x) => x.name).join(', ')}`
+                      : 'todos funcionando'
                 }
                 onClick={() => navigate('/servidor')}
               />

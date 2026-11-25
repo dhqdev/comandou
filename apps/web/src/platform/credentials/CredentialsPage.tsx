@@ -1,9 +1,10 @@
-import { ExternalLink } from 'lucide-react';
-import { ReactNode, useEffect } from 'react';
+import { ExternalLink, ShieldCheck } from 'lucide-react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { Alert, Skeleton } from '../../design-system';
+import { api } from '../../lib/api';
 import { useLoad } from '../OverviewPages';
-import { Dot, Level, PageHead, Section, Tag, Tile } from '../ui';
+import { ago, Dot, Level, PageHead, Section, Tag, Tile } from '../ui';
 import { CREDENTIALS, CredDef, CredGroup, TENANT_CREDENTIALS } from './catalog';
 import {
   AsaasEditor,
@@ -23,6 +24,19 @@ import type { CredentialItem } from './KeyInUse';
 import './credentials.css';
 
 type Status = CredentialItem;
+
+/** Resultado de "Conferir todas" (a chave salva usada agora no fornecedor). */
+interface CheckResult {
+  id: string;
+  /** null = não dá para testar daqui sem efeito colateral. */
+  ok: boolean | null;
+  detail: string;
+  ms: number;
+}
+interface CheckReport {
+  checkedAt: string;
+  results: CheckResult[];
+}
 
 interface Overview {
   keyConfigured: boolean;
@@ -87,6 +101,20 @@ function inUse(s: Status | undefined) {
 export function CredentialsPage() {
   const data = useLoad<Overview>('/platform/credentials');
   const o = data.data;
+  const [checks, setChecks] = useState<CheckReport | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const checkAll = async () => {
+    setChecking(true);
+    setCheckError(null);
+    try {
+      setChecks(await api<CheckReport>('/platform/credentials/check', { method: 'POST' }));
+    } catch (e) {
+      setCheckError((e as Error).message);
+    } finally {
+      setChecking(false);
+    }
+  };
   const { hash } = useLocation();
   const loaded = !!o;
   // Vindo de outra tela ou da ordem para subir: rola até a credencial pedida.
@@ -98,7 +126,15 @@ export function CredentialsPage() {
   if (!o) return <Skeleton variant="page" />;
   const byId = new Map(o.items.map((i) => [i.id, i]));
   const known = o.items.filter((i) => i.configured !== null);
-  const ready = known.filter((i) => i.configured && !i.unreadable).length;
+  const isReady = (i: Status) => !!i.configured && !i.unreadable;
+  // Necessárias e opcionais separadas: 6 aplicativos de delivery que você não usa não são "falta".
+  // O webhook do Asaas só conta depois da chave (ele é cadastrado junto, no mesmo cartão).
+  const asaasReady = !!byId.get('asaas') && isReady(byId.get('asaas')!);
+  const needed = known.filter((i) => i.required && (i.id !== 'asaas_webhook' || asaasReady));
+  const optional = known.filter((i) => !i.required);
+  const checkOf = new Map(checks?.results.map((r) => [r.id, r]));
+  const refused = checks?.results.filter((r) => r.ok === false) ?? [];
+  const tested = checks?.results.filter((r) => r.ok !== null) ?? [];
   const missing = CREDENTIALS.filter((c) => {
     const s = byId.get(c.id);
     return s?.required && (s.configured === false || s.unreadable);
@@ -162,7 +198,7 @@ export function CredentialsPage() {
   );
   const allOk = (ids: string[]) =>
     ids.every((id) => byId.get(id)?.configured && !byId.get(id)?.unreadable);
-  const needed = ['focus_master', 'openrouter_clients', 'resend', 'asaas', 'asaas_webhook'];
+  const panelNeeded = ['focus_master', 'openrouter_clients', 'resend', 'asaas', 'asaas_webhook'];
 
   return (
     <>
@@ -175,20 +211,50 @@ export function CredentialsPage() {
             cadastrar
           </span>
         }
+        actions={
+          <button
+            type="button"
+            className="adm-action"
+            onClick={() => void checkAll()}
+            disabled={checking}
+            aria-busy={checking}
+            title="Usa cada chave salva no fornecedor agora, sem cobrar nem enviar nada"
+          >
+            <ShieldCheck size={15} /> {checking ? 'Conferindo…' : 'Conferir todas agora'}
+          </button>
+        }
       />
       <Section title="Situação">
         <div className="adm-grid">
           <Tile
-            label="Configuradas"
-            value={`${ready} de ${known.length}`}
-            level={ready === known.length ? 'ok' : 'warn'}
-            sub="que dá para conferir daqui"
+            label="Necessárias"
+            value={`${needed.filter(isReady).length} de ${needed.length}`}
+            level={missing.length ? 'bad' : 'ok'}
+            sub={
+              needed.length - needed.filter(isReady).length
+                ? `${needed.length - needed.filter(isReady).length} faltando para o sistema funcionar`
+                : 'todas cadastradas'
+            }
           />
           <Tile
-            label="Faltando"
-            value={missing.length}
-            level={missing.length ? 'bad' : 'ok'}
-            sub={missing.length ? 'necessárias para subir' : 'nenhuma necessária'}
+            label="Opcionais em uso"
+            value={`${optional.filter(isReady).length} de ${optional.length}`}
+            sub="delivery, PagBank, Backblaze, GitHub…"
+          />
+          <Tile
+            label="Conferidas no fornecedor"
+            value={checks ? `${tested.length - refused.length} de ${tested.length}` : '—'}
+            level={!checks || !tested.length ? undefined : refused.length ? 'bad' : 'ok'}
+            sub={
+              !checks
+                ? 'clique em Conferir todas agora'
+                : !tested.length
+                  ? 'nenhuma chave salva para conferir'
+                  : refused.length
+                    ? `${refused.length} recusada(s) · ${ago(checks.checkedAt)}`
+                    : `todas funcionando · ${ago(checks.checkedAt)}`
+            }
+            onClick={checking ? undefined : () => void checkAll()}
           />
           <Tile
             label="Para conferir fora daqui"
@@ -200,6 +266,24 @@ export function CredentialsPage() {
         {missing.length > 0 && (
           <div className="adm-cred__missing">
             <Alert tone="warning">Falta cadastrar: {missing.map((c) => c.title).join(', ')}.</Alert>
+          </div>
+        )}
+        {checkError && <Alert tone="danger">{checkError}</Alert>}
+        {refused.length > 0 && (
+          <div className="adm-cred__missing">
+            <Alert tone="danger">
+              O fornecedor recusou agora:{' '}
+              {refused.map((r, i) => (
+                <span key={r.id}>
+                  {i > 0 && '; '}
+                  <Link to={{ hash: `cred-${r.id}` }}>
+                    {CREDENTIALS.find((c) => c.id === r.id)?.title ?? r.id}
+                  </Link>{' '}
+                  ({r.detail})
+                </span>
+              ))}
+              .
+            </Alert>
           </div>
         )}
         {!o.keyConfigured && (
@@ -264,7 +348,7 @@ export function CredentialsPage() {
             </div>
           </li>
           <li>
-            <Dot level={allOk(needed) ? 'ok' : 'bad'} />
+            <Dot level={allOk(panelNeeded) ? 'ok' : 'bad'} />
             <div>
               <strong>Cadastre aqui as necessárias.</strong> Sem elas não sai nota fiscal, o
               assistente não responde, nenhum e-mail chega e a mensalidade não é cobrada.
@@ -335,6 +419,7 @@ export function CredentialsPage() {
                   key={c.id}
                   def={c}
                   status={byId.get(c.id)}
+                  check={checkOf.get(c.id)}
                   extra={
                     c.id === 'asaas' && byId.get('asaas')?.configured
                       ? hook?.configured
@@ -374,15 +459,19 @@ export function CredentialsPage() {
 function CredentialCard({
   def,
   status,
+  check,
   extra,
   children,
 }: {
   def: CredDef;
   status: Status | undefined;
+  /** Resultado de "Conferir todas", se rodou. */
+  check?: CheckResult;
   extra?: string;
   children: ReactNode;
 }) {
-  const level = levelOf(status);
+  // Salva mas recusada agora pelo fornecedor: vermelho, mesmo "configurada".
+  const level = check?.ok === false ? 'bad' : levelOf(status);
   const using = [inUse(status), extra].filter(Boolean).join(' · ');
   return (
     <article className="adm-cred" id={`cred-${def.id}`}>
@@ -393,12 +482,26 @@ function CredentialCard({
           <p>{def.purpose}</p>
         </div>
         <span className="adm-cred__tag">
-          <Tag level={level === 'off' ? undefined : level}>{label(status)}</Tag>
+          <Tag level={level === 'off' ? undefined : level}>
+            {check?.ok === false ? 'recusada' : label(status)}
+          </Tag>
         </span>
       </header>
       {using && (
         <p className="adm-cred__inuse">
           Em uso: <span>{using}</span>
+        </p>
+      )}
+      {check && (
+        <p
+          className={`adm-cred__check adm-cred__check--${check.ok === null ? 'info' : check.ok ? 'ok' : 'bad'}`}
+        >
+          {check.ok === null
+            ? 'Não dá para testar daqui: '
+            : check.ok
+              ? 'Conferida agora, funcionando: '
+              : 'Conferida agora, recusada: '}
+          <span>{check.detail}</span>
         </p>
       )}
       {status?.unreadable && (

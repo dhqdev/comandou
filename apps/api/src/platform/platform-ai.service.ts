@@ -591,6 +591,41 @@ export class PlatformAiService {
    * Testa uma chave (a digitada ou uma das salvas) com uma pergunta curtinha. O teste com
    * uma chave salva entra no extrato do sistema.
    */
+  /**
+   * Confere uma chave salva sem gastar nada: a comum lê os dados dela (/key) e a de
+   * gerenciamento lê o saldo da conta (/credits). Usado em Credenciais › Conferir todas.
+   */
+  async checkKey(kind: KeyKind | 'admin'): Promise<{ ok: boolean; detail: string }> {
+    const r = await this.row();
+    const key = kind === 'admin' ? this.adminKey(r) : this.key(r, kind);
+    if (!key) return { ok: false, detail: 'A chave salva não abre: cole de novo' };
+    const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key);
+    const usd = (v: number) => `US$ ${v.toFixed(2).replace('.', ',')}`;
+    try {
+      if (kind === 'admin') {
+        const c = await client.credits();
+        return {
+          ok: true,
+          detail: c.remainingUsd == null ? 'saldo lido' : `saldo da conta ${usd(c.remainingUsd)}`,
+        };
+      }
+      const k = await client.keyInfo();
+      return {
+        ok: true,
+        detail: [
+          k.label && `chave “${k.label}”`,
+          k.limitUsd == null
+            ? 'sem limite de gasto'
+            : `sobra ${usd(k.remainingUsd ?? 0)} de ${usd(k.limitUsd)}`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      };
+    } catch (e) {
+      return { ok: false, detail: (e as Error).message };
+    }
+  }
+
   async test(b: z.infer<typeof AiTestBody>, a?: Actor) {
     const r = await this.row();
     const key = b.apiKey || (b.key === 'admin' ? this.adminKey(r) : this.key(r, b.key));

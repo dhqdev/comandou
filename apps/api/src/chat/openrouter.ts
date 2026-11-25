@@ -267,6 +267,16 @@ export class OpenRouterClient {
     };
   }
 
+  /** Dados da própria chave (/key): nome, limite e quanto sobra. Serve para saber se ela vale. */
+  async keyInfo() {
+    const k = await this.get('/key');
+    return {
+      label: typeof k.label === 'string' ? k.label : null,
+      limitUsd: num(k.limit),
+      remainingUsd: num(k.limit_remaining),
+    };
+  }
+
   /**
    * Gasto e limite desta chave (/key, funciona com a chave comum). Dia e mês do OpenRouter
    * contam em UTC. Os créditos da conta (/credits) só vêm se esta chave for de gerenciamento.

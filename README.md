@@ -88,10 +88,17 @@ O menu fica em grupos (Clientes, Vendas, Financeiro, Sistema); o que aconteceu c
 restaurante (plano, suspensão, acesso de suporte, contrato) fica na aba **Histórico** dele, e as
 entradas no painel ficam em Conta › Registro do painel.
 
+**Status de verdade.** A tela inicial começa por **Pede atenção** (tudo o que precisa de você,
+do mais grave ao menos, cada linha levando à tela que resolve), depois o **Negócio** (receita por
+mês, recebido e vencido, testes grátis acabando, clientes novos e cancelados, pedidos do mês e
+atendimento; a demonstração não conta), os **restaurantes no ar** (site, banco, WhatsApp e backup
+de cada um) e a saúde do servidor.
+
 **Credenciais num lugar só.** A aba **Credenciais** junta todas as chaves, tokens e senhas que o
 Comandou usa (Focus NFe, OpenRouter, Resend, Asaas, PagBank, Backblaze B2, GitHub, os aplicativos
 de delivery e os segredos do servidor), diz o que falta para subir o sistema e traz o passo a passo com os links de cada uma.
-As do painel se colam, testam e salvam ali mesmo, cifradas. Lista completa em
+As do painel se colam, testam e salvam ali mesmo, cifradas, e **Conferir todas agora** usa cada
+chave salva no fornecedor e mostra a que foi recusada. Lista completa em
 [docs/credenciais.md](docs/credenciais.md).
 
 **E-mail próprio, sem n8n.** Todo e-mail do sistema (boas-vindas do teste, login e senha do

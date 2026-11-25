@@ -64,7 +64,7 @@ function Harness() {
   return (
     <MemoryRouter>
       <ToastProvider>
-        <SitesTiles report={REPORT} alerts={0} onFilter={setFilter} />
+        <SitesTiles report={REPORT} offsite={false} onFilter={setFilter} />
         <SitesTable
           report={REPORT}
           error={null}
@@ -98,7 +98,9 @@ describe('Status dos sites', () => {
     expect(screen.getByText('Site: servidor fora do ar (502)')).toBeTruthy();
     expect(screen.getByText('1 fora do ar')).toBeTruthy();
     // Suspenso não conta como WhatsApp desconectado; o que espera QR conta.
-    expect(screen.getByText('1 desconectado(s)')).toBeTruthy();
+    expect(screen.getByText('1 sem conexão (veja na lista)')).toBeTruthy();
+    // Os números são "de quantos": 2 de 3 no ar com WhatsApp (o fora do ar e o do QR não).
+    expect(screen.getByText('2 de 3')).toBeTruthy();
     // Suspenso não tem botão de entrar.
     expect(screen.getAllByRole('button', { name: /Entrar/ })).toHaveLength(3);
   });
