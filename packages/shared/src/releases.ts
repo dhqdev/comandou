@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.246.0',
+    version: '0.247.0',
     date: '2026-11-24',
     title: 'Super Admin pelo WhatsApp: menu, varredura e avisos',
     summary:
