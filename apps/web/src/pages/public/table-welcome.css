@@ -184,12 +184,12 @@
 }
 @keyframes tw-ring {
   0% {
-    opacity: 0.55;
+    border-color: color-mix(in oklab, var(--cm-brand-500) 55%, transparent);
     transform: scale(1);
   }
   70%,
   100% {
-    opacity: 0;
+    border-color: transparent;
     transform: scale(1.45);
   }
 }

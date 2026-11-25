@@ -107,7 +107,11 @@
   height: 100%;
   object-fit: cover;
   opacity: 0;
-  transition: opacity 0.35s;
+  transition: opacity 0.25s;
+}
+/* Foto que já tinha aparecido (ou veio do cache): na hora, sem fade (não pisca ao voltar). */
+.ph[data-instant] img {
+  transition: none;
 }
 .ph[data-state='ok'] {
   background: var(--cm-photo-bg);

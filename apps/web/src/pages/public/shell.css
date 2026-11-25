@@ -269,11 +269,9 @@
   60%,
   100% {
     transform: none;
-    opacity: 1;
   }
   30% {
-    transform: scale(1.45);
-    opacity: 0.7;
+    transform: scale(1.35);
   }
 }
 

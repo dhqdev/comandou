@@ -224,7 +224,9 @@ function TopBar() {
             <ShoppingBag size={18} />
             {count > 0 && <span className="cartpill__count">{count}</span>}
           </span>
-          <span>{count > 0 ? brl(fromCents(subtotal)) : 'Sacola'}</span>
+          <span key={bump} className={bump > 0 && count > 0 ? 'sf-tick' : undefined}>
+            {count > 0 ? brl(fromCents(subtotal)) : 'Sacola'}
+          </span>
         </Link>
       </div>
     </header>
@@ -257,7 +259,10 @@ function CartPill() {
         <span className="cartpill__count">{count}</span>
       </span>
       <span className="cartpill__label">Ver sacola</span>
-      <strong>{brl(fromCents(subtotal))}</strong>
+      {/* O total dá um pulinho junto com a sacola quando o item chega. */}
+      <strong key={bump} className={bump > 0 ? 'sf-tick' : undefined}>
+        {brl(fromCents(subtotal))}
+      </strong>
       <ChevronRight size={18} aria-hidden />
     </button>
   );

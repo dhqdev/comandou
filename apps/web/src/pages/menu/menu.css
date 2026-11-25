@@ -527,13 +527,21 @@ button.mn-stock:focus-visible {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
-  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.25, 1.2);
+  /* Liga-desliga: mola rápida do sistema (tokens.css), como os outros interruptores. */
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
 .mn-switch input:checked + span {
   background: var(--cm-brand-600);
 }
 .mn-switch input:checked + span::after {
   transform: translateX(18px);
+}
+/* Segurando: a bolinha afunda um pouco e volta com a mola ao soltar. */
+.mn-switch input:active:not(:disabled) + span::after {
+  transform: scale(0.88);
+}
+.mn-switch input:checked:active:not(:disabled) + span::after {
+  transform: translateX(18px) scale(0.88);
 }
 .mn-switch input:focus-visible + span {
   box-shadow: var(--cm-focus);

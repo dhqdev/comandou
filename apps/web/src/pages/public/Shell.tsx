@@ -147,7 +147,11 @@ export function SideBar({ tabs, dot }: { tabs: MagicTab[]; dot(n: number): React
             {count > 0 && <span className="cartpill__count">{count}</span>}
           </span>
           <span>{count ? 'Ver sacola' : 'Sacola vazia'}</span>
-          {count > 0 && <strong>{brl(fromCents(subtotal))}</strong>}
+          {count > 0 && (
+            <strong key={bump} className={bump > 0 ? 'sf-tick' : undefined}>
+              {brl(fromCents(subtotal))}
+            </strong>
+          )}
         </Link>
         {table ? (
           <div className="sf-side__ride sf-side__ride--table">
@@ -327,7 +331,9 @@ export function OrderBar() {
           <small>
             Seu pedido · {count} {count === 1 ? 'item' : 'itens'}
           </small>
-          <strong>{brl(fromCents(subtotal))}</strong>
+          <strong key={bump} className={bump > 0 ? 'sf-tick' : undefined}>
+            {brl(fromCents(subtotal))}
+          </strong>
         </span>
         <Link className="cta sf-orderbar__cta" to="/pedir/sacola" tabIndex={hidden ? -1 : 0}>
           Ver sacola <ChevronRight size={18} aria-hidden />

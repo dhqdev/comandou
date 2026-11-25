@@ -84,8 +84,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 2px solid var(--cm-brand-500);
-  opacity: 0;
+  border: 2px solid transparent;
 }
 [data-phase='locating'] .sf-here__pin::before,
 [data-phase='locating'] .sf-here__pin::after {
@@ -96,14 +95,15 @@
 }
 @keyframes sf-here-wave {
   from {
-    opacity: 0.6;
+    border-color: color-mix(in oklab, var(--cm-brand-500) 60%, transparent);
     transform: scale(1);
   }
   to {
-    opacity: 0;
+    border-color: transparent;
     transform: scale(1.7);
   }
 }
+
 [data-phase='ok'] .sf-here__pin {
   background: var(--cm-success);
   color: #fff;

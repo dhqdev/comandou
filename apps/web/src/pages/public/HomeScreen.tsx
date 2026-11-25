@@ -789,7 +789,22 @@ function CategoryChips({ sections, show }: { sections: Section[]; show: boolean 
 /** Onde o início estava: ao voltar do produto, a página volta para lá. */
 let keptScroll = 0;
 
+/**
+ * Os cartões e banners entram com um fade só na primeira vez que o cardápio aparece. Voltar do
+ * item, buscar ou trocar de filtro monta tudo de novo: sem isto, o cardápio inteiro sumia e
+ * voltava (piscava) a cada volta.
+ */
+function useFirstViewOnly() {
+  useEffect(() => {
+    const root = document.documentElement;
+    if (root.hasAttribute('data-sf-seen')) return;
+    const t = window.setTimeout(() => root.setAttribute('data-sf-seen', ''), 600);
+    return () => window.clearTimeout(t);
+  }, []);
+}
+
 export function HomeScreen() {
+  useFirstViewOnly();
   const { menu, product, table, rules } = useStore();
   const layout = useLayout();
   const phone = layout === 'phone';

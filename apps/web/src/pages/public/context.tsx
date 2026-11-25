@@ -100,8 +100,8 @@ export function visibleCartTarget(doc: Document = document): HTMLElement | null 
  * o destino é medido depois. Saindo da tela do item (`leaving`), espera a volta ao cardápio,
  * porque lá a sacola pode estar em outro lugar (no notebook largo ela fica no alto, à direita).
  */
-function flyToCart(from: HTMLElement, leaving = false) {
-  if (reducedMotion() || !from.animate) return;
+function flyToCart(from: HTMLElement, leaving: boolean, onLand: () => void) {
+  if (reducedMotion() || !from.animate) return onLand();
   const a = from.getBoundingClientRect();
   const ghost = from.cloneNode(true) as HTMLElement;
   Object.assign(ghost.style, {
@@ -120,7 +120,10 @@ function flyToCart(from: HTMLElement, leaving = false) {
   document.body.appendChild(ghost);
   const fly = () => {
     const target = visibleCartTarget();
-    if (!target) return ghost.remove();
+    if (!target) {
+      ghost.remove();
+      return onLand();
+    }
     const b = target.getBoundingClientRect();
     const dx = b.left + b.width / 2 - (a.left + a.width / 2);
     const dy = b.top + b.height / 2 - (a.top + a.height / 2);
@@ -139,7 +142,12 @@ function flyToCart(from: HTMLElement, leaving = false) {
         ],
         { duration: leaving ? 380 : 300, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards' },
       )
-      .finished.finally(() => ghost.remove());
+      .finished.catch(() => undefined)
+      .then(() => {
+        ghost.remove();
+        // A sacola pula quando a foto chega nela (antes era um tempo fixo, depois do pouso).
+        onLand();
+      });
   };
   if (!leaving) return void window.setTimeout(fly, 40);
   // Espera o endereço mudar (a tela do item some em ~160 ms) e o cardápio desenhar.
@@ -310,14 +318,15 @@ export function StoreProvider({
             )
           : [...c, line];
       });
-      if (from) flyToCart(from, leaving);
+      const land = () => setBump((n) => n + 1);
+      if (from) flyToCart(from, !!leaving, land);
+      else land();
       track('add_to_cart', {
         productId: line.productId,
         quantity: line.quantity,
         value: lineTotal(line) / 100,
       });
       navigator.vibrate?.(12);
-      window.setTimeout(() => setBump((n) => n + 1), from ? 700 : 0);
     },
     [setCart],
   );

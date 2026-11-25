@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.254.0',
+    date: '2026-11-25',
+    title: 'Cardápio sem piscar e animações mais certinhas',
+    summary:
+      'Voltar do item para o cardápio não faz mais as fotos e os cartões sumirem e voltarem, nada fica pulsando de um jeito que esmaece a tela do iPhone, e a sacola pula na hora em que o item chega nela.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Cardápio do cliente: foto que já apareceu volta na hora, sem o fade de novo, e os cartões e banners só entram com efeito na primeira vez. Voltar do item, buscar e filtrar não piscam mais o cardápio.',
+      },
+      {
+        tag: 'correção',
+        text: 'Bolinhas e anéis que pulsam (Aberto agora, pedido em andamento, procurando a mesa, passo da vez), o carimbo da fidelidade, o calendário da reserva e o vapor do garçom agora se mexem sem mexer na transparência, que fazia a tela do iPhone esmaecer e voltar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Adicionar à sacola: a sacola pula quando a foto chega nela (antes pulava um pouco depois) e o total dá um pulinho junto, na pílula, na barra do topo e na do lado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Coração dos favoritos pula só no toque (antes pulava em todos de uma vez ao abrir a lista). No cadastro do cardápio, os interruptores de ligar e desligar seguem a mola do sistema e afundam ao segurar.',
+      },
+    ],
+  },
+  {
     version: '0.253.0',
     date: '2026-11-25',
     title: 'Site novo: cardápio de dar fome, prato em 3D de verdade e lanchonete para testar',

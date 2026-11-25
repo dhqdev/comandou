@@ -6,10 +6,17 @@ import {
   ONLINE_WEIGHT_STEP_G,
 } from '@comandou/shared';
 import { ChevronLeft, Heart, Minus, Plus, Trash2 } from 'lucide-react';
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { initials } from './store';
 import { useStore } from './context';
+
+/**
+ * Fotos que já apareceram nesta visita: voltam na hora, sem o fade de novo. Antes, cada volta ao
+ * cardápio montava as fotos em "carregando" e todas piscavam (sumiam e voltavam) de uma vez.
+ */
+const shown = new Set<string>();
+export const photoShown = (src: string) => shown.has(src);
 
 /** Foto com proporção fixa, carregamento preguiçoso, fade-in e plano B com iniciais. */
 export function Photo({
@@ -25,17 +32,33 @@ export function Photo({
   className?: string;
   eager?: boolean;
 }) {
-  const [state, setState] = useState<'loading' | 'ok' | 'error'>(src ? 'loading' : 'error');
+  const [state, setState] = useState<'loading' | 'ok' | 'error'>(
+    !src ? 'error' : shown.has(src) ? 'ok' : 'loading',
+  );
+  // Já estava pronta antes de aparecer (cache): entra sem a transição.
+  const [instant, setInstant] = useState(!!src && shown.has(src));
   const img = useRef<HTMLImageElement>(null);
   const first = useRef(true);
-  useEffect(() => {
+  useLayoutEffect(() => {
     // Troca de foto: volta a carregar. Na montagem, a foto pode já ter vindo do cache.
-    if (!first.current) setState(src ? 'loading' : 'error');
+    if (!first.current) {
+      setState(!src ? 'error' : shown.has(src) ? 'ok' : 'loading');
+      setInstant(!!src && shown.has(src));
+    }
     first.current = false;
-    if (img.current?.complete && img.current.naturalWidth) setState('ok');
+    if (src && img.current?.complete && img.current.naturalWidth) {
+      shown.add(src);
+      setState('ok');
+      setInstant(true);
+    }
   }, [src]);
   return (
-    <div className={`ph ${className}`} style={{ aspectRatio: ratio }} data-state={state}>
+    <div
+      className={`ph ${className}`}
+      style={{ aspectRatio: ratio }}
+      data-state={state}
+      data-instant={instant || undefined}
+    >
       {src && state !== 'error' && (
         <img
           ref={img}
@@ -43,7 +66,11 @@ export function Photo({
           alt={alt}
           loading={eager ? 'eager' : 'lazy'}
           decoding="async"
-          onLoad={() => setState('ok')}
+          draggable={false}
+          onLoad={() => {
+            shown.add(src);
+            setState('ok');
+          }}
           onError={() => setState('error')}
         />
       )}
@@ -181,21 +208,27 @@ export function HeartButton({
   onToggle(): void;
   className?: string;
 }) {
+  const { rules } = useStore();
+  // Quantas vezes a pessoa tocou: o coração só pula no toque (antes pulava toda vez que a lista
+  // aparecia, em todos os favoritos de uma vez).
+  const [taps, setTaps] = useState(0);
   // Cardápio da mesa não tem favoritos (store-rules.ts).
-  if (!useStore().rules.favorites) return null;
+  if (!rules.favorites) return null;
   return (
     <button
       type="button"
       className={`heart ${className}`}
       data-on={on || undefined}
+      data-pop={(on && taps > 0) || undefined}
       aria-pressed={on}
       aria-label={on ? 'Tirar dos favoritos' : 'Favoritar'}
       onClick={(e) => {
         e.stopPropagation();
+        setTaps((n) => n + 1);
         onToggle();
       }}
     >
-      <Heart size={18} />
+      <Heart key={taps} size={18} />
     </button>
   );
 }
