@@ -32,6 +32,7 @@ import { useCan } from '../app/auth';
 import { api, ApiError } from '../lib/api';
 import { useRealtime } from '../lib/realtime';
 import { newIdempotencyKey } from '../lib/idempotency';
+import { isIdempotencyMismatch } from '../pages/public/checkout-retry';
 import { isOfflineResult } from '../lib/offline';
 import { brl, parseBrlInput } from '../lib/money';
 import { mediaUrl } from '../lib/media';
@@ -312,6 +313,15 @@ export function NewSaleModal({
     } catch (e) {
       // Mantém a mesma chave: falhas não gravam a chave no servidor e, se a rede caiu
       // depois do servidor gravar, o reenvio devolve o mesmo pedido em vez de duplicar.
+      // O primeiro envio já virou pedido e o carrinho mudou depois: chave nova (senão todo envio
+      // seguinte falha) e aviso para conferir antes de mandar de novo.
+      if (e instanceof ApiError && isIdempotencyMismatch(e)) {
+        setIdemKey(newIdempotencyKey());
+        setError(
+          'O primeiro envio já entrou como pedido. Confira em Pedidos antes de enviar de novo.',
+        );
+        return;
+      }
       setError(
         e instanceof ApiError && e.status === 0
           ? 'Sem conexão. Tente enviar de novo: o pedido não será duplicado.'

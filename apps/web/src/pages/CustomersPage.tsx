@@ -521,7 +521,14 @@ export function CustomersPage() {
               </thead>
               <tbody>
                 {rows.map((c) => (
-                  <tr key={c.id} onClick={() => setOpen(c.id)}>
+                  <tr
+                    key={c.id}
+                    tabIndex={0}
+                    onClick={() => setOpen(c.id)}
+                    onKeyDown={(e) => {
+                      if (e.target === e.currentTarget && e.key === 'Enter') setOpen(c.id);
+                    }}
+                  >
                     <td>
                       <span className="cl-name">
                         <ClAvatar c={c} />

@@ -186,6 +186,15 @@ export function dayInZone(iso: string, tz: string): string {
   }).format(new Date(iso));
 }
 
+/**
+ * Mesmo telefone pelo DDD e os 8 últimos dígitos: o WhatsApp às vezes manda o celular sem o 9 da
+ * frente, e a reserva feita no site tem o 9 (como em `ordersIn` da IA). `param` é o telefone já
+ * normalizado (10 ou 11 dígitos).
+ */
+const SAME_PHONE = (col: string, param = '$1') =>
+  `(${col} = ${param} OR (length(${param}) >= 10 AND left(${col}, 2) = left(${param}, 2)
+     AND right(${col}, 8) = right(${param}, 8)))`;
+
 @Injectable()
 export class ReservationsService {
   constructor(
@@ -399,8 +408,9 @@ export class ReservationsService {
       const open = await one<{ n: number }>(
         tx,
         `SELECT count(*)::int AS n FROM reservations
-          WHERE phone = $1 AND status = ANY($2) AND starts_at > now()`,
-        [phone, ACTIVE],
+          WHERE (phone = $1 OR customer_id = $3) AND status = ANY($2) AND starts_at > now()`,
+        // Pela conta também: trocar o telefone a cada reserva não passa do limite.
+        [phone, ACTIVE, input.customerId ?? null],
       );
       if (open!.n >= 3)
         throw new ConflictException(
@@ -534,9 +544,10 @@ export class ReservationsService {
          FROM reservations r,
               (SELECT COALESCE((SELECT timezone FROM tenants WHERE id = app_current_tenant()),
                                'America/Sao_Paulo') AS tz) z
-        WHERE r.phone = $1 AND r.status = ANY($2) AND r.starts_at > now() - interval '3 hours'
+        WHERE ${SAME_PHONE('r.phone')} AND r.status = ANY($2)
+          AND r.starts_at > now() - interval '3 hours'
         ORDER BY r.starts_at LIMIT 5`,
-      [phone, ACTIVE],
+      [normalizePhone(phone), ACTIVE],
     );
   }
 
@@ -668,7 +679,7 @@ export class ReservationsService {
       const row = await one<{ id: string; status: ReservationStatus; startsAt: Date }>(
         tx,
         `SELECT id, status, starts_at AS "startsAt" FROM reservations
-          WHERE code = $1 AND phone = $2 FOR UPDATE`,
+          WHERE code = $1 AND ${SAME_PHONE('phone', '$2')} FOR UPDATE`,
         [code.toUpperCase(), phone],
       );
       if (!row) return { ok: false as const, error: 'Não achei essa reserva neste número' };

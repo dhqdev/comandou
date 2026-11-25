@@ -128,6 +128,13 @@ export class LoyaltyService {
    */
   private async expireIn(tx: Tx, s: LoyaltySettings, customerId?: string) {
     if (!s.expiryDays) return;
+    // Uma vez de cada vez no restaurante: dois vencimentos juntos (tela aberta duas vezes, pedido
+    // concluído junto do relatório) liam o mesmo saldo e zeravam duas vezes, deixando negativo.
+    // O INSERT abaixo é outro comando, então já enxerga o vencimento que o outro gravou.
+    await q(
+      tx,
+      `SELECT pg_advisory_xact_lock(hashtext('loyalty_expire:' || current_setting('app.tenant_id', true)))`,
+    );
     await q(
       tx,
       `INSERT INTO loyalty_entries (tenant_id, customer_id, kind, points, note)

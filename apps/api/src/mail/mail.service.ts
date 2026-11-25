@@ -334,6 +334,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
           html,
           text,
           rfcId,
+          idempotencyKey: `mail-${r.id}`,
           headers: r.headers ?? {},
           attachments: [
             ...attachments.map((a) => ({

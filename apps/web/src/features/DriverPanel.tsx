@@ -676,7 +676,13 @@ function useShareLocation(out: Delivery[], actions: DriverActions, on: boolean) 
           () => undefined,
         );
       },
-      () => setError('Permita o acesso à localização nas configurações do celular.'),
+      (err) =>
+        setError(
+          // Só a recusa (código 1) pede para mexer na permissão; sinal fraco ou demora não.
+          err.code === 1
+            ? 'Permita o acesso à localização nas configurações do celular.'
+            : 'Sem sinal de GPS agora. Tentando de novo…',
+        ),
       { enableHighAccuracy: true, maximumAge: 5_000, timeout: 30_000 },
     );
     return () => navigator.geolocation.clearWatch(watch);
