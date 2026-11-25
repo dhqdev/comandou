@@ -202,14 +202,24 @@ export class OpenRouterClient {
   async image(
     model: string,
     prompt: string,
-    opts: { signal?: AbortSignal } = {},
+    opts: {
+      signal?: AbortSignal;
+      /** Foto para a IA editar (data URL), em vez de criar do zero. */
+      input?: string;
+    } = {},
   ): Promise<{ mime: string; bytes: Buffer; usage: Usage }> {
+    const content: string | ContentPart[] = opts.input
+      ? [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: opts.input } },
+        ]
+      : prompt;
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({
         model,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [{ role: 'user', content }],
         modalities: ['image', 'text'],
         usage: { include: true },
       }),
@@ -237,6 +247,63 @@ export class OpenRouterClient {
       usage: {
         promptTokens: num(j.usage?.prompt_tokens) ?? 0,
         completionTokens: num(j.usage?.completion_tokens) ?? 0,
+        costUsd: num(j.usage?.cost) ?? 0,
+      },
+    };
+  }
+
+  /**
+   * Edita uma foto pela API de imagens do OpenRouter (POST /images, com a foto em
+   * `input_references`): é onde estão os modelos de edição mais baratos (ex.: openai/gpt-image-2).
+   * Devolve a primeira imagem da resposta.
+   */
+  async editImage(
+    model: string,
+    prompt: string,
+    input: string,
+    opts: { signal?: AbortSignal } = {},
+  ): Promise<{ mime: string; bytes: Buffer; usage: Usage }> {
+    const res = await fetch(`${this.baseUrl}/images`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({
+        model,
+        prompt,
+        input_references: [{ type: 'image_url', image_url: { url: input } }],
+        n: 1,
+        output_format: 'jpeg',
+      }),
+      signal: opts.signal ?? AbortSignal.timeout(120_000),
+    });
+    const body = await res.text().catch(() => '');
+    if (!res.ok) throw new OpenRouterError(friendly(res.status, body), res.status);
+    let j: {
+      data?: { b64_json?: string; url?: string; media_type?: string }[];
+      media_type?: string;
+      usage?: Record<string, unknown>;
+      error?: { message?: string };
+    };
+    try {
+      j = JSON.parse(body);
+    } catch {
+      throw new OpenRouterError('O OpenRouter devolveu uma resposta que não deu para ler');
+    }
+    if (j.error) throw new OpenRouterError(`OpenRouter: ${j.error.message ?? 'erro'}`);
+    const first = j.data?.[0];
+    let b64 = first?.b64_json ?? '';
+    let mime = first?.media_type ?? j.media_type ?? 'image/jpeg';
+    const m = (first?.url ?? '').match(/^data:(image\/[a-z+]+);base64,(.+)$/);
+    if (!b64 && m) {
+      mime = m[1]!;
+      b64 = m[2]!;
+    }
+    if (!b64) throw new OpenRouterError('A IA não devolveu a imagem');
+    return {
+      mime,
+      bytes: Buffer.from(b64, 'base64'),
+      usage: {
+        promptTokens: num(j.usage?.prompt_tokens ?? j.usage?.input_tokens) ?? 0,
+        completionTokens: num(j.usage?.completion_tokens ?? j.usage?.output_tokens) ?? 0,
         costUsd: num(j.usage?.cost) ?? 0,
       },
     };

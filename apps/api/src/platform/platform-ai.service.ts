@@ -33,6 +33,22 @@ export const AiSettingsBody = z.object({
   assistantName: z.string().trim().min(1).max(30),
   defaultMonthlyTokens: z.number().int().min(0).max(1_000_000_000),
   lowBalanceUsd: z.number().min(0).max(100_000),
+  /** Botão "Melhorar a foto" dos itens do cardápio. Sem o campo, mantém. */
+  photoAiEnabled: z.boolean().optional(),
+  /** "Fazer o 3D pela foto" dos itens do cardápio. Sem o campo, mantém. */
+  model3dAiEnabled: z.boolean().optional(),
+  /** Modelo que olha a foto do item (o mais barato que lê imagem). */
+  visionModel: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9._:/-]{3,120}$/, 'Modelo inválido (ex.: google/gemini-2.5-flash-lite)')
+    .optional(),
+  /** Modelo que edita a foto (fundo limpo), pela API de imagens do OpenRouter. */
+  imageModel: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9._:/-]{3,120}$/, 'Modelo inválido (ex.: openai/gpt-image-2)')
+    .optional(),
 });
 export type AiSettingsInput = z.infer<typeof AiSettingsBody>;
 
@@ -69,6 +85,10 @@ interface Row {
   assistant_name: string;
   default_monthly_tokens: number;
   low_balance_usd: string;
+  photo_ai_enabled: boolean;
+  model3d_ai_enabled: boolean;
+  vision_model: string;
+  image_model: string;
   updated_at: Date;
 }
 
@@ -95,6 +115,9 @@ const SOURCE_LABEL: Record<string, string> = {
   agent_test: 'Teste do assistente do WhatsApp',
   site_page: 'Página do restaurante',
   site_ia: 'Sites com IA (comandou.com)',
+  photo_tune: 'Melhorar a foto do item',
+  photo_clean: 'Foto do item com fundo limpo',
+  menu_model: 'Item em 3D pela foto',
 };
 
 /**
@@ -344,6 +367,10 @@ export class PlatformAiService {
         assistantName: r.assistant_name,
         defaultMonthlyTokens: r.default_monthly_tokens,
         lowBalanceUsd: Number(r.low_balance_usd),
+        photoAiEnabled: r.photo_ai_enabled,
+        model3dAiEnabled: r.model3d_ai_enabled,
+        visionModel: r.vision_model,
+        imageModel: r.image_model,
         updatedAt: r.updated_at,
       },
       account,
@@ -467,8 +494,9 @@ export class PlatformAiService {
       await c.query(
         `UPDATE platform_ai_settings SET enabled = $1, api_key_enc = $2, model = $3,
                 assistant_name = $4, default_monthly_tokens = $5, low_balance_usd = $6,
-                owner_api_key_enc = $8, admin_api_key_enc = $9, updated_at = now(),
-                updated_by = $7
+                owner_api_key_enc = $8, admin_api_key_enc = $9,
+                photo_ai_enabled = $10, model3d_ai_enabled = $11, vision_model = $12,
+                image_model = $13, updated_at = now(), updated_by = $7
           WHERE id`,
         [
           b.enabled,
@@ -480,6 +508,10 @@ export class PlatformAiService {
           a.admin.id,
           ownerEnc,
           adminEnc,
+          b.photoAiEnabled ?? current.photo_ai_enabled,
+          b.model3dAiEnabled ?? current.model3d_ai_enabled,
+          b.visionModel ?? current.vision_model,
+          b.imageModel ?? current.image_model,
         ],
       );
       const { apiKey: _k, ownerApiKey: _o, adminApiKey: _a, ...safe } = b;

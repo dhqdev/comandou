@@ -127,6 +127,11 @@ cookie, CSRF, corpo gigante e Host estranho.
 - Saída da IA validada por Zod e mostrada como texto (nada de HTML ou link de fora).
 - IA que mexe em código do restaurante (modelos de impressão, `printing/template-ai.service.ts`) só
   propõe: o servidor confere a proposta (sintaxe, largura) e a pessoa aplica e salva.
+- IA das fotos e do 3D dos itens (`catalog/item-ai.*`): o nome do item vai entre aspas sem aspas
+  nem quebras (`itemName`); a resposta passa por `readTips`/`normalizeShape` (números presos em
+  faixas, textos curtos) e a foto que volta é conferida por `sniff`. Nada é gravado pela IA: a tela
+  mostra e a pessoa usa a foto ou publica o 3D pelas rotas de sempre. Foto de entrada até 3 MB,
+  conferida pela assinatura; GLB montado até 12 MB.
 - O que entra no prompt respeita a permissão de quem pergunta (`roleHas` antes de montar o
   contexto): dado que o perfil não vê na tela também não vai para a IA dele.
 - Menu do Super Admin pelo WhatsApp (`platform-whatsapp/admin-bot.service.ts`) só responde a

@@ -3042,3 +3042,21 @@ button.adm-card:hover {
   white-space: nowrap;
   overflow-wrap: normal;
 }
+
+/* Tokens › Assistente: fotos e 3D do cardápio. */
+.adm-ai-menu {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-md);
+}
+.adm-ai-menu legend {
+  padding: 0 6px;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.adm-ai-menu > .adm-sub {
+  margin: 0;
+}

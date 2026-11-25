@@ -21,10 +21,11 @@ import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 
 /**
- * Modelo 3D do item do cardápio. O restaurante escaneia o prato com um aplicativo de celular
- * (Polycam, Luma, Scaniverse, Reality Composer…) e envia o arquivo aqui: GLB serve o Android e o
- * navegador; USDZ serve o iPhone. No cardápio online o cliente gira o prato na tela e, com a
- * câmera, vê ele em cima da mesa em tamanho real. Leitura pública, como as fotos.
+ * Modelo 3D do item do cardápio. O restaurante monta pela foto do item (a IA lê a forma e o
+ * servidor monta o GLB: item-ai.service.ts + dish3d.ts) ou envia um arquivo que já tem: GLB serve
+ * o Android e o navegador; USDZ serve o iPhone (sem ele, o iPhone gera a partir do GLB). No
+ * cardápio online o cliente gira o prato na tela e, com a câmera, vê ele em cima da mesa em
+ * tamanho real. Leitura pública, como as fotos.
  */
 
 export const MODEL_TYPES = { glb: 'model/gltf-binary', usdz: 'model/vnd.usdz+zip' } as const;

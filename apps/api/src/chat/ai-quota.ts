@@ -16,6 +16,14 @@ export interface AiConfig {
   monthly_tokens: number;
   /** Tokens extras doados pelo Super Admin (gastos só depois do limite do mês). */
   bonus_tokens: number;
+  /** Botão "Melhorar a foto" dos itens do cardápio (Super Admin › Tokens). */
+  photo_ai_enabled: boolean;
+  /** "Fazer o 3D pela foto" dos itens do cardápio. */
+  model3d_ai_enabled: boolean;
+  /** Modelo que olha a foto (o mais barato que lê imagem). */
+  vision_model: string;
+  /** Modelo que edita a foto (fundo limpo), pela API de imagens. */
+  image_model: string;
 }
 
 export interface AiQuota {

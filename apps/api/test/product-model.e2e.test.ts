@@ -137,3 +137,71 @@ describe('modelo 3D do item', () => {
     await http.get(`/api/v1/store/models/${product}/modelo.glb`).set('Host', HOST).expect(404);
   });
 });
+
+/** Menor JPEG que o servidor lê: cabeçalho, um bloco APP0 e o quadro (SOF) de 1024 × 768. */
+function jpeg() {
+  const app0 = [0xff, 0xe0, 0x00, 0x04, 0x4a, 0x46];
+  const sof = [0xff, 0xc0, 0x00, 0x11, 0x08, 0x03, 0x00, 0x04, 0x00, 0x03, 0x01, 0x22, 0x00];
+  return Buffer.from([0xff, 0xd8, ...app0, ...sof, ...Array(16).fill(0), 0xff, 0xd9]);
+}
+
+describe('3D pela foto do item', () => {
+  const forma = encodeURIComponent(
+    JSON.stringify({
+      kind: 'plate',
+      view: 'angle',
+      box: { x0: 0.1, y0: 0.2, x1: 0.9, y1: 0.85 },
+      diameterCm: 24,
+      heightCm: 3,
+      foodHeightCm: 4,
+    }),
+  );
+  const generate = (q: string, type: string, body: Buffer, host = HOST, who = cookie) =>
+    http
+      .post(`/api/v1/products/${product}/model/generate${q}`)
+      .set('Host', host)
+      .set('Cookie', who)
+      .set(CSRF)
+      .set('Content-Type', type)
+      .send(body);
+
+  it('diz se a IA das fotos e do 3D pode ser usada', async () => {
+    const res = await http
+      .get('/api/v1/catalog-ai')
+      .set('Host', HOST)
+      .set('Cookie', cookie)
+      .set(CSRF)
+      .expect(200);
+    expect(typeof res.body.photo).toBe('boolean');
+    expect(typeof res.body.model3d).toBe('boolean');
+  });
+
+  it('com a forma escolhida, monta o GLB com a foto sem usar a IA', async () => {
+    const res = await generate(`?forma=${forma}`, 'image/jpeg', jpeg()).expect(200);
+    expect(res.body.byAi).toBe(false);
+    expect(res.body.shape).toMatchObject({ kind: 'plate', diameterCm: 24 });
+    expect(res.body.size.widthCm).toBeCloseTo(24, 1);
+    const file = Buffer.from(res.body.glb as string, 'base64');
+    expect(file.toString('latin1', 0, 4)).toBe('glTF');
+    expect(file.length).toBe(res.body.bytes);
+    // Publicar é o envio de sempre: o cardápio passa a ter o modelo.
+    await put('glb', 'model/gltf-binary', file).expect(200);
+    expect((await menuProduct()).model!.glb).toContain('modelo.glb');
+  });
+
+  it('recusa foto que não serve de textura, forma estragada e produto de outro restaurante', async () => {
+    const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBPVP8 ')]);
+    await generate(`?forma=${forma}`, 'image/webp', webp).expect(422);
+    await generate(`?forma=${forma}`, 'image/png', jpeg()).expect(422);
+    await generate('?forma=%7Boops', 'image/jpeg', jpeg()).expect(422);
+    const other = await http
+      .post('/api/v1/auth/login')
+      .set('Host', OTHER)
+      .set(CSRF)
+      .send({ email: 'admin@modelo-b.test', password: PASSWORD });
+    const theirs = (other.headers['set-cookie'] as unknown as string[])
+      .find((c) => c.startsWith('cm_sid='))!
+      .split(';')[0]!;
+    await generate(`?forma=${forma}`, 'image/jpeg', jpeg(), OTHER, theirs).expect(404);
+  });
+});

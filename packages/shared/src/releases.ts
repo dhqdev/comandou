@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.252.0',
+    date: '2026-11-25',
+    title: 'Foto melhorada pela IA e 3D feito pela própria foto do item',
+    summary:
+      'No cadastro do item, "Melhorar a foto" deixa a foto mais bonita sem mudar o prato, e o 3D agora sai da própria foto: a IA lê a forma e o Comandou monta o modelo, sem aplicativo de fora. O Super Admin liga, desliga e escolhe os modelos (os mais baratos), e tudo desconta dos tokens do restaurante.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Melhorar a foto: a IA olha a foto do item e sugere um retoque leve de luz, cor e corte, com dicas para a próxima foto. Dá para comparar antes e depois arrastando a linha, mudar a força e, se quiser, pedir a mesma foto com fundo limpo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Item em 3D pela foto: usa a foto do item (ou tire uma na hora), a IA lê se é prato, tigela, copo ou lanche e o tamanho, e o Comandou monta o 3D com a própria foto. Gira na tela antes de publicar; se ficar estranho, ajuste a forma e monte de novo sem gastar IA.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A lista de aplicativos e sites para escanear saiu do cadastro do item. Quem já tem o arquivo .glb ou .usdz ainda envia em "Já tem o arquivo 3D?".',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Tokens: seção "Fotos e 3D do cardápio" para ligar cada função e escolher o modelo que olha a foto e o que refaz o fundo. O uso aparece no extrato com nome próprio.',
+      },
+    ],
+  },
+  {
     version: '0.251.0',
     date: '2026-11-25',
     title: 'Conversa mais suave, reservas no cadastro do cliente e estoque certinho',
