@@ -82,6 +82,14 @@
   --cm-input-text: var(--cm-text);
   --cm-field-bg: var(--cm-surface-sunken);
   --cm-field-line: transparent;
+  /* Conversas em balões (chat da equipe, suporte, clientes, cardápio): fundo da conversa, balão
+     do outro lado e o de quem vê, na cor da loja (segue a cor que o lojista escolher). */
+  --cm-chat-wall: var(--cm-surface-sunken);
+  --cm-chat-other: var(--cm-surface);
+  --cm-chat-other-line: var(--cm-border);
+  --cm-chat-mine: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
+  --cm-chat-mine-line: color-mix(in oklab, var(--cm-brand-500) 18%, transparent);
+  --cm-chat-meta: color-mix(in oklab, var(--cm-text) 52%, transparent);
   --cm-text: var(--cm-gray-900);
   --cm-text-muted: var(--cm-gray-600);
   /* Texto de apoio: um tom acima do gray-500 para passar de 4,5:1 sobre branco e sobre o fundo. */
@@ -304,6 +312,9 @@ html.cm-kb-open {
   --cm-input-text: #ffffff;
   --cm-field-bg: #323d50;
   --cm-field-line: #56627a;
+  --cm-chat-mine: color-mix(in oklab, var(--cm-brand-500) 26%, var(--cm-surface));
+  --cm-chat-mine-line: color-mix(in oklab, var(--cm-brand-500) 30%, transparent);
+  --cm-chat-meta: color-mix(in oklab, var(--cm-text) 62%, transparent);
   --cm-gray-0: #283141;
   --cm-gray-25: #2e3849;
   --cm-gray-50: #222a37;
@@ -384,6 +395,9 @@ html.cm-kb-open {
     --cm-input-text: #ffffff;
     --cm-field-bg: #323d50;
     --cm-field-line: #56627a;
+    --cm-chat-mine: color-mix(in oklab, var(--cm-brand-500) 26%, var(--cm-surface));
+    --cm-chat-mine-line: color-mix(in oklab, var(--cm-brand-500) 30%, transparent);
+    --cm-chat-meta: color-mix(in oklab, var(--cm-text) 62%, transparent);
     --cm-gray-0: #283141;
     --cm-gray-25: #2e3849;
     --cm-gray-50: #222a37;

@@ -45,7 +45,7 @@ const LoginSchema = z.object({
 });
 type LoginInput = z.infer<typeof LoginSchema>;
 const PinLoginSchema = z.object({
-  // 6 números; o de 4 (antes da 0.248) continua entrando até o gerente gerar um novo.
+  // 6 números; o de 4 (antes da 0.250) continua entrando até o gerente gerar um novo.
   pin: z.string().regex(/^[0-9]{4}([0-9]{2})?$/, 'PIN de 6 números'),
   /** Qual app está entrando: só aceita PIN de quem tem o papel daquele app. */
   app: z.enum(PIN_ROLES),

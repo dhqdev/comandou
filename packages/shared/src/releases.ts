@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.248.0',
+    version: '0.250.0',
     date: '2026-11-25',
     title: 'Mais proteção: lojas de aplicativo, cadastro, PIN e suporte',
     summary:
@@ -61,6 +61,39 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'correção',
         text: 'Taxa de entrega: o pino muito longe do endereço digitado não escolhe mais a área. Cancelar ou editar item mantém o acréscimo zerado à mão e não cobra taxa na retirada.',
+      },
+    ],
+  },
+  {
+    version: '0.249.0',
+    date: '2026-11-25',
+    title: 'Chat no jeito do WhatsApp e Mural com comentários',
+    summary:
+      'Todas as conversas viraram balões dos dois lados, como no WhatsApp: as suas à direita, na cor da loja, as dos outros à esquerda, na largura toda da conversa. Mandar ficou instantâneo, emojis sozinhos aparecem grandes e o Mural virou a rede social da equipe, com reações e comentários.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Chat da equipe (conversas, grupos e canais) em balões: nome e avatar na cor da pessoa em grupo, hora e risquinhos dentro do balão, reações numa pílula embaixo, resposta citada que leva até a mensagem e botão para descer quando chega mensagem nova.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Envio sem esperar: a mensagem aparece na hora com um efeito suave, dá para mandar várias seguidas (chegam na ordem certa) e, se a internet falhar, ela fica com "Tentar de novo" em vez de sumir.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Emojis: seletor maior com recentes e grupos, e mensagem só de emoji (até 3) aparece grande, sem balão.',
+      },
+      {
+        tag: 'novo',
+        text: 'Mural da equipe como rede social: escreva no topo com foto e emoji, reaja e comente cada recado. Quem publicou recebe aviso dos comentários; quem escreveu ou o gestor apaga.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Painel do Chat maior no computador e letra um pouco maior; Avisos numa lista mais limpa.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Super Admin › Conversas: a conversa ocupa a tela toda e os dados do restaurante abrem só quando você toca no nome ou no botão do topo. Suporte, Clientes e a conversa do cardápio ganharam os mesmos balões.',
       },
     ],
   },

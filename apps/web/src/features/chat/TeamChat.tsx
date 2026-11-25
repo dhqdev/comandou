@@ -555,6 +555,7 @@ export function TeamChat({
                 <div className="tc-split__main">
                   {selected ? (
                     <ConversationView
+                      key={selected}
                       id={selected}
                       me={myId}
                       people={people}
@@ -582,6 +583,7 @@ export function TeamChat({
             ) : tab === 'mural' ? (
               <MuralTab
                 me={myId}
+                myName={me?.user.name ?? null}
                 canPin={!!me.permissions.includes('settings:manage')}
                 pollMs={pollMs}
               />

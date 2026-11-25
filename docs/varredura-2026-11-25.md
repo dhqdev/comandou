@@ -36,7 +36,7 @@ de entrar aqui.
 | `web/vite.config.ts` | Regra `NetworkOnly` da API no service worker nunca casava. | Compara o caminho. |
 | `.gitattributes` | Migração com CRLF (Windows) mudava o checksum. | `*.sql text eol=lf`. |
 
-## Feito na 0.248.0 (itens altos e médios abaixo, menos o 10, que já tinha saído na 0.246.0)
+## Feito na 0.250.0 (itens altos e médios abaixo, menos o 10, que já tinha saído na 0.246.0)
 
 Migração `0116_pendencias_da_varredura.sql`.
 

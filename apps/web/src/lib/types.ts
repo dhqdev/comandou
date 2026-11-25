@@ -553,7 +553,7 @@ export interface Member {
   sharedAccount: boolean;
   /** Garçom ou entregador com PIN para entrar. */
   hasPin?: boolean;
-  /** 4 = PIN antigo (antes da 0.248), mais fácil de adivinhar: vale gerar um novo. */
+  /** 4 = PIN antigo (antes da 0.250), mais fácil de adivinhar: vale gerar um novo. */
   pinDigits?: 4 | 6 | null;
 }
 

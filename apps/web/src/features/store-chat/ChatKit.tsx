@@ -1,9 +1,11 @@
 import {
+  AlertCircle,
   ArrowDown,
   Camera,
   Check,
   CheckCheck,
   ChevronRight,
+  Clock3,
   LifeBuoy,
   ImageOff,
   Paperclip,
@@ -18,6 +20,7 @@ import {
 } from 'lucide-react';
 import {
   ClipboardEvent,
+  CSSProperties,
   DragEvent,
   Fragment,
   KeyboardEvent,
@@ -28,7 +31,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { avatarColors, initials } from '../chat/util';
+import { runInfo, useFreshKeys } from '../chat/bubbles';
+import { avatarColors } from '../chat/util';
 import {
   ChatMessage,
   ChatTicket,
@@ -38,7 +42,7 @@ import {
   Sender,
   uploadFile,
 } from './chat-media';
-import { EMOJI_GROUPS, emojiOnly, recentEmojis, rememberEmoji } from './emoji';
+import { EMOJI_GROUPS, emojiCount, recentEmojis, rememberEmoji } from './emoji';
 import './store-chat.css';
 
 /* ------------------------------------------------------------------ util */
@@ -89,7 +93,7 @@ const coarse = () =>
  * navegador, por cima de tudo (barra do topo do tablet, menu lateral, outra janela aberta), e não
  * pode ficar preso dentro da conversa que rola.
  */
-function Viewer({
+export function MediaViewer({
   item,
   onClose,
 }: {
@@ -197,13 +201,39 @@ export interface ThreadProps {
   onOrder?(m: ChatMessage): void;
   onRetry?(m: ChatMessage): void;
   empty?: ReactNode;
-  /**
-   * Balões (como nos Chamados): as mensagens de quem vê à direita, as do outro lado à esquerda,
-   * com a hora dentro do balão. Sem isso, mensagens em linha (avatar, nome e texto).
-   */
-  bubbles?: boolean;
   /** Toque no cartão do chamado citado numa mensagem. */
   onTicket?(t: ChatTicket): void;
+  /**
+   * Chave estável de cada mensagem: a enviada agora continua com a chave de quando estava indo
+   * (o balão não some e volta quando o servidor responde, e o efeito de envio roda uma vez só).
+   */
+  keyOf?(m: ChatMessage): string;
+}
+
+type Status = 'sending' | 'failed' | 'sent' | 'read';
+const STATUS_LABEL: Record<Status, string> = {
+  sending: 'Enviando',
+  failed: 'Não enviada',
+  sent: 'Enviada',
+  read: 'Lida',
+};
+
+/** Risquinhos da mensagem de quem vê: relógio indo, ✓ enviada, ✓✓ azul lida. */
+export function Ticks({ status }: { status: Status }) {
+  return (
+    <span className="scx-status" data-state={status} data-read={status === 'read' || undefined}>
+      {status === 'sending' ? (
+        <Clock3 size={12} aria-hidden />
+      ) : status === 'failed' ? (
+        <AlertCircle size={13} aria-hidden />
+      ) : status === 'read' ? (
+        <CheckCheck size={15} aria-hidden />
+      ) : (
+        <Check size={15} aria-hidden />
+      )}
+      <span className="cm-sr-only">{STATUS_LABEL[status]}</span>
+    </span>
+  );
 }
 
 function Thread({
@@ -218,8 +248,8 @@ function Thread({
   onOrder,
   onRetry,
   empty,
-  bubbles,
   onTicket,
+  keyOf = (m) => m.id,
 }: ThreadProps) {
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
@@ -331,16 +361,23 @@ function Thread({
     setFresh(0);
   };
 
-  // "Enviada" / "Lida" aparece só embaixo da última mensagem de quem vê.
-  const lastMineId = messages.findLast((m) => m.sender === side)?.id;
-  let prev: ChatMessage | undefined;
+  const keys = messages.map(keyOf);
+  // Só a mensagem que acabou de chegar (ou de sair) entra com efeito; as da carga não.
+  const arrived = useFreshKeys(keys, true, side);
+  const runs = runInfo(
+    messages.map((m) => ({
+      author: m.sender === 'system' ? null : `${m.sender}:${m.authorName ?? ''}`,
+      at: m.createdAt,
+      system: m.sender === 'system',
+    })),
+  );
+  // Mais de uma pessoa escrevendo pelo mesmo lado (dois atendentes, dono e gerente): o nome de
+  // quem escreveu aparece no balão, como num grupo. Uma pessoa só de cada lado: sem nomes.
+  const authors = { customer: new Set<string>(), staff: new Set<string>() };
+  for (const m of messages)
+    if (m.sender !== 'system' && m.authorName) authors[m.sender].add(m.authorName);
   return (
-    <div
-      className={`scx-thread${bubbles ? ' scx-thread--bubbles' : ''}`}
-      ref={box}
-      onScroll={onScroll}
-      aria-live="polite"
-    >
+    <div className="scx-thread" ref={box} onScroll={onScroll} aria-live="polite">
       <div className="scx-float" data-on={day.on || undefined} aria-hidden>
         <span className="scx-day">{day.label}</span>
       </div>
@@ -350,111 +387,110 @@ function Thread({
         )}
         {greeting && !hasMore && <div className="scx-greeting">{greeting}</div>}
         {!messages.length && empty}
-        {messages.map((m) => {
-          const newDay =
-            !prev ||
-            new Date(prev.createdAt).toDateString() !== new Date(m.createdAt).toDateString();
-          const grouped =
-            !newDay &&
-            prev?.sender === m.sender &&
-            prev.authorName === m.authorName &&
-            new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 180_000;
-          prev = m;
-          const mine = m.sender === side;
+        {messages.map((m, i) => {
+          const run = runs[i]!;
+          const key = keys[i]!;
+          const isNew = arrived.has(key);
           if (m.sender === 'system')
             return (
-              <Fragment key={m.id}>
-                {newDay && <div className="scx-day">{dayLabel(m.createdAt)}</div>}
-                <div className="scx-system">{m.body}</div>
+              <Fragment key={key}>
+                {run.newDay && <div className="scx-day">{dayLabel(m.createdAt)}</div>}
+                <div className="scx-system" data-fresh={isNew || undefined}>
+                  {m.body}
+                </div>
               </Fragment>
             );
-          const big = !m.file && !m.localUrl && !m.orderNumber && !m.ticket && emojiOnly(m.body);
-          const read = mine && !m.pending && otherReadAt && m.createdAt <= otherReadAt;
+          const mine = m.sender === side;
+          const hasMedia = !!(m.file || m.localUrl || m.fileGone);
+          const big = !hasMedia && !m.orderNumber && !m.ticket ? emojiCount(m.body) : 0;
+          const status: Status | null = !mine
+            ? null
+            : m.pending === 'failed'
+              ? 'failed'
+              : m.pending
+                ? 'sending'
+                : otherReadAt && m.createdAt <= otherReadAt
+                  ? 'read'
+                  : 'sent';
           const who =
             m.authorName ||
             names?.[m.sender as 'customer' | 'staff'] ||
             (mine ? 'Você' : m.sender === 'customer' ? 'Cliente' : 'Equipe');
-          const [bg, fg] = avatarColors(`${m.sender}:${who}`);
+          const showName = run.first && authors[m.sender].size > 1;
+          const [nameBg, nameFg] = avatarColors(`${m.sender}:${who}`);
+          const meta = (
+            <span className="scx-meta">
+              <time dateTime={m.createdAt}>{hhmm(m.createdAt)}</time>
+              {status && <Ticks status={status} />}
+            </span>
+          );
           return (
-            <Fragment key={m.id}>
-              {newDay && <div className="scx-day">{dayLabel(m.createdAt)}</div>}
+            <Fragment key={key}>
+              {run.newDay && <div className="scx-day">{dayLabel(m.createdAt)}</div>}
               <div
                 className="scx-msg"
                 data-mine={mine || undefined}
-                data-grouped={grouped || undefined}
+                data-first={run.first || undefined}
                 data-pending={m.pending}
+                data-emoji={big || undefined}
+                data-fresh={isNew || undefined}
               >
-                <div className="scx-msg__side">
-                  {grouped ? (
-                    <time className="scx-msg__at">{hhmm(m.createdAt)}</time>
-                  ) : (
-                    <span className="scx-avatar" style={{ background: bg, color: fg }} aria-hidden>
-                      {initials(who)}
+                <div
+                  className="scx-bubble"
+                  data-media={hasMedia && !m.body ? 'solo' : hasMedia ? 'caption' : undefined}
+                >
+                  {showName && (
+                    <span
+                      className="scx-who"
+                      style={{ '--who-fg': nameFg, '--who-bg': nameBg } as CSSProperties}
+                    >
+                      {who}
                     </span>
                   )}
-                </div>
-                <div className="scx-msg__main">
-                  {!grouped && (
-                    <div className="scx-msg__head">
-                      <span className="scx-msg__who">{who}</span>
-                      <time className="scx-msg__time">{hhmm(m.createdAt)}</time>
-                    </div>
-                  )}
-                  <div className={`scx-body ${big ? 'scx-body--emoji' : ''}`}>
-                    {(m.file || m.localUrl || m.fileGone) && <Media m={m} onOpen={setViewer} />}
-                    {m.orderNumber && (
-                      <button
-                        type="button"
-                        className="scx-order"
-                        onClick={() => onOrder?.(m)}
-                        disabled={!onOrder}
-                      >
-                        <ReceiptText size={15} /> Pedido #{m.orderNumber}
-                      </button>
-                    )}
-                    {m.ticket && (
-                      <TicketCard
-                        t={m.ticket}
-                        onOpen={onTicket && !m.pending ? () => onTicket(m.ticket!) : undefined}
-                      />
-                    )}
-                    {m.body && (
-                      <p className="scx-text">
-                        <Linkified text={m.body} />
-                      </p>
-                    )}
-                    {bubbles && <time className="scx-body__time">{hhmm(m.createdAt)}</time>}
-                  </div>
-                  {m.pending === 'failed' && (
-                    <button type="button" className="scx-retry" onClick={() => onRetry?.(m)}>
-                      <RotateCw size={13} /> Não foi. Tentar de novo
+                  {hasMedia && <Media m={m} onOpen={setViewer} />}
+                  {m.orderNumber && (
+                    <button
+                      type="button"
+                      className="scx-order"
+                      onClick={() => onOrder?.(m)}
+                      disabled={!onOrder}
+                    >
+                      <ReceiptText size={15} /> Pedido #{m.orderNumber}
                     </button>
                   )}
-                  {m.id === lastMineId && m.pending !== 'failed' && (
-                    <span className="scx-status" data-read={read || undefined}>
-                      {m.pending === 'sending' ? (
-                        <>
-                          <Check size={13} /> Enviando
-                        </>
-                      ) : (
-                        <>
-                          <CheckCheck size={14} /> {read ? 'Lida' : 'Enviada'}
-                        </>
-                      )}
-                    </span>
+                  {m.ticket && (
+                    <TicketCard
+                      t={m.ticket}
+                      onOpen={onTicket && !m.pending ? () => onTicket(m.ticket!) : undefined}
+                    />
                   )}
+                  {m.body ? (
+                    <p className="scx-text">
+                      <Linkified text={m.body} />
+                      {/* Lugar da hora no fim da última linha (a hora fica por cima dele). */}
+                      {!big && <span className="scx-meta-gap" aria-hidden />}
+                    </p>
+                  ) : null}
+                  {meta}
                 </div>
+                {m.pending === 'failed' && (
+                  <button type="button" className="scx-retry" onClick={() => onRetry?.(m)}>
+                    <RotateCw size={13} /> Não foi. Tentar de novo
+                  </button>
+                )}
               </div>
             </Fragment>
           );
         })}
         {typing && (
-          <div className="scx-typing" aria-label={typing}>
-            <span className="scx-typing__dots" aria-hidden>
-              <span />
-              <span />
-              <span />
-            </span>
+          <div className="scx-msg scx-typing" aria-label={typing} data-first>
+            <div className="scx-bubble">
+              <span className="scx-typing__dots" aria-hidden>
+                <span />
+                <span />
+                <span />
+              </span>
+            </div>
             <span className="scx-typing__label">{typing}</span>
           </div>
         )}
@@ -465,7 +501,7 @@ function Thread({
           {fresh > 0 && <span className="scx-down__n">{fresh}</span>}
         </button>
       )}
-      <Viewer item={viewer} onClose={() => setViewer(null)} />
+      <MediaViewer item={viewer} onClose={() => setViewer(null)} />
     </div>
   );
 }
@@ -500,7 +536,11 @@ function TicketCard({ t, onOpen }: { t: ChatTicket; onOpen?(): void }) {
 
 /* ------------------------------------------------------------------ emojis */
 
-function EmojiPanel({ onPick }: { onPick(e: string): void }) {
+/**
+ * Seletor de emojis: recentes primeiro e os grupos em abas. O mesmo do chat da equipe, do
+ * suporte, dos clientes e do cardápio.
+ */
+export function EmojiPanel({ onPick }: { onPick(e: string): void }) {
   const recent = recentEmojis();
   const groups = recent.length
     ? [{ id: 'recentes', label: 'Recentes', icon: '🕘', list: recent }, ...EMOJI_GROUPS]
@@ -611,6 +651,14 @@ export function ChatPane(props: ChatPaneProps) {
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [panel, setPanel] = useState<null | 'emoji' | 'attach' | 'quick' | 'ticket'>(null);
   const [drag, setDrag] = useState(false);
+  // Mensagem enviada: a chave da tela continua a de quando ela estava indo (`local-N`), então o
+  // balão fica no lugar quando o servidor responde (sem piscar nem repetir o efeito de envio).
+  const sentKeys = useRef(new Map<string, string>());
+  // Cada envio faz o aviãozinho do botão sair e voltar (o ícone nasce de novo).
+  const [flights, setFlights] = useState(0);
+  // Mensagens mandadas em seguida chegam ao servidor na ordem em que foram escritas: a foto sobe
+  // ao mesmo tempo, mas cada mensagem espera a de antes ser salva (ou falhar) para ser gravada.
+  const order = useRef<Promise<void>>(Promise.resolve());
   const input = useRef<HTMLTextAreaElement>(null);
   const compose = useRef<HTMLDivElement>(null);
   const gallery = useRef<HTMLInputElement>(null);
@@ -676,6 +724,9 @@ export function ChatPane(props: ChatPaneProps) {
 
   async function deliver(id: string, inputData: SendInput, prepared?: Prepared) {
     setPending((p) => p.map((m) => (m.id === id ? { ...m, pending: 'sending' } : m)));
+    const turn = order.current;
+    let done = () => {};
+    order.current = new Promise<void>((r) => (done = r));
     try {
       let fileId = inputData.fileId ?? null;
       if (prepared && !fileId) {
@@ -688,7 +739,9 @@ export function ChatPane(props: ChatPaneProps) {
           p.map((m) => (m.id === id ? { ...m, input: { ...m.input, fileId } } : m)),
         );
       }
+      await turn;
       const saved = await send({ ...inputData, fileId });
+      sentKeys.current.set(saved.id, id);
       setPending((p) => p.filter((m) => m.id !== id));
       if (prepared) setTimeout(() => URL.revokeObjectURL(prepared.previewUrl), 30_000);
       onSent?.(saved);
@@ -696,6 +749,7 @@ export function ChatPane(props: ChatPaneProps) {
       setPending((p) => p.map((m) => (m.id === id ? { ...m, pending: 'failed' } : m)));
       onError?.((e as Error).message);
     } finally {
+      done();
       setProgress((p) => {
         const n = { ...p };
         delete n[id];
@@ -738,6 +792,7 @@ export function ChatPane(props: ChatPaneProps) {
     setFile(null);
     setTicket(null);
     setPanel(null);
+    setFlights((n) => n + 1);
     onClearOrder?.();
     void deliver(id, inputData, prepared);
     // Quem estava digitando continua digitando (no celular, o teclado não fecha).
@@ -796,7 +851,7 @@ export function ChatPane(props: ChatPaneProps) {
 
   return (
     <div
-      className={`scx${thread.bubbles ? ' scx--bubbles' : ''}`}
+      className="scx"
       data-drag={drag || undefined}
       onDragOver={(e) => {
         if (disabled || !Array.from(e.dataTransfer.types).includes('Files')) return;
@@ -811,6 +866,7 @@ export function ChatPane(props: ChatPaneProps) {
       <Thread
         {...thread}
         messages={shown}
+        keyOf={(m) => sentKeys.current.get(m.id) ?? m.id}
         onRetry={(m) => {
           const p = pending.find((x) => x.id === m.id);
           if (p) void deliver(p.id, p.input, p.prepared);
@@ -1018,7 +1074,13 @@ export function ChatPane(props: ChatPaneProps) {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={submit}
               >
-                <SendHorizontal size={20} />
+                <SendHorizontal
+                  key={flights}
+                  size={20}
+                  className="scx-send__icon"
+                  data-fly={flights > 0 || undefined}
+                  aria-hidden
+                />
               </button>
             </div>
             <input

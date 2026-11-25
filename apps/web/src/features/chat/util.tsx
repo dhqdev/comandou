@@ -87,6 +87,15 @@ export function shortWhen(iso: string) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
+/** Tempo do recado no Mural: "agora", "há 5 min", "há 2 h"; mais antigo, como `shortWhen`. */
+export function timeAgo(iso: string, now = Date.now()) {
+  const min = Math.floor((now - new Date(iso).getTime()) / 60_000);
+  if (min < 1) return 'agora';
+  if (min < 60) return `há ${min} min`;
+  if (min < 12 * 60) return `há ${Math.floor(min / 60)} h`;
+  return shortWhen(iso);
+}
+
 /** Separador de dia na conversa: HOJE, ONTEM, 1 DE OUTUBRO. */
 export function dayLabel(iso: string) {
   const d = new Date(iso);

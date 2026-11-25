@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Spinner } from '../design-system';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'ok', '0', 'del'] as const;
-/** PIN antigo (antes da 0.248): 4 números, enviado pelo botão de confirmar. */
+/** PIN antigo (antes da 0.250): 4 números, enviado pelo botão de confirmar. */
 const OLD_LENGTH = 4;
 
 /**

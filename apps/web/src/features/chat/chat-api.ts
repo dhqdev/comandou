@@ -62,6 +62,21 @@ export interface Message {
   kind?: Kind;
   /** Enviando (ainda sem resposta do servidor). */
   pending?: boolean;
+  /** Não foi enviada: continua na conversa com "Tentar de novo". */
+  failed?: boolean;
+  /** Foto escolhida aparecendo na hora, enquanto sobe. */
+  localUrl?: string;
+}
+
+export interface PostComment {
+  id: string;
+  postId: string;
+  authorId: string | null;
+  authorName: string | null;
+  body: string;
+  createdAt: string;
+  /** Enviando (ainda sem resposta do servidor). */
+  pending?: boolean;
 }
 
 export interface Post {
@@ -74,6 +89,11 @@ export interface Post {
   pinned: boolean;
   reactions: Record<string, string[]>;
   createdAt: string;
+  /** Total de comentários; `comments` traz só os 2 últimos (o resto abre por `comments()`). */
+  commentCount: number;
+  comments: PostComment[];
+  /** Publicando (ainda sem resposta do servidor). */
+  pending?: boolean;
 }
 
 export interface Notice {
@@ -161,8 +181,10 @@ export const chatApi = {
   typing: (id: string) => post(`/chat/conversations/${id}/typing`),
   search: (q: string) => api<Message[]>(`/chat/search?q=${encodeURIComponent(q)}`),
   posts: () => api<Post[]>('/chat/posts'),
-  newPost: (body: string, imageId?: string | null) =>
-    post<{ id: string }>('/chat/posts', { body, imageId }),
+  newPost: (body: string, imageId?: string | null) => post<Post>('/chat/posts', { body, imageId }),
+  comments: (id: string) => api<PostComment[]>(`/chat/posts/${id}/comments`),
+  comment: (id: string, body: string) => post<PostComment>(`/chat/posts/${id}/comments`, { body }),
+  removeComment: (id: string) => api(`/chat/comments/${id}`, { method: 'DELETE' }),
   reactPost: (id: string, emoji: string) => post(`/chat/posts/${id}/react`, { emoji }),
   pinPost: (id: string, pinned: boolean) => post(`/chat/posts/${id}/pin`, { pinned }),
   removePost: (id: string) => api(`/chat/posts/${id}`, { method: 'DELETE' }),

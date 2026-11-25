@@ -2,221 +2,23 @@ import {
   AtSign,
   Bell,
   CheckCheck,
-  Image as ImageIcon,
   Megaphone,
   MessageSquarePlus,
-  Pin,
-  PinOff,
   RotateCcw,
   SendHorizontal,
   Sparkles,
   Square,
-  Trash2,
   Users,
-  X,
 } from 'lucide-react';
 import { KeyboardEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LivePanda, PandaMood, useToast } from '../../design-system';
 import { ApiError } from '../../lib/api';
-import { mediaUrl } from '../../lib/media';
 import { useRealtimeEvents } from '../../lib/realtime';
-import {
-  AiMessage,
-  AiStatus,
-  AiUsage,
-  askAi,
-  chatApi,
-  Notice,
-  Post,
-  REACTIONS,
-  uploadChatImage,
-} from './chat-api';
+import { AiMessage, AiStatus, AiUsage, askAi, chatApi, Notice } from './chat-api';
 import { Markdown } from './markdown';
 import { Avatar, fmtInt, keepFocus, shortWhen } from './util';
 
-// ------------------------------------------------------------------ Mural
-
-export function MuralTab({ me, canPin, pollMs }: { me: string; canPin: boolean; pollMs: number }) {
-  const toast = useToast();
-  const [posts, setPosts] = useState<Post[] | null>(null);
-  const [text, setText] = useState('');
-  const [image, setImage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const file = useRef<HTMLInputElement>(null);
-  const load = useCallback(() => chatApi.posts().then(setPosts, () => setPosts([])), []);
-  useEffect(() => {
-    void load();
-    const t = setInterval(() => !document.hidden && load(), pollMs * 2);
-    return () => clearInterval(t);
-  }, [load, pollMs]);
-  useRealtimeEvents((e) => {
-    if (e.type === 'chat.mural') void load();
-  }, false);
-
-  const publish = async () => {
-    if (!text.trim() || busy) return;
-    setBusy(true);
-    try {
-      await chatApi.newPost(text.trim(), image);
-      setText('');
-      setImage(null);
-      await load();
-    } catch (e) {
-      toast((e as Error).message, 'danger');
-    } finally {
-      setBusy(false);
-    }
-  };
-  const act = async (fn: () => Promise<unknown>) => {
-    try {
-      await fn();
-      await load();
-    } catch (e) {
-      toast((e as Error).message, 'danger');
-    }
-  };
-
-  return (
-    <div className="tc-page">
-      <header className="tc-page__head">
-        <Megaphone size={18} />
-        <div>
-          <strong>Mural da equipe</strong>
-          <small>Recados para todo mundo. O gestor pode fixar os importantes.</small>
-        </div>
-      </header>
-      <div className="tc-page__scroll">
-        <div className="tc-post-new">
-          <textarea
-            className="tc-field"
-            rows={2}
-            placeholder="Escreva um recado para a equipe…"
-            value={text}
-            maxLength={2000}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void publish();
-            }}
-          />
-          {image && (
-            <span className="tc-post-new__img">
-              <img src={mediaUrl(image)!} alt="" />
-              <button onClick={() => setImage(null)} aria-label="Tirar foto">
-                <X size={14} />
-              </button>
-            </span>
-          )}
-          <div className="tc-post-new__row">
-            <button
-              className="tc-icon"
-              onClick={() => file.current?.click()}
-              aria-label="Foto"
-              title="Foto"
-            >
-              <ImageIcon size={18} />
-            </button>
-            <input
-              ref={file}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                e.target.value = '';
-                if (!f) return;
-                try {
-                  setImage(await uploadChatImage(f));
-                } catch (err) {
-                  toast((err as Error).message, 'danger');
-                }
-              }}
-            />
-            <span className="tc-spacer" />
-            <button className="tc-btn" onClick={publish} disabled={!text.trim() || busy}>
-              Publicar
-            </button>
-          </div>
-        </div>
-        {posts?.length === 0 && (
-          <div className="tc-page__empty">
-            <LivePanda size={72} mood="sleep" />
-            <p>Nenhum recado no mural ainda.</p>
-          </div>
-        )}
-        {posts?.map((p) => {
-          const reactions = Object.entries(p.reactions).filter(([, u]) => u.length);
-          return (
-            <article key={p.id} className={`tc-post ${p.pinned ? 'is-pinned' : ''}`}>
-              <header>
-                <Avatar name={p.authorName} seed={p.authorId ?? p.id} size={36} />
-                <span>
-                  <strong>{p.authorName ?? 'Alguém'}</strong>
-                  <small>
-                    {p.authorRole ? `${p.authorRole} · ` : ''}
-                    {shortWhen(p.createdAt)}
-                  </small>
-                </span>
-                {p.pinned && (
-                  <span className="tc-pill">
-                    <Pin size={12} /> Fixado
-                  </span>
-                )}
-                <span className="tc-spacer" />
-                {canPin && (
-                  <button
-                    className="tc-icon"
-                    onClick={() => act(() => chatApi.pinPost(p.id, !p.pinned))}
-                    aria-label={p.pinned ? 'Desafixar' : 'Fixar'}
-                    title={p.pinned ? 'Desafixar' : 'Fixar'}
-                  >
-                    {p.pinned ? <PinOff size={16} /> : <Pin size={16} />}
-                  </button>
-                )}
-                {(p.authorId === me || canPin) && (
-                  <button
-                    className="tc-icon"
-                    onClick={() =>
-                      confirm('Apagar este recado?') && act(() => chatApi.removePost(p.id))
-                    }
-                    aria-label="Apagar"
-                    title="Apagar"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                )}
-              </header>
-              <p>{p.body}</p>
-              {p.imageId && (
-                <img className="tc-post__img" src={mediaUrl(p.imageId)!} alt="" loading="lazy" />
-              )}
-              <footer>
-                {REACTIONS.slice(0, 5).map((e) => {
-                  const users = p.reactions[e] ?? [];
-                  return (
-                    <button
-                      key={e}
-                      className={`tc-chip ${users.includes(me) ? 'is-mine' : ''} ${users.length ? 'has' : ''}`}
-                      onClick={() => act(() => chatApi.reactPost(p.id, e))}
-                    >
-                      {e} {users.length > 0 && users.length}
-                    </button>
-                  );
-                })}
-                {reactions
-                  .filter(([e]) => !REACTIONS.slice(0, 5).includes(e as never))
-                  .map(([e, u]) => (
-                    <span key={e} className="tc-chip has">
-                      {e} {u.length}
-                    </span>
-                  ))}
-              </footer>
-            </article>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+export { MuralTab } from './Mural';
 
 // ------------------------------------------------------------------ Avisos
 
