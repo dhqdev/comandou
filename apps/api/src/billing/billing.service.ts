@@ -2401,6 +2401,8 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       `SELECT i.id, i.tenant_id FROM billing_invoices i
          JOIN subscriptions s ON s.id = i.subscription_id
          JOIN billing_cards c ON c.tenant_id = i.tenant_id AND c.environment = $1
+         -- Migrado para outra instalação: quem cobra agora é o servidor novo (sem cobrar 2 vezes).
+         JOIN tenants t ON t.id = i.tenant_id AND t.status <> 'migrated'
         WHERE s.status <> 'cancelled' AND s.pay_method = 'card' AND s.billing_mode = 'asaas'
           AND i.status IN ('pending', 'overdue') AND i.provider_id IS NOT NULL
           AND (i.due_date <= $2::date OR i.kind = 'upgrade')

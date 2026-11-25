@@ -174,7 +174,8 @@ describe.skipIf(!PG_BIN)('Migrar cliente para outra instalação', () => {
         await ownerQuery(`DELETE FROM backup_runs WHERE tenant_id = $1`, [t]);
         await ownerQuery(`DELETE FROM tenant_databases WHERE tenant_id = $1`, [t]);
         await ownerQuery(
-          `UPDATE tenants SET status = 'provisioned', moved_to = NULL WHERE id = $1`,
+          `UPDATE tenants SET status = 'provisioned', moved_to = NULL, app_version = NULL,
+                  app_update_to = NULL, app_update_at = NULL WHERE id = $1`,
           [t],
         );
       }
@@ -220,6 +221,11 @@ describe.skipIf(!PG_BIN)('Migrar cliente para outra instalação', () => {
     const before = await q<{ n: string }>(
       withDb(OWNER_URL, 'comandou_tst_mig_a'),
       `SELECT count(*)::text AS n FROM products`,
+    );
+    // Aqui o restaurante estava preso a uma versão (Versão por restaurante).
+    await ownerQuery(
+      `UPDATE tenants SET app_version = 'v0.1.0', app_update_to = 'v0.2.0', app_update_at = now() + interval '1 day' WHERE id = $1`,
+      [fx.tenantA],
     );
     const m = (await migrations.create(
       {
@@ -284,6 +290,14 @@ describe.skipIf(!PG_BIN)('Migrar cliente para outra instalação', () => {
       db: 'comandou_tst_mig_a_novo',
       dbs: 'ready',
     });
+    // Lá o banco chegou com todas as migrações de lá: acompanha o sistema de lá (sem a versão
+    // presa da origem, que faria o migrate de lá pular este banco nas próximas atualizações).
+    const [v] = await q<{ v: string | null; to: string | null; at: string | null }>(
+      DEST_OWNER,
+      `SELECT app_version AS v, app_update_to AS "to", app_update_at::text AS at FROM tenants WHERE id = $1`,
+      [fx.tenantA],
+    );
+    expect(v).toEqual({ v: null, to: null, at: null });
     expect(
       await q(DEST_OWNER, `SELECT 1 FROM tenant_domains WHERE hostname = 'pedidos.tst-mig-a.test'`),
     ).toHaveLength(1);

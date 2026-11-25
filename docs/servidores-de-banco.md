@@ -76,15 +76,21 @@ Libere a porta só para o IP da VM do Comandou e cadastre com **SSL obrigatório
 - **Todos:** Bancos → cartão do servidor → **Mover todos**. Cada restaurante entra na fila; o
   serviço de backup faz um por vez.
 
+**Na fila o restaurante segue funcionando** (o painel mostra "na fila"). Ele só sai do ar quando
+chega a vez dele: no "Mover todos", cada um fica parado só durante a própria cópia (desde a
+0.245.1; antes, todos saíam do ar no clique e esperavam a fila inteira sem acesso).
+
 O que acontece em cada um (trabalho `transfer`, `apps/api/src/backup/db-jobs.ts`):
 
-1. Confere o destino: o dono entra, pode criar bancos e os papéis da aplicação existem. Se já
-   houver lá um banco com o mesmo nome **com dados** (o mesmo servidor cadastrado com outro
-   endereço), para sem mexer em nada.
+1. Confere o destino: o servidor ainda está cadastrado e ativo, o dono entra, pode criar bancos e
+   os papéis da aplicação existem. Se já houver lá um banco com o mesmo nome **com dados** (o
+   mesmo servidor cadastrado com outro endereço, ou sobra de uma mudança antiga), para sem mexer
+   em nada. Qualquer falha aqui deixa o restaurante no ar, como estava.
 2. O restaurante fica em manutenção (a API responde "em manutenção" e nada é gravado) e espera
    15 s para as conexões em uso terminarem.
 3. Com backup ligado, faz um backup do banco na pasta do restaurante.
-4. Cria o banco no destino e aplica as mesmas migrações.
+4. Cria o banco no destino com **as mesmas migrações do banco de origem**: um restaurante preso
+   numa versão anterior ([versão por restaurante](versao-por-cliente.md)) continua nela.
 5. Copia tudo numa fotografia consistente e confere a contagem de cada tabela (uma transação: ou
    copia tudo, ou nada).
 6. Troca o apontamento e libera o restaurante. Só então apaga o banco antigo.
@@ -92,10 +98,16 @@ O que acontece em cada um (trabalho `transfer`, `apps/api/src/backup/db-jobs.ts`
 Falhou antes da troca: o banco novo é apagado e o restaurante volta a funcionar onde estava. O
 erro aparece no restaurante e em "Mudanças recentes".
 
+**Serviço de backup reiniciado no meio** (uma atualização do sistema, por exemplo): o trabalho
+volta para a fila e retoma. Se a troca já tinha acontecido, só apaga o banco antigo (antes ele
+ficava esquecido no servidor antigo e travava uma volta futura). Se ainda não, apaga o banco novo
+que ele mesmo tinha criado e refaz a cópia.
+
 ## Desligar um servidor
 
 **Desativar** (não recebe restaurantes) → **Mover todos** para outro → **Remover** (só com zero
-restaurantes; nada é apagado no servidor) → desligue a VM.
+restaurantes; nada é apagado no servidor) → desligue a VM. Uma troca que estava na fila para um
+servidor desativado ou removido falha sem tirar o restaurante do ar.
 
 ## Limites
 

@@ -195,16 +195,27 @@ export function DbServersPage() {
                   <div className="adm-rows" aria-label={`Restaurantes em ${c.name}`}>
                     {c.restaurants.slice(0, 8).map((r) => (
                       <div key={r.id} className="adm-row">
-                        <Dot level={DB_STATUS[r.dbStatus]?.[1] ?? 'off'} />
+                        <Dot
+                          level={
+                            r.busy && r.dbStatus === 'ready'
+                              ? 'info'
+                              : (DB_STATUS[r.dbStatus]?.[1] ?? 'off')
+                          }
+                        />
                         <span className="adm-row__main">
                           <Link to={`/restaurantes/${r.id}`} className="adm-row__title">
                             {r.name}
                           </Link>
                           <span className="adm-row__meta">
-                            {r.dbStatus === 'ready' ? r.slug : DB_STATUS[r.dbStatus]?.[0]}
+                            {r.dbStatus !== 'ready'
+                              ? DB_STATUS[r.dbStatus]?.[0]
+                              : r.busy
+                                ? 'na fila (segue funcionando até a vez dele)'
+                                : r.slug}
                           </span>
                         </span>
                         {r.dbStatus === 'ready' &&
+                          !r.busy &&
                           (r.status === 'provisioned' || r.status === 'suspended') &&
                           targets(c.id).length > 0 && (
                             <button
