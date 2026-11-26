@@ -625,6 +625,29 @@ O chat do sistema (`TeamChat`) fecha no Esc e num clique fora; os botões do top
 (`openTeamChat(tab, { toggle: true })`). Camada por cima dele (foto ampliada, janela, menu) não
 fecha o chat.
 
+## Estoque (0.263, pedido do David: botões grandes)
+
+Nada de botão de 30px nas telas do Estoque (`pages/stock.css`, seção "botões grandes"):
+
+- **Ações da linha** num `<td className="cm-num st-act">` com `<div className="st-actions">`: 38px
+  no computador e 44px com `pointer: coarse` (vence o `.cm-table td .cm-btn` de 30px), ícone 16;
+  Entrada `secondary`, o resto `ghost`. Tabela de linha clicável (Custo e preço) usa `rowClick`.
+- **Topo** (`.st-head__actions`): Novo insumo, Novo recebimento, Nova unidade de compra… em
+  `size="lg"` (44px, ícone 18), Tutorial na mesma altura. **Insumo aberto**: barra `.st-bar`
+  (`role="group"`) com Entrada, Perda, Contar, Mudar preço e Editar em `lg secondary`.
+- **Celular (até 640px):** `.st-actions` e `.st-bar` viram quadrados iguais lado a lado (colunas
+  iguais, 58px, ícone 20 em cima do nome) e o `td.st-act` perde o rótulo do cartão.
+- **Formulário de linhas** (Entrada, Produção): o primário fica no fim, no rodapé `.st-foot` (preso
+  no pé do cartão enquanto rola, total ao lado; no celular solto e na largura toda, 48px). Nada de
+  Confirmar no topo. Remover linha é `.st-remove` (38/44px).
+- Abas `.st-tabs__item` 44px, chips `.st-chip` 36px (40 no celular), títulos de grupo do
+  Inventário (`.st-count__title`) em cinza neutro.
+- **Nomes:** Insumos, Lotes e validade, Entrada, Saída e perdas, Produção, Fichas, Unidades de
+  compra (nunca "fatores" na tela), Custo e preço, Inventário. Mudou um nome: `stock/common.tsx`,
+  `nav-catalog.ts`, `tours.tsx`, `ai-guide.ts` e os textos "Estoque › …" juntos.
+- **Complemento sem estoque** (`stockOut` da opção): "Sem estoque" no PDV (`.picker__out`) e no
+  garçom (`.wt-ie__opt-out`), "Esgotado" no cardápio do cliente; a opção fica desabilitada.
+
 ## Antes de entregar
 
 Veja a tela em claro e escuro (o site, só claro), no notebook e em 390px, com os prints do

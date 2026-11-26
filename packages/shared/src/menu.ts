@@ -50,13 +50,19 @@ export function optionsTotalCents(groups: PricedGroup[], optionIds: string[]): n
   return total;
 }
 
-/** Opções marcadas como padrão, respeitando o máximo de cada grupo. */
+/**
+ * Opções marcadas como padrão, respeitando o máximo de cada grupo. Opção sem estoque pela ficha
+ * técnica (`stockOut`) não vem marcada: o pedido com ela seria recusado.
+ */
 export function defaultOptionIds(
-  groups: { maxSelect: number; options: { id: string; isDefault?: boolean }[] }[],
+  groups: {
+    maxSelect: number;
+    options: { id: string; isDefault?: boolean; stockOut?: boolean }[];
+  }[],
 ): string[] {
   return groups.flatMap((g) =>
     g.options
-      .filter((o) => o.isDefault)
+      .filter((o) => o.isDefault && !o.stockOut)
       .slice(0, g.maxSelect)
       .map((o) => o.id),
   );

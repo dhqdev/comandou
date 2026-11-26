@@ -49,6 +49,49 @@ export const TODAY_SQL = `(now() AT TIME ZONE ${TZ_SQL})::date`;
 export type StockEntryKind = 'purchase' | 'loss' | 'withdrawal' | 'count';
 
 /**
+ * Nome, código ou código de barras repetido no cadastro do insumo: diz qual, em vez do
+ * "Registro duplicado" genérico. Use no `.catch` do INSERT/UPDATE de `stock_items`.
+ */
+export function duplicateItem(e: unknown): never {
+  const err = e as { code?: string; constraint?: string } | null;
+  if (err?.code === '23505') {
+    if (err.constraint === 'stock_items_tenant_id_name_key')
+      throw new ConflictException('Já existe um insumo com este nome');
+    if (err.constraint === 'stock_items_code_uq')
+      throw new ConflictException('Já existe um insumo com este código');
+    if (err.constraint === 'stock_items_barcode_uq')
+      throw new ConflictException('Este código de barras já está em outro insumo');
+  }
+  throw e;
+}
+
+/**
+ * Onde o insumo está nas fichas: itens do cardápio, complementos (menos os arquivados, que não
+ * aparecem mais em lugar nenhum) e preparos da casa. Devolve até 4 nomes e quantos sobram, já em
+ * texto ("X-Burger, Bacon extra e mais 2"), ou null quando nenhuma ficha usa o insumo.
+ */
+export async function recipesUsing(tx: Tx, itemId: string): Promise<string | null> {
+  const rows = await q<{ name: string; n: number }>(
+    tx,
+    `WITH u AS (
+       SELECT p.name FROM product_recipes r JOIN products p ON p.id = r.product_id
+        WHERE r.stock_item_id = $1
+       UNION ALL
+       SELECT o.name FROM option_recipes r JOIN options o ON o.id = r.option_id
+        WHERE r.stock_item_id = $1 AND NOT o.archived
+       UNION ALL
+       SELECT s.name FROM stock_item_recipes r JOIN stock_items s ON s.id = r.stock_item_id
+        WHERE r.ingredient_id = $1)
+     SELECT name, (SELECT count(*)::int FROM u) AS n FROM u ORDER BY name LIMIT 4`,
+    [itemId],
+  );
+  if (!rows.length) return null;
+  const names = rows.map((r) => r.name).join(', ');
+  const more = rows[0]!.n - rows.length;
+  return more > 0 ? `${names} e mais ${more}` : names;
+}
+
+/**
  * Estoque por ficha técnica. Toda alteração de saldo:
  *  - trava a linha do insumo (FOR UPDATE, sempre em ordem de id e por ÚLTIMO na transação,
  *    depois de caixa/comanda/pedido) — evita corrida e deadlock entre vendas simultâneas;
@@ -334,9 +377,11 @@ export class StockService {
   /**
    * Quantidade em estoque do item do cardápio, informada na lista ou no cadastro do item.
    * Reaproveita o estoque: item sem ficha ganha um insumo com o nome dele e a ficha "1 por
-   * venda" (o controle simples); item com ficha de um insumo só, 1 por venda, tem esse insumo
-   * contado (ajuste com motivo). Ficha com vários insumos não tem um número para digitar: a
-   * quantidade sai da ficha. Cada venda baixa o insumo e, quando zera, o item sai do cardápio.
+   * venda" (o controle simples); se o Estoque já tem um insumo com esse nome e a mesma unidade,
+   * é ele que entra na ficha (antes dava "Registro duplicado"). Item com ficha de um insumo só,
+   * 1 por venda, tem esse insumo contado (ajuste com motivo). Ficha com vários insumos não tem
+   * um número para digitar: a quantidade sai da ficha. Cada venda baixa o insumo e, quando zera,
+   * o item sai do cardápio.
    */
   async setProductQuantity(ctx: Ctx, productId: string, quantity: string) {
     const res = await this.db.withTenant(ctx, async (tx) => {
@@ -359,14 +404,36 @@ export class StockService {
         );
       let itemId = lines[0]?.stock_item_id;
       let created = false;
+      let reused = false;
       if (!itemId) {
-        const r = await one<{ id: string }>(
+        const name = p.name.slice(0, 80);
+        const unit = p.sold_by_weight ? 'kg' : 'un';
+        // O Estoque já tem um insumo com o nome do item: o controle simples usa ele.
+        const same = await one<{ id: string; unit: string }>(
           tx,
-          `INSERT INTO stock_items (tenant_id, name, unit) VALUES ($1, $2, $3) RETURNING id`,
-          [ctx.tenantId, p.name.slice(0, 80), p.sold_by_weight ? 'kg' : 'un'],
+          `SELECT id, unit FROM stock_items WHERE name = $1`,
+          [name],
         );
-        itemId = r!.id;
-        created = true;
+        if (same && same.unit !== unit)
+          throw new ConflictException(
+            `Já existe o insumo ${name} em ${same.unit}: monte a ficha técnica do item com ele em Estoque › Fichas técnicas.`,
+          );
+        if (same) {
+          itemId = same.id;
+          reused = true;
+          // Volta a valer: está ligado a um item do cardápio de novo.
+          await q(tx, `UPDATE stock_items SET active = true WHERE id = $1 AND NOT active`, [
+            itemId,
+          ]);
+        } else {
+          const r = await one<{ id: string }>(
+            tx,
+            `INSERT INTO stock_items (tenant_id, name, unit) VALUES ($1, $2, $3) RETURNING id`,
+            [ctx.tenantId, name, unit],
+          );
+          itemId = r!.id;
+          created = true;
+        }
         await q(
           tx,
           `INSERT INTO product_recipes (tenant_id, product_id, stock_item_id, quantity) VALUES ($1,$2,$3,1)`,
@@ -392,7 +459,7 @@ export class StockService {
         action: 'stock.product_quantity',
         entity: 'product',
         entityId: productId,
-        data: { name: p.name, quantity, delta: d!.d, stockItemId: itemId, created },
+        data: { name: p.name, quantity, delta: d!.d, stockItemId: itemId, created, reused },
         ip: ctx.ip,
       });
       const av = await one(tx, `SELECT * FROM (${AVAILABILITY_SQL}) a WHERE "productId" = $1`, [

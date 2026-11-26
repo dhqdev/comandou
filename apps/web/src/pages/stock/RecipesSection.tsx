@@ -228,7 +228,12 @@ export function RecipesSection() {
         error={error}
         actions={
           canWrite && (
-            <Button variant="secondary" icon={<Plus size={16} />} onClick={() => setNewPrep(true)}>
+            <Button
+              size="lg"
+              variant="secondary"
+              icon={<Plus size={18} />}
+              onClick={() => setNewPrep(true)}
+            >
               Ficha de preparo
             </Button>
           )
@@ -246,7 +251,7 @@ export function RecipesSection() {
           </strong>{' '}
           e não dá para vender até dar entrada nos insumos
           {out.length === 1 ? ` (falta ${out[0]!.stock!.missing.join(', ')})` : ''}. No PDV, no
-          garçom e no cardápio online eles aparecem como esgotados.{' '}
+          garçom e no cardápio online eles aparecem como sem estoque e não dá para escolher.{' '}
           {lv.tab?.id !== 'out' && (
             <button
               type="button"
@@ -296,6 +301,7 @@ export function RecipesSection() {
                   <th className="cm-num">Custo</th>
                   <th className="cm-num">Preço</th>
                   <th className="cm-num">CMV</th>
+                  <th className="cm-num">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -342,6 +348,27 @@ export function RecipesSection() {
                       {r.priceCents && r.lines.length
                         ? fmtPct((r.costCents / r.priceCents) * 100)
                         : '—'}
+                    </td>
+                    <td className="cm-num st-act" data-label="">
+                      <div className="st-actions">
+                        <Button
+                          variant="secondary"
+                          icon={
+                            r.lines.length || !canWrite ? (
+                              <ClipboardList size={16} />
+                            ) : (
+                              <Plus size={16} />
+                            )
+                          }
+                          onClick={() => setEditing(r)}
+                        >
+                          {!canWrite
+                            ? 'Ver ficha'
+                            : r.lines.length
+                              ? 'Editar ficha'
+                              : 'Montar ficha'}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -441,7 +468,8 @@ function PickPrepModal({
       <div className="cm-form">
         <p className="cm-hint cm-form__wide" style={{ margin: 0 }}>
           Preparo é o que a cozinha faz com outros insumos (molho, massa, recheio) e guarda para
-          usar depois. Escolha o insumo do preparo; se ainda não existe, cadastre na Visão geral.
+          usar depois. Escolha o insumo do preparo; se ainda não existe, cadastre em Estoque ›
+          Insumos.
         </p>
         <SelectField label="Preparo" value={id} onChange={(e) => setId(e.target.value)}>
           <option value="">Escolha…</option>
@@ -701,6 +729,7 @@ function RecipeEditor({
             {canWrite && (
               <Button
                 variant="ghost"
+                className="st-remove"
                 aria-label="Remover insumo"
                 title="Remover insumo"
                 icon={<Trash2 size={16} />}

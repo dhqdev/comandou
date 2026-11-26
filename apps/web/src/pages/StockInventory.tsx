@@ -13,7 +13,7 @@ import {
 } from '../design-system';
 import { dateTime } from '../features/format';
 import { fmtQty, parseQtyInput, SelectField } from '../features/forms';
-import { agoLabel, milliToQty, toMilli, valueCents } from '../features/stock-math';
+import { agoLabel, countStart, milliToQty, toMilli, valueCents } from '../features/stock-math';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import type { StockCount, StockItem } from '../lib/types';
@@ -116,12 +116,13 @@ export function InventoryTab({
         title="Contagem de inventário"
         actions={
           <Button
-            variant="ghost"
+            variant="secondary"
             onClick={() =>
               setCounted((c) => {
                 const next = { ...c };
+                // Saldo negativo começa em 0: ninguém conta menos que zero na prateleira.
                 for (const r of rows)
-                  if (!next[r.item.id]) next[r.item.id] = fmtQty(r.item.quantity).replace('-', '');
+                  if (!next[r.item.id]) next[r.item.id] = fmtQty(countStart(r.item.quantity));
                 return next;
               })
             }
@@ -184,7 +185,7 @@ export function InventoryTab({
                     <TextField
                       label={`Contado (${r.item.unit})`}
                       inputMode="decimal"
-                      placeholder={fmtQty(r.item.quantity).replace('-', '')}
+                      placeholder={fmtQty(countStart(r.item.quantity))}
                       value={r.raw}
                       disabled={!canWrite}
                       error={r.q === null ? 'Até 3 casas' : undefined}
@@ -238,9 +239,10 @@ export function InventoryTab({
               wrapClass="st-count__note"
             />
             <Button
+              size="lg"
               disabled={!valid}
               onClick={() => setConfirm(true)}
-              icon={<ClipboardCheck size={16} />}
+              icon={<ClipboardCheck size={18} />}
             >
               Concluir inventário
             </Button>

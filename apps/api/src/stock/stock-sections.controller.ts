@@ -127,6 +127,14 @@ const FACTOR_SELECT = `
   SELECT f.id, f.code, f.name, f.unit, f.factor::text, f.stock_item_id AS "stockItemId", s.name AS "itemName"
     FROM stock_unit_factors f LEFT JOIN stock_items s ON s.id = f.stock_item_id`;
 
+/** Sigla repetida (no mesmo insumo, ou nas que valem para todos): diz qual em vez de "duplicado". */
+function duplicateFactor(e: unknown): never {
+  const err = e as { code?: string; constraint?: string } | null;
+  if (err?.code === '23505' && err.constraint === 'stock_unit_factors_code_uq')
+    throw new ConflictException('Já existe uma unidade de compra com esta sigla');
+  throw e;
+}
+
 /**
  * Seções do Estoque além dos insumos: ficha de preparo, lotes e validade, recebimento,
  * produção e fatores de conversão.
@@ -462,13 +470,13 @@ export class StockSectionsController {
             `UPDATE stock_unit_factors SET code = $2, name = $3, unit = $4, factor = $5, stock_item_id = $6
               WHERE id = $1 RETURNING id`,
             [id, b.code, b.name, b.unit, b.factor, b.stockItemId ?? null],
-          )
+          ).catch(duplicateFactor)
         : await one<{ id: string }>(
             tx,
             `INSERT INTO stock_unit_factors (tenant_id, code, name, unit, factor, stock_item_id)
              VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
             [t.id, b.code, b.name, b.unit, b.factor, b.stockItemId ?? null],
-          );
+          ).catch(duplicateFactor);
       if (!r) throw new NotFoundException('Fator não encontrado');
       await this.audit.record(tx, {
         tenantId: t.id,

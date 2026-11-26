@@ -96,7 +96,11 @@ export function ReceiptsSection() {
         error={error}
         actions={
           canWrite && (
-            <Button icon={<Plus size={16} />} onClick={() => navigate('/estoque/recebimento/novo')}>
+            <Button
+              size="lg"
+              icon={<Plus size={18} />}
+              onClick={() => navigate('/estoque/recebimento/novo')}
+            >
               Novo recebimento
             </Button>
           )
@@ -285,16 +289,11 @@ export function ReceiptForm() {
           <span aria-hidden>/</span>
           <h1>Novo recebimento</h1>
         </div>
-        {canWrite && (
-          <Button loading={busy} disabled={!valid} onClick={save}>
-            Confirmar<span className="st-hide-sm"> recebimento</span>
-          </Button>
-        )}
       </div>
       <p className="page-sub" style={{ margin: 0 }}>
         Um item por linha, como está na nota. Comprou em caixa ou fardo? Escolha a unidade da compra
-        e o sistema converte (cadastre as suas em Fatores de conversão). O custo é por unidade da
-        compra.
+        e o sistema converte (cadastre as suas em Estoque › Unidades de compra). O custo é por
+        unidade da compra. No fim, confirme embaixo, ao lado do total.
       </p>
       {error && <Alert tone="danger">{error}</Alert>}
       <Card title="Nota">
@@ -445,6 +444,7 @@ export function ReceiptForm() {
                     <td className="cm-num" data-label="">
                       <Button
                         variant="ghost"
+                        className="st-remove"
                         aria-label="Remover linha"
                         title="Remover linha"
                         icon={<Trash2 size={16} />}
@@ -458,17 +458,28 @@ export function ReceiptForm() {
             </table>
           </div>
         )}
-        <div className="st-rec__foot">
-          <Button
-            variant="secondary"
-            icon={<Plus size={16} />}
-            onClick={() => setLines((ls) => [...ls, newLine()])}
-          >
-            Adicionar item
-          </Button>
-          <span>
-            Total da nota <strong>{formatBRL(total)}</strong>
-          </span>
+        {/* Confirmar fica no fim do que se preenche, ao lado do total (preso embaixo ao rolar). */}
+        <div className="st-foot">
+          <div className="st-foot__info">
+            <Button
+              size="lg"
+              variant="secondary"
+              icon={<Plus size={18} />}
+              onClick={() => setLines((ls) => [...ls, newLine()])}
+            >
+              Adicionar item
+            </Button>
+            <span className="st-foot__total">
+              Total da nota <strong>{formatBRL(total)}</strong>
+            </span>
+          </div>
+          {canWrite && (
+            <div className="st-foot__go">
+              <Button size="lg" loading={busy} disabled={!valid} onClick={save}>
+                Confirmar recebimento
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
     </div>

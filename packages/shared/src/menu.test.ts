@@ -37,6 +37,18 @@ describe('cobrança dos complementos', () => {
     expect(optionsTotalCents(groups, ['a', 'b', 'c'])).toBe(4790);
     expect(defaultOptionIds(groups)).toEqual(['a', 'c']);
   });
+  it('opção padrão sem estoque não vem marcada', () => {
+    const groups = [
+      {
+        maxSelect: 1,
+        options: [
+          { id: 'a', isDefault: true, stockOut: true },
+          { id: 'b', isDefault: true },
+        ],
+      },
+    ];
+    expect(defaultOptionIds(groups)).toEqual(['b']);
+  });
   it('canal → tipo de cardápio', () => {
     expect(menuKindOf('table')).toBe('principal');
     expect(menuKindOf('counter')).toBe('principal');

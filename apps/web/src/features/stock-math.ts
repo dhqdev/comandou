@@ -39,6 +39,12 @@ export function fmtCost(v: string | number): string {
 export const valueCents = (qtyMilli: number, unitCost: string) =>
   Math.round((qtyMilli / 1000) * Number(unitCost) * 100);
 
+/**
+ * Onde a contagem começa: no saldo do sistema; com saldo negativo (insumo que aceita negativo),
+ * em zero. Antes o campo vinha com o número sem o sinal (-2 virava 2) e a contagem somava 4.
+ */
+export const countStart = (quantity: string) => (quantity.startsWith('-') ? '0' : quantity);
+
 /** Dias inteiros desde a data (0 = hoje). */
 export const daysSince = (iso: string) =>
   Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));

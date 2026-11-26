@@ -71,7 +71,7 @@ export function ItemDetail() {
       <div className="mn-crumbs">
         <div className="mn-crumbs__path">
           <Link to="/estoque" className="mn-crumbs__back">
-            <ArrowLeft size={16} aria-hidden /> Visão geral
+            <ArrowLeft size={16} aria-hidden /> Insumos
           </Link>
           <span aria-hidden>/</span>
           <h1>{item?.name ?? 'Insumo'}</h1>
@@ -121,45 +121,45 @@ export function ItemDetail() {
             </div>
           </div>
           {canWrite && (
-            <div className="st-actions st-actions--bar">
+            <div className="st-bar" role="group" aria-label={`Ações de ${item.name}`}>
               <Button
-                size="sm"
+                size="lg"
                 variant="secondary"
-                icon={<PackagePlus size={15} />}
+                icon={<PackagePlus size={18} />}
                 onClick={() => setEntry('purchase')}
               >
                 Entrada
               </Button>
               <Button
-                size="sm"
-                variant="ghost"
-                icon={<PackageMinus size={15} />}
+                size="lg"
+                variant="secondary"
+                icon={<PackageMinus size={18} />}
                 onClick={() => setEntry('loss')}
               >
                 Perda
               </Button>
               <Button
-                size="sm"
-                variant="ghost"
-                icon={<ClipboardCheck size={15} />}
+                size="lg"
+                variant="secondary"
+                icon={<ClipboardCheck size={18} />}
                 onClick={() => setEntry('count')}
               >
                 Contar
               </Button>
               {!item.hasPrep && (
                 <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<Tag size={15} />}
+                  size="lg"
+                  variant="secondary"
+                  icon={<Tag size={18} />}
                   onClick={() => setPricing(true)}
                 >
                   Mudar preço
                 </Button>
               )}
               <Button
-                size="sm"
-                variant="ghost"
-                icon={<Pencil size={15} />}
+                size="lg"
+                variant="secondary"
+                icon={<Pencil size={18} />}
                 onClick={() => setEditing(true)}
               >
                 Editar
@@ -246,18 +246,16 @@ export function ItemDetail() {
                       {page * PAGE + 1}–{Math.min((page + 1) * PAGE, moves.length)} de{' '}
                       {moves.length}
                     </span>
-                    <div>
+                    <div className="st-pager__nav">
                       <Button
-                        size="sm"
-                        variant="ghost"
+                        variant="secondary"
                         disabled={page === 0}
                         onClick={() => setPage((p) => p - 1)}
                       >
                         Anterior
                       </Button>
                       <Button
-                        size="sm"
-                        variant="ghost"
+                        variant="secondary"
                         disabled={page >= pages - 1}
                         onClick={() => setPage((p) => p + 1)}
                       >
@@ -274,7 +272,7 @@ export function ItemDetail() {
               {!lots || lots.length === 0 ? (
                 <EmptyState
                   title="Nenhum lote"
-                  description="Lotes nascem no recebimento (com validade) e na produção. Veja todos em Estoque › Lotes."
+                  description="Lotes nascem no recebimento (com validade) e na produção. Veja todos em Estoque › Lotes e validade."
                 />
               ) : (
                 <div className="st-scroll">

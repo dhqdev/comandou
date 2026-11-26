@@ -247,11 +247,14 @@ export const FIX_HINTS: FixHint[] = [
   {
     id: 'stock-low',
     problem: 'Saldo de estoque insuficiente',
-    match: /saldo insuficiente/i,
+    // Perda ou saída maior que o saldo, venda sem insumo (item ou complemento) e produção sem
+    // ingrediente: o caminho é o mesmo, dar entrada no que falta.
+    match: /saldo insuficiente|estoque insuficiente|insumo insuficiente/i,
     what: 'Lance a entrada da mercadoria (Recebimento) ou ajuste a contagem no Inventário.',
     to: '/estoque/recebimento',
     label: 'Lançar recebimento',
     perms: ['stock:write'],
+    ask: 'Peça a quem cuida do estoque para dar entrada no insumo que falta.',
   },
   {
     id: 'stock-negative',

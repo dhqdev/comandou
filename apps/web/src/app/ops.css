@@ -342,6 +342,16 @@
 .picker__opt > span:first-of-type {
   flex: 1;
 }
+/* Complemento sem estoque pela ficha técnica: apagado, com o aviso no lugar do preço. */
+.picker__opt[data-out] {
+  color: var(--cm-text-subtle);
+  cursor: not-allowed;
+}
+.picker__out {
+  color: var(--cm-danger);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+}
 
 /* Detalhe do pedido / comanda */
 .order-detail {

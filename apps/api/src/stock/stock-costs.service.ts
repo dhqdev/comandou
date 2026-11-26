@@ -212,8 +212,8 @@ export class StockCostsService {
         ({ p, cmv }) => `${p.name} (custo ${brl(p.newCost)}, ${Math.round(cmv * 100)}% do preço)`,
       );
     const body = worst.length
-      ? `Maior peso do custo agora: ${worst.join('; ')}. Confira em Estoque › Precificação.`
-      : 'Confira em Estoque › Precificação.';
+      ? `Maior peso do custo agora: ${worst.join('; ')}. Confira em Estoque › Custo e preço.`
+      : 'Confira em Estoque › Custo e preço.';
     const users = await q<{ id: string }>(
       tx,
       `SELECT user_id AS id FROM memberships WHERE status = 'active' AND role IN ('owner','manager')`,

@@ -1820,3 +1820,13 @@ button.acct-tile {
 .sf:not([data-layout='phone']) .sf-hero > .sf-wrap {
   margin-inline: 0;
 }
+
+/* Complemento sem estoque pela ficha técnica (0.263): apagado, com "Esgotado" no lugar do preço,
+   e não dá para escolher. Nas linhas, o apagado é o mesmo do grupo cheio (data-full). */
+.og__chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.og__chip:disabled:active {
+  transform: none;
+}

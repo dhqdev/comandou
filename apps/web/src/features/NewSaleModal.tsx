@@ -1011,20 +1011,30 @@ export function OptionPicker({
                   )}
                 </span>
               </legend>
-              {g.options.map((o) => (
-                <label key={o.id} className="picker__opt">
-                  <input
-                    type={single ? 'radio' : 'checkbox'}
-                    name={g.id}
-                    checked={sel[g.id]?.includes(o.id) ?? false}
-                    onChange={() => toggle(g.id, o.id, single)}
-                  />
-                  <span>{o.name}</span>
-                  {toCents(o.priceDelta) > 0 && (
-                    <span className="cm-hint">+ {brl(o.priceDelta)}</span>
-                  )}
-                </label>
-              ))}
+              {g.options.map((o) => {
+                const on = sel[g.id]?.includes(o.id) ?? false;
+                // Complemento com ficha técnica sem estoque: aparece, mas não dá para escolher.
+                const out = !!o.stockOut && !on;
+                return (
+                  <label key={o.id} className="picker__opt" data-out={out || undefined}>
+                    <input
+                      type={single ? 'radio' : 'checkbox'}
+                      name={g.id}
+                      checked={on}
+                      disabled={out}
+                      onChange={() => toggle(g.id, o.id, single)}
+                    />
+                    <span>{o.name}</span>
+                    {out ? (
+                      <span className="picker__out">Sem estoque</span>
+                    ) : (
+                      toCents(o.priceDelta) > 0 && (
+                        <span className="cm-hint">+ {brl(o.priceDelta)}</span>
+                      )
+                    )}
+                  </label>
+                );
+              })}
             </fieldset>
           );
         })}

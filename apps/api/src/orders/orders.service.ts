@@ -34,7 +34,7 @@ import { DatabaseService, Tx } from '../database/database.service';
 import { PrintingService } from '../printing/printing.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { completeSeatedForTab } from '../reservations/seated';
-import { PRODUCT_STOCK_MISSING } from '../stock/availability-sql';
+import { OPTION_STOCK_MISSING, PRODUCT_STOCK_MISSING } from '../stock/availability-sql';
 import { StockService } from '../stock/stock.service';
 import { PlanService } from '../plans/plan.service';
 import { LoyaltyService, RedeemQuote } from '../loyalty/loyalty.service';
@@ -1099,9 +1099,12 @@ export class OrdersService {
           price_delta: string;
           group_id: string;
           active: boolean;
+          stock_missing: string[];
         }>(
           tx,
-          `SELECT id, name, price_delta::text, group_id, active FROM options WHERE id = ANY($1::uuid[])`,
+          `SELECT o.id, o.name, o.price_delta::text, o.group_id, o.active,
+                  ${OPTION_STOCK_MISSING} AS stock_missing
+             FROM options o WHERE o.id = ANY($1::uuid[])`,
           [optionIds],
         )
       : [];
@@ -1159,6 +1162,11 @@ export class OrdersService {
         if (!o || !o.active || !g) {
           throw new UnprocessableEntityException(`Opção inválida para ${p.name}`);
         }
+        // Complemento com ficha técnica sem estoque para mais uma unidade: não vende.
+        if (o.stock_missing.length)
+          throw new ConflictException(
+            `Estoque insuficiente: ${o.name} (${p.name}) está sem estoque (falta ${o.stock_missing.join(', ')}). Dê entrada no estoque ou escolha outra opção.`,
+          );
         if (!g.allow_repeat) {
           if (seen.has(id)) return [];
           seen.add(id);

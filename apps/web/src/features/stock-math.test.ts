@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recipeStock } from './stock-math';
+import { countStart, recipeStock } from './stock-math';
 
 const items = new Map([
   ['pao', { name: 'Pão', unit: 'un', quantity: '3.000', allowNegative: false }],
@@ -45,5 +45,13 @@ describe('recipeStock', () => {
 
   it('sem ficha não tem limite', () => {
     expect(recipeStock([], items)).toEqual({ portions: null, missing: [], lines: [] });
+  });
+});
+
+describe('countStart', () => {
+  it('começa no saldo do sistema e nunca abaixo de zero', () => {
+    expect(countStart('12.500')).toBe('12.500');
+    expect(countStart('0.000')).toBe('0.000');
+    expect(countStart('-2.000')).toBe('0');
   });
 });

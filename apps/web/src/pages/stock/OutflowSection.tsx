@@ -33,7 +33,10 @@ import { useDebounced, useRealtime } from '../../lib/realtime';
 import type { StockItem, StockMovement } from '../../lib/types';
 import { KIND_TONE, kindLabel, originLabel, StockHead, useStockItems } from './common';
 
-/** Motivo da saída, para filtrar: venda, perda, produção, saída avulsa ou contagem para menos. */
+/**
+ * Motivo da saída, para filtrar: venda, perda, produção, saída avulsa ou contagem para menos. O
+ * estorno de venda (pedido cancelado devolveu o insumo) aparece junto das vendas e desconta.
+ */
 const reason = (m: StockMovement) => (m.countId ? 'count' : m.kind);
 const FIELDS: ListField<StockMovement>[] = [
   {
@@ -42,6 +45,7 @@ const FIELDS: ListField<StockMovement>[] = [
     value: reason,
     options: [
       { value: 'sale', label: 'Venda' },
+      { value: 'sale_reversal', label: 'Estorno de venda' },
       { value: 'loss', label: 'Perda' },
       { value: 'production', label: 'Produção' },
       { value: 'withdrawal', label: 'Saída avulsa' },
@@ -56,7 +60,7 @@ const FIELDS: ListField<StockMovement>[] = [
 ];
 const TABS: ListTab[] = [
   { id: 'all', label: 'Todas', filters: {} },
-  { id: 'sale', label: 'Vendas', filters: { reason: ['sale'] } },
+  { id: 'sale', label: 'Vendas', filters: { reason: ['sale', 'sale_reversal'] } },
   { id: 'loss', label: 'Perdas', filters: { reason: ['loss'] } },
   { id: 'production', label: 'Produção', filters: { reason: ['production'] } },
   { id: 'withdrawal', label: 'Avulsas', filters: { reason: ['withdrawal'] } },
@@ -67,7 +71,10 @@ const SORTS: ListSort<StockMovement>[] = [
   { key: 'item', label: 'Insumo', get: (m) => fold(m.itemName), asc: true },
 ];
 
-/** Saídas de estoque: tudo o que saiu (vendas, perdas, produção e saídas avulsas). */
+/**
+ * Saídas de estoque: tudo o que saiu (vendas, perdas, produção e saídas avulsas). O que voltou de
+ * pedido cancelado entra como estorno (+) e desconta do total, para a venda desfeita não contar.
+ */
 export function OutflowSection() {
   const navigate = useNavigate();
   const canWrite = useCan('stock:write');
@@ -108,7 +115,7 @@ export function OutflowSection() {
         error={error}
         actions={
           canWrite && (
-            <Button icon={<Plus size={16} />} onClick={() => setCreating(true)}>
+            <Button size="lg" icon={<Plus size={18} />} onClick={() => setCreating(true)}>
               Nova saída avulsa
             </Button>
           )
@@ -168,9 +175,15 @@ export function OutflowSection() {
                     </td>
                     <td>{dateTime(m.createdAt)}</td>
                     <td className="cm-num">
-                      <span className="st-delta" data-neg>
-                        {fmtQty(m.quantity.replace('-', ''))} {m.unit}
-                      </span>
+                      {m.kind === 'sale_reversal' ? (
+                        <span className="st-delta">
+                          +{fmtQty(m.quantity)} {m.unit}
+                        </span>
+                      ) : (
+                        <span className="st-delta" data-neg>
+                          {fmtQty(m.quantity.replace('-', ''))} {m.unit}
+                        </span>
+                      )}
                     </td>
                     <td className="cm-num">{m.value ? brl(m.value.replace('-', '')) : '—'}</td>
                     <td>

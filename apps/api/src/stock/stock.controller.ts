@@ -26,7 +26,7 @@ import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { AVAILABILITY_SQL } from './availability-sql';
 import { StockCostsService } from './stock-costs.service';
-import { ITEM_SELECT, StockService, TZ_SQL } from './stock.service';
+import { duplicateItem, ITEM_SELECT, recipesUsing, StockService, TZ_SQL } from './stock.service';
 
 const UNITS = ['un', 'kg', 'g', 'l', 'ml'] as const;
 /** Texto opcional: vazio vira null (limpa o campo). */
@@ -104,7 +104,10 @@ const CostChangesQuery = z.object({
 });
 const MovementsQuery = z.object({
   itemId: uuid.optional(),
-  /** "out" = só saídas (venda, perda, produção, saída avulsa, contagem para menos). */
+  /**
+   * "out" = saídas (venda, perda, produção, saída avulsa, contagem para menos) e o estorno de
+   * venda (o que voltou de pedido cancelado), para a lista de saídas não contar venda desfeita.
+   */
   direction: z.enum(['in', 'out']).optional(),
   from: z
     .string()
@@ -158,7 +161,7 @@ export class StockController {
           b.barcode ?? null,
           b.shelfLifeDays ?? null,
         ],
-      );
+      ).catch(duplicateItem);
       await this.audit.record(tx, {
         tenantId: t.id,
         actorUserId: u.id,
@@ -184,9 +187,17 @@ export class StockController {
     @Req() req: Request,
   ) {
     const res = await this.db.withTenant(ctxOf(t, u), async (tx) => {
-      const cur = await one<{ unit: string; quantity: string; allow_negative: boolean }>(
+      const cur = await one<{
+        unit: string;
+        quantity: string;
+        allow_negative: boolean;
+        active: boolean;
+        prep: boolean;
+      }>(
         tx,
-        `SELECT unit, quantity::text, allow_negative FROM stock_items WHERE id = $1 FOR UPDATE`,
+        `SELECT unit, quantity::text, allow_negative, active,
+                EXISTS (SELECT 1 FROM stock_item_recipes r WHERE r.stock_item_id = s.id) AS prep
+           FROM stock_items s WHERE id = $1 FOR UPDATE`,
         [id],
       );
       if (!cur) throw new NotFoundException('Insumo não encontrado');
@@ -198,6 +209,25 @@ export class StockController {
         );
         if (used)
           throw new ConflictException('A unidade não pode mudar depois de haver movimentos');
+        // As quantidades das fichas estão na unidade de hoje: 0,150 kg viraria 0,150 g.
+        const inRecipes = await recipesUsing(tx, id);
+        if (inRecipes)
+          throw new ConflictException(
+            `A unidade não pode mudar: o insumo está na ficha de ${inRecipes}, com as quantidades em ${cur.unit}`,
+          );
+        if (cur.prep)
+          throw new ConflictException(
+            `A unidade não pode mudar: a ficha de preparo deste insumo rende em ${cur.unit}`,
+          );
+      }
+      // Desativado, o insumo some das listas, mas a ficha continuaria baixando (e travando a
+      // venda quando zera): primeiro ele sai das fichas.
+      if (b.active === false && cur.active) {
+        const inRecipes = await recipesUsing(tx, id);
+        if (inRecipes)
+          throw new ConflictException(
+            `O insumo está na ficha de ${inRecipes}: tire-o das fichas técnicas antes de desativar`,
+          );
       }
       if (b.allowNegative === false && cur.quantity.startsWith('-'))
         throw new ConflictException('Saldo negativo: ajuste o estoque antes de bloquear negativos');
@@ -229,7 +259,7 @@ export class StockController {
           b.shelfLifeDays !== undefined,
           b.shelfLifeDays ?? null,
         ],
-      );
+      ).catch(duplicateItem);
       await this.audit.record(tx, {
         tenantId: t.id,
         actorUserId: u.id,
@@ -285,7 +315,8 @@ export class StockController {
            LEFT JOIN stock_productions pr ON pr.id = m.production_id
            LEFT JOIN stock_lots lt ON lt.id = m.lot_id
           WHERE ($1::uuid IS NULL OR m.stock_item_id = $1)
-            AND ($3::text IS NULL OR ($3 = 'out' AND m.quantity < 0) OR ($3 = 'in' AND m.quantity > 0))
+            AND ($3::text IS NULL OR ($3 = 'out' AND (m.quantity < 0 OR m.kind = 'sale_reversal'))
+                 OR ($3 = 'in' AND m.quantity > 0))
             AND ($4::date IS NULL OR m.created_at >= ($4::date::timestamp AT TIME ZONE ${TZ_SQL}))
           ORDER BY m.id DESC LIMIT $2`,
         [f.itemId ?? null, f.limit, f.direction ?? null, f.from ?? null],

@@ -330,7 +330,7 @@ function ItemsTab({
       title="Insumos"
       actions={
         canWrite && (
-          <Button icon={<Plus size={16} />} onClick={() => setEditing('new')}>
+          <Button size="lg" icon={<Plus size={18} />} onClick={() => setEditing('new')}>
             Novo insumo
           </Button>
         )
@@ -362,9 +362,7 @@ function ItemsTab({
               <tr>
                 <th>Insumo</th>
                 <th className="cm-num">Saldo</th>
-                <th className="cm-num">Mínimo</th>
                 <th className="cm-num">Custo médio</th>
-                <th className="cm-num">Valor</th>
                 <th className="cm-num">Dura</th>
                 {canWrite && <th className="cm-num">Ações</th>}
               </tr>
@@ -410,15 +408,19 @@ function ItemsTab({
                           {fmtQty(i.quantity)} {i.unit}
                         </strong>
                         <LevelBar item={i} />
+                        {toMilli(i.minQuantity) > 0 && (
+                          <span className="st-qty__min">
+                            mín. {fmtQty(i.minQuantity)} {i.unit}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="cm-num">
-                      {fmtQty(i.minQuantity)} {i.unit}
+                      <span className="st-stack">
+                        {fmtCost(i.avgCost)}/{i.unit}
+                        <span className="cm-hint st-nowrap">{brl(i.stockValue)} em estoque</span>
+                      </span>
                     </td>
-                    <td className="cm-num">
-                      {fmtCost(i.avgCost)}/{i.unit}
-                    </td>
-                    <td className="cm-num">{brl(i.stockValue)}</td>
                     <td className="cm-num">
                       {days === null ? (
                         <span className="cm-hint">—</span>
@@ -432,36 +434,32 @@ function ItemsTab({
                       )}
                     </td>
                     {canWrite && (
-                      <td className="cm-num" data-label="">
+                      <td className="cm-num st-act" data-label="">
                         <div className="st-actions">
                           <Button
-                            size="sm"
                             variant="secondary"
-                            icon={<PackagePlus size={15} />}
+                            icon={<PackagePlus size={16} />}
                             onClick={() => setEntry({ item: i, kind: 'purchase' })}
                           >
                             Entrada
                           </Button>
                           <Button
-                            size="sm"
                             variant="ghost"
-                            icon={<PackageMinus size={15} />}
+                            icon={<PackageMinus size={16} />}
                             onClick={() => setEntry({ item: i, kind: 'loss' })}
                           >
                             Perda
                           </Button>
                           <Button
-                            size="sm"
                             variant="ghost"
-                            icon={<ClipboardCheck size={15} />}
+                            icon={<ClipboardCheck size={16} />}
                             onClick={() => setEntry({ item: i, kind: 'count' })}
                           >
                             Contar
                           </Button>
                           <Button
-                            size="sm"
                             variant="ghost"
-                            icon={<Pencil size={15} />}
+                            icon={<Pencil size={16} />}
                             onClick={() => setEditing(i)}
                           >
                             Editar

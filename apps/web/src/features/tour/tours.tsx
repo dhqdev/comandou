@@ -656,7 +656,8 @@ export const STOCK_STOPS: TourStop[] = [
     ),
     steps: [
       <>
-        Toque em <b>Ficha de preparo</b> no item e adicione os insumos com a quantidade.
+        Toque em <b>Montar ficha</b> no item e adicione os insumos com a quantidade. Molho ou massa
+        feitos na casa ganham a <b>Ficha de preparo</b>.
       </>,
       <>
         Atenção: se faltar insumo, a venda é recusada, a não ser que o insumo permita saldo negativo
@@ -679,20 +680,27 @@ export const STOCK_STOPS: TourStop[] = [
   },
   {
     path: '/estoque/fatores',
-    title: 'Fatores de conversão',
+    title: 'Unidades de compra',
     text: 'Você compra em caixa ou fardo, mas controla em unidade ou kg.',
     steps: [
       <>
-        Toque em <b>Novo fator</b> (ex.: CX = 12 un). No recebimento, é só escolher CX.
+        Toque em <b>Nova unidade de compra</b> (ex.: CX12 = 12 un). No recebimento, é só escolher
+        CX12.
       </>,
     ],
-    targets: [{ button: 'Novo fator' }, { css: '.page-head' }],
+    targets: [{ button: 'Nova unidade de compra' }, { css: '.page-head' }],
   },
   {
     path: '/estoque/producao',
     title: 'Produção',
     text: 'Para o que você prepara na cozinha (molho, massa, hambúrguer moldado).',
-    steps: [<>Lance a produção: ela tira os ingredientes e põe o preparo pronto no estoque.</>],
+    steps: [
+      <>
+        Bipe a etiqueta ou toque em <b>Adicionar linha</b>, diga quanto fez e toque em{' '}
+        <b>Confirmar produção</b>, embaixo das linhas: ela tira os ingredientes e põe o preparo
+        pronto no estoque.
+      </>,
+    ],
     targets: [{ css: '.page-head' }],
   },
   {
@@ -708,7 +716,7 @@ export const STOCK_STOPS: TourStop[] = [
   },
   {
     path: '/estoque/saida',
-    title: 'Saída de estoque',
+    title: 'Saída e perdas',
     text: 'O histórico de tudo que saiu e por quê: vendas, perdas, produção e retiradas.',
     steps: [
       <>
@@ -729,7 +737,7 @@ export const STOCK_STOPS: TourStop[] = [
   },
   {
     path: '/estoque/precificacao',
-    title: 'Precificação',
+    title: 'Custo e preço',
     text: 'Com as fichas prontas, o custo de cada prato, o lucro e o preço sugerido.',
     steps: [<>Compare o preço atual com o sugerido. Nada muda o preço sozinho.</>],
     targets: [{ css: '.page-head' }],
@@ -742,8 +750,8 @@ export const stockEnds: TourEnds = {
     text: (
       <>
         Vamos passar por cada parte, na ordem de quem está começando: insumos, fichas técnicas,
-        recebimento, fatores, produção, lotes, saídas, inventário e precificação. Nada é salvo
-        durante o tutorial. {HELP_TIP}
+        recebimento, unidades de compra, produção, lotes, saídas, inventário e custo e preço. Nada é
+        salvo durante o tutorial. {HELP_TIP}
       </>
     ),
   },

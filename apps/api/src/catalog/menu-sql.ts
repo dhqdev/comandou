@@ -1,11 +1,12 @@
-import { PRODUCT_STOCK_OUT } from '../stock/availability-sql';
+import { OPTION_STOCK_OUT, PRODUCT_STOCK_OUT } from '../stock/availability-sql';
 
 /**
  * Árvore do cardápio para vender (categorias → itens → grupos → opções) num canal.
  * Sem cardápio ativo do tipo do canal, entram todos os itens ativos no preço base; com cardápio,
  * só os itens dele, no preço dele. $1 = tipo do cardápio ('principal' | 'delivery').
  * Item sem estoque pela ficha técnica sai como esgotado ("soldOut") e com "stockOut" — o PDV, o
- * garçom e o cardápio online já bloqueiam a venda sem precisar marcar à mão.
+ * garçom e o cardápio online já bloqueiam a venda sem precisar marcar à mão. Complemento com ficha
+ * sem estoque sai com "stockOut" (a tela mostra "Sem estoque" e não deixa escolher).
  * `extra` acrescenta campos do item (ex.: setor para a equipe, destaque para o cliente).
  */
 export function menuTreeSql(extra: string) {
@@ -19,7 +20,7 @@ export function menuTreeSql(extra: string) {
              'kind', g.kind, 'charge', g.charge, 'allowRepeat', g.allow_repeat,
              'options', COALESCE((SELECT json_agg(json_build_object('id', o.id, 'name', o.name,
                                     'priceDelta', o.price_delta::text, 'isDefault', o.is_default,
-                                    'description', o.description,
+                                    'stockOut', ${OPTION_STOCK_OUT}, 'description', o.description,
                                     'imageUrl', '/api/v1/media/' || o.image_id)
                                   ORDER BY o.position, o.name)
                                  FROM options o WHERE o.group_id = g.id AND o.active), '[]'))

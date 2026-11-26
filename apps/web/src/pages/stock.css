@@ -148,6 +148,7 @@ button.st-kpi:active {
 }
 .st-name__meta {
   font-size: var(--cm-text-xs);
+  font-weight: 400;
   color: var(--cm-text-subtle);
 }
 .st-name__badges {
@@ -277,15 +278,23 @@ button.st-kpi:active {
   gap: 6px;
 }
 .st-chip {
-  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
   border-radius: var(--cm-radius-full);
   border: 1px solid var(--cm-border-strong);
   background: var(--cm-surface);
   color: var(--cm-text);
   font: inherit;
-  font-size: var(--cm-text-xs);
+  font-size: var(--cm-text-sm);
   font-weight: 600;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.st-chip:active {
+  transform: scale(0.97);
 }
 .st-chip[aria-pressed='true'] {
   border-color: var(--cm-brand-500);
@@ -347,9 +356,10 @@ button.st-kpi:active {
   gap: var(--cm-space-2);
   margin: 0;
   padding: 10px var(--cm-space-5);
-  font-size: var(--cm-text-xs);
-  color: var(--cm-brand-700);
-  background: color-mix(in oklab, var(--cm-brand-500) 8%, var(--cm-surface));
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+  background: var(--cm-surface-muted);
   border-bottom: 1px solid var(--cm-border);
 }
 .st-count__title span {
@@ -456,6 +466,11 @@ button.st-kpi:active {
 /* ------------------------------------------------------------- precificação */
 .st-pricing td {
   white-space: nowrap;
+}
+/* Cabeçalho comprido ("Margem contrib.", "CMV e markup") quebra em duas linhas: a coluna fica do
+   tamanho do número e sobra espaço para o botão Simular sem a tabela rolar de lado. */
+.st-pricing th {
+  white-space: normal;
 }
 .st-pricing td:first-child {
   white-space: normal;
@@ -660,11 +675,14 @@ button.st-kpi:active {
   scrollbar-width: none;
 }
 .st-tabs__item {
-  padding: 8px 2px;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cm-touch);
+  padding: 0 4px;
   margin-bottom: -1px;
   border-bottom: 2px solid transparent;
   color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
+  font-size: var(--cm-text-md);
   font-weight: 600;
   white-space: nowrap;
   text-decoration: none;
@@ -678,8 +696,17 @@ button.st-kpi:active {
 }
 .st-head__actions {
   display: flex;
+  align-items: center;
   gap: var(--cm-space-2);
   flex-wrap: wrap;
+}
+/* Tutorial e a ação da tela na mesma altura (44px), lado a lado. */
+.st-head__actions > .cm-btn {
+  min-height: var(--cm-touch);
+}
+.st-head__actions > .tour-btn {
+  padding: 0 var(--cm-space-4);
+  font-size: var(--cm-text-sm);
 }
 .st-head__confirm {
   display: flex;
@@ -772,6 +799,10 @@ button.st-kpi:active {
   gap: var(--cm-space-3);
   padding: 10px var(--cm-space-4);
   border-top: 1px solid var(--cm-border);
+}
+.st-pager__nav {
+  display: flex;
+  gap: var(--cm-space-2);
 }
 
 /* Produção: campo de bipar, explicação e "Adicionar linha" lado a lado. */
@@ -967,4 +998,164 @@ button.st-kpi:active {
 }
 .st-costdiff[data-down] strong {
   color: var(--cm-success);
+}
+
+/* ------------------------------------------------------------- botões grandes (0.263)
+   Pedido do dono: telas fáceis de usar, com botões grandes e na proporção certa. No Estoque
+   nenhum botão fica com os 30px do botão pequeno:
+   - ações da linha (st-actions): 38px e letra de 14px no computador; 44px em tela de toque;
+     no celular, uma grade de botões iguais embaixo do cartão, com o ícone em cima do nome;
+   - barra de ações do insumo (st-bar): botões de 44px; no celular, a mesma grade de botões;
+   - ação principal da tela (Novo insumo, Confirmar recebimento, Concluir inventário…): 44px. */
+@media (min-width: 641px) {
+  .st-actions {
+    gap: 8px;
+  }
+  .st-page .cm-table td .st-actions .cm-btn {
+    min-height: 38px;
+    height: 38px;
+    padding: 0 12px;
+    gap: 6px;
+    font-size: var(--cm-text-sm);
+  }
+  .st-page .cm-table td .st-actions .cm-btn--icon {
+    width: 38px;
+    padding: 0;
+  }
+}
+@media (min-width: 641px) and (pointer: coarse) {
+  .st-page .cm-table td .st-actions .cm-btn {
+    min-height: var(--cm-touch);
+    height: var(--cm-touch);
+  }
+  .st-page .cm-table td .st-actions .cm-btn--icon {
+    width: var(--cm-touch);
+  }
+}
+/* Tirar a linha (recebimento, produção, ficha técnica): ícone num alvo do tamanho dos campos. */
+.st-page .cm-table td .cm-btn.st-remove,
+.st-remove.cm-btn--icon {
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+}
+@media (pointer: coarse) {
+  .st-page .cm-table td .cm-btn.st-remove,
+  .st-remove.cm-btn--icon {
+    width: var(--cm-touch);
+    height: var(--cm-touch);
+    min-height: var(--cm-touch);
+  }
+}
+.st-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+}
+/* Saldo com o mínimo embaixo da barra (a coluna Mínimo saiu para sobrar espaço aos botões). */
+.st-nowrap {
+  white-space: nowrap;
+}
+.st-qty__min {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+  font-weight: 400;
+}
+/* Rodapé com a ação principal no fim do que se preenche (recebimento e produção): total ou aviso
+   à esquerda, o botão grande à direita. No computador fica preso embaixo da tela enquanto rola. */
+.st-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-3) var(--cm-space-4);
+  padding-bottom: calc(var(--cm-space-3) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+  /* Raio de dentro = o do cartão menos a linha. */
+  border-radius: 0 0 calc(var(--cm-radius-md) - 1px) calc(var(--cm-radius-md) - 1px);
+}
+.st-foot__info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2) var(--cm-space-4);
+  min-width: 0;
+}
+.st-foot__go {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+  margin-left: auto;
+}
+.st-foot__total strong {
+  margin-left: 8px;
+  font-size: var(--cm-text-lg);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  /* Ações da linha: grade de botões iguais embaixo do cartão, ícone em cima do nome. */
+  .st-table td.st-act {
+    display: block;
+    padding-top: 10px;
+    text-align: left;
+  }
+  .st-table td.st-act::before {
+    display: none;
+  }
+  .st-actions,
+  .st-bar {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+    margin-top: 0;
+  }
+  .st-actions .cm-btn,
+  .st-bar .cm-btn {
+    flex-direction: column;
+    gap: 4px;
+    width: auto;
+    min-width: 0;
+    min-height: 58px;
+    height: auto;
+    padding: 8px 4px;
+    border-radius: var(--cm-radius-md);
+    font-size: var(--cm-text-xs);
+    font-weight: 600;
+    line-height: 1.15;
+    white-space: normal;
+    text-align: center;
+  }
+  .st-actions .cm-btn svg,
+  .st-bar .cm-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+  .st-chip {
+    min-height: 40px;
+  }
+  .st-foot {
+    position: static;
+  }
+  .st-foot__go,
+  .st-foot__go > .cm-btn {
+    width: 100%;
+  }
+  .st-foot__go > .cm-btn {
+    min-height: 48px;
+  }
+}
+/* Toque (tablet e celular): o campo da contagem do inventário cresce para o dedo. */
+@media (pointer: coarse) {
+  .st-count__input .cm-input {
+    min-height: var(--cm-touch);
+    font-size: 16px;
+  }
 }

@@ -29,6 +29,7 @@ import { api } from '../lib/api';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import { brl, parseBrlInput } from '../lib/money';
 import type { PricingData, PricingProduct, PricingSettings } from '../lib/types';
+import { rowClick } from '../features/list-view';
 import { CostChangesCard } from './stock/CostChanges';
 
 const STATUS: Record<
@@ -38,7 +39,7 @@ const STATUS: Record<
   ok: { label: 'Saudável', tone: 'success' },
   below: { label: 'Abaixo do sugerido', tone: 'warning' },
   loss: { label: 'Prejuízo', tone: 'danger' },
-  'no-recipe': { label: 'Sem ficha técnica', tone: 'neutral' },
+  'no-recipe': { label: 'Sem ficha', tone: 'neutral' },
 };
 type Filter = 'all' | 'attention' | 'loss' | 'no-recipe';
 
@@ -181,14 +182,13 @@ export function PricingTab() {
           <EmptyState icon={<Search size={20} />} title="Nenhum produto com esses filtros" />
         ) : (
           <div className="st-scroll">
-            <table className="cm-table st-table st-pricing">
+            <table className="cm-table cm-table--click st-table st-pricing">
               <thead>
                 <tr>
                   <th>Produto</th>
                   <th className="cm-num">Preço</th>
                   <th className="cm-num">Custo</th>
-                  <th className="cm-num">CMV</th>
-                  <th className="cm-num">Markup</th>
+                  <th className="cm-num">CMV e markup</th>
                   <th className="cm-num">Margem contrib.</th>
                   <th className="cm-num">Lucro</th>
                   <th className="cm-num">Sugerido</th>
@@ -198,7 +198,7 @@ export function PricingTab() {
               </thead>
               <tbody>
                 {shown.map(({ p, a }) => (
-                  <tr key={p.id}>
+                  <tr key={p.id} {...rowClick(() => setSim(p))}>
                     <td>
                       <div className="st-name">
                         <strong>{p.name}</strong>
@@ -218,8 +218,16 @@ export function PricingTab() {
                         {p.missingCost && <span className="cm-hint">insumo sem custo</span>}
                       </span>
                     </td>
-                    <td className="cm-num">{fmtPct(a.cmvPercent)}</td>
-                    <td className="cm-num">{fmtFactor(a.markup)}</td>
+                    <td className="cm-num">
+                      {p.hasRecipe ? (
+                        <span className="st-stack">
+                          {fmtPct(a.cmvPercent)}
+                          <span className="cm-hint">markup {fmtFactor(a.markup)}</span>
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td className="cm-num">
                       {p.hasRecipe ? (
                         <span className="st-stack">
@@ -255,15 +263,16 @@ export function PricingTab() {
                     <td>
                       <Badge tone={STATUS[a.status].tone}>{STATUS[a.status].label}</Badge>
                     </td>
-                    <td className="cm-num" data-label="">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        icon={<Calculator size={15} />}
-                        onClick={() => setSim(p)}
-                      >
-                        Simular
-                      </Button>
+                    <td className="cm-num st-act" data-label="">
+                      <div className="st-actions">
+                        <Button
+                          variant="secondary"
+                          icon={<Calculator size={16} />}
+                          onClick={() => setSim(p)}
+                        >
+                          Simular
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -575,8 +584,8 @@ function SimulatorModal({
         {error && <Alert tone="danger">{error}</Alert>}
         {!product.hasRecipe && (
           <Alert tone="warning">
-            Este produto não tem ficha técnica: sem ela não dá para saber o custo. Monte a ficha na
-            aba Ficha técnica.
+            Este produto não tem ficha técnica: sem ela não dá para saber o custo. Monte a ficha em
+            Estoque › Fichas técnicas.
           </Alert>
         )}
         {product.missingCost && (

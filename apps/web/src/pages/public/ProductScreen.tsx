@@ -65,9 +65,10 @@ export function ProductScreen() {
     const defaults = defaultOptionIds(p?.optionGroups ?? []);
     p?.optionGroups.forEach((g) => {
       const mine = g.options.filter((o) => defaults.includes(o.id)).map((o) => o.id);
+      // A primeira com estoque: opção sem estoque pela ficha técnica não vem marcada.
+      const first = g.options.find((o) => !o.stockOut);
       if (mine.length) init[g.id] = mine;
-      else if (g.maxSelect === 1 && g.minSelect === 1 && g.options[0])
-        init[g.id] = [g.options[0].id];
+      else if (g.maxSelect === 1 && g.minSelect === 1 && first) init[g.id] = [first.id];
     });
     return init;
   });
@@ -398,6 +399,7 @@ export function ProductScreen() {
                 <div className="og__chips" role="radiogroup" aria-label={g.name}>
                   {g.options.map((o) => {
                     const on = sel[g.id]?.includes(o.id) ?? false;
+                    const out = !!o.stockOut && !on;
                     return (
                       <button
                         key={o.id}
@@ -405,10 +407,15 @@ export function ProductScreen() {
                         role="radio"
                         aria-checked={on}
                         className="og__chip"
+                        disabled={out}
                         onClick={() => toggle(g.id, o.id, true, 1)}
                       >
                         {o.name}
-                        {toCents(o.priceDelta) > 0 && <small>+ {brl(o.priceDelta)}</small>}
+                        {out ? (
+                          <small>Esgotado</small>
+                        ) : (
+                          toCents(o.priceDelta) > 0 && <small>+ {brl(o.priceDelta)}</small>
+                        )}
                       </button>
                     );
                   })}
@@ -418,7 +425,9 @@ export function ProductScreen() {
                   {g.options.map((o) => {
                     const count = (sel[g.id] ?? []).filter((x) => x === o.id).length;
                     const on = count > 0;
-                    const full = !single && !on && chosen >= g.maxSelect;
+                    // Sem estoque pela ficha técnica: fica apagada (como a cheia) e não escolhe.
+                    const out = !!o.stockOut && !on;
+                    const full = (!single && !on && chosen >= g.maxSelect) || out;
                     const img = o.imageUrl ? (
                       <img
                         className="og__img"
@@ -433,8 +442,12 @@ export function ProductScreen() {
                       <span className="og__text">
                         <span className="og__name">{o.name}</span>
                         {o.description && <span className="og__desc">{o.description}</span>}
-                        {toCents(o.priceDelta) > 0 && (
-                          <span className="og__price">+ {brl(o.priceDelta)}</span>
+                        {out ? (
+                          <span className="og__price">Esgotado</span>
+                        ) : (
+                          toCents(o.priceDelta) > 0 && (
+                            <span className="og__price">+ {brl(o.priceDelta)}</span>
+                          )
                         )}
                       </span>
                     );
@@ -454,7 +467,7 @@ export function ProductScreen() {
                               type="button"
                               className="og__qbtn"
                               aria-label={`Mais ${o.name}`}
-                              disabled={chosen >= g.maxSelect}
+                              disabled={chosen >= g.maxSelect || out}
                               onClick={() => bump(g.id, o.id, 1, g.maxSelect)}
                             >
                               <Plus size={18} />
@@ -489,6 +502,7 @@ export function ProductScreen() {
                               type="radio"
                               name={g.id}
                               checked={on}
+                              disabled={out}
                               onChange={() => toggle(g.id, o.id, true, 1)}
                             />
                             <span className="og__radio" aria-hidden />

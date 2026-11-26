@@ -144,6 +144,13 @@ export function LotsSection() {
   const shown = lv.visible ?? [];
 
   async function markUsed(l: StockLot) {
+    // Fechar o lote não tem volta: ele sai da lista de validade.
+    if (
+      !window.confirm(
+        `Marcar o lote ${l.code} (${l.itemName}) como usado? Ele sai da lista de validade.`,
+      )
+    )
+      return;
     try {
       await api(`/stock/lots/${l.id}/close`, { method: 'POST', json: { status: 'used' } });
       toast(`Lote ${l.code} marcado como usado`, 'success');
@@ -160,7 +167,7 @@ export function LotsSection() {
         error={error}
         actions={
           canWrite && (
-            <Button icon={<Plus size={16} />} onClick={() => setCreating(true)}>
+            <Button size="lg" icon={<Plus size={18} />} onClick={() => setCreating(true)}>
               Novo lote
             </Button>
           )
@@ -241,21 +248,19 @@ export function LotsSection() {
                       {l.note && <div className="cm-hint">{l.note}</div>}
                     </td>
                     {canWrite && (
-                      <td className="cm-num" data-label="">
+                      <td className="cm-num st-act" data-label="">
                         {l.status === 'available' && (
                           <div className="st-actions">
                             <Button
-                              size="sm"
-                              variant="ghost"
-                              icon={<CheckCheck size={15} />}
+                              variant="secondary"
+                              icon={<CheckCheck size={16} />}
                               onClick={() => markUsed(l)}
                             >
                               Usado
                             </Button>
                             <Button
-                              size="sm"
                               variant="ghost"
-                              icon={<Trash2 size={15} />}
+                              icon={<Trash2 size={16} />}
                               onClick={() => setDiscard(l)}
                             >
                               Descartar

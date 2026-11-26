@@ -112,8 +112,21 @@ copie custo para o produto. Preparos são recalculados pelo gatilho `stock_items
 **Quantidade do item no cardápio (0.231):** coluna Estoque da lista de itens e campo do cadastro
 (`pages/menu/ItemStock.tsx`) gravam por `PUT /stock/products/:id/quantity`
 (`StockService.setProductQuantity`): sem ficha cria o controle simples (insumo com o nome do item,
-ficha 1 por venda); ficha "1 por venda" de um insumo só (`direct` do `AVAILABILITY_SQL`) é contada
-(ajuste); ficha de vários insumos não aceita número. Nunca crie quantidade solta no `products`.
+ficha 1 por venda; se já existe insumo com esse nome na mesma unidade, reaproveita e reativa; em
+outra unidade, 409 mandando montar a ficha); ficha "1 por venda" de um insumo só (`direct` do
+`AVAILABILITY_SQL`) é contada (ajuste); ficha de vários insumos não aceita número. Nunca crie
+quantidade solta no `products`.
+
+**Sem estoque (0.263):** tudo sai de `stock/availability-sql.ts`, nunca reescreva a regra numa tela.
+`PRODUCT_STOCK_OUT` = falta insumo da ficha do item **ou** grupo obrigatório (`min_select > 0`)
+sem opções com estoque suficientes para fechar o mínimo (com `allow_repeat`, basta uma); vale no
+PDV, garçom, cardápio, IA e iFood. Complemento: `OPTION_STOCK_OUT` vira `stockOut` na opção do
+`menuTreeSql` (PDV/garçom "Sem estoque", cardápio "Esgotado", `defaultOptionIds` não marca) e o
+`POST /orders` recusa com 409 citando o insumo (`OPTION_STOCK_MISSING`), antes de baixar. Insumo:
+nome/código/código de barras repetido passa por `duplicateItem` (409 com texto); mudar a unidade
+com movimento, numa ficha (`recipesUsing`: item, complemento não arquivado ou preparo) ou de um
+preparo é 409, e desativar insumo que está em ficha também. `GET /stock/movements?direction=out`
+inclui o `sale_reversal` (a tela mostra "+" e o total desconta). Teste: `test/stock-links.e2e.test.ts`.
 
 ## Mexer no financeiro
 

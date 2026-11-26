@@ -1267,6 +1267,12 @@
 .wt-ie__opt[aria-checked='true'] .wt-ie__opt-price {
   color: var(--cm-brand-700);
 }
+/* Complemento sem estoque pela ficha técnica: o aviso fica no lugar do preço. */
+.wt-ie__opt-out {
+  color: var(--cm-danger);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
 /* Marca da direita: bolinha (uma), + que vira visto (adicionais), quadradinho (várias). */
 .wt-ie__radio {
   flex: none;

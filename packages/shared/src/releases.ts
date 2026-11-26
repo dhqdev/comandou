@@ -20,6 +20,55 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.263.0',
+    date: '2026-11-26',
+    title: 'Estoque revisado: complementos, fichas e botões grandes',
+    summary:
+      'O estoque agora vale também para os complementos: um adicional com ficha técnica que acabou aparece sem estoque no PDV, no garçom e no cardápio, e não dá para pedir. As telas do Estoque ganharam botões maiores, as ações viram quadrados no celular e o Confirmar fica no fim, ao lado do total.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Complemento com ficha técnica (ex.: Bacon extra) que ficou sem insumo aparece "Sem estoque" no PDV e no app do garçom e "Esgotado" no cardápio do cliente, sem dar para marcar. Se o pedido chegar com ele, é recusado dizendo o insumo que falta.',
+      },
+      {
+        tag: 'novo',
+        text: 'Item com escolha obrigatória em que nenhuma opção tem estoque (ex.: pizza com todos os sabores sem queijo) sai do cardápio como sem estoque, também no iFood. A opção que vem marcada sozinha não é marcada se estiver sem estoque.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Botões do Estoque maiores: 38px nas linhas das listas (44px na tela de toque) e 44px no topo. No celular, as ações de cada linha e do insumo viram quadrados iguais com ícone e nome.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Entrada e Produção: Confirmar recebimento e Confirmar produção ficam no fim, ao lado do total, sempre à vista enquanto você preenche as linhas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Fichas técnicas com o botão Montar ficha ou Editar ficha em cada item. Custo e preço abre o simulador ao tocar na linha. Marcar um lote como usado pede confirmação.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pesquisar e o tutorial usam os mesmos nomes do menu do Estoque: Saída e perdas, Unidades de compra (antes Fatores) e Custo e preço.',
+      },
+      {
+        tag: 'correção',
+        text: 'Não dá mais para mudar a unidade de um insumo que está numa ficha técnica (as quantidades da ficha ficariam erradas) nem desativar um insumo que está numa ficha. O aviso diz em quais fichas ele está.',
+      },
+      {
+        tag: 'correção',
+        text: 'Quantidade de um item sem ficha em Itens do cardápio usa o insumo de mesmo nome que já existe, em vez de dar erro. Se ele estiver em outra unidade, o aviso manda montar a ficha técnica.',
+      },
+      {
+        tag: 'correção',
+        text: 'Nome, código ou código de barras repetido no insumo, e sigla repetida na unidade de compra, mostram um aviso claro em vez de erro.',
+      },
+      {
+        tag: 'correção',
+        text: 'Contar um insumo com saldo negativo começa do zero. Em Saída e perdas › Vendas, a venda cancelada aparece como volta ao estoque (+) e não soma como saída.',
+      },
+    ],
+  },
+  {
     version: '0.262.4',
     date: '2026-11-26',
     title: 'Busca das listas mais limpa no notebook',

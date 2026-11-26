@@ -9,6 +9,7 @@ import {
   SelectField,
 } from '../../features/forms';
 import {
+  countStart,
   fmtCost,
   milliToQty,
   toMilli,
@@ -46,7 +47,8 @@ export function EntryModal({
   onDone(): void;
 }) {
   const toast = useToast();
-  const [q, setQ] = useState(kind === 'count' ? fmtQty(item.quantity).replace('-', '') : '');
+  // Contagem começa no saldo do sistema (negativo começa em 0).
+  const [q, setQ] = useState(kind === 'count' ? fmtQty(countStart(item.quantity)) : '');
   const [costMode, setCostMode] = useState<'unit' | 'total'>('unit');
   const [cost, setCost] = useState('');
   const [note, setNote] = useState('');
@@ -444,7 +446,7 @@ export function ItemModal({
           {item && (
             <CheckField
               label="Insumo ativo"
-              description="Inativo some das listas e da ficha técnica, mas mantém o histórico."
+              description="Inativo some das listas, mas mantém o histórico. Se ele estiver numa ficha técnica, tire-o da ficha antes."
               checked={active}
               onChange={setActive}
             />

@@ -20,6 +20,12 @@ describe('caminho para resolver os impedimentos', () => {
     ['Nenhum agente de impressão ativo. Configure em Impressão.', 'printing-agent'],
     ['Para despachar, escolha o entregador na tela Entregas', 'order-dispatch'],
     ['Saldo insuficiente (3)', 'stock-low'],
+    ['Estoque insuficiente: Pão. Registre a entrada ou ajuste o estoque.', 'stock-low'],
+    [
+      'Estoque insuficiente: Bacon extra (X-Burger) está sem estoque (falta Bacon). Dê entrada no estoque ou escolha outra opção.',
+      'stock-low',
+    ],
+    ['Insumo insuficiente para a produção: Farinha', 'stock-low'],
     ['Permissão insuficiente', 'permission'],
   ];
   it.each(cases)('"%s" leva a %s', (msg, id) => {

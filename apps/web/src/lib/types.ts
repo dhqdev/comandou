@@ -26,6 +26,8 @@ export interface MenuOption {
   description?: string | null;
   /** Miniatura da opção (cardápio online). */
   imageUrl?: string | null;
+  /** Complemento com ficha técnica sem estoque: aparece, mas não dá para escolher. */
+  stockOut?: boolean;
 }
 export interface MenuGroup {
   id: string;

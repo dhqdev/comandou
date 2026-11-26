@@ -347,7 +347,9 @@ function GroupSection({
       <div className="wt-ie__opts">
         {g.options.map((o) => {
           const on = chosen.includes(o.id);
-          const blocked = !on && full;
+          // Complemento com ficha técnica sem estoque: aparece, mas não dá para escolher.
+          const out = !!o.stockOut && !on;
+          const blocked = (!on && full) || out;
           const delta = toCents(o.priceDelta);
           return (
             <button
@@ -357,12 +359,18 @@ function GroupSection({
               role={mode === 'single' ? 'radio' : 'checkbox'}
               aria-checked={on}
               disabled={blocked}
+              data-out={out || undefined}
               onClick={() => onPick(o.id)}
             >
               <span className="wt-ie__opt-text">
                 <span className="wt-ie__opt-name">{o.name}</span>
-                {delta > 0 && mode !== 'remove' && (
-                  <span className="wt-ie__opt-price">+ {brl(o.priceDelta)}</span>
+                {out ? (
+                  <span className="wt-ie__opt-out">Sem estoque</span>
+                ) : (
+                  delta > 0 &&
+                  mode !== 'remove' && (
+                    <span className="wt-ie__opt-price">+ {brl(o.priceDelta)}</span>
+                  )
                 )}
               </span>
               <OptionMark mode={mode} on={on} />

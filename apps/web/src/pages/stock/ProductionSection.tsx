@@ -172,20 +172,7 @@ export function ProductionSection() {
 
   return (
     <div className="st-page">
-      <StockHead
-        title="Movimentações"
-        error={error}
-        actions={
-          canWrite && (
-            <div className="st-head__confirm">
-              {hint && <span className="st-head__hint">{hint}</span>}
-              <Button loading={busy} disabled={!valid} onClick={confirm}>
-                Confirmar produção
-              </Button>
-            </div>
-          )
-        }
-      >
+      <StockHead title="Movimentações" error={error}>
         Registre o que a cozinha preparou: baixa os insumos usados e dá entrada no preparo pronto.
       </StockHead>
       {fail && <Alert tone="danger">{fail}</Alert>}
@@ -206,7 +193,12 @@ export function ProductionSection() {
               Cada bipada cria uma linha com o preparo e a validade padrão, e o foco vai para a
               quantidade. Preparo sem etiqueta (granel) entra por &quot;Adicionar linha&quot;.
             </p>
-            <Button variant="secondary" icon={<Plus size={16} />} onClick={() => addLine()}>
+            <Button
+              size="lg"
+              variant="secondary"
+              icon={<Plus size={18} />}
+              onClick={() => addLine()}
+            >
               Adicionar linha
             </Button>
           </div>
@@ -313,6 +305,7 @@ export function ProductionSection() {
                       <td className="cm-num" data-label="">
                         <Button
                           variant="ghost"
+                          className="st-remove"
                           aria-label="Remover linha"
                           title="Remover linha"
                           icon={<Trash2 size={16} />}
@@ -346,6 +339,19 @@ export function ProductionSection() {
               </ul>
             </div>
           )}
+          {/* Confirmar fica embaixo das linhas, com o que falta ao lado (preso embaixo ao rolar). */}
+          {canWrite && (
+            <div className="st-foot">
+              <div className="st-foot__info">
+                {hint && <span className="st-head__hint">{hint}</span>}
+              </div>
+              <div className="st-foot__go">
+                <Button size="lg" loading={busy} disabled={!valid} onClick={confirm}>
+                  Confirmar produção
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
       {lines.length === 0 && (
@@ -358,7 +364,7 @@ export function ProductionSection() {
           <EmptyState
             icon={<Factory size={20} />}
             title="Nenhuma produção registrada"
-            description="Monte a ficha de preparo do insumo (Visão geral › insumo › Ficha de preparo) e registre a primeira produção."
+            description="Monte a ficha de preparo em Estoque › Fichas técnicas › Ficha de preparo e registre a primeira produção."
           />
         ) : (
           <div className="st-scroll">

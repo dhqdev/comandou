@@ -53,7 +53,10 @@ const SORTS: ListSort<StockFactor>[] = [
 /** "12.0000" → "12"; "0.5000" → "0,5". */
 const fmtFactorQty = (v: string) => fmtQty(String(Number(v)));
 
-/** Fatores de conversão: as unidades em que você compra (caixa, fardo, saco) e quanto valem. */
+/**
+ * Unidades de compra (no banco, fatores de conversão): as embalagens em que você compra (caixa,
+ * fardo, saco) e quanto cada uma vale na unidade do insumo.
+ */
 export function FactorsSection() {
   const canWrite = useCan('stock:write');
   const toast = useToast();
@@ -83,10 +86,10 @@ export function FactorsSection() {
   const shown = lv.visible ?? [];
 
   async function remove(f: StockFactor) {
-    if (!window.confirm(`Excluir o fator ${f.code}?`)) return;
+    if (!window.confirm(`Excluir a unidade de compra ${f.code}?`)) return;
     try {
       await api(`/stock/factors/${f.id}`, { method: 'DELETE' });
-      toast('Fator excluído', 'success');
+      toast('Unidade de compra excluída', 'success');
       void load();
     } catch (e) {
       toast((e as Error).message, 'danger');
@@ -100,8 +103,8 @@ export function FactorsSection() {
         error={error}
         actions={
           canWrite && (
-            <Button icon={<Plus size={16} />} onClick={() => setEditing('new')}>
-              Novo fator
+            <Button size="lg" icon={<Plus size={18} />} onClick={() => setEditing('new')}>
+              Nova unidade de compra
             </Button>
           )
         }
@@ -114,9 +117,9 @@ export function FactorsSection() {
       <Card bodyless>
         <ListToolbar
           lv={lv}
-          searchLabel="Buscar fator"
+          searchLabel="Buscar unidade de compra"
           searchHint="sigla, nome ou insumo"
-          summary={`${shown.length} ${shown.length === 1 ? 'fator' : 'fatores'}`}
+          summary={`${shown.length} ${shown.length === 1 ? 'unidade' : 'unidades'}`}
         />
         {rows === null ? (
           <div className="cm-card__body">
@@ -125,14 +128,14 @@ export function FactorsSection() {
         ) : rows.length === 0 ? (
           <EmptyState
             icon={<Ruler size={20} />}
-            title="Nenhum fator cadastrado"
+            title="Nenhuma unidade de compra cadastrada"
             description="Ex.: CX12 = Caixa com 12 (12 un), FD6 = Fardo com 6 (6 un), SC25 = Saco de 25 kg."
           />
         ) : shown.length === 0 ? (
           <EmptyState
             icon={<Search size={20} />}
             title="Nada por aqui"
-            description="Nenhum fator com esses filtros."
+            description="Nenhuma unidade de compra com esses filtros."
           />
         ) : (
           <ListTable>
@@ -159,20 +162,18 @@ export function FactorsSection() {
                     </td>
                     <td>{f.itemName ?? `Todo insumo em ${f.unit}`}</td>
                     {canWrite && (
-                      <td className="cm-num" data-label="">
+                      <td className="cm-num st-act" data-label="">
                         <div className="st-actions">
                           <Button
-                            size="sm"
-                            variant="ghost"
-                            icon={<Pencil size={15} />}
+                            variant="secondary"
+                            icon={<Pencil size={16} />}
                             onClick={() => setEditing(f)}
                           >
                             Editar
                           </Button>
                           <Button
-                            size="sm"
                             variant="ghost"
-                            icon={<Trash2 size={15} />}
+                            icon={<Trash2 size={16} />}
                             onClick={() => remove(f)}
                           >
                             Excluir
@@ -241,7 +242,7 @@ function FactorModal({
       };
       if (factor) await api(`/stock/factors/${factor.id}`, { method: 'PATCH', json });
       else await api('/stock/factors', { method: 'POST', json });
-      toast(factor ? 'Fator atualizado' : 'Fator cadastrado', 'success');
+      toast(factor ? 'Unidade de compra atualizada' : 'Unidade de compra cadastrada', 'success');
       onDone();
     } catch (e) {
       setError((e as Error).message);
@@ -253,7 +254,7 @@ function FactorModal({
   return (
     <Modal
       open
-      title={factor ? `Editar ${factor.code}` : 'Novo fator de conversão'}
+      title={factor ? `Editar ${factor.code}` : 'Nova unidade de compra'}
       onClose={onClose}
       footer={
         <>
