@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.256.1',
+    date: '2026-11-26',
+    title: 'Observação do item maior e mais clara no PDV',
+    summary:
+      'Na Nova venda, o campo de observação de cada item ficou maior e mostra bem quando está sendo digitado.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Itens do pedido (Nova venda): a observação do item ("sem cebola") ficou maior e com letra maior. Parada, aparece com borda tracejada; ao clicar, vira um campo com um contorno só na cor da loja, sem a borda dupla de antes.',
+      },
+    ],
+  },
+  {
     version: '0.256.0',
     date: '2026-11-26',
     title: 'App do cliente novo: pontos no topo, cupons, PIN e Conta em quadrados',
