@@ -496,26 +496,42 @@
   font-size: var(--cm-text-xs);
   line-height: 1.4;
 }
+/* Observação do item: em repouso parece um botão discreto (borda tracejada); no clique vira um
+ * campo de verdade, com um contorno só (o da caixa) e o anel de foco da marca. */
 .nsale__note {
   display: flex;
   align-items: center;
-  gap: 6px;
-  max-width: 420px;
-  height: 26px;
-  padding: 0 8px;
-  margin-left: -8px;
-  border: 1px solid transparent;
-  border-radius: var(--cm-radius-xs);
+  gap: 8px;
+  width: 100%;
+  max-width: 460px;
+  height: 34px;
+  padding: 0 10px;
+  margin-top: 4px;
+  border: 1px dashed var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
   color: var(--cm-text-subtle);
   cursor: text;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
 }
-.nsale__note:hover,
-.nsale__note:focus-within {
-  border-color: var(--cm-border-strong);
+.nsale__note:hover {
+  border-style: solid;
   background: var(--cm-input-bg, var(--cm-surface));
+  color: var(--cm-text-muted, var(--cm-text-subtle));
 }
 .nsale__note:focus-within {
+  border-style: solid;
   border-color: var(--cm-brand-500);
+  background: var(--cm-input-bg, var(--cm-surface));
+  box-shadow: var(--cm-focus);
+  color: var(--cm-brand-500);
+}
+.nsale__note:has(input:not(:placeholder-shown)):not(:focus-within) {
+  border-style: solid;
+  border-color: var(--cm-border);
 }
 .nsale__note svg {
   flex: none;
@@ -530,7 +546,11 @@
   background: none;
   color: var(--cm-text);
   font: inherit;
-  font-size: var(--cm-text-xs);
+  font-size: var(--cm-text-sm);
+}
+.nsale__note input:is(:focus, :focus-visible) {
+  outline: none;
+  box-shadow: none;
 }
 .nsale__note input::placeholder {
   color: var(--cm-text-subtle);
@@ -782,7 +802,7 @@
     font-size: var(--cm-text-sm);
   }
   .nsale__note {
-    height: 22px;
+    height: 32px;
   }
   .nsale__step,
   .nsale__weight {

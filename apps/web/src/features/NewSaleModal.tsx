@@ -569,7 +569,7 @@ export function NewSaleModal({
                         <span className="nsale__opts">{opts.map((o) => o.name).join(' · ')}</span>
                       )}
                       <label className="nsale__note">
-                        <Pencil size={12} aria-hidden />
+                        <Pencil size={14} aria-hidden />
                         <input
                           placeholder="Observação (ex.: sem cebola)"
                           aria-label={`Observação de ${l.product.name}`}
