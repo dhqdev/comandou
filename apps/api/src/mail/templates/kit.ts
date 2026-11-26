@@ -100,7 +100,6 @@ ${pre}.em-ink, ${pre}.em-ink a { color:${DARK.ink} !important; }
 ${pre}.em-muted, ${pre}.em-muted a { color:${DARK.muted} !important; }
 ${pre}.em-faint, ${pre}.em-faint a { color:${DARK.faint} !important; }
 ${pre}.em-brand, ${pre}.em-brand a { color:${DARK.brand} !important; }
-${pre}.em-copybtn { background:${DARK.ink} !important; } ${pre}.em-copybtn a { color:#171412 !important; }
 ${pre}.em-step { border-color:${DARK.line} !important; color:${DARK.ink} !important; }`;
 
 const CSS = `
@@ -115,8 +114,6 @@ a { text-decoration: none; }
   .em-out { padding-left: 4px !important; padding-right: 4px !important; }
   .em-h1 { font-size: 22px !important; line-height: 29px !important; }
   .em-codebig { font-size: 32px !important; letter-spacing: 6px !important; }
-  .em-codecell, .em-copy { display: block !important; width: auto !important; }
-  .em-copy { padding: 4px 24px 6px !important; text-align: left !important; }
   .em-rl { display: block !important; width: auto !important; padding: 13px 0 1px !important; border-bottom: 0 !important; }
   .em-rv { display: block !important; width: auto !important; text-align: left !important; padding: 0 0 13px !important; border-top: 0 !important; }
   .em-fig { display: block !important; width: 100% !important; border-left: 0 !important; padding: 12px 0 !important; }
@@ -243,26 +240,20 @@ const dot = (color: string) =>
   `<span style="display:inline-block;width:7px;height:7px;border-radius:4px;background:${color};vertical-align:middle;margin:0 8px 2px 0;"></span>`;
 
 /**
- * O código grande, numa caixa só, sem espaço no meio: dois toques (ou tocar e segurar) seleciona
- * os 6 números de uma vez. Com `copyUrl`, vem o botão "Copiar código" (e-mail não roda script:
- * o botão abre a página /codigo do Comandou, que copia com um toque). Embaixo, a validade.
+ * O código grande, numa caixa só, sem espaço no meio: um toque (Apple Mail, pelo `user-select:
+ * all`) ou tocar e segurar seleciona os 6 números de uma vez. Sem botão de copiar: e-mail não roda
+ * script, então um botão só copiaria abrindo uma página, e o David pediu para copiar tudo no
+ * próprio e-mail (0.265.2; a página /codigo saiu). O código também vai no começo do assunto e na
+ * prévia, onde o Gmail e o iPhone oferecem copiar ou preencher sozinhos. Embaixo, a validade.
  */
-export function codeBox(code: string, caption: string, copyUrl?: string) {
-  const copy = copyUrl
-    ? `<td class="em-copy" align="right" valign="middle" style="padding:20px 24px 0 0;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td class="em-copybtn" bgcolor="${C.ink}" style="background:${C.ink};border-radius:9px;mso-padding-alt:11px 18px;">
-        <a href="${esc(copyUrl)}" target="_blank" style="display:inline-block;padding:11px 18px;${f(600, 14, 18)}color:#FFFFFF;text-decoration:none;border-radius:9px;white-space:nowrap;">Copiar código</a>
-      </td></tr></table>
-    </td>`
-    : '';
+export function codeBox(code: string, caption: string) {
   return `<table role="presentation" class="em-box" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.box}" style="margin:0 0 24px;background:${C.box};border:1px solid ${C.line};border-radius:12px;">
   <tr>
-    <td class="em-codecell" valign="middle" style="padding:20px 24px 4px;">
-      <div class="em-ink em-code em-codebig" style="${f(700, 38, 46, MONO)}letter-spacing:9px;color:${C.ink};">${esc(code)}</div>
+    <td valign="middle" style="padding:20px 24px 4px;">
+      <div class="em-ink em-code em-codebig" style="${f(700, 38, 46, MONO)}letter-spacing:9px;color:${C.ink};-webkit-user-select:all;user-select:all;">${esc(code)}</div>
     </td>
-    ${copy}
   </tr>
-  <tr><td${copyUrl ? ' colspan="2"' : ''} class="em-muted" style="padding:8px 24px 20px;${f(400, 13, 19)}color:${C.muted};">${dot(C.brand)}${caption}</td></tr>
+  <tr><td class="em-muted" style="padding:8px 24px 20px;${f(400, 13, 19)}color:${C.muted};">${dot(C.brand)}${caption}</td></tr>
 </table>`;
 }
 

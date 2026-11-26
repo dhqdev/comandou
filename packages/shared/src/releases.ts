@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.265.2',
+    date: '2026-11-26',
+    title: 'Topo do cardápio só com o Olá e código de senha que se copia no próprio e-mail',
+    summary:
+      'No celular, o topo do cardápio fica com o "Olá, nome" e mais espaço, sem o selo do tempo de entrega. O e-mail de nova senha não tem mais o botão que abria uma página: o código se copia ali mesmo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cardápio no celular: saiu o selo "Aberta · 35–50 min" do canto de cima. O topo fica com o "Olá, nome" (ou "Olá!"), um pouco maior, o sino dos avisos e os pontos embaixo, com mais folga até o cartão da loja. Com a loja fechada, o cartão da loja mostra quando ela abre. O tempo de entrega continua nas informações da loja e na sacola.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'E-mail de código para nova senha (equipe, Super Admin e clientes do cardápio): saiu o botão Copiar código, que abria a página /codigo do site. Um toque (ou tocar e segurar) no código seleciona os 6 números de uma vez, e o código continua no começo do assunto e na notificação, onde o Gmail e o iPhone já oferecem copiar ou preencher sozinhos.',
+      },
+    ],
+  },
+  {
     version: '0.265.1',
     date: '2026-11-26',
     title: 'Topo do cardápio mais limpo no celular',

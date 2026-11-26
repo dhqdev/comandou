@@ -18,8 +18,10 @@ describe('e-mails do Comandou', () => {
     expect(pre.startsWith('Código 482915 para criar uma nova senha em Fumaça Burger')).toBe(true);
     expect(m.html).toContain('>482915</div>');
     expect(m.html).toContain(`${ASSETS}/email/hero-codigo.jpg`);
-    // Botão "Copiar código": abre a página que copia com um toque (o código vai depois do #).
-    expect(m.html).toContain(`href="${ASSETS}/codigo#482915"`);
+    // Copia no próprio e-mail (um toque seleciona tudo), sem botão que abre a página /codigo.
+    expect(m.html).toContain('user-select:all;">482915</div>');
+    expect(m.html).not.toContain('/codigo#');
+    expect(m.html).not.toContain('Copiar código');
     expect(m.text).toContain('\n482915\n');
   });
 

@@ -33,7 +33,8 @@ números → senha nova (`apps/web/src/pages/ForgotPassword.tsx`; abre direto co
 - O código vem **no começo do assunto** (`482915 é o seu código do Comandou`) e na **linha de
   prévia** do e-mail: aparece na notificação do celular e na lista da caixa de entrada, dá para
   copiar sem abrir, e o iPhone e o Mac oferecem preencher sozinhos. No corpo ele fica numa caixa
-  só, sem espaço no meio (dois toques copiam os 6 números).
+  só, sem espaço no meio e com `user-select: all` (um toque no Apple Mail, ou tocar e segurar
+  em qualquer app, seleciona os 6 números de uma vez).
 - Confere o e-mail digitado: se não for de uma conta daquele restaurante (ou do Super Admin), a
   tela avisa embaixo do campo na hora (404) e nada sai. Quem entra só com PIN não tem e-mail e
   recebe o mesmo aviso.
@@ -79,10 +80,11 @@ do Windows ignora o atalho `font:`. Sem emoji no assunto nem no corpo.
 Desde a 0.199 os e-mails do Comandou abrem com a **capa** `email/hero-<pose>.jpg` (fundo escuro, o
 nome do Comandou e o panda do assunto; texto alternativo "Comandou"), gerada pelo mesmo
 `tools/email-pandas/render.mjs`. O assunto curto (`topic`) fica em laranja em cima do título. No
-e-mail de código, o código vem antes de qualquer explicação, com o botão **Copiar código**: como
-e-mail não roda script, o botão abre `/codigo#<código>` (`pages/copy-code/CopyCodePage.tsx`, em
-qualquer endereço), que copia sozinha ou com um toque. O código vai depois do `#` (não chega ao
-servidor nem ao log) e sai do endereço assim que a página abre.
+e-mail de código, o código vem antes de qualquer explicação, **sem botão de copiar**: e-mail não
+roda script, então um botão só copiaria abrindo uma página do site. Até a 0.265.1 ele abria
+`/codigo#<código>`; o David pediu para copiar tudo no próprio e-mail e a página saiu (0.265.2).
+Não volte com botão nem página para isso: o código se copia no corpo, no assunto e na
+notificação.
 
 Desde a 0.199.1 a capa e o ícone vão **embutidos** no e-mail: na hora de entregar,
 `mail/inline-images.ts` troca o link dessas imagens por `cid:` e manda os arquivos de

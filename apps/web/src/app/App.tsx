@@ -54,10 +54,6 @@ const SiteApp = lazyPage(
   () => import('../site/SiteApp'),
   (m) => m.SiteApp,
 );
-const CopyCodePage = lazyPage(
-  () => import('../pages/copy-code/CopyCodePage'),
-  (m) => m.CopyCodePage,
-);
 const PlatformApp = lazyPage(
   () => import('../platform/PlatformApp'),
   (m) => m.PlatformApp,
@@ -65,14 +61,6 @@ const PlatformApp = lazyPage(
 
 export function App() {
   const host = useSiteHost();
-  // /codigo#123456: botão "Copiar código" dos e-mails de nova senha, igual em qualquer endereço.
-  if (window.location.pathname === '/codigo') {
-    return (
-      <Suspense fallback={<AppLoading plain />}>
-        <CopyCodePage />
-      </Suspense>
-    );
-  }
   // admin.<domínio base>: painel Super Admin, com login e sessão próprios.
   if (isPlatformHost()) {
     return (

@@ -21,8 +21,8 @@ describe('imagens embutidas no e-mail', () => {
     const hero = r.attachments.find((a) => a.filename === 'hero-codigo.jpg')!;
     expect(hero.contentType).toBe('image/jpeg');
     expect(hero.data.subarray(0, 2).toString('hex')).toBe('ffd8');
-    // Links e textos com o endereço continuam como estavam.
-    expect(r.html).toContain('href="https://comandou.com/codigo#482915"');
+    // Só as imagens trocam: o resto do e-mail fica como estava.
+    expect(r.html).toContain('>482915</div>');
   });
 
   it('sem o arquivo, mantém o link do site; imagem de fora não é tocada', () => {

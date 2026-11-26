@@ -1832,77 +1832,20 @@ button.acct-tile {
 }
 
 /* ================================================================ topo do celular (0.264) */
-/* Pedido do David: "Aberta" no canto de cima, à direita, num selo de uma linha só (0.265.1: mais
-   minimalista); o cartão da loja tem o contorno fino que gira devagar na cor da loja (exceção
-   pedida ao "sem gradiente"); e no celular saem a busca e o filtro. */
-.hm-open {
+/* O cartão da loja tem o contorno fino que gira devagar na cor da loja (exceção pedida ao "sem
+   gradiente") e no celular saem a busca e o filtro. O selo "Aberta · 35–50 min" do canto saiu na
+   0.265.2 (pedido do David): o topo fica com o "Olá, nome" e o sino; loja fechada avisa na linha
+   de baixo do cartão da loja (`.hm-store__closed`). */
+.hm-store__closed {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  max-width: 200px;
-  min-height: 32px;
-  margin: 0;
-  padding: 0 12px 0 11px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-full);
-  background: var(--cm-surface);
-  color: var(--cm-warning);
-  font-size: var(--cm-text-xs);
-  line-height: 1;
-  white-space: nowrap;
-}
-.hm-open[data-open] {
-  color: var(--cm-success);
-}
-.hm-open > svg {
-  flex: none;
-}
-.hm-open__dot {
-  position: relative;
-  flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-/* Onda que sai da bolinha: cresce e a borda vai a transparente (sem mexer em opacidade). */
-.hm-open__dot::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  animation: hm-open-wave 2.4s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
-}
-@keyframes hm-open-wave {
-  from {
-    transform: scale(1);
-    border-color: currentColor;
-  }
-  to {
-    transform: scale(2.6);
-    border-color: transparent;
-  }
-}
-.hm-open__text {
+  gap: 5px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.hm-open__text b {
-  font-weight: 700;
-}
-.hm-open__text small {
-  color: var(--cm-text-muted);
-  font-size: inherit;
+  color: var(--cm-warning);
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
 }
-@media (prefers-reduced-motion: reduce) {
-  .hm-open__dot::after {
-    animation: none;
-    border-color: transparent;
-  }
+.hm-store__closed > svg {
+  flex: none;
 }
 
 /* Cartão da loja: contorno fino com um brilho na cor da loja que dá a volta devagar. */
@@ -1979,13 +1922,22 @@ button.acct-tile {
   margin-top: 12px;
 }
 
-/* Celular: "Olá" e o selo na mesma linha; os pontos (ou "Entre e ganhe…") na linha de baixo, de
-   ponta a ponta, sem espremer ao lado do selo. */
+/* Celular: "Olá, nome" sozinho na primeira linha (com o sino à direita, quando há avisos), os
+   pontos (ou "Entre e ganhe…") na linha de baixo e o cartão da loja com folga embaixo (0.265.2). */
+.sf[data-layout='phone'] .hm-top {
+  gap: 16px;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 18px);
+}
 .sf[data-layout='phone'] .hm-hello {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 4px 12px;
+  gap: 2px 12px;
+  min-height: 44px;
+}
+.sf[data-layout='phone'] .hm-hello__hi {
+  font-size: calc(var(--cm-text-xl) + 2px);
+  line-height: 1.15;
 }
 .sf[data-layout='phone'] .hm-hello__text {
   display: contents;

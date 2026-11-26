@@ -441,52 +441,6 @@ function FilterSheet({
 }
 
 /**
- * Selo da loja no canto de cima (celular), numa linha só: bolinha que pulsa, "Aberta" e o tempo
- * de entrega (ou o horário), ou a lua, "Fechada" e quando abre. O texto inteiro fica no
- * `aria-label`.
- */
-function OpenBadge({
-  open,
-  status,
-  table,
-  eta,
-}: {
-  open: boolean;
-  status: string;
-  table: boolean;
-  eta: string | null;
-}) {
-  const head = open ? 'Aberta' : table ? 'Pausado' : 'Fechada';
-  const rest = open
-    ? status.replace(/^Aberta\s*/, '')
-    : table
-      ? 'chame o garçom'
-      : status
-          .replace(/^Fechada\.?\s*/, '')
-          .replace(/ hoje às /, ' ')
-          .replace(/ às /, ' ');
-  const when = rest ? rest.charAt(0).toLowerCase() + rest.slice(1) : '';
-  // Aberta: o tempo de entrega diz mais que o horário ("Aberta · 35–50 min").
-  const sub = open && eta ? eta : when === 'agora' ? '' : when;
-  return (
-    <p
-      className="hm-open"
-      data-open={open || undefined}
-      role="status"
-      aria-label={
-        table && !open ? `${status}. Chame o garçom` : eta ? `${status}. Entrega em ${eta}` : status
-      }
-    >
-      {open ? <i className="hm-open__dot" aria-hidden /> : <Moon size={13} aria-hidden />}
-      <span className="hm-open__text" aria-hidden>
-        <b>{head}</b>
-        {sub && <small> · {sub}</small>}
-      </span>
-    </p>
-  );
-}
-
-/**
  * Topo do app (todas as telas): a saudação com o nível e os pontos, o sino dos avisos da loja, a
  * loja (logo, nome e endereço, que abrem as informações) e a faixa do horário: "Aberta até 23h" ou
  * "Fechada. Abre hoje às 10h30". A entrega e a retirada ficam na sacola, não no início.
@@ -508,9 +462,10 @@ function AppTop({ onInfo }: { onInfo(): void }) {
   const level = acc && l?.levels?.length ? levelOf(l.levels, acc.earned ?? 0).current : null;
   const status =
     table && !s.isOpen ? 'Pedidos pelo celular pausados' : scheduleText(s.isOpen, s.schedule);
-  // Celular: a situação da loja vira um selo no canto de cima, à direita (pedido do David).
+  // Celular: o topo fica só com o "Olá, nome" (pedido do David, 0.265.2: saiu o selo
+  // "Aberta · 35–50 min"). Loja fechada continua avisando, na linha de baixo do cartão da loja.
   const phone = useLayout() === 'phone';
-  const eta = s.isOpen && !table ? `${s.etaMin}–${s.etaMax} min` : null;
+  const closedHere = phone && !s.isOpen && !table;
   return (
     <section className="hm-top" aria-label="Sua conta e a loja">
       <div className="hm-hello">
@@ -553,7 +508,6 @@ function AppTop({ onInfo }: { onInfo(): void }) {
           )}
         </div>
         <div className="hm-hello__tools">
-          {phone && <OpenBadge open={s.isOpen} status={status} table={!!table} eta={eta} />}
           {!table && live.length > 0 && (
             <Link
               className="hm-iconbtn"
@@ -581,9 +535,14 @@ function AppTop({ onInfo }: { onInfo(): void }) {
         <span className="hm-store__text">
           <strong>{r.name}</strong>
           <small>
-            {table ? (
+            {closedHere ? (
+              <span className="hm-store__closed" role="status">
+                <Moon size={13} aria-hidden /> {status}
+              </span>
+            ) : table ? (
               <>
                 <HandPlatter size={13} aria-hidden /> Mesa {table.label}
+                {phone && !s.isOpen && ' · chame o garçom'}
               </>
             ) : (
               <span className="hm-store__addr">{r.address || 'Horários, entrega e retirada'}</span>
