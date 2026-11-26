@@ -140,7 +140,6 @@
   padding: 20px 0 32px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
 }
 
 /* ---------------------------------------------------------------- loja */

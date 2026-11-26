@@ -1219,7 +1219,6 @@
   padding: 12px 6px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
 }
 .sf-side__title {
   padding: 0 10px 6px;

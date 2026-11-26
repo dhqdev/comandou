@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.264.2',
+    date: '2026-11-26',
+    title: 'Barras de rolagem com a cor do restaurante',
+    summary:
+      'As barras de rolagem do sistema e do cardápio ganharam a cor do restaurante, cantos redondos e ficam mais fortes com o mouse em cima. O tamanho da barra mostra quanto tem na lista: lista longa, barra curta.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Barras de rolagem na cor do restaurante, nos temas claro e escuro. Com o mouse em cima ela engrossa e fica mais forte, e enquanto você arrasta fica na cor cheia. O tamanho acompanha o conteúdo, com um mínimo para dar para pegar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No app instalado no computador as barras de rolagem voltaram a aparecer. No celular e no tablet fica a barrinha do próprio aparelho, que aparece só enquanto você rola.',
+      },
+    ],
+  },
+  {
     version: '0.264.1',
     date: '2026-11-26',
     title: 'Topo do cardápio no celular mais bonito',

@@ -602,7 +602,6 @@
   padding: 0;
   list-style: none;
   overflow-x: auto;
-  scrollbar-width: thin;
   white-space: nowrap;
 }
 .kds-allday strong {

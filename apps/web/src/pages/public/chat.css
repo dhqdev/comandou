@@ -230,7 +230,6 @@ html.cm-kb-open .sfchat .scx {
     flex-direction: column;
     gap: 14px;
     overflow-y: auto;
-    scrollbar-width: thin;
   }
 }
 .sfchat-card {

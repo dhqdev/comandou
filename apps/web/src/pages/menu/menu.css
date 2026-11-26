@@ -443,7 +443,6 @@ button.mn-stock:focus-visible {
   padding: var(--cm-space-3) var(--cm-space-4);
   overflow-x: auto;
   border-bottom: 1px solid var(--cm-border);
-  scrollbar-width: thin;
 }
 .mn-chip-wrap {
   display: inline-flex;

@@ -21,7 +21,6 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
 }
 /* A conversa usa a largura toda: os balões encostam nas bordas, como no WhatsApp. */
 .scx-thread__inner {

@@ -103,6 +103,9 @@
   --cm-sidebar-text-strong: var(--cm-gray-900);
   --cm-sidebar-active: var(--cm-surface);
   --cm-focus: 0 0 0 3px color-mix(in oklab, var(--cm-brand-500) 22%, transparent);
+  /* Força da cor do restaurante no polegar da barra de rolagem (parado / mouse em cima). */
+  --cm-scroll-rest: 34%;
+  --cm-scroll-hover: 62%;
   /* Botões: contorno do secundário e fundo cinza do simples (ghost), fáceis de enxergar. */
   --cm-btn-line: #d4d4d9;
   --cm-btn-line-hover: #b9b9c0;
@@ -288,6 +291,8 @@ html.cm-kb-open {
   --cm-accent-400: #d9b44e;
   --cm-accent-500: #cfa73c;
   --cm-focus: 0 0 0 3px color-mix(in oklab, var(--cm-brand-500) 28%, transparent);
+  --cm-scroll-rest: 55%;
+  --cm-scroll-hover: 80%;
   --cm-btn-line: #5a667c;
   --cm-btn-line-hover: #707d95;
   --cm-btn-shadow: none;
@@ -371,6 +376,8 @@ html.cm-kb-open {
     --cm-accent-400: #d9b44e;
     --cm-accent-500: #cfa73c;
     --cm-focus: 0 0 0 3px color-mix(in oklab, var(--cm-brand-500) 28%, transparent);
+    --cm-scroll-rest: 55%;
+    --cm-scroll-hover: 80%;
     --cm-btn-line: #5a667c;
     --cm-btn-line-hover: #707d95;
     --cm-btn-shadow: none;

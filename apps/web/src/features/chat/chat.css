@@ -693,7 +693,6 @@
   overflow-y: auto;
   min-height: 0;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
   background: var(--cm-chat-wall);
 }
 /* Poucas mensagens ficam embaixo, perto do campo, como no WhatsApp. */
@@ -1700,7 +1699,6 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
   background: var(--cm-chat-wall);
 }
 .tm__feed {

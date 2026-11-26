@@ -209,7 +209,6 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
   /* Respiro para a sombra/realce do cartão não ser cortado pela rolagem. */
   margin: -3px;
   padding: 3px;

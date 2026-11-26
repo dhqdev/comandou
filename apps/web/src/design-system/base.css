@@ -155,18 +155,53 @@ svg {
 :root[data-previa] ::-webkit-scrollbar {
   display: none;
 }
-/* Barras de rolagem discretas; no celular e no app instalado elas somem. */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--cm-border-strong) transparent;
-}
-@media (pointer: coarse), (display-mode: standalone) {
-  * {
-    scrollbar-width: none;
+/* Barras de rolagem com a cor do restaurante (mouse e touchpad, também no app
+   instalado). O polegar segue do tamanho do conteúdo (lista longa, polegar curto),
+   com um mínimo para dar para pegar. Nada de altura fixa nele. No toque fica a
+   barrinha do próprio aparelho, que aparece ao rolar e some sozinha. */
+@media (hover: hover) and (pointer: fine) {
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
   }
-  *::-webkit-scrollbar {
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-button {
     display: none;
   }
+  ::-webkit-scrollbar-thumb {
+    min-width: 36px;
+    min-height: 36px;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-color: color-mix(in oklab, var(--cm-brand-500) var(--cm-scroll-rest), transparent);
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    border-width: 2px;
+    background-color: color-mix(in oklab, var(--cm-brand-500) var(--cm-scroll-hover), transparent);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    border-width: 2px;
+    background-color: var(--cm-brand-500);
+  }
+  /* Firefox não tem os ::-webkit-scrollbar: usa as propriedades padrão. No Chrome
+     elas desligariam o desenho acima, por isso só valem aqui. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in oklab, var(--cm-brand-500) var(--cm-scroll-rest), transparent)
+        transparent;
+    }
+    *:hover {
+      scrollbar-color: color-mix(in oklab, var(--cm-brand-500) var(--cm-scroll-hover), transparent)
+        transparent;
+    }
+  }
+}
+@media (pointer: coarse), (display-mode: standalone) {
   /* iOS dá zoom ao focar campo com fonte menor que 16px. */
   input,
   select,
