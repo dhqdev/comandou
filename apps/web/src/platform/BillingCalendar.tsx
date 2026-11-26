@@ -28,6 +28,8 @@ interface CalItem {
   invoiceId: string | null;
   planName: string | null;
   description: string;
+  /** Previsão no último dia liberado (o "pago até" da aba Assinatura). */
+  periodEnd?: boolean;
   dueDate: string;
   paidAt: string | null;
   createdAt: string | null;
@@ -446,6 +448,7 @@ export function CalendarSection() {
                       {i.planName ? ` · ${i.planName}` : ''}
                     </span>
                     <span className="adm-cal__card-meta">
+                      {i.periodEnd ? `Pago até ${br(i.dueDate)} · ` : ''}
                       Vence {br(i.dueDate)}
                       {i.paidAt ? ` · pago ${br(spDate(new Date(i.paidAt)))}` : ''}
                       {' · '}

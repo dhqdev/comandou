@@ -91,12 +91,14 @@ entradas no painel ficam em Conta › Registro do painel.
 **Status de verdade.** A tela inicial começa por **Pede atenção** (tudo o que precisa de você,
 do mais grave ao menos, cada linha levando à tela que resolve), depois o **Negócio** (receita por
 mês, recebido e vencido, testes grátis acabando, clientes novos e cancelados, pedidos do mês e
-atendimento; a demonstração não conta), os **restaurantes no ar** (site, banco, WhatsApp e backup
-de cada um) e a saúde do servidor.
+atendimento; a demonstração não conta) e os **restaurantes no ar** (site, banco, WhatsApp e backup
+de cada um). Servidor e saúde dos serviços ficam em Infraestrutura (o que der problema sobe para
+o Pede atenção).
 
 **Credenciais num lugar só.** A aba **Credenciais** junta todas as chaves, tokens e senhas que o
 Comandou usa (Focus NFe, OpenRouter, Resend, Asaas, PagBank, Backblaze B2, GitHub, os aplicativos
-de delivery e os segredos do servidor), diz o que falta para subir o sistema e traz o passo a passo com os links de cada uma.
+de delivery e os segredos do servidor) em cartões com a situação de cada uma, diz o que falta para
+subir o sistema e, ao clicar no cartão, amplia com o cadastro, o passo a passo e os links.
 As do painel se colam, testam e salvam ali mesmo, cifradas, e **Conferir todas agora** usa cada
 chave salva no fornecedor e mostra a que foi recusada. Lista completa em
 [docs/credenciais.md](docs/credenciais.md).

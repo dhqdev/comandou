@@ -6,7 +6,8 @@ import { dateTime } from '../features/format';
 import { useLoad } from './OverviewPages';
 import { isOnline, ROLE } from './TenantOverview';
 import type { Consumption, KeyCount, TeamMember, TenantInsights } from './types';
-import { ago, bytes, Dot, Level, Section, Sparkline, Tile } from './ui';
+import { Columns, Donut, Ranking, SplitBar, type Part } from './charts';
+import { ago, bytes, Dot, Level, Section, Tile } from './ui';
 
 const reais = (n: number | string) => brl(String(n));
 
@@ -248,25 +249,31 @@ function Loading({ error }: { error: string | null }) {
   );
 }
 
-/**
- * Dias do período preenchidos com zero, do mais antigo ao de hoje. O dia é o do fuso do
- * restaurante (o mesmo do banco): em UTC, depois das 21h de Brasília o "hoje" virava amanhã e o
- * gráfico andava um dia.
- */
-function dailySeries(
-  byDay: { day: string; count: number; revenue: number }[],
-  key: 'count' | 'revenue',
-  timeZone: string,
-) {
-  const map = new Map(byDay.map((d) => [d.day.slice(0, 10), d[key]]));
+/** Os 30 dias (no fuso do restaurante) com pedidos e faturamento, do mais antigo a hoje. */
+function dailyPoints(byDay: { day: string; count: number; revenue: number }[], timeZone: string) {
+  const map = new Map(byDay.map((d) => [d.day.slice(0, 10), d]));
   const fmt = new Intl.DateTimeFormat('en-CA', { timeZone, dateStyle: 'short' });
-  const out: number[] = [];
+  const out: { day: string; count: number; revenue: number }[] = [];
   for (let i = 29; i >= 0; i--) {
-    const d = fmt.format(new Date(Date.now() - i * 86_400_000));
-    out.push(Number(map.get(d) ?? 0));
+    const day = fmt.format(new Date(Date.now() - i * 86_400_000));
+    const x = map.get(day);
+    out.push({ day, count: Number(x?.count ?? 0), revenue: Number(x?.revenue ?? 0) });
   }
   return out;
 }
+
+const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+/** Ordem fixa das cores: a mesma forma de pagamento e o mesmo canal têm sempre a mesma cor. */
+const CHANNEL_SLOT: Record<string, number> = { counter: 1, table: 2, delivery: 3, pickup: 4 };
+const METHOD_SLOT: Record<string, number> = {
+  pix: 1,
+  credit: 2,
+  debit: 3,
+  cash: 4,
+  voucher: 5,
+  other: 6,
+};
+const br = (d: string) => d.slice(5).split('-').reverse().join('/');
 
 export function ConsumptionPanel({ id }: { id: string }) {
   const { data, error } = useInsights(id);
@@ -356,8 +363,38 @@ export function OperationPanel({
   if (!data) return <Loading error={error} />;
   const o = data.operation;
   const users = new Map(o.users.map((u) => [u.id, u]));
-  const days = dailySeries(o.byDay, 'count', timezone);
-  const revenue = dailySeries(o.byDay, 'revenue', timezone);
+  const points = dailyPoints(o.byDay, timezone);
+  // Média por dia da semana (dias com e sem pedido entram na conta).
+  const week = WEEKDAYS.map((name, wd) => {
+    const same = points.filter((p) => new Date(`${p.day}T12:00:00Z`).getUTCDay() === wd);
+    const revenue = same.reduce((n, p) => n + p.revenue, 0) / Math.max(same.length, 1);
+    const count = same.reduce((n, p) => n + p.count, 0) / Math.max(same.length, 1);
+    return { name, revenue, count };
+  });
+  const bestDay = week.reduce((b, d, i) => (d.revenue > week[b]!.revenue ? i : b), 0);
+  const channels: Part[] = o.byChannel.map((c) => ({
+    key: c.key,
+    label: label(CHANNEL, c.key),
+    value: c.revenue,
+    text: `${c.count} · ${reais(c.revenue)}`,
+    slot: CHANNEL_SLOT[c.key],
+  }));
+  const payments: Part[] = [...o.payments]
+    .sort((a, b) => (METHOD_SLOT[a.key] ?? 9) - (METHOD_SLOT[b.key] ?? 9))
+    .map((p) => ({
+      key: p.key,
+      label: label(METHOD, p.key),
+      value: p.amount,
+      text: `${p.count} · ${reais(p.amount)}`,
+      slot: METHOD_SLOT[p.key],
+    }));
+  const statuses: Part[] = o.byStatus.map((x, i) => ({
+    key: x.key,
+    label: label(ORDER_STATUS, x.key),
+    value: x.count,
+    text: String(x.count),
+    slot: x.key === 'cancelled' ? undefined : (i % 6) + 1,
+  }));
   const hours = Array.from(
     { length: 24 },
     (_, h) => o.byHour.find((x) => x.hour === h)?.count ?? 0,
@@ -391,73 +428,90 @@ export function OperationPanel({
         />
       </div>
 
-      <div className="adm-grid adm-grid--2">
-        <Block title="Pedidos por dia">
-          <div className="adm-panel__body">
-            <Sparkline values={days} label="Pedidos por dia" color="var(--a-accent)" />
-          </div>
-        </Block>
-        <Block title="Faturamento por dia">
-          <div className="adm-panel__body">
-            <Sparkline values={revenue} label="Faturamento por dia" color="var(--a-ok)" />
-          </div>
-        </Block>
-      </div>
-
-      <Block title={`Horários (pico às ${String(busiest).padStart(2, '0')}h)`}>
+      <Block title="Faturamento por dia · últimos 30 dias">
         <div className="adm-panel__body">
-          <div className="adm-hours" role="img" aria-label="Pedidos por hora do dia">
-            {hours.map((n, h) => (
-              <i
-                key={h}
-                title={`${h}h: ${n} ${n === 1 ? 'pedido' : 'pedidos'}`}
-                style={{ height: `${Math.max((n / Math.max(...hours, 1)) * 100, 3)}%` }}
-              />
-            ))}
-          </div>
-          <div className="adm-hours__axis" aria-hidden>
-            <span>0h</span>
-            <span>6h</span>
-            <span>12h</span>
-            <span>18h</span>
-            <span>23h</span>
-          </div>
+          <Columns
+            label="Faturamento por dia nos últimos 30 dias"
+            format={(n) => reais(Math.round(n))}
+            ticks={[0, 7, 14, 21, 29]}
+            cols={points.map((p, i) => ({
+              key: p.day,
+              label: i === 29 ? 'hoje' : br(p.day),
+              value: p.revenue,
+              tip: `${br(p.day)}: ${reais(p.revenue)} · ${p.count} ${p.count === 1 ? 'pedido' : 'pedidos'}`,
+              strong: i === 29,
+            }))}
+          />
         </div>
       </Block>
 
       <div className="adm-grid adm-grid--2">
-        <Block title="Canais">
-          <Bars
-            rows={o.byChannel.map((c) => ({
-              key: c.key,
-              name: label(CHANNEL, c.key),
-              value: c.count,
-              text: `${c.count} · ${reais(c.revenue)}`,
-            }))}
-          />
+        <Block title="Canais · faturamento">
+          <div className="adm-panel__body">
+            <Donut
+              parts={channels}
+              center={reais(Math.round(o.orders.revenue))}
+              centerLabel="em 30 dias"
+              label="Faturamento por canal"
+            />
+          </div>
         </Block>
         <Block title="Formas de pagamento">
-          <Bars
-            rows={o.payments.map((p) => ({
-              key: p.key,
-              name: label(METHOD, p.key),
-              value: p.amount,
-              text: `${p.count} · ${reais(p.amount)}`,
-            }))}
-          />
+          <div className="adm-panel__body">
+            <SplitBar parts={payments} />
+          </div>
+        </Block>
+        <Block title={`Horários · pico às ${String(busiest).padStart(2, '0')}h`}>
+          <div className="adm-panel__body">
+            <Columns
+              label="Pedidos por hora do dia"
+              format={(n) => `${Math.round(n)} ped.`}
+              average={false}
+              height={120}
+              ticks={[0, 6, 12, 18, 23]}
+              cols={hours.map((n, h) => ({
+                key: String(h),
+                label: `${h}h`,
+                value: n,
+                tip: `${h}h: ${n} ${n === 1 ? 'pedido' : 'pedidos'}`,
+                strong: h === busiest && n > 0,
+              }))}
+            />
+          </div>
+        </Block>
+        <Block title={`Dia da semana · melhor: ${week[bestDay]!.name}`}>
+          <div className="adm-panel__body">
+            <Columns
+              label="Faturamento médio por dia da semana"
+              format={(n) => reais(Math.round(n))}
+              average={false}
+              height={120}
+              cols={week.map((d, i) => ({
+                key: d.name,
+                label: d.name,
+                value: d.revenue,
+                tip: `${d.name}: média ${reais(d.revenue)} · ${d.count.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} pedidos`,
+                strong: i === bestDay && d.revenue > 0,
+              }))}
+            />
+          </div>
         </Block>
         <Block title="Mais vendidos">
-          <Bars
-            rows={o.topProducts.map((p) => ({
-              key: p.name,
-              name: p.name,
-              value: p.qty,
-              text: String(Number(p.qty)),
-            }))}
-          />
+          <div className="adm-panel__body">
+            <Ranking
+              rows={o.topProducts.map((p) => ({
+                key: p.name,
+                name: p.name,
+                value: Number(p.qty),
+                text: `${Number(p.qty).toLocaleString('pt-BR')} un.`,
+              }))}
+            />
+          </div>
         </Block>
         <Block title="Pedidos por situação">
-          <Bars rows={counts(o.byStatus, ORDER_STATUS)} />
+          <div className="adm-panel__body">
+            <SplitBar parts={statuses} />
+          </div>
         </Block>
       </div>
 

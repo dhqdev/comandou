@@ -20,6 +20,47 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.267.0',
+    date: '2026-11-26',
+    title: 'Super Admin mais limpo, gráficos da operação, credenciais em cartões e e-mails novos',
+    summary:
+      'Credenciais viraram cartões com a situação de cada chave, que ampliam ao clicar. A Operação do restaurante ganhou gráficos, a Visão geral ficou mais direta, a Assinatura tem o plano fixo e o "pago até" aparece no calendário da Cobrança. Os serviços do plano se marcam por caixa em Preço, e os e-mails para os clientes ficaram minimalistas.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › Credenciais: cada chave é um cartão com a situação à vista (em uso, funcionando, falta, recusada, sem uso ou fora daqui), o final da chave e filtros em cima. Clicar amplia o cartão numa janela com o cadastro de um lado e o passo a passo e os links do outro. Links de outras telas abrem direto no cartão certo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Detalhe do restaurante › Operação: gráficos de colunas do faturamento por dia (com a média), dos horários e dos dias da semana (com o pico e o melhor dia em destaque), rosca dos canais (balcão, mesa, entrega, retirada), barras das formas de pagamento e da situação dos pedidos e o ranking dos mais vendidos.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Preço: os serviços do plano (nota fiscal, WhatsApp e domínio próprio) se marcam por caixa em "Mudar valor e serviços" e valem para todos os clientes, os que já fecharam e os que fecharem. O resto do sistema vem sempre. Ao desmarcar um serviço, a janela avisa e mostra o destaque da página de preços que fala dele.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Detalhe do restaurante › Visão geral: uma faixa com a assinatura, os pedidos do mês, a equipe, a IA do mês e as notas dos últimos 30 dias, e o cartão da Assinatura com os serviços do plano. Saiu o cartão de Endereços.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Detalhe do restaurante › Assinatura: o plano é sempre o plano único, com o preço, sem escolha. Mudar o "Pago até" aparece no calendário da Cobrança, no dia em que o período pago acaba, como a próxima mensalidade ("Pago até …"); restaurante ainda em teste que ganha um "pago até" passa a Ativa.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'E-mails para os clientes mais minimalistas: a marca pequena em cima, um cartão branco com linha fina, título grande, um botão só, dados em linhas finas e "Equipe Comandou" no fim. Saíram a capa escura e o panda. Continuam certos no modo escuro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Status do Super Admin sem a parte de infraestrutura (servidor e saúde dos serviços): isso fica em Infraestrutura, e o que der problema continua aparecendo em "Pede atenção".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Detalhe do restaurante sem a aba Cozinha.',
+      },
+    ],
+  },
+  {
     version: '0.266.0',
     date: '2026-11-26',
     title: 'Tokens de IA: um cartão por restaurante e a pizza de onde a IA é usada',

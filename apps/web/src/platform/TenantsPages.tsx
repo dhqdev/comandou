@@ -1,4 +1,10 @@
-import { isPinOnlyEmail, isPinRole, spDate, SUBSCRIPTION_LABELS } from '@comandou/shared';
+import {
+  isPinOnlyEmail,
+  isPinRole,
+  SINGLE_PLAN_CODE,
+  spDate,
+  SUBSCRIPTION_LABELS,
+} from '@comandou/shared';
 import {
   ArrowLeft,
   Copy,
@@ -19,6 +25,7 @@ import { Alert, Button, Modal, TextField, useToast, Select, Skeleton } from '../
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
+import { brl } from '../lib/money';
 import { useAutoReload, useLoad } from './OverviewPages';
 import { TenantHistory } from './audit';
 import { ConsumptionPanel, OperationPanel } from './TenantInsights';
@@ -27,7 +34,6 @@ import { isOnline, ROLE, TenantOverview } from './TenantOverview';
 import { DatabasePanel, DatabaseProgress, DeleteTenantModal, dbBusy } from './TenantDatabase';
 import { ProfilePanel, TIMEZONES } from './NewTenant';
 import { ContractsPanel } from './TenantContracts';
-import { KitchenPanel } from './TenantKitchen';
 import type { Plan, SupportLink, TeamMember, TenantDetail, TenantRow } from './types';
 import { ago, Dot, Level, Monogram, MoreMenu, PageHead, Tabs, Tag } from './ui';
 
@@ -258,7 +264,6 @@ type DetailTab =
   | 'contract'
   | 'database'
   | 'operation'
-  | 'kitchen'
   | 'usage'
   | 'team'
   | 'history';
@@ -298,11 +303,7 @@ export function TenantDetailPage() {
   // O e-mail "falta a sua assinatura" abre direto na aba Contrato (?aba=contrato&contrato=<id>).
   const [params] = useSearchParams();
   const [tab, setTab] = useState<DetailTab>(
-    params.get('aba') === 'contrato'
-      ? 'contract'
-      : params.get('aba') === 'cozinha'
-        ? 'kitchen'
-        : 'overview',
+    params.get('aba') === 'contrato' ? 'contract' : 'overview',
   );
   const [sheetKind, setSheetKind] = useState<
     'suspended' | 'provisioned' | 'rename' | 'sessions' | 'cache' | 'delete' | null
@@ -333,6 +334,18 @@ export function TenantDetailPage() {
   };
   const setForm = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setSub({ ...form, [k]: e.target.value });
+  // Plano fixo (pedido do David, 0.267.0): o Comandou tem um valor só, então a assinatura é
+  // sempre nele. Quem está num plano antigo passa para ele ao salvar.
+  const single = plans.find((p) => p.code === SINGLE_PLAN_CODE) ?? null;
+  const current = plans.find((p) => p.id === s?.planId) ?? null;
+  // Mudou o "pago até" com a situação Em teste: o cliente pagou, então vira Ativa. Senão o
+  // calendário da Cobrança seguiria o fim do teste e não mostraria a data nova.
+  const setPaidUntil = (e: { target: { value: string } }) =>
+    setSub({
+      ...form,
+      currentPeriodEnd: e.target.value,
+      status: form.status === 'trialing' && e.target.value ? 'active' : form.status,
+    });
   const address = `${t.slug}.${baseDomain()}`;
 
   async function run<T>(key: string, fn: () => Promise<T>, ok: string): Promise<T | null> {
@@ -362,7 +375,7 @@ export function TenantDetailPage() {
         api<TenantDetail>(`/platform/tenants/${t.id}/subscription`, {
           method: 'PUT',
           json: {
-            planId: form.planId || undefined,
+            planId: single?.id ?? (form.planId || undefined),
             status: form.status,
             trialEndsAt: form.status === 'trialing' ? fromInputDate(form.trialEndsAt) : undefined,
             currentPeriodEnd: fromInputDate(form.currentPeriodEnd),
@@ -495,7 +508,6 @@ export function TenantDetailPage() {
             ['contract', 'Contrato'],
             ['database', 'Banco de dados'],
             ['operation', 'Operação'],
-            ['kitchen', 'Cozinha'],
             ['usage', 'Consumo'],
             ['team', `Equipe (${team.data?.length ?? '…'})`],
             ['history', 'Histórico'],
@@ -516,16 +528,17 @@ export function TenantDetailPage() {
               )}
             </div>
             <form onSubmit={saveSub} className="form-grid">
-              <SelectField label="Plano" value={form.planId} onChange={setForm('planId')}>
-                <option value="">Escolha</option>
-                {plans
-                  .filter((p) => p.active || p.id === s?.planId)
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-              </SelectField>
+              <div className="adm-fixed-plan">
+                <span className="cm-label">Plano</span>
+                <strong>
+                  {single ? `${single.name} · ${brl(single.priceMonthly)}/mês` : 'Valor único'}
+                </strong>
+                <span className="cm-hint">
+                  {current && single && current.id !== single.id
+                    ? `Hoje no plano antigo ${current.name}: ao salvar, passa para o valor único.`
+                    : 'O Comandou tem um valor só: o plano é sempre este.'}
+                </span>
+              </div>
               <SelectField label="Situação" value={form.status} onChange={setForm('status')}>
                 {(['trialing', 'active', 'past_due'] as const).map((k) => (
                   <option key={k} value={k}>
@@ -547,14 +560,15 @@ export function TenantDetailPage() {
                 label="Período pago até"
                 type="date"
                 value={form.currentPeriodEnd}
-                onChange={setForm('currentPeriodEnd')}
+                onChange={setPaidUntil}
+                hint="Aparece no calendário da Cobrança como “pago até aqui”, com a próxima mensalidade nesse dia"
               />
               <TextField label="Observação" value={form.notes} onChange={setForm('notes')} />
               <div style={{ alignSelf: 'end' }}>
                 <Button
                   type="submit"
                   loading={busy === 'sub'}
-                  disabled={form.status !== 'cancelled' && !form.planId}
+                  disabled={form.status !== 'cancelled' && !single && !form.planId}
                   variant={form.status === 'cancelled' ? 'danger' : 'primary'}
                 >
                   {form.status === 'cancelled' ? 'Cancelar assinatura' : 'Salvar'}
@@ -571,7 +585,6 @@ export function TenantDetailPage() {
         )}
         {tab === 'database' && <DatabasePanel t={t} onChanged={setData} />}
         {tab === 'operation' && <OperationPanel id={t.id} team={team.data} timezone={t.timezone} />}
-        {tab === 'kitchen' && <KitchenPanel t={t} />}
         {tab === 'usage' && <ConsumptionPanel id={t.id} />}
 
         {tab === 'team' && (

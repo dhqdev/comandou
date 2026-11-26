@@ -71,9 +71,9 @@ describe('Esqueci minha senha da equipe', () => {
     // Na prévia (preheader) e no corpo, sem espaço no meio: dá para copiar de uma vez.
     expect(m.html).toContain(`Código ${code} para criar uma nova senha`);
     expect(m.html).toContain(`>${code}</div>`);
-    // A capa vai embutida no e-mail (cid:), não por link do site.
-    expect(m.html).toContain('src="cid:hero-codigo@comandou"');
-    expect(m.attachments?.map((a) => a.content_id)).toContain('hero-codigo@comandou');
+    // O ícone vai embutido no e-mail (cid:), não por link do site (sem capa desde a 0.267.0).
+    expect(m.html).toContain('src="cid:icon-192@comandou"');
+    expect(m.attachments?.map((a) => a.content_id)).toContain('icon-192@comandou');
     // Sem botão que abre página: o código se copia no próprio e-mail.
     expect(m.html).not.toContain('/codigo#');
     // A fila não guarda o código depois de enviado.

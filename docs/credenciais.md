@@ -1,11 +1,14 @@
 # Credenciais do Comandou (Super Admin › Credenciais)
 
 Tudo o que o Comandou usa de chave, token ou senha, num lugar só. No painel, a aba
-**Credenciais** (`admin.<domínio>/credenciais`) traz este guia inteiro: como funciona, a ordem para
-subir o sistema, a situação de cada chave (configurada, faltando ou para conferir fora daqui) e, em
-cada cartão, para que serve, o passo a passo, o que vai em cada campo, como saber que deu certo, os
-links e, quando ela se cadastra pelo painel, o campo para colar, **Testar** e **Salvar**. Este
-arquivo é a mesma lista, para ler antes do painel existir.
+**Credenciais** (`admin.<domínio>/credenciais`) traz este guia inteiro: como funciona e a ordem para
+subir o sistema (num quadro que recolhe; vem aberto quando falta algo) e um **cartão por chave** em
+grade, com a situação à vista (Em uso / Funcionando / Falta / Recusada / Sem uso / Fora daqui), o
+final da chave e um filtro em cima (Pedem atenção, Em uso, Sem uso, Fora daqui). Clicar no cartão
+**amplia** numa janela: o cadastro (colar, **Testar** e **Salvar**) de um lado e, do outro, o
+passo a passo, o que vai em cada campo, como saber que deu certo e os links. O endereço ganha
+`#cred-<id>`: as outras telas abrem direto no cartão certo. Este arquivo é a mesma lista, para
+ler antes do painel existir.
 
 As chaves do painel ficam cifradas no banco com a `INTEGRATIONS_KEY` (AES-256-GCM) e nunca voltam
 para a tela: depois de salva, aparece só o final dela ("termina em 4f2a"), para saber qual está em

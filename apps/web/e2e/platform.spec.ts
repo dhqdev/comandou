@@ -33,7 +33,8 @@ test('Super Admin: código errado, preço, novo restaurante, assinatura e suspen
   await shot(page, info.project.name, 'admin-login');
 
   await adminLogin(page);
-  await expect(page.getByText('Banco de dados').first()).toBeVisible();
+  // Status sem os blocos de servidor e saúde (0.267.0): os restaurantes no ar seguem ali.
+  await expect(page.getByText('Restaurantes no ar').first()).toBeVisible();
   // Aparelho lembrado: o painel continua conectado (cookie de semanas, não de horas).
   const session = (await page.context().cookies()).find((c) => c.name === 'cm_admin');
   expect(session!.expires * 1000 - Date.now()).toBeGreaterThan(7 * 86400_000);
@@ -46,7 +47,9 @@ test('Super Admin: código errado, preço, novo restaurante, assinatura e suspen
   await expect(page.getByRole('heading', { name: 'Preço', level: 1 })).toBeVisible();
   await expect(page.locator('.adm-tile', { hasText: /^Mensalidade/ })).toContainText('R$ 400,00');
   await expect(page.locator('.adm-tile', { hasText: 'Teste grátis' })).toContainText('dias');
-  await expect(page.getByRole('button', { name: 'Mudar valor e teste' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mudar valor e serviços' })).toBeVisible();
+  // Serviços do plano (0.267.0): o que é sempre incluso e o que liga e desliga.
+  await expect(page.getByText('Serviços do plano').first()).toBeVisible();
   await shot(page, info.project.name, 'admin-preco');
 
   // Restaurante novo no valor único: tela própria, em passos (não fecha num clique fora).

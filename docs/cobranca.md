@@ -68,7 +68,12 @@ continuam manuais até alguém ligar na aba Assinatura do restaurante.
 
 Pública, sem login, em `www.<domínio>/precos` (e em qualquer endereço de restaurante). Lê
 `GET /api/v1/public/plans`: planos **ativos** com **Mostrar na página de preços** marcado, na
-ordem escolhida. Frase, destaques e "Mais escolhido" vêm de Super Admin → Planos; a tabela de
+ordem escolhida. Frase, destaques e "Mais escolhido" vêm de Super Admin → Planos; os **serviços
+do plano** (nota fiscal, WhatsApp e domínio próprio) se marcam por caixa em Super Admin → Preço
+(`feature_fiscal`, `feature_whatsapp`, `feature_custom_domain` do plano, lidos pela API em
+`PlanService.assertFeature`): desmarcado sai para todo restaurante do plano, de quem já fechou e
+de quem fechar (0.267). O resto (PDV, cardápio, cozinha, entregas, estoque, financeiro…) vem em
+todo plano. A tabela de
 comparação usa preço, teste, limites e recursos. O botão "Falar com a gente" usa o contato de
 vendas de Super Admin → Cobrança (número vira WhatsApp). No endereço do restaurante, o botão do
 plano leva para Assinatura já com a troca aberta.
@@ -97,6 +102,14 @@ dados da cobrança (descrição, valor e líquido, tipo, plano, forma, venciment
 envio ao Asaas, links da fatura, do boleto e do restaurante) e as ações Marcar como pago e
 Desfazer. Cada item da resposta já traz esses dados; a previsão vem como "Mensalidade prevista",
 sem fatura. A tela confere sozinha a cada 20 s.
+
+**Pago até (0.267).** O "Período pago até" que você muda na aba Assinatura do restaurante aparece
+no calendário: no dia em que o período pago acaba vem a previsão da próxima mensalidade marcada
+`periodEnd` ("Pago até 10/12/2026: vence a próxima mensalidade", com "Pago até …" na linha do
+cartão). Restaurante ainda em teste que ganha um "pago até" passa a **Ativa** ao salvar (no teste,
+a previsão seguiria o fim do teste e a data nova não apareceria). O plano da aba Assinatura é fixo:
+o plano único (`SINGLE_PLAN_CODE`), mostrado com o preço; plano antigo de um restaurante vira o
+único ao salvar.
 
 ## Como funciona por dentro
 

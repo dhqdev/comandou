@@ -1,13 +1,13 @@
 import { formatDocument, ROLE_LABELS, SUBSCRIPTION_LABELS } from '@comandou/shared';
 import {
   BrainCircuit,
+  Check,
   ChevronRight,
   CreditCard,
   Database,
   FileSignature,
-  Gauge,
-  Globe,
   IdCard,
+  Minus,
   Receipt,
   ShoppingBag,
   Users,
@@ -88,25 +88,6 @@ function Note({ level, children }: { level?: Level; children: ReactNode }) {
   );
 }
 
-/** Domínio próprio do restaurante: ligado (DNS conferido), esperando o DNS ou com erro. */
-function DomainRow({ d }: { d: TenantDetail['domains'][number] }) {
-  const [label, level]: [string, Level] = d.verifiedAt
-    ? ['no ar', 'ok']
-    : d.lastError
-      ? ['com erro', 'bad']
-      : ['esperando o DNS', 'warn'];
-  return (
-    <>
-      <dt className="adm-clip" title={d.hostname}>
-        {d.hostname}
-      </dt>
-      <dd title={d.lastError ?? undefined}>
-        <Dot level={level} /> {label}
-      </dd>
-    </>
-  );
-}
-
 /** Uso de um recurso contra o limite do plano (null = sem limite). */
 function Usage({ label, used, max }: { label: string; used: number; max: number | null }) {
   const pct = max ? (used / max) * 100 : null;
@@ -127,9 +108,20 @@ function Usage({ label, used, max }: { label: string; used: number; max: number 
   );
 }
 
+/** Serviços do plano (Super Admin › Preço): o que o restaurante tem ou não. */
+const PLAN_SERVICES: {
+  key: 'featureFiscal' | 'featureWhatsapp' | 'featureCustomDomain';
+  label: string;
+}[] = [
+  { key: 'featureFiscal', label: 'Nota fiscal' },
+  { key: 'featureWhatsapp', label: 'WhatsApp' },
+  { key: 'featureCustomDomain', label: 'Domínio próprio' },
+];
+
 /**
- * Visão geral do restaurante: tudo do cliente numa tela (assinatura, uso do plano, contrato,
- * cadastro, operação, nota fiscal, IA, banco, equipe e domínios). Cada cartão leva à aba.
+ * Visão geral do restaurante (refeita na 0.267.0, pedido do David): uma faixa com os números que
+ * importam (situação, pedidos, equipe, IA e notas) e os cartões de cada assunto, que levam à aba.
+ * Sem o cartão de endereços nem o de limites do plano (o valor único não tem limites).
  */
 export function TenantOverview({
   t,
@@ -187,265 +179,303 @@ export function TenantOverview({
       .filter((x): x is string => !!x)
       .sort()
       .at(-1) ?? null;
-  const address = `${t.slug}.${window.location.hostname.replace(/^admin\./, '')}`;
   const [dbLabel, dbLevel] = DB_STATUS[t.database.status] ?? [t.database.status, 'off' as Level];
 
   return (
-    <div className="adm-cards">
-      <Card icon={<CreditCard size={16} />} title="Assinatura" onClick={() => go('subscription')}>
-        {s ? (
-          <>
-            <span
-              className="adm-card__big"
-              style={{ display: 'flex', gap: 8, alignItems: 'center' }}
-            >
-              {plan?.name ?? 'Plano removido'}
-              <Tag level={SUB_LEVEL[s.status]}>{SUBSCRIPTION_LABELS[s.status]}</Tag>
-            </span>
-            <dl className="adm-kv">
-              <dt>Mensalidade</dt>
-              <dd>{plan ? brl(plan.priceMonthly) : '—'}</dd>
-              <dt>{s.status === 'trialing' ? 'Teste até' : 'Pago até'}</dt>
-              <dd>{day(until)}</dd>
-              <dt>Assinatura desde</dt>
-              <dd>{day(s.startedAt)}</dd>
-            </dl>
-            {leftText && <Note level={leftLevel}>{leftText}</Note>}
-          </>
-        ) : (
-          <>
-            <span className="adm-card__big">Sem assinatura</span>
-            <Note level="warn">Nenhum limite de plano se aplica.</Note>
-          </>
-        )}
-      </Card>
-
-      <Card icon={<Gauge size={16} />} title="Uso do plano" onClick={() => go('subscription')}>
-        <Usage label="Equipe ativa" used={t.usage.users} max={plan?.maxUsers ?? null} />
-        <Usage label="Produtos ativos" used={t.usage.products} max={plan?.maxProducts ?? null} />
-        <Usage
-          label="Pedidos no mês"
-          used={t.usage.ordersMonth}
-          max={plan?.maxOrdersMonth ?? null}
-        />
-        {plan && (
-          <Note>
-            {[
-              plan.featureFiscal ? 'nota fiscal' : null,
-              plan.featureWhatsapp ? 'WhatsApp' : null,
-              plan.featureCustomDomain ? 'domínio próprio' : null,
-            ]
-              .filter(Boolean)
-              .join(' · ') || 'sem recursos extras'}
-          </Note>
-        )}
-      </Card>
-
-      <Card icon={<FileSignature size={16} />} title="Contrato" onClick={() => go('contract')}>
-        {contracts.data === null ? (
-          <Note>carregando…</Note>
-        ) : lastContract ? (
-          <>
-            <span className="adm-card__big">{lastContract.number}</span>
-            <dl className="adm-kv">
-              <dt>Situação</dt>
-              <dd>
-                <Dot level={CONTRACT_STATUS[lastContract.status][1]} />{' '}
-                {CONTRACT_STATUS[lastContract.status][0]}
-              </dd>
-              <dt>Plano</dt>
-              <dd>
-                {lastContract.planName} · {brl(lastContract.priceMonthly)}
-              </dd>
-              <dt>Assinado</dt>
-              <dd>{lastContract.signedAt ? day(lastContract.signedAt) : '—'}</dd>
-            </dl>
-            {contracts.data.length > 1 && (
-              <Note>{plural(contracts.data.length, 'contrato', 'contratos')} no histórico</Note>
-            )}
-          </>
-        ) : (
-          <>
-            <span className="adm-card__big">Nenhum contrato</span>
-            <Note level="warn">Gere e envie o contrato para o cliente assinar.</Note>
-          </>
-        )}
-      </Card>
-
-      <Card icon={<IdCard size={16} />} title="Cadastro e contato" onClick={() => go('profile')}>
-        <span className="adm-card__big">{p.legalName ?? t.name}</span>
-        <dl className="adm-kv">
-          <dt>CPF/CNPJ</dt>
-          <dd>{p.document ? formatDocument(p.document) : '—'}</dd>
-          <dt>Responsável</dt>
-          <dd>{p.contactName ?? t.owners[0]?.name ?? '—'}</dd>
-          <dt>Telefone</dt>
-          <dd>{p.phone ? maskPhone(p.phone) : '—'}</dd>
-          <dt>E-mail de cobrança</dt>
-          <dd className="adm-clip" title={p.billingEmail ?? undefined}>
-            {p.billingEmail ?? '—'}
-          </dd>
-          <dt>Cidade</dt>
-          <dd>{p.city ? `${p.city}${p.state ? `/${p.state}` : ''}` : '—'}</dd>
-          {/* O dono também muda estes dados (Conta › Dados do restaurante): quando foi. */}
-          <dt>Atualizado</dt>
-          <dd>{p.updatedAt ? ago(p.updatedAt) : '—'}</dd>
-        </dl>
-        {missing.length > 0 && <Note level="warn">Falta: {missing.join(', ')}</Note>}
-      </Card>
-
-      <Card icon={<ShoppingBag size={16} />} title="Operação" onClick={() => go('operation')}>
-        <span className="adm-card__big">
-          {plural(t.usage.ordersMonth, 'pedido', 'pedidos')} no mês
-        </span>
-        <dl className="adm-kv">
-          <dt>Último pedido</dt>
-          <dd>{t.usage.lastOrderAt ? ago(t.usage.lastOrderAt) : 'nenhum'}</dd>
-          <dt>WhatsApp que falhou (7 dias)</dt>
+    <div className="adm-ov">
+      <dl className="adm-ov-kpis">
+        <div>
+          <dt>Assinatura</dt>
           <dd>
-            {t.usage.messageFailures ? <Dot level="warn" /> : null} {t.usage.messageFailures}
-          </dd>
-        </dl>
-        {t.usage.messageFailures > 0 && <Note level="warn">Veja o detalhe na aba Operação.</Note>}
-      </Card>
-
-      <Card icon={<Receipt size={16} />} title="Nota fiscal" onClick={() => go('operation')}>
-        {fiscal.data === null ? (
-          <Note>{fiscal.error ? 'indisponível' : 'carregando…'}</Note>
-        ) : !fx?.enabled ? (
-          <>
-            <span className="adm-card__big">Desligada</span>
-            {fx && (fx.authorized30d > 0 || fx.failed7d > 0) ? (
-              <>
-                <dl className="adm-kv">
-                  <dt>Autorizadas (30 dias)</dt>
-                  <dd>{fx.authorized30d}</dd>
-                  <dt>Recusadas (7 dias)</dt>
-                  <dd>{fx.failed7d}</dd>
-                </dl>
-                <Note>Emitiu notas e depois desligou a emissão.</Note>
-              </>
+            {s ? (
+              <span className="adm-ov-state">
+                <Dot level={SUB_LEVEL[s.status] ?? 'off'} /> {SUBSCRIPTION_LABELS[s.status]}
+              </span>
             ) : (
-              <Note>
-                {plan && !plan.featureFiscal
-                  ? 'O plano não inclui nota fiscal.'
-                  : 'O restaurante ainda não ligou a emissão.'}
-              </Note>
+              'Sem assinatura'
             )}
-          </>
-        ) : (
-          <>
-            <span className="adm-card__big">
-              {fx.environment === 'producao' ? 'Produção' : 'Homologação'}
-              {fx.nfeEnabled ? ' · NFC-e e NF-e' : ' · NFC-e'}
-            </span>
-            <dl className="adm-kv">
-              <dt>Autorizadas (30 dias)</dt>
-              <dd>{fx.authorized30d}</dd>
-              <dt>Recusadas (7 dias)</dt>
-              <dd>{fx.failed7d}</dd>
-              <dt>Certificado até</dt>
-              <dd>{day(fx.certificateValidUntil)}</dd>
-            </dl>
-            {fxCert && (
-              <Note level={fxCert === 'expired' ? 'bad' : 'warn'}>
-                {fxCert === 'expired' ? 'Certificado vencido' : 'Certificado vence em breve'}
-              </Note>
-            )}
-          </>
-        )}
-      </Card>
-
-      <Card
-        icon={<BrainCircuit size={16} />}
-        title="Assistente de IA"
-        onClick={() => navigate('/tokens')}
-      >
-        {ai.data === null ? (
-          <Note>{ai.error ? 'indisponível' : 'carregando…'}</Note>
-        ) : !aiRow || !aiRow.enabled ? (
-          <>
-            <span className="adm-card__big">Desligado</span>
-            <Note>O restaurante não usa o assistente.</Note>
-          </>
-        ) : (
-          <>
-            <span className="adm-card__big">
-              {aiRow.tokens.toLocaleString('pt-BR')}{' '}
-              <small className="adm-ai-off">tokens no mês</small>
-            </span>
-            <Usage label="Limite do mês" used={aiRow.tokens} max={aiRow.limit || null} />
-            <Note level={levelFor(aiRow.percent, 80, 100)}>
-              {plural(aiRow.calls, 'resposta da IA', 'respostas da IA')} no mês · último uso{' '}
-              {ago(aiRow.lastAt)}
-            </Note>
-          </>
-        )}
-      </Card>
-
-      <Card icon={<Database size={16} />} title="Banco de dados" onClick={() => go('database')}>
-        <span className="adm-card__big">
-          {t.database.kind === 'dedicated' ? 'Banco próprio' : 'Banco central'}
-        </span>
-        <dl className="adm-kv">
-          <dt>Situação</dt>
-          <dd>
-            <Dot level={dbLevel} /> {dbLabel}
           </dd>
-          <dt>Tamanho</dt>
-          <dd>{t.database.sizeBytes === null ? '—' : bytes(t.database.sizeBytes)}</dd>
-          <dt>Último backup</dt>
+          <small data-level={leftLevel}>{leftText ?? (plan ? brl(plan.priceMonthly) : '—')}</small>
+        </div>
+        <div>
+          <dt>Pedidos no mês</dt>
+          <dd>{t.usage.ordersMonth.toLocaleString('pt-BR')}</dd>
+          <small>
+            {t.usage.lastOrderAt ? `último ${ago(t.usage.lastOrderAt)}` : 'nenhum pedido ainda'}
+          </small>
+        </div>
+        <div>
+          <dt>Equipe</dt>
+          <dd>{team ? active.length : '…'}</dd>
+          <small>
+            {online > 0
+              ? `${online} online agora`
+              : lastSeen
+                ? `acesso ${ago(lastSeen)}`
+                : 'ninguém entrou'}
+          </small>
+        </div>
+        <div>
+          <dt>IA no mês</dt>
           <dd>
-            {t.database.lastBackup
-              ? `${ago(t.database.lastBackup.finishedAt ?? t.database.lastBackup.startedAt)}${t.database.lastBackup.status === 'failed' ? ' (falhou)' : ''}`
-              : 'nenhum'}
+            {aiRow
+              ? `${(aiRow.tokens / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`
+              : '—'}
           </dd>
-        </dl>
-      </Card>
-
-      <TenantVersionCard tenantId={t.id} />
-
-      <Card icon={<Users size={16} />} title="Equipe e acesso" onClick={() => go('team')}>
-        <span className="adm-card__big">
-          {team ? plural(active.length, 'pessoa', 'pessoas') : '…'}
-          {online > 0 && <small className="adm-ai-off"> · {online} online agora</small>}
-        </span>
-        <dl className="adm-kv">
-          <dt>{t.owners.length > 1 ? 'Donos' : 'Dono'}</dt>
-          <dd className="adm-clip">{t.owners.map((o) => o.name).join(', ') || '—'}</dd>
-          {t.owners.length > 0 && (
+          <small>
+            {aiRow
+              ? aiRow.limit > 0
+                ? `${aiRow.percent ?? 0}% do limite`
+                : 'sem limite'
+              : 'tokens'}
+          </small>
+        </div>
+        <div>
+          <dt>Notas (30 dias)</dt>
+          <dd>{fx?.enabled ? fx.authorized30d.toLocaleString('pt-BR') : '—'}</dd>
+          <small data-level={fx && fx.failed7d > 0 ? 'warn' : undefined}>
+            {!fx?.enabled
+              ? 'emissão desligada'
+              : fx.failed7d > 0
+                ? `${fx.failed7d} recusada(s) em 7 dias`
+                : 'sem recusas'}
+          </small>
+        </div>
+      </dl>
+      <div className="adm-cards">
+        <Card icon={<CreditCard size={16} />} title="Assinatura" onClick={() => go('subscription')}>
+          {s ? (
             <>
-              <dt>E-mail de entrada</dt>
-              <dd className="adm-clip" title={t.owners.map((o) => o.email).join(', ')}>
-                {t.owners.map((o) => o.email).join(', ')}
-              </dd>
+              <span
+                className="adm-card__big"
+                style={{ display: 'flex', gap: 8, alignItems: 'center' }}
+              >
+                {plan?.name ?? 'Plano removido'}
+                <Tag level={SUB_LEVEL[s.status]}>{SUBSCRIPTION_LABELS[s.status]}</Tag>
+              </span>
+              <dl className="adm-kv">
+                <dt>Mensalidade</dt>
+                <dd>{plan ? brl(plan.priceMonthly) : '—'}</dd>
+                <dt>{s.status === 'trialing' ? 'Teste até' : 'Pago até'}</dt>
+                <dd>{day(until)}</dd>
+                <dt>Assinatura desde</dt>
+                <dd>{day(s.startedAt)}</dd>
+              </dl>
+              {plan && (
+                <ul className="adm-ov-services" aria-label="Serviços do plano">
+                  {PLAN_SERVICES.map((x) => (
+                    <li key={x.key} data-on={plan[x.key] || undefined}>
+                      {plan[x.key] ? (
+                        <Check size={13} aria-hidden />
+                      ) : (
+                        <Minus size={13} aria-hidden />
+                      )}
+                      {x.label}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {leftText && <Note level={leftLevel}>{leftText}</Note>}
+            </>
+          ) : (
+            <>
+              <span className="adm-card__big">Sem assinatura</span>
+              <Note level="warn">Nenhum limite de plano se aplica.</Note>
             </>
           )}
-          <dt>Último acesso</dt>
-          <dd>{lastSeen ? `${ago(lastSeen)}` : 'ninguém entrou ainda'}</dd>
-          {team && team.length > active.length && (
+        </Card>
+
+        <Card icon={<FileSignature size={16} />} title="Contrato" onClick={() => go('contract')}>
+          {contracts.data === null ? (
+            <Note>carregando…</Note>
+          ) : lastContract ? (
             <>
-              <dt>Sem acesso</dt>
-              <dd>{team.length - active.length}</dd>
+              <span className="adm-card__big">{lastContract.number}</span>
+              <dl className="adm-kv">
+                <dt>Situação</dt>
+                <dd>
+                  <Dot level={CONTRACT_STATUS[lastContract.status][1]} />{' '}
+                  {CONTRACT_STATUS[lastContract.status][0]}
+                </dd>
+                <dt>Plano</dt>
+                <dd>
+                  {lastContract.planName} · {brl(lastContract.priceMonthly)}
+                </dd>
+                <dt>Assinado</dt>
+                <dd>{lastContract.signedAt ? day(lastContract.signedAt) : '—'}</dd>
+              </dl>
+              {contracts.data.length > 1 && (
+                <Note>{plural(contracts.data.length, 'contrato', 'contratos')} no histórico</Note>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="adm-card__big">Nenhum contrato</span>
+              <Note level="warn">Gere e envie o contrato para o cliente assinar.</Note>
             </>
           )}
-        </dl>
-      </Card>
+        </Card>
 
-      <Card icon={<Globe size={16} />} title="Endereços">
-        <span className="adm-card__big" title={address}>
-          {address}
-        </span>
-        {t.domains.length > 0 ? (
+        <Card icon={<IdCard size={16} />} title="Cadastro e contato" onClick={() => go('profile')}>
+          <span className="adm-card__big">{p.legalName ?? t.name}</span>
           <dl className="adm-kv">
-            {t.domains.map((d) => (
-              <DomainRow key={d.id} d={d} />
-            ))}
+            <dt>CPF/CNPJ</dt>
+            <dd>{p.document ? formatDocument(p.document) : '—'}</dd>
+            <dt>Responsável</dt>
+            <dd>{p.contactName ?? t.owners[0]?.name ?? '—'}</dd>
+            <dt>Telefone</dt>
+            <dd>{p.phone ? maskPhone(p.phone) : '—'}</dd>
+            <dt>E-mail de cobrança</dt>
+            <dd className="adm-clip" title={p.billingEmail ?? undefined}>
+              {p.billingEmail ?? '—'}
+            </dd>
+            <dt>Cidade</dt>
+            <dd>{p.city ? `${p.city}${p.state ? `/${p.state}` : ''}` : '—'}</dd>
+            {/* O dono também muda estes dados (Conta › Dados do restaurante): quando foi. */}
+            <dt>Atualizado</dt>
+            <dd>{p.updatedAt ? ago(p.updatedAt) : '—'}</dd>
           </dl>
-        ) : (
-          <Note>Sem domínio próprio: o sistema abre só no endereço do Comandou.</Note>
-        )}
-      </Card>
+          {missing.length > 0 && <Note level="warn">Falta: {missing.join(', ')}</Note>}
+        </Card>
+
+        <Card icon={<ShoppingBag size={16} />} title="Operação" onClick={() => go('operation')}>
+          <span className="adm-card__big">
+            {plural(t.usage.ordersMonth, 'pedido', 'pedidos')} no mês
+          </span>
+          <dl className="adm-kv">
+            <dt>Último pedido</dt>
+            <dd>{t.usage.lastOrderAt ? ago(t.usage.lastOrderAt) : 'nenhum'}</dd>
+            <dt>WhatsApp que falhou (7 dias)</dt>
+            <dd>
+              {t.usage.messageFailures ? <Dot level="warn" /> : null} {t.usage.messageFailures}
+            </dd>
+          </dl>
+          {t.usage.messageFailures > 0 && <Note level="warn">Veja o detalhe na aba Operação.</Note>}
+        </Card>
+
+        <Card icon={<Receipt size={16} />} title="Nota fiscal" onClick={() => go('operation')}>
+          {fiscal.data === null ? (
+            <Note>{fiscal.error ? 'indisponível' : 'carregando…'}</Note>
+          ) : !fx?.enabled ? (
+            <>
+              <span className="adm-card__big">Desligada</span>
+              {fx && (fx.authorized30d > 0 || fx.failed7d > 0) ? (
+                <>
+                  <dl className="adm-kv">
+                    <dt>Autorizadas (30 dias)</dt>
+                    <dd>{fx.authorized30d}</dd>
+                    <dt>Recusadas (7 dias)</dt>
+                    <dd>{fx.failed7d}</dd>
+                  </dl>
+                  <Note>Emitiu notas e depois desligou a emissão.</Note>
+                </>
+              ) : (
+                <Note>
+                  {plan && !plan.featureFiscal
+                    ? 'O plano não inclui nota fiscal.'
+                    : 'O restaurante ainda não ligou a emissão.'}
+                </Note>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="adm-card__big">
+                {fx.environment === 'producao' ? 'Produção' : 'Homologação'}
+                {fx.nfeEnabled ? ' · NFC-e e NF-e' : ' · NFC-e'}
+              </span>
+              <dl className="adm-kv">
+                <dt>Autorizadas (30 dias)</dt>
+                <dd>{fx.authorized30d}</dd>
+                <dt>Recusadas (7 dias)</dt>
+                <dd>{fx.failed7d}</dd>
+                <dt>Certificado até</dt>
+                <dd>{day(fx.certificateValidUntil)}</dd>
+              </dl>
+              {fxCert && (
+                <Note level={fxCert === 'expired' ? 'bad' : 'warn'}>
+                  {fxCert === 'expired' ? 'Certificado vencido' : 'Certificado vence em breve'}
+                </Note>
+              )}
+            </>
+          )}
+        </Card>
+
+        <Card
+          icon={<BrainCircuit size={16} />}
+          title="Assistente de IA"
+          onClick={() => navigate('/tokens')}
+        >
+          {ai.data === null ? (
+            <Note>{ai.error ? 'indisponível' : 'carregando…'}</Note>
+          ) : !aiRow || !aiRow.enabled ? (
+            <>
+              <span className="adm-card__big">Desligado</span>
+              <Note>O restaurante não usa o assistente.</Note>
+            </>
+          ) : (
+            <>
+              <span className="adm-card__big">
+                {aiRow.tokens.toLocaleString('pt-BR')}{' '}
+                <small className="adm-ai-off">tokens no mês</small>
+              </span>
+              <Usage label="Limite do mês" used={aiRow.tokens} max={aiRow.limit || null} />
+              <Note level={levelFor(aiRow.percent, 80, 100)}>
+                {plural(aiRow.calls, 'resposta da IA', 'respostas da IA')} no mês · último uso{' '}
+                {ago(aiRow.lastAt)}
+              </Note>
+            </>
+          )}
+        </Card>
+
+        <Card icon={<Database size={16} />} title="Banco de dados" onClick={() => go('database')}>
+          <span className="adm-card__big">
+            {t.database.kind === 'dedicated' ? 'Banco próprio' : 'Banco central'}
+          </span>
+          <dl className="adm-kv">
+            <dt>Situação</dt>
+            <dd>
+              <Dot level={dbLevel} /> {dbLabel}
+            </dd>
+            <dt>Tamanho</dt>
+            <dd>{t.database.sizeBytes === null ? '—' : bytes(t.database.sizeBytes)}</dd>
+            <dt>Último backup</dt>
+            <dd>
+              {t.database.lastBackup
+                ? `${ago(t.database.lastBackup.finishedAt ?? t.database.lastBackup.startedAt)}${t.database.lastBackup.status === 'failed' ? ' (falhou)' : ''}`
+                : 'nenhum'}
+            </dd>
+          </dl>
+        </Card>
+
+        <TenantVersionCard tenantId={t.id} />
+
+        <Card icon={<Users size={16} />} title="Equipe e acesso" onClick={() => go('team')}>
+          <span className="adm-card__big">
+            {team ? plural(active.length, 'pessoa', 'pessoas') : '…'}
+            {online > 0 && <small className="adm-ai-off"> · {online} online agora</small>}
+          </span>
+          <dl className="adm-kv">
+            <dt>{t.owners.length > 1 ? 'Donos' : 'Dono'}</dt>
+            <dd className="adm-clip">{t.owners.map((o) => o.name).join(', ') || '—'}</dd>
+            {t.owners.length > 0 && (
+              <>
+                <dt>E-mail de entrada</dt>
+                <dd className="adm-clip" title={t.owners.map((o) => o.email).join(', ')}>
+                  {t.owners.map((o) => o.email).join(', ')}
+                </dd>
+              </>
+            )}
+            <dt>Último acesso</dt>
+            <dd>{lastSeen ? `${ago(lastSeen)}` : 'ninguém entrou ainda'}</dd>
+            {team && team.length > active.length && (
+              <>
+                <dt>Sem acesso</dt>
+                <dd>{team.length - active.length}</dd>
+              </>
+            )}
+          </dl>
+        </Card>
+      </div>
     </div>
   );
 }

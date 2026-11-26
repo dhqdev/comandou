@@ -17,7 +17,9 @@ describe('e-mails do Comandou', () => {
     const pre = /<div style="display:none[^>]*>([^<]*)/.exec(m.html)![1]!;
     expect(pre.startsWith('Código 482915 para criar uma nova senha em Fumaça Burger')).toBe(true);
     expect(m.html).toContain('>482915</div>');
-    expect(m.html).toContain(`${ASSETS}/email/hero-codigo.jpg`);
+    // Minimalista (0.267.0): a marca pequena em cima, sem a capa com o panda.
+    expect(m.html).toContain(`${ASSETS}/icons/icon-192.png`);
+    expect(m.html).not.toContain('/email/hero-');
     // Copia no próprio e-mail (um toque seleciona tudo), sem botão que abre a página /codigo.
     expect(m.html).toContain('user-select:all;">482915</div>');
     expect(m.html).not.toContain('/codigo#');

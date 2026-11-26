@@ -1,10 +1,39 @@
-import { ExternalLink, ShieldCheck } from 'lucide-react';
-import { ReactNode, useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router';
-import { Alert, Skeleton } from '../../design-system';
+import {
+  Activity,
+  Bot,
+  Boxes,
+  CloudUpload,
+  CreditCard,
+  Database,
+  ExternalLink,
+  GitBranch,
+  Globe,
+  KeyRound,
+  Landmark,
+  Lock,
+  type LucideIcon,
+  Mail,
+  Maximize2,
+  MessageCircle,
+  Network,
+  Package,
+  ReceiptText,
+  RefreshCw,
+  Rocket,
+  Server,
+  ShieldCheck,
+  ShoppingBag,
+  Smartphone,
+  Sparkles,
+  UserCog,
+  Wallet,
+} from 'lucide-react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { Alert, canAnimate, Modal, Skeleton } from '../../design-system';
 import { api } from '../../lib/api';
 import { useLoad } from '../OverviewPages';
-import { ago, Dot, Level, PageHead, Section, Tag, Tile } from '../ui';
+import { ago, Dot, Level, PageHead, Section, Tile } from '../ui';
 import { CREDENTIALS, CredDef, CredGroup, TENANT_CREDENTIALS } from './catalog';
 import {
   AsaasEditor,
@@ -71,6 +100,42 @@ const GROUPS: { id: CredGroup; title: string; sub: string }[] = [
   { id: 'github', title: 'No GitHub', sub: 'só para implantar pelo GitHub Actions' },
 ];
 
+/** Ícone de cada cartão (solto, cinza: quem diz a situação é a bolinha). */
+const ICONS: Record<string, LucideIcon> = {
+  focus_master: ReceiptText,
+  channel_od_apps: Boxes,
+  openrouter_clients: Sparkles,
+  openrouter_owner: Bot,
+  openrouter_admin: Wallet,
+  resend: Mail,
+  asaas: Landmark,
+  pagbank: CreditCard,
+  backblaze: CloudUpload,
+  github_pipeline: GitBranch,
+  integrations_key: KeyRound,
+  database: Database,
+  platform_admin: UserCog,
+  whatsapp_gateway: MessageCircle,
+  whatsapp_session: Smartphone,
+  traefik_provider: Network,
+  host_agent: Server,
+  metrics: Activity,
+  crowdsec: ShieldCheck,
+  dns: Globe,
+  acme_email: Lock,
+  update_github: RefreshCw,
+  ghcr_agent: Package,
+  github_deploy: Rocket,
+};
+const iconOf = (id: string): LucideIcon =>
+  ICONS[id] ?? (id.startsWith('channel_') ? ShoppingBag : KeyRound);
+
+/** "Focus NFe · Token Master" → nome grande e o que é, embaixo. */
+function splitTitle(title: string): [string, string | null] {
+  const at = title.indexOf(' · ');
+  return at < 0 ? [title, null] : [title.slice(0, at), title.slice(at + 3)];
+}
+
 const code = (s: string) => <code>{s}</code>;
 
 function levelOf(s: Status | undefined): Level {
@@ -80,23 +145,78 @@ function levelOf(s: Status | undefined): Level {
   return s.required ? 'bad' : 'off';
 }
 
-function label(s: Status | undefined) {
-  if (!s || s.configured === null) return 'confira fora daqui';
-  if (s.unreadable) return 'cole de novo';
-  if (s.configured) return 'configurada';
-  return s.required ? 'falta' : 'opcional';
-}
-
 /** O que identifica a chave salva: ambiente, conta e o final dela. Nunca o valor. */
 function inUse(s: Status | undefined) {
   if (!s?.configured) return null;
   return [s.detail, s.last4 ? `termina em ${s.last4}` : null].filter(Boolean).join(' · ') || null;
 }
 
+type Filter = 'all' | 'missing' | 'ok' | 'unused' | 'external';
+const FILTERS: [Filter, string][] = [
+  ['all', 'Todas'],
+  ['missing', 'Pedem atenção'],
+  ['ok', 'Em uso'],
+  ['unused', 'Sem uso'],
+  ['external', 'Fora daqui'],
+];
+
+/** A situação de um cartão: a bolinha, a palavra e a linha de baixo. */
+interface CardState {
+  level: Level;
+  label: string;
+  note: string;
+  filter: Exclude<Filter, 'all'>;
+}
+
+function stateOf(
+  def: CredDef,
+  s: Status | undefined,
+  check: CheckResult | undefined,
+  /** Falta algo junto da chave (ex.: o webhook do Asaas). */
+  pending?: string,
+): CardState {
+  // Salva mas recusada agora pelo fornecedor: vermelho, mesmo cadastrada.
+  if (check?.ok === false)
+    return { level: 'bad', label: 'Recusada', note: check.detail, filter: 'missing' };
+  if (!s || s.configured === null)
+    return {
+      level: 'info',
+      label: 'Fora daqui',
+      note: def.where?.[0] ?? 'Confira no servidor',
+      filter: 'external',
+    };
+  if (s.unreadable)
+    return {
+      level: 'bad',
+      label: 'Cole de novo',
+      note: 'Não abre com a chave mestra atual',
+      filter: 'missing',
+    };
+  if (s.configured)
+    return pending
+      ? { level: 'warn', label: pending, note: inUse(s) ?? 'Cadastrada', filter: 'missing' }
+      : {
+          level: 'ok',
+          // Conferida agora no fornecedor: a etiqueta diz que funciona.
+          label: check?.ok ? 'Funcionando' : 'Em uso',
+          note: inUse(s) ?? 'Cadastrada',
+          filter: 'ok',
+        };
+  return s.required
+    ? {
+        level: 'bad',
+        label: 'Falta',
+        note: 'Necessária para o sistema funcionar',
+        filter: 'missing',
+      }
+    : { level: 'off', label: 'Sem uso', note: 'Não cadastrada', filter: 'unused' };
+}
+
 /**
  * Super Admin › Credenciais: tudo o que o Comandou precisa de chave, token ou senha, num lugar
- * só, com o guia para subir o sistema. As do painel se cadastram aqui mesmo; as do servidor e
- * do GitHub têm o passo a passo. As outras telas só mostram qual chave está em uso (`KeyInUse`).
+ * só, com o guia para subir o sistema. Cada credencial é um cartão com a situação; clicar amplia
+ * numa janela com o cadastro e o passo a passo (o endereço ganha `#cred-<id>`, e as outras telas
+ * abrem direto nele). As outras telas só mostram qual chave está em uso (`KeyInUse`).
  */
 export function CredentialsPage() {
   const data = useLoad<Overview>('/platform/credentials');
@@ -104,6 +224,7 @@ export function CredentialsPage() {
   const [checks, setChecks] = useState<CheckReport | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>('all');
   const checkAll = async () => {
     setChecking(true);
     setCheckError(null);
@@ -116,12 +237,36 @@ export function CredentialsPage() {
     }
   };
   const { hash } = useLocation();
+  const navigate = useNavigate();
   const loaded = !!o;
-  // Vindo de outra tela ou da ordem para subir: rola até a credencial pedida.
+  // Chegou de outra tela com #cred-<id>: rola até o cartão (a janela abre sozinha). Clicar num
+  // cartão aqui também muda o endereço, mas aí não rola nada.
+  const arrivedWith = useRef(hash);
   useEffect(() => {
     if (!loaded || !hash) return;
-    document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: 'start' });
+    const target = decodeURIComponent(hash.slice(1));
+    const isCard = CREDENTIALS.some((c) => `cred-${c.id}` === target);
+    if (isCard && hash !== arrivedWith.current) return;
+    arrivedWith.current = '';
+    document.getElementById(target)?.scrollIntoView({ block: isCard ? 'center' : 'start' });
   }, [loaded, hash]);
+  // Cartão aberto = o do endereço (#cred-<id>). O último aberto segue na janela enquanto ela fecha.
+  const openId = hash.startsWith('#cred-') ? decodeURIComponent(hash.slice('#cred-'.length)) : '';
+  const openDef = CREDENTIALS.find((c) => c.id === openId) ?? null;
+  const lastDef = useRef<CredDef | null>(null);
+  if (openDef) lastDef.current = openDef;
+  const shownDef = openDef ?? lastDef.current;
+  // Aberta pelo clique no cartão: a janela amplia a partir dele.
+  const zoomFrom = useRef<string | null>(null);
+  useEffect(() => {
+    const id = zoomFrom.current;
+    zoomFrom.current = null;
+    if (!id || id !== openId) return;
+    zoomIn(
+      document.getElementById(`cred-${id}`),
+      document.querySelector<HTMLElement>('dialog.adm-cred-modal[open]'),
+    );
+  }, [openId]);
   if (data.error) return <Alert tone="danger">{data.error}</Alert>;
   if (!o) return <Skeleton variant="page" />;
   const byId = new Map(o.items.map((i) => [i.id, i]));
@@ -132,6 +277,7 @@ export function CredentialsPage() {
   const asaasReady = !!byId.get('asaas') && isReady(byId.get('asaas')!);
   const needed = known.filter((i) => i.required && (i.id !== 'asaas_webhook' || asaasReady));
   const optional = known.filter((i) => !i.required);
+  const neededOk = needed.filter(isReady).length;
   const checkOf = new Map(checks?.results.map((r) => [r.id, r]));
   const refused = checks?.results.filter((r) => r.ok === false) ?? [];
   const tested = checks?.results.filter((r) => r.ok !== null) ?? [];
@@ -140,9 +286,30 @@ export function CredentialsPage() {
     return s?.required && (s.configured === false || s.unreadable);
   });
   const hook = byId.get('asaas_webhook');
-  if (hook?.required && !hook.configured && byId.get('asaas')?.configured)
+  const hookMissing = !!hook?.required && !hook.configured && !!byId.get('asaas')?.configured;
+  if (hookMissing)
     missing.push({ ...CREDENTIALS.find((c) => c.id === 'asaas')!, title: 'webhook do Asaas' });
   const external = o.items.filter((i) => i.configured === null).length;
+
+  const states = new Map(
+    CREDENTIALS.map((c) => [
+      c.id,
+      stateOf(
+        c,
+        byId.get(c.id),
+        checkOf.get(c.id),
+        c.id === 'asaas' && hookMissing ? 'Falta o webhook' : undefined,
+      ),
+    ]),
+  );
+  const count = (f: Filter) =>
+    f === 'all'
+      ? CREDENTIALS.length
+      : CREDENTIALS.filter((c) => states.get(c.id)!.filter === f).length;
+  const shows = (c: CredDef) => filter === 'all' || states.get(c.id)!.filter === filter;
+
+  const open = (id: string) => navigate({ hash: `cred-${id}` }, { replace: true });
+  const close = () => navigate({ hash: '' }, { replace: true });
 
   const editor = (id: string): ReactNode => {
     const reload = data.reload;
@@ -192,13 +359,14 @@ export function CredentialsPage() {
   /** Atalho para um cartão, com a bolinha da situação. */
   const jump = (id: string, name: string) => (
     <Link key={id} to={{ hash: `cred-${id}` }} className="adm-cred__jump">
-      <Dot level={levelOf(byId.get(id))} />
+      <Dot level={states.get(id)?.level ?? levelOf(byId.get(id))} />
       {name}
     </Link>
   );
   const allOk = (ids: string[]) =>
     ids.every((id) => byId.get(id)?.configured && !byId.get(id)?.unreadable);
   const panelNeeded = ['focus_master', 'openrouter_clients', 'resend', 'asaas', 'asaas_webhook'];
+  const shownEditor = shownDef ? editor(shownDef.id) : null;
 
   return (
     <>
@@ -228,11 +396,11 @@ export function CredentialsPage() {
         <div className="adm-grid">
           <Tile
             label="Necessárias"
-            value={`${needed.filter(isReady).length} de ${needed.length}`}
+            value={`${neededOk} de ${needed.length}`}
             level={missing.length ? 'bad' : 'ok'}
             sub={
-              needed.length - needed.filter(isReady).length
-                ? `${needed.length - needed.filter(isReady).length} faltando para o sistema funcionar`
+              needed.length - neededOk
+                ? `${needed.length - neededOk} faltando para o sistema funcionar`
                 : 'todas cadastradas'
             }
           />
@@ -265,7 +433,16 @@ export function CredentialsPage() {
         </div>
         {missing.length > 0 && (
           <div className="adm-cred__missing">
-            <Alert tone="warning">Falta cadastrar: {missing.map((c) => c.title).join(', ')}.</Alert>
+            <Alert tone="warning">
+              Falta cadastrar:{' '}
+              {missing.map((c, i) => (
+                <span key={c.title}>
+                  {i > 0 && ', '}
+                  <Link to={{ hash: `cred-${c.id}` }}>{c.title}</Link>
+                </span>
+              ))}
+              .
+            </Alert>
           </div>
         )}
         {checkError && <Alert tone="danger">{checkError}</Alert>}
@@ -294,8 +471,14 @@ export function CredentialsPage() {
         )}
       </Section>
 
-      <Section title="Como funciona">
-        <div className="adm-panel adm-cred__intro">
+      <details className="adm-panel adm-cred__guide" open={missing.length > 0 || !o.keyConfigured}>
+        <summary>
+          <span>
+            <strong>Como funciona e a ordem para subir o sistema</strong>
+            <small>o que se cadastra aqui, o que fica no servidor e os 6 passos</small>
+          </span>
+        </summary>
+        <div className="adm-cred__intro">
           <p>
             <strong>Aqui no painel</strong> você cola a chave, clica em <strong>Testar</strong> e
             depois em <strong>Salvar</strong>. Ela fica cifrada no banco com a chave mestra do
@@ -313,10 +496,7 @@ export function CredentialsPage() {
             testar é sempre aqui.
           </p>
         </div>
-      </Section>
-
-      <Section title="Para subir o sistema, na ordem">
-        <ol className="adm-panel adm-cred__order">
+        <ol className="adm-cred__order">
           <li>
             <Dot level="info" />
             <div>
@@ -388,53 +568,66 @@ export function CredentialsPage() {
             </div>
           </li>
         </ol>
-      </Section>
+      </details>
+
+      <div className="adm-chips adm-cred__filters" role="group" aria-label="Filtrar credenciais">
+        {FILTERS.map(([f, name]) => (
+          <button
+            key={f}
+            type="button"
+            className="adm-chip"
+            aria-pressed={filter === f}
+            onClick={() => setFilter(f)}
+          >
+            {name} <span>{count(f)}</span>
+          </button>
+        ))}
+      </div>
 
       {GROUPS.map((g) => {
-        const list = CREDENTIALS.filter((c) => c.group === g.id);
+        const all = CREDENTIALS.filter((c) => c.group === g.id);
+        // Necessárias primeiro, depois as cadastradas; o resto na ordem do catálogo.
+        const rank = (c: CredDef) => {
+          const st = byId.get(c.id);
+          return st?.required ? 0 : st?.configured ? 1 : 2;
+        };
+        const list = all.filter(shows).sort((a, b) => rank(a) - rank(b));
+        if (!list.length) return null;
+        const using = all.filter((c) => states.get(c.id)!.filter === 'ok').length;
+        const tracked = all.some((c) => states.get(c.id)!.filter !== 'external');
         return (
-          <Section key={g.id} title={g.title} sub={g.sub}>
-            {g.id === 'servidor' && (
-              <div className="adm-panel adm-cred__howto">
-                <strong>Para mudar um valor do servidor</strong>
-                <ol>
-                  <li>
-                    Entre no servidor por SSH e abra o arquivo:{' '}
-                    {code('sudo nano /etc/comandou/deploy.env')}
-                  </li>
-                  <li>
-                    Escreva uma linha por valor, no formato {code('NOME=valor')} (sem espaço e sem
-                    aspas), e salve (Ctrl+O, Enter, Ctrl+X).
-                  </li>
-                  <li>
-                    Rode o instalador de novo: {code(INSTALL_AGAIN)}. Ele aplica o que mudou e
-                    mantém o resto.
-                  </li>
-                </ol>
-              </div>
-            )}
-            <div className="adm-cred__list">
+          <Section
+            key={g.id}
+            title={g.title}
+            sub={g.sub}
+            actions={
+              tracked ? (
+                <span className="adm-cred__count">
+                  {using} de {all.length} em uso
+                </span>
+              ) : undefined
+            }
+          >
+            <div className="adm-cred-grid">
               {list.map((c) => (
-                <CredentialCard
+                <CredTile
                   key={c.id}
                   def={c}
-                  status={byId.get(c.id)}
-                  check={checkOf.get(c.id)}
-                  extra={
-                    c.id === 'asaas' && byId.get('asaas')?.configured
-                      ? hook?.configured
-                        ? 'webhook cadastrado'
-                        : 'falta cadastrar o webhook'
-                      : undefined
-                  }
-                >
-                  {editor(c.id)}
-                </CredentialCard>
+                  state={states.get(c.id)!}
+                  required={!!byId.get(c.id)?.required}
+                  onOpen={() => {
+                    zoomFrom.current = c.id;
+                    open(c.id);
+                  }}
+                />
               ))}
             </div>
           </Section>
         );
       })}
+      {filter !== 'all' && count(filter) === 0 && (
+        <p className="adm-cred__empty">Nenhuma credencial aqui agora.</p>
+      )}
 
       <Section title="Cada restaurante cadastra" sub="no sistema dele, não aqui">
         <div className="adm-panel adm-rows adm-cred__tenants" id="cred-tenants">
@@ -452,80 +645,194 @@ export function CredentialsPage() {
           ))}
         </div>
       </Section>
+
+      <Modal
+        open={!!openDef}
+        onClose={close}
+        size={shownEditor ? 'xl' : 'lg'}
+        className="adm-cred-modal"
+        title={shownDef ? <CredTitle def={shownDef} /> : ''}
+      >
+        {shownDef && (
+          <CredentialDetail
+            def={shownDef}
+            status={byId.get(shownDef.id)}
+            state={states.get(shownDef.id)!}
+            check={checkOf.get(shownDef.id)}
+            editor={shownEditor}
+          />
+        )}
+      </Modal>
     </>
   );
 }
 
-function CredentialCard({
+/**
+ * O cartão amplia: a janela nasce do tamanho e do lugar dele e cresce até o centro (só transform,
+ * ~0,26 s, por cima do esmaecer de sempre). A folha do celular segue subindo de baixo, e o
+ * Playwright e o "reduzir movimento" abrem na hora, como em toda janela.
+ */
+function zoomIn(from: Element | null, d: HTMLElement | null) {
+  if (!from || !d || !canAnimate(d) || navigator.webdriver) return;
+  // Tira o "nada de escala" da janela comum para medir e crescer daqui.
+  d.getAnimations().forEach((a) => {
+    const frames = (a.effect as KeyframeEffect | null)?.getKeyframes() ?? [];
+    if (frames.some((k) => 'transform' in k)) a.cancel();
+  });
+  const a = from.getBoundingClientRect();
+  const b = d.getBoundingClientRect();
+  if (!a.width || !b.width || !b.height || b.width >= innerWidth - 2) return;
+  const start = `translate(${a.left - b.left}px, ${a.top - b.top}px) scale(${a.width / b.width}, ${a.height / b.height})`;
+  d.animate(
+    [
+      { transformOrigin: '0 0', transform: start },
+      { transformOrigin: '0 0', transform: 'none' },
+    ],
+    { duration: 260, easing: 'cubic-bezier(.32, .72, 0, 1)' },
+  );
+}
+
+function CredTitle({ def }: { def: CredDef }) {
+  const Icon = iconOf(def.id);
+  return (
+    <span className="adm-cred-modal__title">
+      <Icon size={18} aria-hidden />
+      {def.title}
+    </span>
+  );
+}
+
+/** O cartão fechado: ícone, situação, nome, para que serve e o que está em uso. */
+function CredTile({
+  def,
+  state,
+  required,
+  onOpen,
+}: {
+  def: CredDef;
+  state: CardState;
+  required: boolean;
+  onOpen(): void;
+}) {
+  const Icon = iconOf(def.id);
+  const [name, kind] = splitTitle(def.title);
+  const sub = [kind, required ? 'necessária' : null].filter(Boolean).join(' · ');
+  return (
+    <button
+      type="button"
+      id={`cred-${def.id}`}
+      className="adm-cred-tile"
+      data-state={state.level}
+      aria-haspopup="dialog"
+      onClick={onOpen}
+    >
+      <span className="adm-cred-tile__top">
+        <Icon size={20} strokeWidth={1.75} aria-hidden className="adm-cred-tile__icon" />
+        <span className="adm-cred-tile__state">
+          <Dot level={state.level} />
+          {state.label}
+        </span>
+      </span>
+      <span className="adm-cred-tile__name">
+        <strong>{name}</strong>
+        {sub && <small>{sub}</small>}
+      </span>
+      <span className="adm-cred-tile__purpose">{def.purpose}</span>
+      <span className="adm-cred-tile__foot">
+        <span
+          className="adm-cred-tile__note"
+          data-code={state.filter === 'external' && def.where ? '' : undefined}
+        >
+          {state.note}
+        </span>
+        <Maximize2 size={14} aria-hidden className="adm-cred-tile__open" />
+      </span>
+    </button>
+  );
+}
+
+/** A credencial ampliada: situação em cima, o cadastro à esquerda e o passo a passo ao lado. */
+function CredentialDetail({
   def,
   status,
+  state,
   check,
-  extra,
-  children,
+  editor,
 }: {
   def: CredDef;
   status: Status | undefined;
-  /** Resultado de "Conferir todas", se rodou. */
+  state: CardState;
   check?: CheckResult;
-  extra?: string;
-  children: ReactNode;
+  editor: ReactNode;
 }) {
-  // Salva mas recusada agora pelo fornecedor: vermelho, mesmo "configurada".
-  const level = check?.ok === false ? 'bad' : levelOf(status);
-  const using = [inUse(status), extra].filter(Boolean).join(' · ');
   return (
-    <article className="adm-cred" id={`cred-${def.id}`}>
-      <header className="adm-cred__head">
-        <Dot level={level} />
-        <div className="adm-cred__title">
-          <h3>{def.title}</h3>
-          <p>{def.purpose}</p>
+    <div className="adm-cred-detail" data-cols={editor ? 2 : 1}>
+      <div className="adm-cred-detail__head">
+        <p className="adm-cred-detail__purpose">{def.purpose}</p>
+        <div className="adm-cred-detail__state" data-state={state.level}>
+          <Dot level={state.level} />
+          <strong>{state.label}</strong>
+          <span>{state.note}</span>
         </div>
-        <span className="adm-cred__tag">
-          <Tag level={level === 'off' ? undefined : level}>
-            {check?.ok === false ? 'recusada' : label(status)}
-          </Tag>
-        </span>
-      </header>
-      {using && (
-        <p className="adm-cred__inuse">
-          Em uso: <span>{using}</span>
-        </p>
+        {check && (
+          <p
+            className={`adm-cred__check adm-cred__check--${check.ok === null ? 'info' : check.ok ? 'ok' : 'bad'}`}
+          >
+            {check.ok === null
+              ? 'Não dá para testar daqui: '
+              : check.ok
+                ? 'Conferida agora, funcionando: '
+                : 'Conferida agora, recusada: '}
+            <span>{check.detail}</span>
+          </p>
+        )}
+        {status?.unreadable && (
+          <Alert tone="danger">
+            A chave salva não abre com a chave mestra atual do servidor. Cole a chave de novo.
+          </Alert>
+        )}
+      </div>
+      {editor && (
+        <div className="adm-cred-detail__edit">
+          <h3>{status?.configured ? 'Trocar ou testar' : 'Cadastrar'}</h3>
+          {editor}
+        </div>
       )}
-      {check && (
-        <p
-          className={`adm-cred__check adm-cred__check--${check.ok === null ? 'info' : check.ok ? 'ok' : 'bad'}`}
-        >
-          {check.ok === null
-            ? 'Não dá para testar daqui: '
-            : check.ok
-              ? 'Conferida agora, funcionando: '
-              : 'Conferida agora, recusada: '}
-          <span>{check.detail}</span>
-        </p>
-      )}
-      {status?.unreadable && (
-        <Alert tone="danger">
-          A chave salva não abre com a chave mestra atual do servidor. Cole a chave de novo.
-        </Alert>
-      )}
-      {def.where && (
-        <p className="adm-cred__where">
-          {def.group === 'instalador'
-            ? 'Secret: '
-            : def.group === 'github'
-              ? 'No GitHub: '
-              : 'No servidor: '}
-          {def.where.map((w, i) => (
-            <span key={w}>
-              {i > 0 && ', '}
-              <code>{w}</code>
-            </span>
-          ))}
-        </p>
-      )}
-      <details className="adm-cred__how" open={status?.configured === false}>
-        <summary>Passo a passo{def.fields ? ', campos' : ''} e links</summary>
+      <div className="adm-cred-detail__guide adm-cred__how">
+        {def.where && (
+          <p className="adm-cred__where">
+            {def.group === 'instalador'
+              ? 'Secret: '
+              : def.group === 'github'
+                ? 'No GitHub: '
+                : 'No servidor: '}
+            {def.where.map((w, i) => (
+              <span key={w}>
+                {i > 0 && ', '}
+                <code>{w}</code>
+              </span>
+            ))}
+          </p>
+        )}
+        {def.group === 'servidor' && (
+          <div className="adm-cred__howto">
+            <strong>Para mudar um valor do servidor</strong>
+            <ol>
+              <li>
+                Entre no servidor por SSH e abra o arquivo:{' '}
+                {code('sudo nano /etc/comandou/deploy.env')}
+              </li>
+              <li>
+                Escreva uma linha por valor, no formato {code('NOME=valor')} (sem espaço e sem
+                aspas), e salve (Ctrl+O, Enter, Ctrl+X).
+              </li>
+              <li>
+                Rode o instalador de novo: {code(INSTALL_AGAIN)}. Ele aplica o que mudou e mantém o
+                resto.
+              </li>
+            </ol>
+          </div>
+        )}
         <h4>Como conseguir</h4>
         <ol>
           {def.steps.map((s, i) => (
@@ -562,8 +869,7 @@ function CredentialCard({
             ))}
           </ul>
         )}
-      </details>
-      {children && <div className="adm-cred__body">{children}</div>}
-    </article>
+      </div>
+    </div>
   );
 }

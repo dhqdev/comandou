@@ -65,31 +65,34 @@ em **E-mail › Modelos** (`mail_settings.lifecycle_enabled`).
 `apps/api/src/mail/templates/`: `kit.ts` (moldura e blocos: botão, código, tabela, passos, aviso,
 valores grandes), `emails.ts` (cada e-mail, com assunto, HTML e texto) e `samples.ts` (os dados de
 exemplo da aba Modelos). Tabelas e estilo na própria tag; o modo escuro vem de
-`prefers-color-scheme` (Apple Mail, iOS, Outlook.com com `[data-ogsc]`). O panda de cada assunto é
-um PNG em `apps/web/public/email/panda-*.png` (servido pelo site), desenhado por
-`node tools/email-pandas/render.mjs`: e-mail não mostra SVG.
+`prefers-color-scheme` (Apple Mail, iOS, Outlook.com com `[data-ogsc]`). E-mail não mostra SVG:
+toda imagem é PNG/JPG.
 
-Desde a 0.181 o desenho é sóbrio: cabeçalho com a marca à esquerda e o assunto curto à direita
-(`topic`), texto alinhado à esquerda, um botão laranja só, dados no jeito de uma comanda (`rows`:
-rótulo à esquerda, valor à direita, tracejado entre as linhas; no celular o valor desce para baixo
-do rótulo), avisos em caixa cinza com a bolinha da cor do estado (`note`) e o panda pequeno na
-assinatura "Equipe Comandou". E-mail para o cliente do restaurante (`brand`) assina com o nome da
-loja, sem panda. Fonte em propriedades separadas (`font-family`, `font-size`...), porque o Outlook
-do Windows ignora o atalho `font:`. Sem emoji no assunto nem no corpo.
+**Desde a 0.267 o desenho é minimalista** (pedido do David: "muito feio, deixe mais minimalista
+e bonito"). Fundo `#F4F4F2`; em cima do cartão, solta, a marca pequena (`icons/icon-192.png` de
+24 px + "comandou"; no e-mail do cliente do restaurante, `brand`, o nome da loja, sem ícone). O
+cartão é branco, linha fina `#ECEAE7`, raio 16, folga 40/44 e no máximo 540 px. Dentro: o assunto
+curto (`topic`) em cinza claro, o título grande (24 px), o texto à esquerda, **um** botão laranja
+(raio 10), dados como lista de linhas finas (`rows`: rótulo à esquerda, valor à direita; no
+celular o valor desce), números grandes separados por linha fina (`bigFigures`), aviso em caixa
+cinza sem borda com a bolinha da cor do estado (`note`) e a assinatura numa linha só, dentro do
+cartão: "Equipe Comandou" (ou "Equipe {loja}"). Rodapé: "Comandou · Sistema para restaurantes ·
+comandou.com". **Sem capa e sem panda** (a capa `email/hero-<pose>.jpg` da 0.199 e o panda da
+assinatura saíram; os arquivos seguem no site para e-mails antigos já entregues; o campo `panda`
+do `shell` ficou sem uso). Fonte em propriedades separadas (`font-family`, `font-size`...),
+porque o Outlook do Windows ignora o atalho `font:`. Sem emoji no assunto nem no corpo. Modo
+escuro pelas classes `em-*`, no azul-ardósia do app (linha `#323D4E`).
 
-Desde a 0.199 os e-mails do Comandou abrem com a **capa** `email/hero-<pose>.jpg` (fundo escuro, o
-nome do Comandou e o panda do assunto; texto alternativo "Comandou"), gerada pelo mesmo
-`tools/email-pandas/render.mjs`. O assunto curto (`topic`) fica em laranja em cima do título. No
-e-mail de código, o código vem antes de qualquer explicação, **sem botão de copiar**: e-mail não
-roda script, então um botão só copiaria abrindo uma página do site. Até a 0.265.1 ele abria
+No e-mail de código, o código vem antes de qualquer explicação, **sem botão de copiar**: e-mail
+não roda script, então um botão só copiaria abrindo uma página do site. Até a 0.265.1 ele abria
 `/codigo#<código>`; o David pediu para copiar tudo no próprio e-mail e a página saiu (0.265.2).
 Não volte com botão nem página para isso: o código se copia no corpo, no assunto e na
 notificação.
 
-Desde a 0.199.1 a capa e o ícone vão **embutidos** no e-mail: na hora de entregar,
-`mail/inline-images.ts` troca o link dessas imagens por `cid:` e manda os arquivos de
-`apps/api/assets/email` como anexo embutido do Resend (`content_id`). O HTML da fila e a prévia
-do Super Admin continuam com o link do site. Rodou `render.mjs`? Ele grava nos dois lugares.
+O ícone da marca vai **embutido** no e-mail: na hora de entregar, `mail/inline-images.ts` troca o
+link das imagens de `apps/api/assets/email` (e do ícone) por `cid:` e manda os arquivos como anexo
+embutido do Resend (`content_id`). O HTML da fila e a prévia do Super Admin continuam com o link
+do site.
 
 **Logo na bolinha da caixa de entrada** (o "C" colorido ao lado do remetente) não sai do e-mail:
 é o BIMI, configurado no DNS do domínio do remetente (DMARC em `quarantine` ou `reject`, a logo

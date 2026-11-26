@@ -3454,3 +3454,511 @@ button.adm-card:hover {
   gap: 4px 12px;
   min-width: 0;
 }
+
+/* Assinatura do restaurante: o plano é fixo (valor único), só para ler. */
+.adm-fixed-plan {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+.adm-fixed-plan strong {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+}
+
+/* Visão geral do restaurante (0.267.0): uma faixa com os números que importam, depois os cartões. */
+.adm-ov {
+  display: grid;
+  gap: 16px;
+}
+.adm-ov-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-lg);
+  background: var(--a-panel);
+}
+.adm-ov-kpis > div {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-width: 0;
+  padding: 14px 16px;
+}
+.adm-ov-kpis > div + div {
+  border-left: 1px solid var(--a-line);
+}
+.adm-ov-kpis dt {
+  color: var(--a-subtle);
+  font-size: 12px;
+}
+.adm-ov-kpis dd {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.adm-ov-kpis small {
+  overflow: hidden;
+  color: var(--a-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adm-ov-kpis small[data-level='warn'] {
+  color: var(--a-warn);
+}
+.adm-ov-kpis small[data-level='bad'] {
+  color: var(--a-bad);
+}
+@media (max-width: 1100px) {
+  .adm-ov-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .adm-ov-kpis > div:nth-child(4) {
+    border-left: 0;
+  }
+  .adm-ov-kpis > div:nth-child(n + 4) {
+    border-top: 1px solid var(--a-line);
+  }
+}
+@media (max-width: 640px) {
+  .adm-ov-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .adm-ov-kpis > div:nth-child(4) {
+    border-left: 1px solid var(--a-line);
+  }
+  .adm-ov-kpis > div:nth-child(odd) {
+    border-left: 0;
+  }
+  .adm-ov-kpis > div:nth-child(n + 3) {
+    border-top: 1px solid var(--a-line);
+  }
+}
+/* Serviços do plano no cartão da Assinatura: visto quando tem, traço quando não. */
+.adm-ov-services {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.adm-ov-services li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-full);
+  color: var(--a-subtle);
+  font-size: 12px;
+}
+.adm-ov-services li[data-on] {
+  color: var(--a-text);
+}
+.adm-ov-services li[data-on] svg {
+  color: var(--a-ok);
+}
+
+/* Preço (0.267.0): serviços do plano, com o que é sempre incluso e o que liga ou desliga. */
+.adm-plan-services {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.adm-plan-services li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--a-line);
+  color: var(--a-subtle);
+}
+.adm-plan-services li:first-child {
+  border-top: 0;
+}
+.adm-plan-services li[data-on] {
+  color: var(--a-text);
+}
+.adm-plan-services li[data-on] svg {
+  color: var(--a-ok);
+}
+.adm-plan-services small {
+  margin-left: auto;
+  color: var(--a-subtle);
+  font-size: 12px;
+}
+.adm-plan-pick {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-lg);
+}
+.adm-plan-pick legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+.adm-plan-pick .cm-hint {
+  margin: 0;
+}
+.adm-plan-core {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--a-muted);
+  font-size: 13px;
+}
+.adm-plan-core li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.adm-plan-core svg {
+  color: var(--a-ok);
+}
+.adm-ov-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+}
+
+/* Gráficos do Super Admin (charts.tsx, 0.267.0): cores das categorias fixas por categoria
+   (data-slot 1 a 6), as mesmas das partes da IA, conferidas com o validador de paleta no claro
+   e no escuro; sem slot = cinza ("Outros"). */
+:is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span) {
+  --c: var(--cm-gray-400);
+}
+:is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='1'] {
+  --c: #00b894;
+}
+:is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='2'] {
+  --c: #257de0;
+}
+:is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='3'] {
+  --c: #f2a600;
+}
+:is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='4'] {
+  --c: #ee7fac;
+}
+:is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='5'] {
+  --c: #6a4ce2;
+}
+:is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='6'] {
+  --c: #f47230;
+}
+:root[data-theme='dark']
+  :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='1'] {
+  --c: #00a888;
+}
+:root[data-theme='dark']
+  :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='2'] {
+  --c: #338ced;
+}
+:root[data-theme='dark']
+  :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='3'] {
+  --c: #d28e05;
+}
+:root[data-theme='dark']
+  :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='4'] {
+  --c: #e24d8b;
+}
+:root[data-theme='dark']
+  :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='5'] {
+  --c: #9887ef;
+}
+:root[data-theme='dark']
+  :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='6'] {
+  --c: #e76624;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme])
+    :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='1'] {
+    --c: #00a888;
+  }
+  :root:not([data-theme])
+    :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='2'] {
+    --c: #338ced;
+  }
+  :root:not([data-theme])
+    :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='3'] {
+    --c: #d28e05;
+  }
+  :root:not([data-theme])
+    :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='4'] {
+    --c: #e24d8b;
+  }
+  :root:not([data-theme])
+    :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='5'] {
+    --c: #9887ef;
+  }
+  :root:not([data-theme])
+    :is(.adm-viz-donut__slice, .adm-viz-swatch, .adm-viz-split__bar span)[data-slot='6'] {
+    --c: #e76624;
+  }
+}
+
+/* Colunas: um eixo só (o maior valor em cima), a média tracejada e a dica ao passar o mouse. */
+.adm-viz-cols {
+  display: grid;
+  gap: 6px;
+}
+.adm-viz-cols__scale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--a-subtle);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.adm-viz-cols__plot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: var(--h, 150px);
+  border-bottom: 1px solid var(--a-line);
+}
+.adm-viz-cols__col {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  min-width: 0;
+  height: 100%;
+  outline: none;
+}
+.adm-viz-cols__col i {
+  display: block;
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  background: color-mix(in oklab, var(--a-accent) 42%, var(--a-panel));
+}
+.adm-viz-cols__col[data-strong] i,
+.adm-viz-cols__col:hover i,
+.adm-viz-cols__col:focus-visible i {
+  background: var(--a-accent);
+}
+.adm-viz-cols__col::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 2;
+  display: none;
+  padding: 6px 9px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-sm);
+  background: var(--a-panel);
+  box-shadow: var(--cm-shadow-md);
+  color: var(--a-text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.adm-viz-cols__col:nth-child(-n + 4)::after {
+  left: 0;
+  transform: none;
+}
+.adm-viz-cols__col:nth-last-child(-n + 5)::after {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+.adm-viz-cols__col:hover::after,
+.adm-viz-cols__col:focus-visible::after {
+  display: block;
+}
+.adm-viz-cols__avg {
+  position: absolute;
+  right: 0;
+  left: 0;
+  border-top: 1px dashed var(--a-subtle);
+  pointer-events: none;
+}
+.adm-viz-cols__axis {
+  display: flex;
+  gap: 3px;
+  color: var(--a-subtle);
+  font-size: 11px;
+}
+.adm-viz-cols__axis span {
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Rosca com a legenda ao lado (embaixo quando falta espaço). */
+.adm-viz-donut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 20px;
+}
+.adm-viz-donut__fig {
+  position: relative;
+  flex: none;
+  width: 150px;
+  margin: 0;
+}
+.adm-viz-donut__fig svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform: rotate(-90deg);
+}
+.adm-viz-donut__slice {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 24;
+  cursor: pointer;
+}
+.adm-viz-donut__slice[data-dim] {
+  opacity: 0.3;
+}
+.adm-viz-donut__mid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 2px;
+  padding: 0 34px;
+  text-align: center;
+  pointer-events: none;
+}
+.adm-viz-donut__mid strong {
+  font-size: 15px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.adm-viz-donut__mid small {
+  color: var(--a-muted);
+  font-size: 11px;
+}
+.adm-viz-donut .adm-viz-legend {
+  flex: 1;
+  min-width: 220px;
+}
+
+/* Legenda: quadradinho da cor, nome, % e valor. */
+.adm-viz-legend {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.adm-viz-legend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--a-line);
+}
+.adm-viz-legend li:first-child {
+  border-top: 0;
+}
+.adm-viz-legend__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adm-viz-legend__pct {
+  color: var(--a-muted);
+  font-variant-numeric: tabular-nums;
+}
+.adm-viz-legend__val {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.adm-viz-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--c);
+}
+
+/* Barra dividida: cada parte um bloco, 2px de fundo entre eles, a % dentro quando cabe. */
+.adm-viz-split {
+  display: grid;
+  gap: 12px;
+}
+.adm-viz-split__bar {
+  display: flex;
+  gap: 2px;
+  height: 30px;
+}
+.adm-viz-split__bar span {
+  display: grid;
+  flex-basis: 0;
+  place-items: center;
+  min-width: 4px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--c);
+  color: rgb(0 0 0 / 82%);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Ranking: barras deitadas, a primeira na cor de destaque. */
+.adm-viz-rank {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.adm-viz-rank li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.adm-viz-rank__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adm-viz-rank__track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+}
+.adm-viz-rank__track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--a-muted) 55%, var(--a-panel));
+}
+.adm-viz-rank li[data-first] .adm-viz-rank__track i {
+  background: var(--a-accent);
+}
+.adm-viz-rank__val {
+  color: var(--a-muted);
+  font-variant-numeric: tabular-nums;
+}

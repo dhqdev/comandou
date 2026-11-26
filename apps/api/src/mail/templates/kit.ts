@@ -2,10 +2,11 @@
  * Peças dos e-mails do Comandou: a moldura (cabeçalho com a marca, cartão, assinatura e rodapé) e
  * os blocos de dentro (botão, código, comanda de dados, números, passos, aviso).
  *
- * Desenho (0.179): papel de trabalho, sóbrio. Cartão branco com linha fina, texto alinhado à
- * esquerda, um botão laranja só, dados no jeito de uma comanda (rótulo à esquerda, valor à
- * direita, separados por tracejado) e o panda pequeno na assinatura, como quem assina o recado.
- * Nada de faixa colorida, caixa alta espaçada ou ilustração grande no topo.
+ * Desenho (0.267.0, pedido do David: "mais minimalista e bonito"): a marca pequena em cima do
+ * cartão (ícone e nome, sem capa nem panda), cartão branco com linha bem fina e muito espaço,
+ * assunto em cinza, título grande, um botão laranja só, dados em linhas finas (rótulo à esquerda,
+ * valor à direita) e o rodapé curto. Nada de faixa colorida, borda preta, tracejado, caixa alta
+ * espaçada ou ilustração grande.
  *
  * HTML de e-mail: tabelas, estilo na própria tag e fonte em propriedades separadas (o Outlook do
  * Windows ignora o atalho `font:`). O modo escuro vem de um `<style>` com `prefers-color-scheme`
@@ -34,10 +35,10 @@ const f = (weight: number, size: number, line: number, family: string = FONT) =>
 
 /** Cores claras (o modo escuro troca pelas classes `em-*`, no azul-ardósia do app). */
 export const C = {
-  page: '#F5F4F2',
+  page: '#F4F4F2',
   card: '#FFFFFF',
-  line: '#E8E5E1',
-  dash: '#D9D4CE',
+  line: '#ECEAE7',
+  dash: '#E2DFDB',
   ink: '#1C1917',
   muted: '#57534E',
   faint: '#8C8781',
@@ -63,7 +64,7 @@ export interface Shell {
   preheader: string;
   /** Site do Comandou (https://comandou.com): de onde vêm as imagens. */
   assets: string;
-  /** Pose do panda da capa do topo (email/hero-<pose>.jpg); cada assunto tem a sua. */
+  /** Pose do panda (não aparece mais no e-mail desde a 0.267.0; fica para a prévia de Modelos). */
   panda?: PandaPose;
   /** Marca no topo: o Comandou (padrão) ou o nome do restaurante (e-mail para o cliente dele). */
   brand?: { name: string } | null;
@@ -84,7 +85,7 @@ const DARK = {
   page: '#1B2230',
   card: '#222A37',
   box: '#283141',
-  line: '#354052',
+  line: '#323D4E',
   ink: '#F1F3F6',
   muted: '#B4BCC8',
   faint: '#8591A3',
@@ -110,8 +111,8 @@ img { -ms-interpolation-mode: bicubic; }
 a { text-decoration: none; }
 .em-code { -webkit-user-select: all; user-select: all; }
 @media (max-width: 520px) {
-  .em-pad { padding-left: 24px !important; padding-right: 24px !important; }
-  .em-out { padding-left: 4px !important; padding-right: 4px !important; }
+  .em-pad { padding-left: 26px !important; padding-right: 26px !important; }
+  .em-out { padding-left: 6px !important; padding-right: 6px !important; }
   .em-h1 { font-size: 22px !important; line-height: 29px !important; }
   .em-codebig { font-size: 32px !important; letter-spacing: 6px !important; }
   .em-rl { display: block !important; width: auto !important; padding: 13px 0 1px !important; border-bottom: 0 !important; }
@@ -127,43 +128,21 @@ ${DARK_RULES('[data-ogsc] ')}
 export function shell(s: Shell): string {
   const assets = s.assets.replace(/\/+$/, '');
   const site = assets.replace(/^https?:\/\//, '');
-  const brand = s.brand
-    ? `<td class="em-ink" style="${f(700, 17, 24)}color:${C.ink};letter-spacing:-0.2px;">${esc(s.brand.name)}</td>`
-    : `<td style="padding-right:9px;" valign="middle"><img src="${esc(assets)}/icons/icon-192.png" width="26" height="26" alt="" style="display:block;border:0;border-radius:7px;width:26px;height:26px;"></td>
-          <td class="em-ink" valign="middle" style="${f(700, 17, 24)}color:${C.ink};letter-spacing:-0.3px;">comandou</td>`;
+  // Marca em cima do cartão, pequena: o ícone e o nome do Comandou, ou só o nome do restaurante
+  // no e-mail que sai com o nome dele. Sem capa nem panda (0.267.0).
+  const top = s.brand
+    ? `<td class="em-ink" style="${f(700, 16, 22)}color:${C.ink};letter-spacing:-0.2px;">${esc(s.brand.name)}</td>`
+    : `<td style="padding-right:9px;" valign="middle"><img src="${esc(assets)}/icons/icon-192.png" width="24" height="24" alt="" style="display:block;border:0;border-radius:6px;width:24px;height:24px;"></td>
+        <td class="em-ink" valign="middle" style="${f(700, 16, 22)}color:${C.ink};letter-spacing:-0.3px;">comandou</td>`;
 
-  // Topo: a capa do Comandou com o panda do assunto (imagem com o nome no texto alternativo) ou,
-  // no e-mail que sai com o nome do restaurante, só o nome dele numa linha.
-  const top =
-    !s.brand && s.panda
-      ? `<tr><td bgcolor="#171412" style="background:#171412;border-radius:13px 13px 0 0;font-size:0;line-height:0;">
-  <img src="${esc(assets)}/email/hero-${s.panda}.jpg" width="558" alt="Comandou" style="display:block;width:100%;max-width:558px;height:auto;border:0;border-radius:13px 13px 0 0;color:#FFFFFF;font-family:${FONT};font-size:22px;font-weight:800;line-height:60px;text-align:center;">
-</td></tr>`
-      : `<tr><td class="em-pad em-line" style="padding:22px 40px 20px;border-bottom:1px solid ${C.line};">
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-    ${brand}
-  </tr></table>
-</td></tr>`;
-
-  // Assinatura: quem manda, com o ícone do Comandou.
-  const signoff = s.brand
-    ? `<tr><td class="em-pad em-line" style="padding:22px 40px 26px;border-top:1px solid ${C.line};">
-    <div class="em-ink" style="${f(600, 14, 20)}color:${C.ink};">${esc(s.brand.name)}</div>
-    <div class="em-faint" style="${f(400, 13, 19)}color:${C.faint};">Cardápio online</div>
-  </td></tr>`
-    : `<tr><td class="em-pad em-line" style="padding:20px 40px 24px;border-top:1px solid ${C.line};">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td valign="middle" style="padding-right:12px;"><img src="${esc(assets)}/icons/icon-192.png" width="36" height="36" alt="" style="display:block;border:0;width:36px;height:36px;border-radius:9px;"></td>
-      <td valign="middle">
-        <div class="em-ink" style="${f(600, 14, 20)}color:${C.ink};">Equipe Comandou</div>
-        <div class="em-faint" style="${f(400, 13, 19)}color:${C.faint};">Sistema para restaurantes</div>
-      </td>
-    </tr></table>
-  </td></tr>`;
+  // Assinatura: uma linha, sem caixa nem ícone (a marca já está em cima).
+  const signoff = `<div class="em-faint" style="margin:30px 0 0;${f(400, 14, 21)}color:${C.faint};">${
+    s.brand ? `Equipe ${esc(s.brand.name)}` : 'Equipe Comandou'
+  }</div>`;
 
   const credit = s.brand
     ? `Enviado por ${esc(s.brand.name)} com o <a href="${esc(assets)}" class="em-faint" style="color:${C.faint};text-decoration:underline;">Comandou</a>.`
-    : `<a href="${esc(assets)}" class="em-faint" style="color:${C.faint};text-decoration:none;">${esc(site)}</a>`;
+    : `Comandou · Sistema para restaurantes · <a href="${esc(assets)}" class="em-faint" style="color:${C.faint};text-decoration:none;">${esc(site)}</a>`;
 
   return `<!doctype html>
 <html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -181,28 +160,29 @@ export function shell(s: Shell): string {
 <body class="em-page" style="margin:0;padding:0;background:${C.page};">
 <div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:${C.page};">${esc(s.preheader)}${PREHEADER_PAD}</div>
 <table role="presentation" class="em-page" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.page}" style="background:${C.page};">
-<tr><td align="center" style="padding:32px 12px 40px;">
-<!--[if mso]><table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+<tr><td align="center" style="padding:40px 12px 48px;">
+<!--[if mso]><table role="presentation" width="540" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:540px;">
 
-<tr><td>
-<table role="presentation" class="em-card" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.card}" style="background:${C.card};border:1px solid ${C.line};border-radius:14px;">
-
-${top}
-
-<tr><td class="em-pad" style="padding:34px 40px 18px;">
-  ${s.topic ? `<div class="em-brand" style="margin:0 0 8px;${f(600, 13, 18)}color:${C.brand};">${esc(s.topic)}</div>` : ''}
-  <h1 class="em-ink em-h1" style="margin:0 0 12px;${f(700, 25, 32)}color:${C.ink};letter-spacing:-0.5px;">${s.heading}</h1>
-  ${s.lead ? `<p class="em-muted" style="margin:0 0 26px;${f(400, 15, 24)}color:${C.muted};">${s.lead}</p>` : ''}
-  ${s.body.join('\n  ')}
+<tr><td class="em-out" style="padding:0 6px 20px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+    ${top}
+  </tr></table>
 </td></tr>
 
-${signoff}
-
+<tr><td>
+<table role="presentation" class="em-card" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.card}" style="background:${C.card};border:1px solid ${C.line};border-radius:16px;">
+<tr><td class="em-pad" style="padding:40px 44px 40px;">
+  ${s.topic ? `<div class="em-faint" style="margin:0 0 10px;${f(500, 13, 18)}color:${C.faint};">${esc(s.topic)}</div>` : ''}
+  <h1 class="em-ink em-h1" style="margin:0 0 14px;${f(700, 24, 31)}color:${C.ink};letter-spacing:-0.5px;">${s.heading}</h1>
+  ${s.lead ? `<p class="em-muted" style="margin:0 0 28px;${f(400, 15, 24)}color:${C.muted};">${s.lead}</p>` : ''}
+  ${s.body.join('\n  ')}
+  ${signoff}
+</td></tr>
 </table>
 </td></tr>
 
-<tr><td class="em-out em-faint" style="padding:22px 41px 0;${f(400, 12, 19)}color:${C.faint};">
+<tr><td class="em-out em-faint" style="padding:24px 6px 0;${f(400, 12, 19)}color:${C.faint};">
   ${s.footer ? `${s.footer}<br>` : ''}${credit}
 </td></tr>
 
@@ -224,9 +204,9 @@ export const strong = (s: string) =>
 
 /** Botão "à prova de Outlook" (tabela com fundo; o link ocupa o botão inteiro). */
 export function button(label: string, url: string) {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 24px;">
-  <tr><td align="center" bgcolor="${C.button}" style="background:${C.button};border-radius:9px;mso-padding-alt:13px 24px;">
-    <a href="${esc(url)}" target="_blank" style="display:inline-block;padding:13px 24px;${f(600, 15, 20)}color:#FFFFFF;text-decoration:none;border-radius:9px;">${esc(label)}</a>
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 28px;">
+  <tr><td align="center" bgcolor="${C.button}" style="background:${C.button};border-radius:10px;mso-padding-alt:14px 26px;">
+    <a href="${esc(url)}" target="_blank" style="display:inline-block;padding:14px 26px;${f(600, 15, 20)}color:#FFFFFF;text-decoration:none;border-radius:10px;">${esc(label)}</a>
   </td></tr>
 </table>`;
 }
@@ -257,16 +237,13 @@ export function codeBox(code: string, caption: string) {
 </table>`;
 }
 
-/**
- * Dados no jeito de uma comanda: rótulo à esquerda, valor à direita, linhas separadas por
- * tracejado, entre duas linhas finas.
- */
+/** Dados em linhas finas: rótulo à esquerda, valor à direita (0.267.0: sem borda preta nem tracejado). */
 export function rows(items: { label: string; value: string; mono?: boolean }[]) {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;border-collapse:collapse;">
 ${items
   .map((r, i) => {
-    const edge = i === 0 ? `border-top:1px solid ${C.ink};` : `border-top:1px dashed ${C.dash};`;
-    const last = i === items.length - 1 ? `border-bottom:1px solid ${C.ink};` : '';
+    const edge = `border-top:1px solid ${C.line};`;
+    const last = i === items.length - 1 ? `border-bottom:1px solid ${C.line};` : '';
     return `  <tr>
     <td class="em-line em-muted em-rl" valign="top" style="padding:13px 16px 13px 0;${edge}${last}${f(400, 14, 21)}color:${C.muted};white-space:nowrap;">${esc(r.label)}</td>
     <td class="em-line em-ink em-rv" valign="top" align="right" style="padding:13px 0;${edge}${last}${r.mono ? f(600, 15, 21, MONO) : f(600, 14, 21)}color:${C.ink};word-break:break-word;overflow-wrap:anywhere;">${r.value}</td>
@@ -299,7 +276,7 @@ ${items
 /** Aviso (prazo, segurança, sucesso): caixa cinza clara com a bolinha da cor do estado. */
 export function note(html: string, tone: 'warn' | 'ok' | 'danger' | 'info' = 'info') {
   const color = { warn: C.warn, ok: C.ok, danger: C.danger, info: C.info }[tone];
-  return `<table role="presentation" class="em-box" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.box}" style="margin:0 0 20px;background:${C.box};border:1px solid ${C.line};border-radius:10px;">
+  return `<table role="presentation" class="em-box" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.box}" style="margin:0 0 22px;background:${C.box};border:1px solid ${C.box};border-radius:12px;">
   <tr>
     <td width="15" valign="top" style="padding:20px 0 0 18px;font-size:0;line-height:0;">${dot(color)}</td>
     <td class="em-muted" style="padding:14px 18px 14px 4px;${f(400, 14, 21)}color:${C.muted};">${html}</td>
@@ -313,13 +290,13 @@ export const divider = () =>
 /** Valores grandes lado a lado (mensalidade, vencimento), separados por linha fina. */
 export function bigFigures(items: { label: string; value: string }[]) {
   const w = Math.floor(100 / items.length);
-  return `<table role="presentation" class="em-line" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;border-top:1px solid ${C.ink};border-bottom:1px solid ${C.ink};">
+  return `<table role="presentation" class="em-line" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border-top:1px solid ${C.line};border-bottom:1px solid ${C.line};">
   <tr>${items
     .map(
       (
         it,
         i,
-      ) => `<td class="em-fig em-line" width="${w}%" valign="top" style="padding:16px ${i < items.length - 1 ? '16px' : '0'} 16px ${i ? '16px' : '0'};${i ? `border-left:1px dashed ${C.dash};` : ''}">
+      ) => `<td class="em-fig em-line" width="${w}%" valign="top" style="padding:16px ${i < items.length - 1 ? '16px' : '0'} 16px ${i ? '16px' : '0'};${i ? `border-left:1px solid ${C.line};` : ''}">
     <div class="em-muted" style="${f(400, 13, 18)}color:${C.muted};">${esc(it.label)}</div>
     <div class="em-ink" style="${f(700, 22, 30)}color:${C.ink};letter-spacing:-0.4px;white-space:nowrap;">${esc(it.value)}</div>
   </td>`,

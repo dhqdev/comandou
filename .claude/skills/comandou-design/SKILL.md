@@ -428,7 +428,8 @@ do print do MAX que o David mandou, porém mais limpo: barra com mês, filtro de
 sozinha"; uma linha de totais com bolinhas (sem cartões de número); grade do mês num quadro só,
 dia com o total curto e bolinhas, fundo `color-mix` de 9% na cor da situação (nada de faixa na
 esquerda); cartões do dia ao lado (embaixo abaixo de 1100 px) e a janela "dados da cobrança" com
-linhas rótulo/valor.
+linhas rótulo/valor. O fim do "Pago até" da aba Assinatura entra como previsão com "Pago até
+dd/mm ·" na linha do cartão (`periodEnd`, 0.267).
 
 ## Conta (restaurante)
 
@@ -510,15 +511,18 @@ O link "Esqueci minha senha" fica à direita, logo abaixo do campo da senha (`Fo
 ## E-mails
 
 Não seguem os tokens do app (e-mail não lê CSS variável): cores fixas em `mail/templates/kit.ts`
-(`C`), fundo `#F5F4F2`, cartão branco com linha fina e raio 14, cabeçalho com a marca e o assunto
-(`topic`) separado por linha, título e texto à esquerda, um botão laranja por e-mail, dados como
-comanda (`rows`, tracejado), avisos com bolinha de cor (sem emoji). Topo: a capa escura
-`email/hero-<pose>.jpg` (0.199, pedido do David: "imagem top com o Comandou"), não o panda
-grande sobre fundo rosado de antes. Código de senha antes do texto, **sem botão de copiar** e sem
-página `/codigo` (pedido do David, 0.265.2: copiar no próprio e-mail; e-mail não roda script):
-o código fica numa caixa só com `user-select: all` e vai no começo do assunto e da prévia. Modo escuro pelas
-classes `em-*`, no azul-ardósia do app. Nada de imagem com
-texto (cai no spam e some com imagens bloqueadas).
+(`C`). **Minimalista desde a 0.267** (pedido do David: "muito feio, deixe mais minimalista e
+bonito"): fundo `#F4F4F2`, a marca pequena solta em cima do cartão (ícone de 24 px + "comandou",
+ou o nome da loja no e-mail do cliente), cartão branco com linha fina `#ECEAE7`, raio 16, até
+540 px; dentro, o assunto curto (`topic`) em cinza claro, título de 24 px, texto à esquerda, um
+botão laranja (raio 10), dados em linhas finas (`rows`), aviso em caixa cinza sem borda com
+bolinha de cor (sem emoji) e "Equipe Comandou" numa linha só no fim do cartão; rodapé
+"Comandou · Sistema para restaurantes · comandou.com". **Sem capa escura e sem panda** (saíram
+na 0.267; não volte com a `email/hero-*.jpg`). Código de senha antes do texto, **sem botão de
+copiar** e sem página `/codigo` (pedido do David, 0.265.2: copiar no próprio e-mail; e-mail não
+roda script): o código fica numa caixa só com `user-select: all` e vai no começo do assunto e
+da prévia. Modo escuro pelas classes `em-*`, no azul-ardósia do app. Nada de imagem com texto
+(cai no spam e some com imagens bloqueadas).
 
 ## Financeiro
 
@@ -575,17 +579,56 @@ Parte nova ganha cor nova nos dois blocos de `admin.css`. Sem extrato de chamada
 
 ## Super Admin › Credenciais
 
-`platform/credentials/` (`credentials.css`, prefixo `adm-cred`): resumo em `Tile`s, **Como
-funciona** (texto corrido num quadro), **Para subir o sistema, na ordem** (`adm-cred__order`:
-número, bolinha da situação, texto e atalhos `adm-cred__jump` para os cartões), depois um grupo por
-lugar (painel, instalador, servidor, GitHub) com cartões de linha fina: bolinha, título, frase de
-para que serve, `Tag` (configurada/falta/opcional/confira fora daqui/cole de novo) e "Em uso:
-produção · termina em 4f2a". O `<details>` (aberto quando falta) tem Como conseguir, **O que vai em
-cada campo** (`fields`, `dl.adm-cred__fields`) e **Como saber que deu certo** (`check`); se a
-chave é do painel, o formulário vem embaixo de uma linha fina (`Testar` secondary, `Salvar`
-primário pequeno). Nas outras telas, só a linha `KeyInUse` (`.adm-keyuse` em `admin.css`): bolinha,
-"Chave em uso:", o nome (link para o cartão), ambiente/conta e o final da chave; nada de
-explicação nem campo.
+`platform/credentials/` (`credentials.css`, prefixos `adm-cred`, `adm-cred-tile`, `adm-cred-detail`),
+refeita na 0.267 a pedido do David ("credenciais por cards e quando clicar eles ampliam; na
+prévia o status de cada card"). Em cima, os `Tile`s da situação e os avisos (falta, recusada);
+depois **Como funciona e a ordem para subir o sistema** num `<details>` só (`adm-cred__guide`,
+aberto quando falta algo; dentro, o texto e os 6 passos `adm-cred__order` com atalhos
+`adm-cred__jump`), os filtros em pílula (`adm-chips`: Todas, Pedem atenção, Em uso, Sem uso, Fora
+daqui, com o número) e um grupo por lugar (painel, instalador, servidor, GitHub) com "X de Y em
+uso" à direita. **Cartão** (`CredTile`, grade `minmax(264px)`): ícone solto cinza (nunca em
+quadradinho), a pílula da situação (bolinha + Em uso / Funcionando / Falta / Recusada / Cole de
+novo / Falta o webhook / Sem uso / Fora daqui), nome grande e o que é embaixo ("Token Master ·
+necessária"), para que serve em 2 linhas e um pé com linha fina: o que está em uso ("Produção ·
+termina em 4f2a"), o motivo da recusa ou o secret em mono, e o ícone de ampliar. Precisa de você =
+contorno inteiro vermelho suave (âmbar no aviso); opcional sem uso recua para o fundo da tela.
+Necessárias primeiro, depois as cadastradas. **Clicar amplia**: a `Modal` (xl com formulário, lg
+sem) nasce do tamanho e do lugar do cartão e cresce (`zoomIn`, só transform, 0,26 s; o Playwright,
+o "reduzir movimento" e a folha do celular abrem como toda janela). Dentro: para que serve, a faixa
+da situação (fundo leve na cor) e, lado a lado, **Cadastrar / Trocar ou testar** (o formulário de
+`editors.tsx`, preso no topo enquanto o guia rola) e o passo a passo (Como conseguir, O que vai em
+cada campo, Como saber que deu certo, links; nos do servidor, o "Para mudar um valor do servidor").
+O endereço guarda o cartão aberto (`#cred-<id>`, com `replace`): link de outra tela abre direto
+nele. Nas outras telas, só a linha `KeyInUse` (`.adm-keyuse` em `admin.css`): bolinha, "Chave em
+uso:", o nome (link para o cartão), ambiente/conta e o final da chave; nada de explicação nem
+campo.
+
+## Super Admin › restaurante e Status (0.267)
+
+Pedido do David, uma lista de 8 ajustes:
+- **Status** sem Servidor e Saúde (ficam em Infraestrutura; o que der problema aparece no "Pede
+  atenção" por `statusAlerts`).
+- **Detalhe do restaurante** sem a aba Cozinha (`TenantKitchen.tsx` saiu; `?aba=cozinha` cai na
+  Visão geral).
+- **Visão geral** (`TenantOverview.tsx`, `adm-ov*`): uma faixa de números com linha fina
+  (`adm-ov-kpis`: Assinatura com bolinha e texto, nunca `Tag`, Pedidos no mês, Equipe, IA no mês,
+  Notas em 30 dias) e os cartões; o da Assinatura lista os serviços do plano com visto ou traço
+  (`adm-ov-services`). Sem o cartão de Endereços ("eu já sei qual é") e sem "Uso do plano".
+- **Operação** (`TenantInsights.tsx` + `platform/charts.tsx`, classes `adm-viz-*`): gráficos
+  feitos à mão, sem biblioteca: `Columns` (faturamento por dia com linha da média, horários com o
+  pico em destaque, dia da semana com o melhor), `Donut` (canais, total no meio, 2px de fundo entre
+  as fatias), `SplitBar` (pagamentos e situação dos pedidos numa barra com legenda) e `Ranking`
+  (mais vendidos). Dica ao parar o mouse em cada coluna. Cor de categoria fixa por **slot** (canal:
+  balcão 1, mesa 2, entrega 3, retirada 4; forma de pagamento 1 a 6), nunca pelo tamanho, com
+  valores próprios do escuro em `admin.css`, conferidos com o validador de paleta (mesma exceção
+  às cores de dado dos Tokens de IA). Legenda sempre com nome e número.
+- **Assinatura**: plano fixo (o único, `SINGLE_PLAN_CODE`, com o preço; `adm-fixed-plan`), sem
+  escolha. "Pago até" mudado aparece no calendário da Cobrança (`periodEnd`, "Pago até …" no
+  cartão) e tira do teste (vira Ativa).
+- **Preço** (`PlansPage.tsx`): "Mudar valor e serviços" abre a janela com caixas de marcar dos
+  serviços que valem para todos os clientes (`PLAN_SERVICES`: nota fiscal, WhatsApp, domínio
+  próprio; `adm-plan-pick`) e o que vem sempre (`CORE_SERVICES`, `adm-plan-core`). Desmarcar avisa
+  quem perde e marca o destaque da página de preços que fala do serviço.
 
 ## Super Admin › Aplicativos de delivery
 

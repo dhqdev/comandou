@@ -528,10 +528,20 @@ describe('Ciclo: 7 dias de teste, pagou +30 dias, não pagou bloqueia', () => {
     expect(paidItem.dueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(paidItem.paidAt).toBeTruthy();
     expect(paidItem.createdAt).toBeTruthy();
-    expect(second.body.items.find((i: Item) => i.status === 'forecast')).toMatchObject({
+    expect(
+      second.body.items.find(
+        (i: Item & { periodEnd?: boolean }) => i.status === 'forecast' && !i.periodEnd,
+      ),
+    ).toMatchObject({
       description: 'Mensalidade prevista',
       invoiceId: null,
     });
+    // O "pago até" da aba Assinatura aparece no calendário, no dia em que vence a próxima.
+    if (hit.status === 'forecast' && s.status !== 'trialing')
+      expect(hit).toMatchObject({
+        periodEnd: true,
+        description: expect.stringMatching(/^Pago até \d{2}\/\d{2}\/\d{4}: vence/),
+      });
     // Mês inválido cai no mês atual.
     expect((await cal('2026-13')).body.month).toBe(spDate().slice(0, 7));
   });

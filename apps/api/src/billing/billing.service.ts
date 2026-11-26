@@ -357,6 +357,8 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       billingType: string | null;
       invoiceId: string | null;
       planName: string | null;
+      /** Previsão no último dia liberado: o "pago até" da assinatura (aba Assinatura). */
+      periodEnd?: boolean;
       /** Dados da cobrança (janela que abre ao clicar no calendário). */
       description: string;
       dueDate: string;
@@ -399,7 +401,9 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
         trialEndsAt: x.trial_ends_at,
         currentPeriodEnd: x.current_period_end,
       });
+      const paidUntil = until ? spDate(until) : null;
       for (const date of forecastDueDates(until, from, to, today, billedBy.get(x.id))) {
+        const periodEnd = date === paidUntil && x.status !== 'trialing';
         items.push({
           date,
           tenantId: x.tenant_id,
@@ -411,7 +415,11 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
           billingType: x.pay_method === 'card' ? 'CREDIT_CARD' : null,
           invoiceId: null,
           planName: x.scheduled_plan_id ? x.scheduled_plan_name : x.plan_name,
-          description: 'Mensalidade prevista',
+          periodEnd,
+          // O "pago até" da aba Assinatura aparece aqui, no dia em que vence a próxima.
+          description: periodEnd
+            ? `Pago até ${dateBR(until!)}: vence a próxima mensalidade`
+            : 'Mensalidade prevista',
           dueDate: date,
           paidAt: null,
           createdAt: null,
