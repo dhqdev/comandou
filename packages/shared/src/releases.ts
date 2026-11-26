@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.265.1',
+    date: '2026-11-26',
+    title: 'Topo do cardápio mais limpo no celular',
+    summary:
+      'O topo do início ficou mais simples: "Olá" e o selo "Aberta · 35–50 min" numa linha, os pontos embaixo e o cartão da loja sem enfeite extra. As categorias presas no topo não aparecem mais quebradas.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Celular: o selo da loja virou uma linha só ("Aberta · 35–50 min" ou "Fechada · abre 18h"), ao lado do "Olá". Os pontos ou o "Entre e ganhe pontos" ficam na linha de baixo, sem espremer.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cartão da loja mais leve: contorno fino com o brilho na cor da loja, sem a sombra e sem o anel na logo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Categorias presas no topo ao rolar: a marcação da categoria voltou a ficar atrás do nome (estava mais alta e o texto parecia quebrado) e as pontas da faixa somem num degradê.',
+      },
+    ],
+  },
+  {
     version: '0.265.0',
     date: '2026-11-26',
     title: 'O sistema se atualiza sozinho, sem aviso',

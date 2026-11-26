@@ -441,8 +441,9 @@ function FilterSheet({
 }
 
 /**
- * Selo da loja no canto de cima (celular): bolinha que pulsa e "Aberta" com o horário embaixo, ou
- * a lua e "Fechada" com quando abre; aberta, o tempo de entrega vem junto. O texto inteiro fica no `aria-label`.
+ * Selo da loja no canto de cima (celular), numa linha só: bolinha que pulsa, "Aberta" e o tempo
+ * de entrega (ou o horário), ou a lua, "Fechada" e quando abre. O texto inteiro fica no
+ * `aria-label`.
  */
 function OpenBadge({
   open,
@@ -460,10 +461,13 @@ function OpenBadge({
     ? status.replace(/^Aberta\s*/, '')
     : table
       ? 'chame o garçom'
-      : status.replace(/^Fechada\.?\s*/, '');
+      : status
+          .replace(/^Fechada\.?\s*/, '')
+          .replace(/ hoje às /, ' ')
+          .replace(/ às /, ' ');
   const when = rest ? rest.charAt(0).toLowerCase() + rest.slice(1) : '';
-  // "até 23h · 35–50 min": o tempo de entrega vem junto do horário.
-  const sub = [when, eta].filter(Boolean).join(' · ');
+  // Aberta: o tempo de entrega diz mais que o horário ("Aberta · 35–50 min").
+  const sub = open && eta ? eta : when === 'agora' ? '' : when;
   return (
     <p
       className="hm-open"
@@ -473,10 +477,10 @@ function OpenBadge({
         table && !open ? `${status}. Chame o garçom` : eta ? `${status}. Entrega em ${eta}` : status
       }
     >
-      {open ? <i className="hm-open__dot" aria-hidden /> : <Moon size={14} aria-hidden />}
+      {open ? <i className="hm-open__dot" aria-hidden /> : <Moon size={13} aria-hidden />}
       <span className="hm-open__text" aria-hidden>
         <b>{head}</b>
-        {sub && <small>{sub}</small>}
+        {sub && <small> · {sub}</small>}
       </span>
     </p>
   );

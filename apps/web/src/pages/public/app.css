@@ -1832,28 +1832,27 @@ button.acct-tile {
 }
 
 /* ================================================================ topo do celular (0.264) */
-/* Pedido do David: "Loja aberta" no canto de cima, à direita, num selo discreto; o cartão da loja
-   ganha o contorno que gira devagar na cor da loja (exceção pedida ao "sem gradiente"); e no
-   celular saem a busca e o filtro. */
+/* Pedido do David: "Aberta" no canto de cima, à direita, num selo de uma linha só (0.265.1: mais
+   minimalista); o cartão da loja tem o contorno fino que gira devagar na cor da loja (exceção
+   pedida ao "sem gradiente"); e no celular saem a busca e o filtro. */
 .hm-open {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  max-width: 184px;
-  min-height: 44px;
+  gap: 7px;
+  max-width: 200px;
+  min-height: 32px;
   margin: 0;
-  padding: 6px 14px 6px 12px;
-  border: 1px solid color-mix(in oklab, var(--cm-warning) 26%, transparent);
+  padding: 0 12px 0 11px;
+  border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-full);
-  background: color-mix(in oklab, var(--cm-warning-bg) 70%, var(--cm-surface));
+  background: var(--cm-surface);
   color: var(--cm-warning);
-  box-shadow: 0 6px 18px -12px color-mix(in oklab, var(--cm-warning) 70%, transparent);
+  font-size: var(--cm-text-xs);
+  line-height: 1;
+  white-space: nowrap;
 }
 .hm-open[data-open] {
-  border-color: color-mix(in oklab, var(--cm-success) 28%, transparent);
-  background: color-mix(in oklab, var(--cm-success-bg) 70%, var(--cm-surface));
   color: var(--cm-success);
-  box-shadow: 0 6px 18px -12px color-mix(in oklab, var(--cm-success) 80%, transparent);
 }
 .hm-open > svg {
   flex: none;
@@ -1861,11 +1860,10 @@ button.acct-tile {
 .hm-open__dot {
   position: relative;
   flex: none;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 18%, transparent);
 }
 /* Onda que sai da bolinha: cresce e a borda vai a transparente (sem mexer em opacidade). */
 .hm-open__dot::after {
@@ -1882,27 +1880,23 @@ button.acct-tile {
     border-color: currentColor;
   }
   to {
-    transform: scale(2.8);
+    transform: scale(2.6);
     border-color: transparent;
   }
 }
 .hm-open__text {
-  display: grid;
   min-width: 0;
-  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .hm-open__text b {
-  font-size: var(--cm-text-sm);
-  font-weight: 750;
-  letter-spacing: var(--cm-tracking-tight);
+  font-weight: 700;
 }
 .hm-open__text small {
-  overflow: hidden;
   color: var(--cm-text-muted);
-  font-size: var(--cm-text-2xs);
+  font-size: inherit;
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 @media (prefers-reduced-motion: reduce) {
   .hm-open__dot::after {
@@ -1911,34 +1905,26 @@ button.acct-tile {
   }
 }
 
-/* Cartão da loja: contorno com um brilho na cor da loja que dá a volta devagar. */
+/* Cartão da loja: contorno fino com um brilho na cor da loja que dá a volta devagar. */
 @property --hm-spin {
   syntax: '<angle>';
   inherits: false;
   initial-value: 0deg;
 }
 .hm-store {
-  --hm-edge: color-mix(in oklab, var(--cm-brand-500) 75%, transparent);
-  position: relative;
-  min-height: 64px;
-  padding: 10px 12px 10px 10px;
-  border: 1.5px solid transparent;
+  --hm-edge: color-mix(in oklab, var(--cm-brand-500) 60%, transparent);
+  border: 1px solid transparent;
   background:
     linear-gradient(var(--cm-surface), var(--cm-surface)) padding-box,
     conic-gradient(
         from var(--hm-spin),
         var(--hm-edge),
-        var(--cm-border-strong) 18%,
-        var(--cm-border) 42%,
-        color-mix(in oklab, var(--cm-brand-500) 35%, transparent) 60%,
+        var(--cm-border) 22%,
         var(--cm-border) 78%,
         var(--hm-edge)
       )
       border-box;
-  box-shadow:
-    0 1px 0 color-mix(in oklab, var(--cm-surface) 60%, transparent) inset,
-    0 12px 28px -20px color-mix(in oklab, var(--cm-brand-600) 70%, transparent);
-  animation: hm-spin 7s linear infinite;
+  animation: hm-spin 8s linear infinite;
 }
 @keyframes hm-spin {
   to {
@@ -1956,12 +1942,6 @@ button.acct-tile {
     animation: none;
   }
 }
-.hm-store__logo {
-  width: 46px;
-  box-shadow:
-    0 0 0 2px var(--cm-surface),
-    0 0 0 3.5px color-mix(in oklab, var(--cm-brand-500) 45%, transparent);
-}
 
 /* Endereço comprido termina em "…" (texto solto num flex não ganhava as reticências). */
 .hm-store__addr {
@@ -1971,7 +1951,8 @@ button.acct-tile {
 }
 
 /* Celular sem busca: a faixa que gruda fica só com a folga do relógio e as categorias em texto,
-   que aparecem quando as fotos dos grupos passam do topo. */
+   que aparecem quando as fotos dos grupos passam do topo. A pílula da categoria marcada desce
+   junto com a folga de cima (senão ela ficava acima do nome e o texto parecia quebrado). */
 .searchbar[data-bare] {
   --sb-top: env(safe-area-inset-top, 0px);
   margin-top: calc(0px - var(--sb-top));
@@ -1982,7 +1963,10 @@ button.acct-tile {
   box-shadow: none;
 }
 .searchbar[data-bare][data-chips] .cchips {
-  padding-top: 10px;
+  padding-top: 12px;
+}
+.searchbar[data-bare] .cchips__pill {
+  top: 12px;
 }
 
 /* Fotos dos grupos: folga em volta para o anel da categoria marcada (2px + 2px de afastamento)
@@ -1993,4 +1977,32 @@ button.acct-tile {
 }
 .ctiles {
   margin-top: 12px;
+}
+
+/* Celular: "Olá" e o selo na mesma linha; os pontos (ou "Entre e ganhe…") na linha de baixo, de
+   ponta a ponta, sem espremer ao lado do selo. */
+.sf[data-layout='phone'] .hm-hello {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+}
+.sf[data-layout='phone'] .hm-hello__text {
+  display: contents;
+}
+.sf[data-layout='phone'] .hm-hello__hi {
+  grid-area: 1 / 1;
+}
+.sf[data-layout='phone'] .hm-hello__tools {
+  grid-area: 1 / 2;
+}
+.sf[data-layout='phone'] .hm-hello__pts,
+.sf[data-layout='phone'] .hm-hello__line {
+  grid-column: 1 / -1;
+}
+
+/* Categorias presas no topo: as pontas somem num degradê, então o nome que passa da borda não
+   parece cortado. */
+.searchbar[data-chips] .cchips {
+  mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
 }
