@@ -17,7 +17,7 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { CUSTOMER_AVATARS } from '@comandou/shared';
+import { CUSTOMER_AVATARS, isValidCnpj, isValidCpf } from '@comandou/shared';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
@@ -64,6 +64,17 @@ const email = z
   .refine((v) => !v || z.string().email().safeParse(v).success, 'E-mail inválido')
   .transform((v) => v || undefined);
 
+/**
+ * CPF do cliente (opcional): só números e com os dígitos certos; vazio apaga. CNPJ também passa
+ * (a equipe pode ter cadastrado o da empresa na ficha).
+ */
+const cpf = z
+  .string()
+  .trim()
+  .max(20)
+  .transform((v) => v.replace(/\D/g, ''))
+  .refine((v) => !v || isValidCpf(v) || isValidCnpj(v), 'CPF inválido');
+
 const Signup = z
   .object({
     name: text(80),
@@ -71,6 +82,7 @@ const Signup = z
     email: email.optional(),
     password,
     marketingOptIn: z.boolean().optional(),
+    cpf: cpf.transform((v) => v || undefined).optional(),
     /** Código de 6 números que chegou no WhatsApp (quando a loja manda). */
     code: z.string().trim().max(12).optional(),
   })
@@ -90,6 +102,7 @@ const Profile = z
       .refine((v) => !v || z.string().email().safeParse(v).success, 'E-mail inválido')
       .transform((v) => v || null),
     marketingOptIn: z.boolean(),
+    cpf: cpf.nullable().transform((v) => v || null),
     /** Avatar desenhado; escolher um tira a foto. null volta para o automático. */
     avatar: z.enum(CUSTOMER_AVATARS).nullable(),
   })

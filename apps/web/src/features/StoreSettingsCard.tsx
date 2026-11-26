@@ -259,6 +259,20 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
               'Cliente busca o pedido pronto no balcão',
               'Sem garçom levando: o cliente vê "Pronto" no celular, busca e toca em "Já peguei".',
             )}
+            {toggle(
+              'tableAccount',
+              'Perfil do cliente na mesa',
+              s.accountsEnabled
+                ? 'Aba Perfil no cardápio da mesa: o cliente entra ou cria a conta, guarda o CPF e vê os avisos. Nada de entrega ou endereço.'
+                : 'Ligue “Clientes podem criar conta” na aba Aparência para o Perfil aparecer na mesa.',
+            )}
+            {toggle(
+              'tableCoupons',
+              'Cupons na mesa',
+              s.tableAccount
+                ? 'Com a conta aberta, o cliente usa os cupons dele no pedido da mesa (aba Cupons e na sacola).'
+                : 'Pede o Perfil do cliente na mesa ligado (o cupom é da conta do cliente).',
+            )}
           </div>
         </div>
       </Card>
@@ -273,7 +287,9 @@ type StoreFlag =
   | 'acceptsDelivery'
   | 'acceptsPickup'
   | 'tableCheckLocation'
-  | 'tableSelfPickup';
+  | 'tableSelfPickup'
+  | 'tableAccount'
+  | 'tableCoupons';
 
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;

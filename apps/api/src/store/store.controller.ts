@@ -279,6 +279,8 @@ const Settings = z
       .transform((v) => v || null),
     tableCheckLocation: z.boolean(),
     tableSelfPickup: z.boolean(),
+    tableAccount: z.boolean(),
+    tableCoupons: z.boolean(),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');

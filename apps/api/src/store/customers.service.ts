@@ -44,6 +44,8 @@ export interface Customer {
   phone: string;
   email: string | null;
   marketingOptIn: boolean;
+  /** CPF (ou CNPJ cadastrado pela equipe), só números: já vai na nota do pedido da mesa. */
+  cpf: string | null;
   createdAt: Date;
   /** Avatar desenhado escolhido (null = o automático pelo id). */
   avatar: string | null;
@@ -73,7 +75,7 @@ const OWN_PHOTO = `'/api/v1/store/account/photo'`;
 /** Foto vista pela equipe (aba Clientes). */
 const staffPhoto = (p: string) => `'/api/v1/customers/' || ${p}id || '/photo'`;
 const customerCols = (p = '') =>
-  `${p}id, ${p}name, ${p}phone, ${p}email, ${p}marketing_opt_in AS "marketingOptIn", ${p}created_at AS "createdAt",
+  `${p}id, ${p}name, ${p}phone, ${p}email, ${p}marketing_opt_in AS "marketingOptIn", ${p}document AS cpf, ${p}created_at AS "createdAt",
    ${p}avatar, ${photoUrlSql(p, OWN_PHOTO)} AS "photoUrl"`;
 const CUSTOMER_COLS = customerCols();
 /** Foto do perfil: até 1 MB (o navegador já manda ~30 KB, 320 × 320). */
@@ -203,6 +205,8 @@ export class CustomersService {
       email?: string;
       password: string;
       marketingOptIn?: boolean;
+      /** CPF (só números, já conferido): vai na nota do pedido da mesa. */
+      cpf?: string;
       /** Código que chegou no WhatsApp (obrigatório quando a loja manda código). */
       code?: string;
     },
@@ -246,8 +250,8 @@ export class CustomersService {
       const c = await one<Customer>(
         tx,
         `INSERT INTO customers (tenant_id, name, phone, email, password_hash, marketing_opt_in, last_login_at,
-                                phone_verified_at)
-         VALUES ($1,$2,$3,$4,$5,$6, now(), CASE WHEN $7::boolean THEN now() END) RETURNING ${CUSTOMER_COLS}`,
+                                phone_verified_at, document)
+         VALUES ($1,$2,$3,$4,$5,$6, now(), CASE WHEN $7::boolean THEN now() END, $8) RETURNING ${CUSTOMER_COLS}`,
         [
           tenantId,
           input.name,
@@ -256,6 +260,7 @@ export class CustomersService {
           hash,
           input.marketingOptIn ?? false,
           confirm,
+          input.cpf ?? null,
         ],
       );
       await this.audit.record(tx, {
@@ -439,7 +444,13 @@ export class CustomersService {
   updateProfile(
     tenantId: string,
     c: Customer,
-    p: { name?: string; email?: string | null; marketingOptIn?: boolean; avatar?: string | null },
+    p: {
+      name?: string;
+      email?: string | null;
+      marketingOptIn?: boolean;
+      avatar?: string | null;
+      cpf?: string | null;
+    },
   ) {
     return this.db.withTenant({ tenantId }, async (tx) => {
       if (p.email) {
@@ -459,7 +470,8 @@ export class CustomersService {
                 avatar = CASE WHEN $6::boolean THEN $7 ELSE avatar END,
                 photo = CASE WHEN $6::boolean THEN NULL ELSE photo END,
                 photo_type = CASE WHEN $6::boolean THEN NULL ELSE photo_type END,
-                photo_at = CASE WHEN $6::boolean THEN NULL ELSE photo_at END
+                photo_at = CASE WHEN $6::boolean THEN NULL ELSE photo_at END,
+                document = CASE WHEN $8::boolean THEN $9 ELSE document END
           WHERE id = $1 RETURNING ${CUSTOMER_COLS}`,
         [
           c.id,
@@ -469,6 +481,8 @@ export class CustomersService {
           p.marketingOptIn ?? null,
           p.avatar !== undefined,
           p.avatar ?? null,
+          p.cpf !== undefined,
+          p.cpf ?? null,
         ],
       );
     });

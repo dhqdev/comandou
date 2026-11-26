@@ -47,6 +47,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { clickPoint, Mascot, switchTheme, useTheme, useToast, Skeleton } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
+import { maskDocument, onlyDigits } from '../../lib/br-format';
 import { datedName, saveJson } from '../../lib/download';
 import { AddressArt, LoyaltyArt } from './art';
 import { Photo } from './ui';
@@ -126,6 +127,7 @@ function AuthForms() {
     name: customer.customerName,
     phone: customer.customerPhone,
     email: '',
+    cpf: customer.customerCpf ?? '',
     password: '',
     optIn: false,
   });
@@ -134,7 +136,15 @@ function AuthForms() {
   const [code, setCode] = useState<{ phone: string; value: string } | null>(null);
   const { busy, error, run, setError } = useAsync();
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
-    setForm((f) => ({ ...f, [k]: k === 'phone' ? maskPhone(e.target.value) : e.target.value }));
+    setForm((f) => ({
+      ...f,
+      [k]:
+        k === 'phone'
+          ? maskPhone(e.target.value)
+          : k === 'cpf'
+            ? maskDocument(e.target.value)
+            : e.target.value,
+    }));
   const codeStep = mode === 'signup' && code !== null && code.phone === form.phone;
 
   async function askCode() {
@@ -166,6 +176,7 @@ function AuthForms() {
                 name: form.name.trim(),
                 phone: form.phone,
                 email: form.email.trim() || undefined,
+                cpf: onlyDigits(form.cpf) || undefined,
                 password: form.password,
                 marketingOptIn: form.optIn,
                 code: codeStep ? code!.value : undefined,
@@ -255,6 +266,18 @@ function AuthForms() {
                 maxLength={254}
                 value={form.email}
                 onChange={set('email')}
+              />
+            </Field>
+          )}
+          {mode === 'signup' && (
+            <Field label="CPF (opcional)" hint="Já vai na nota quando você pedir pela mesa.">
+              <input
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="000.000.000-00"
+                maxLength={18}
+                value={form.cpf}
+                onChange={set('cpf')}
               />
             </Field>
           )}
@@ -672,13 +695,15 @@ export function AccountScreen() {
             hint={home ? `${home.street}, ${home.number}` : 'Nenhum ainda'}
           />
         )}
-        <Tile
-          i={n++}
-          to="/pedir/conta/pagamento"
-          icon={<CreditCard />}
-          label="Pagamento"
-          hint={payLabel ? `Preferida: ${payLabel}` : 'Formas de pagar'}
-        />
+        {rules.delivery && (
+          <Tile
+            i={n++}
+            to="/pedir/conta/pagamento"
+            icon={<CreditCard />}
+            label="Pagamento"
+            hint={payLabel ? `Preferida: ${payLabel}` : 'Formas de pagar'}
+          />
+        )}
         {rules.coupons && (
           <Tile
             i={n++}
@@ -831,6 +856,7 @@ export function ProfileScreen() {
   const [form, setForm] = useState({
     name: me?.name ?? '',
     email: me?.email ?? '',
+    cpf: maskDocument(me?.cpf ?? ''),
     optIn: me?.marketingOptIn ?? false,
   });
   const { busy, error, run } = useAsync();
@@ -855,6 +881,7 @@ export function ProfileScreen() {
               json: {
                 name: form.name.trim(),
                 email: form.email.trim() || null,
+                cpf: onlyDigits(form.cpf) || null,
                 marketingOptIn: form.optIn,
               },
             }),
@@ -882,6 +909,16 @@ export function ProfileScreen() {
             maxLength={254}
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </Field>
+        <Field label="CPF (opcional)" hint="Já vai na nota quando você pedir pela mesa.">
+          <input
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="000.000.000-00"
+            maxLength={18}
+            value={form.cpf}
+            onChange={(e) => setForm({ ...form, cpf: maskDocument(e.target.value) })}
           />
         </Field>
         <label className="ck-toggle">

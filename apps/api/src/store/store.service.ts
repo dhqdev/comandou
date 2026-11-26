@@ -84,6 +84,10 @@ export interface StoreSettings {
   headline: string | null;
   featuredTitle: string | null;
   accountsEnabled: boolean;
+  /** Aba Perfil no cardápio da mesa (com as contas ligadas). */
+  tableAccount: boolean;
+  /** Cupons da conta no pedido da mesa (com o Perfil na mesa). */
+  tableCoupons: boolean;
   showPopular: boolean;
   /** Conversa do cliente com a loja no cardápio (no lugar de levar ao WhatsApp). */
   chatEnabled: boolean;
@@ -201,7 +205,8 @@ const SETTINGS_COLS = `enabled, is_open AS "isOpen", auto_accept AS "autoAccept"
   favicon_image_id AS "faviconImageId", brand_staff_app AS "brandStaffApp",
   hours_enabled AS "hoursEnabled", hours, pix_enabled AS "pixEnabled",
   pix_key_type AS "pixKeyType", pix_key AS "pixKey", pix_name AS "pixName", pix_city AS "pixCity",
-  table_check_location AS "tableCheckLocation", table_self_pickup AS "tableSelfPickup"`;
+  table_check_location AS "tableCheckLocation", table_self_pickup AS "tableSelfPickup",
+  table_account AS "tableAccount", table_coupons AS "tableCoupons"`;
 
 const DEFAULTS: StoreSettings = {
   enabled: true,
@@ -224,6 +229,8 @@ const DEFAULTS: StoreSettings = {
   headline: null,
   featuredTitle: null,
   accountsEnabled: true,
+  tableAccount: true,
+  tableCoupons: true,
   showPopular: true,
   chatEnabled: true,
   chatGreeting: null,
@@ -267,6 +274,8 @@ const COLUMN: Record<keyof StoreSettings, string> = {
   headline: 'headline',
   featuredTitle: 'featured_title',
   accountsEnabled: 'accounts_enabled',
+  tableAccount: 'table_account',
+  tableCoupons: 'table_coupons',
   showPopular: 'show_popular',
   chatEnabled: 'chat_enabled',
   chatGreeting: 'chat_greeting',
@@ -845,18 +854,17 @@ export class StoreService {
                     show_item_points AS "showItemPoints" FROM loyalty_programs`,
           )
         : null;
-      // Cupons na vitrine (aba Cupons): só no cardápio online com contas.
-      const coupons =
-        !table && s.accountsEnabled
-          ? ((
-              await one<{ n: number }>(
-                tx,
-                `SELECT count(*)::int AS n FROM coupons
+      // Cupons na vitrine (aba Cupons): com as contas ligadas (na mesa, com os Cupons na mesa).
+      const coupons = rules.coupons
+        ? ((
+            await one<{ n: number }>(
+              tx,
+              `SELECT count(*)::int AS n FROM coupons
                   WHERE active AND listed AND (starts_at IS NULL OR starts_at <= now())
                     AND (ends_at IS NULL OR ends_at > now())`,
-              )
-            )?.n ?? 0)
-          : 0;
+            )
+          )?.n ?? 0)
+        : 0;
       // Avisos no ar (tela Notificações): o sino do início mostra a bolinha se houver um novo.
       const notices = table
         ? []
@@ -911,6 +919,8 @@ export class StoreService {
           headline: s.headline,
           featuredTitle: s.featuredTitle,
           accountsEnabled: s.accountsEnabled,
+          tableAccount: s.tableAccount,
+          tableCoupons: s.tableCoupons,
           // Na mesa não há conversa: quem resolve é o garçom.
           chatEnabled: rules.chat,
         },
@@ -1007,6 +1017,8 @@ export class StoreService {
           : 'A loja está fechada agora. Tente novamente mais tarde.',
       );
     if (atTable && !input.tableId) throw new UnprocessableEntityException('Informe a mesa');
+    if (atTable && input.couponCode && !storeRules('table', s).coupons)
+      throw new UnprocessableEntityException('Esta loja não aceita cupom no pedido da mesa');
     // Mesa: quem pede está no restaurante (QR Code fotografado não pede de casa).
     if (atTable && !tablePresenceOf(s, input.presence).ok)
       throw new HttpException(

@@ -92,6 +92,9 @@ export interface PublicMenu {
     headline: string | null;
     featuredTitle: string | null;
     accountsEnabled: boolean;
+    /** Aba Perfil no cardápio da mesa e os cupons da conta no pedido da mesa. */
+    tableAccount?: boolean;
+    tableCoupons?: boolean;
     /** Conversa com a loja pelo cardápio (no lugar do WhatsApp). */
     chatEnabled: boolean;
   };
@@ -149,6 +152,8 @@ export interface CustomerAccount {
   phone: string;
   email: string | null;
   marketingOptIn: boolean;
+  /** CPF (só números): já vem preenchido no pedido da mesa. */
+  cpf?: string | null;
   createdAt: string;
   /** Avatar desenhado escolhido (null = o automático pela conta). */
   avatar?: string | null;

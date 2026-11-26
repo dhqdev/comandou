@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.258.0',
+    date: '2026-11-26',
+    title: 'Perfil e cupons do cliente na mesa, e CPF na conta',
+    summary:
+      'Quem pede pelo QR Code da mesa ganha a aba Perfil: entra ou cria a conta, guarda o CPF e usa os cupons dele no pedido da mesa, sem nada de entrega. A loja liga ou desliga cada parte.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Aba Perfil no cardápio da mesa: o cliente entra ou cria a conta, vê os avisos, a loja, a ajuda e os cupons. Endereços, forma de pagamento, reservas e conversa ficam só no cardápio online.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cupons na mesa: com a conta aberta, o cliente aplica o cupom na aba Cupons ou na sacola e o desconto entra no pedido da mesa (cupom de entrega grátis segue só na entrega).',
+      },
+      {
+        tag: 'novo',
+        text: 'CPF na conta do cliente: campo opcional no cadastro e em Meus dados. No pedido da mesa o CPF já vem preenchido para a nota.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Loja online › Funcionamento › Pedido pela mesa: interruptores "Perfil do cliente na mesa" e "Cupons na mesa" para a loja decidir o que o cliente vê.',
+      },
+    ],
+  },
+  {
     version: '0.257.0',
     date: '2026-11-26',
     title: 'Cartões de produto da Nova venda com nome inteiro e pontos',

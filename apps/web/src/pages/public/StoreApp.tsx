@@ -240,7 +240,15 @@ function useNavTabs(fit = false): MagicTab[] {
     pedidos,
     ...shown.filter((t) => t.to !== '/pedir/favoritos'),
     ...(rules.accountTab
-      ? [{ to: '/pedir/conta', label: name ?? 'Entrar', icon: meIcon, badge: unread }]
+      ? [
+          {
+            to: '/pedir/conta',
+            // Na mesa a aba é o Perfil do cliente (sem nada da entrega).
+            label: atTable && !name ? 'Perfil' : (name ?? 'Entrar'),
+            icon: meIcon,
+            badge: unread,
+          },
+        ]
       : []),
   ];
 }
@@ -414,7 +422,10 @@ function Screens() {
           <Route path="conta/privacidade" element={<PrivacyScreen />} />
           <Route path="conta/esqueci-senha" element={<ForgotPasswordScreen />} />
           <Route path="conta/notificacoes" element={<NoticesScreen />} />
-          <Route path="conta/pagamento" element={<PaymentScreen />} />
+          <Route
+            path="conta/pagamento"
+            element={<Allowed screen="conta/pagamento" el={<PaymentScreen />} />}
+          />
           <Route path="conta/loja" element={<StoresScreen />} />
           <Route
             path="conta/indique"

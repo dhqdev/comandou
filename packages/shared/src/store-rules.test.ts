@@ -44,6 +44,27 @@ describe('regras de cada cardápio', () => {
       expect(storeScreenAllowed(r, s)).toBe(true);
   });
 
+  it('mesa com o Perfil e os Cupons ligados: aba Perfil e cupons, sem nada da entrega', () => {
+    const r = storeRules('table', {
+      accountsEnabled: true,
+      tableAccount: true,
+      tableCoupons: true,
+    });
+    expect(r).toMatchObject({ accountTab: true, coupons: true, delivery: false, loyalty: false });
+    for (const s of ['conta', 'conta/dados', 'cupons']) expect(storeScreenAllowed(r, s)).toBe(true);
+    for (const s of ['conta/enderecos', 'conta/pagamento', 'reservas', 'conversa'])
+      expect(storeScreenAllowed(r, s)).toBe(false);
+    // Cupons sem o Perfil não valem (o cupom é da conta), e sem contas nada disso aparece.
+    expect(storeRules('table', { accountsEnabled: true, tableCoupons: true }).coupons).toBe(false);
+    expect(
+      storeRules('table', { accountsEnabled: true, tableAccount: true, tableCoupons: false })
+        .coupons,
+    ).toBe(false);
+    expect(
+      storeRules('table', { accountsEnabled: false, tableAccount: true, tableCoupons: true }),
+    ).toMatchObject({ accountTab: false, coupons: false });
+  });
+
   it('online: segue o que a loja ligou', () => {
     expect(storeRules('online', { chatEnabled: true, accountsEnabled: true })).toMatchObject({
       chat: true,

@@ -149,6 +149,12 @@ export function CartScreen() {
   useEffect(() => {
     if (me?.email) setPayer((p) => (p.email ? p : { ...p, email: me.email! }));
   }, [me?.email]);
+  // CPF da conta já vem no pedido da mesa (o cliente pode trocar só para este pedido).
+  const myCpf = me?.cpf?.length === 11 ? me.cpf : null;
+  useEffect(() => {
+    if (myCpf)
+      setCustomer((c) => (c.customerCpf?.trim() ? c : { ...c, customerCpf: maskCpf(myCpf) }));
+  }, [myCpf, setCustomer]);
   const saved = account?.addresses ?? [];
   const [addrId, setAddrId] = useState<string | 'new'>('new');
   // Endereço salvo aberto para editar ali mesmo, na sacola.

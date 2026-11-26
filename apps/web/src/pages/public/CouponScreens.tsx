@@ -253,7 +253,7 @@ export function useCouponQuote(
   const me = account?.customer ?? null;
   const [state, setState] = useState<CouponQuote>({ kind: 'idle' });
   useEffect(() => {
-    if (!coupon || !me || !rules.coupons || !channel || channel === 'table' || subtotal <= 0) {
+    if (!coupon || !me || !rules.coupons || !channel || subtotal <= 0) {
       setState({ kind: 'idle' });
       return;
     }

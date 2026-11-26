@@ -114,6 +114,10 @@ export interface StoreSettings {
   tableCheckLocation: boolean;
   /** Pedido da mesa pronto: o cliente busca no balcão (em vez de o garçom levar). */
   tableSelfPickup: boolean;
+  /** Aba Perfil no cardápio da mesa (pede as contas ligadas). */
+  tableAccount: boolean;
+  /** Cupons da conta no pedido da mesa (pede o Perfil na mesa). */
+  tableCoupons: boolean;
   /** Recebe pedido agora (botão "aberta" + horário). Só na leitura. */
   openNow?: boolean; /** A página do restaurante (/site) já foi criada. Só na leitura. */
   hasSite?: boolean;
