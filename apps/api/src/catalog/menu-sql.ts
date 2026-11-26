@@ -34,3 +34,16 @@ export function menuTreeSql(extra: string) {
       WHERE p.category_id = c.id AND p.active AND (m.id IS NULL OR mi.product_id IS NOT NULL)), '[]') AS products
      FROM categories c WHERE c.active ORDER BY c.position, c.name`;
 }
+
+/**
+ * Pontos de fidelidade que um item rende numa venda da equipe, na conta de `itemPoints` (shared):
+ * o número fixo do item ou o preço do canal × pontos por real, para baixo. null quando o programa
+ * está desligado, é de carimbos ou não conta pedidos lançados pela equipe; item por peso sem
+ * número fixo também fica null (os pontos dependem do peso). Campo extra do `menuTreeSql`.
+ */
+export const MENU_POINTS = `'points', (SELECT CASE
+    WHEN p.loyalty_points IS NOT NULL THEN p.loyalty_points
+    WHEN p.sold_by_weight THEN NULL
+    ELSE floor(COALESCE(mi.price, p.price) * lp.points_per_real)::int END
+  FROM loyalty_programs lp
+  WHERE lp.enabled AND lp.mode = 'points' AND lp.count_staff_orders),`;

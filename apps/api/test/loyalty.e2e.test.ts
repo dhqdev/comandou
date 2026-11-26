@@ -309,6 +309,23 @@ describe('Programa de fidelidade', () => {
     expect((await admin.get(`/loyalty/customers/${anaId}/pin`).expect(200)).body.balance).toBe(61);
   });
 
+  it('Nova venda mostra os pontos de cada item só quando a venda da equipe pontua', async () => {
+    const pointsOf = async (who = 'adminA') => {
+      const cats = (await admin.get('/menu?channel=counter', who).expect(200)).body as {
+        products: { id: string; price: string; points: number | null }[];
+      }[];
+      return cats.flatMap((c) => c.products);
+    };
+    const ppr = Number((await admin.get('/loyalty').expect(200)).body.settings.pointsPerReal);
+    const a = (await pointsOf()).find((p) => p.id === fx.prodA)!;
+    expect(a.points).toBe(Math.floor(Number(a.price) * ppr));
+    await admin.send('patch', '/loyalty', { countStaffOrders: false }).expect(200);
+    expect((await pointsOf()).find((p) => p.id === fx.prodA)!.points).toBeNull();
+    await admin.send('patch', '/loyalty', { countStaffOrders: true }).expect(200);
+    // Outro restaurante, programa desligado: nenhum item mostra pontos.
+    expect((await pointsOf('adminB')).every((p) => p.points === null)).toBe(true);
+  });
+
   it('pontos vencem depois de N dias sem comprar', async () => {
     await admin.send('patch', '/loyalty', { expiryDays: 30 }).expect(200);
     await ownerQuery(

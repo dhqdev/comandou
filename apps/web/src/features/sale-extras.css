@@ -263,35 +263,68 @@
   letter-spacing: 0.02em;
   color: var(--cm-text-subtle);
 }
+/* Nome inteiro, sem corte (0.257, pedido do David): quebra em quantas linhas precisar e o cartão
+   cresce; a fileira acompanha o mais alto (grid-auto-rows: max-content + stretch) e a linha do
+   preço desce para o pé com margin-top: auto, então os preços da fileira ficam alinhados. */
 .nsale__info {
-  display: grid;
+  display: flex;
   flex: 1;
-  width: 100%;
-  align-content: space-between;
+  flex-direction: column;
   gap: var(--cm-space-2);
+  width: 100%;
+  min-width: 0;
   padding: 10px 12px 12px;
 }
 .nsale__name {
-  display: -webkit-box;
-  min-height: 2.6em; /* duas linhas: os preços ficam na mesma altura na fileira */
-  overflow: hidden;
+  min-height: 2.6em; /* nome curto ainda ocupa duas linhas: o cartão não fica baixinho */
   font-size: var(--cm-text-md);
   font-weight: 600;
   line-height: 1.3;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  text-wrap: pretty;
+}
+.nsale__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+  margin-top: auto;
 }
 .nsale__price {
   font-size: var(--cm-text-lg);
   font-weight: 700;
   letter-spacing: var(--cm-tracking-tight);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .nsale__price[data-out] {
   color: var(--cm-text-muted);
   font-size: var(--cm-text-sm);
   font-weight: 600;
   letter-spacing: 0;
+}
+/* Pontos de fidelidade do item: pílula fraca no tom da marca (fundo 10%, contorno 26%). */
+.nsale__pts {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 8px 0 6px;
+  border: 1px solid color-mix(in oklab, var(--cm-brand-500) 26%, transparent);
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, transparent);
+  color: var(--cm-brand-700);
+  font-size: var(--cm-text-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.nsale__pts .cm-num {
+  font-weight: 750;
+}
+.nsale__pts svg {
+  flex: none;
 }
 .nsale__none {
   grid-column: 1 / -1;
