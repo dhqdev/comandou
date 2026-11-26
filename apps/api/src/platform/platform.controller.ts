@@ -970,6 +970,13 @@ export class PlatformAiController {
     return this.ai.grant(id, b, actor(req));
   }
 
+  /** Zera o uso de IA do restaurante (apaga o ai_usage dele; fica no histórico do painel). */
+  @Post('tenants/:id/usage/reset')
+  @HttpCode(200)
+  resetUsage(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: Request) {
+    return this.ai.resetUsage(id, actor(req));
+  }
+
   @Put('tenants/:id')
   saveTenant(
     @Param('id', new ParseUUIDPipe()) id: string,

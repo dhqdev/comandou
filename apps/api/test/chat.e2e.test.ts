@@ -771,6 +771,45 @@ describe('Assistente de IA', () => {
     ]);
   });
 
+  it('Super Admin zera o uso de IA de um restaurante, sem mexer no de outro', async () => {
+    await ownerQuery(
+      `INSERT INTO ai_usage (tenant_id, model, prompt_tokens, completion_tokens, cost_usd, source)
+       VALUES ($1, 'm', 300, 200, 0.01, 'photo_tune'), ($1, 'm', 100, 0, 0.002, 'menu_model')`,
+      [fx.tenantB],
+    );
+    const [beforeA] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM ai_usage WHERE tenant_id = $1`,
+      [fx.tenantA],
+    );
+    // Restaurante não zera o próprio uso.
+    const self = await http
+      .post(`/api/v1/platform/ai/tenants/${fx.tenantB}/usage/reset`)
+      .set('Host', HOST_A)
+      .set('Cookie', cookies.adminA)
+      .send({});
+    expect([403, 404]).toContain(self.status);
+    const r = (await psend('post', `/ai/tenants/${fx.tenantB}/usage/reset`, {}).expect(200)).body;
+    expect(r).toMatchObject({ ok: true, calls: 2, tokens: 600 });
+    expect(r.costUsd).toBeCloseTo(0.012, 6);
+    const use = (await pget(`/ai/tenants/${fx.tenantB}/usage?period=all`).expect(200)).body;
+    expect(use.total).toMatchObject({ tokens: 0, calls: 0 });
+    expect((await get('adminB', '/chat/ai').expect(200)).body.usage.used).toBe(0);
+    const [afterA] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM ai_usage WHERE tenant_id = $1`,
+      [fx.tenantA],
+    );
+    expect(afterA!.n).toBe(beforeA!.n);
+    const [log] = await ownerQuery<{ data: { tokens: number } }>(
+      `SELECT data FROM platform_audit_log WHERE action = 'platform.ai_usage_reset'
+        ORDER BY id DESC LIMIT 1`,
+    );
+    expect(log!.data.tokens).toBe(600);
+    // Já zerado: responde sem erro.
+    expect(
+      (await psend('post', `/ai/tenants/${fx.tenantB}/usage/reset`, {}).expect(200)).body.calls,
+    ).toBe(0);
+  });
+
   it('sua chave (sistema e esteira) fica separada, cifrada e com extrato próprio', async () => {
     let o = (await pget('/ai').expect(200)).body;
     expect(o.settings.hasOwnerKey).toBe(false);

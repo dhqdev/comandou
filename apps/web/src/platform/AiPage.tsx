@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { KeyInUse } from './credentials/KeyInUse';
-import { Gift, KeyRound, MinusCircle, RefreshCw } from 'lucide-react';
+import { Gift, KeyRound, MinusCircle, RefreshCw, RotateCcw } from 'lucide-react';
 import { Alert, Button, Card, Segmented, TextField, useToast, Skeleton } from '../design-system';
 import { SidePanel } from '../features/SidePanel';
 import { api } from '../lib/api';
@@ -603,6 +603,7 @@ function TenantDetail({
       <div className="adm-ai-detail__setup">
         <LimitForm t={t} defaultLimit={defaultLimit} onSaved={changed} />
         <GrantBox t={t} onDone={changed} />
+        <ResetUsage t={t} onDone={changed} />
       </div>
     </div>
   );
@@ -807,6 +808,89 @@ function LimitForm({
 }
 
 const QUICK_GRANTS = [50_000, 100_000, 500_000, 1_000_000];
+
+/**
+ * Zerar o uso de IA do restaurante (ex.: trocou a chave e quer testar do zero). Apaga o uso de
+ * todos os períodos; pede a confirmação na própria caixa. Fica no histórico do restaurante.
+ */
+function ResetUsage({ t, onDone }: { t: TenantUse; onDone(): void }) {
+  const toast = useToast();
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  async function reset() {
+    setBusy(true);
+    try {
+      const r = await api<{ tokens: number; calls: number }>(
+        `/platform/ai/tenants/${t.id}/usage/reset`,
+        { method: 'POST' },
+      );
+      toast(
+        r.calls
+          ? `Uso de IA de ${t.name} zerado (${int(r.tokens)} tokens apagados)`
+          : `${t.name} já estava sem uso de IA`,
+        'success',
+      );
+      setAsking(false);
+      onDone();
+    } catch (err) {
+      toast((err as Error).message, 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="adm-ai-grant">
+      <div className="adm-ai-grant__head">
+        <RotateCcw size={16} aria-hidden />
+        <strong>Zerar uso</strong>
+        <span className="adm-sub">
+          apaga o uso de IA de todos os períodos; o limite do mês volta a contar do zero
+        </span>
+      </div>
+      {asking ? (
+        <>
+          <Alert tone="warning">
+            Apagar todo o uso de IA de {t.name}? Isso não pode ser desfeito. Os tokens extras já
+            gastos não voltam.
+          </Alert>
+          <div className="adm-form-actions">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setAsking(false)}
+              disabled={busy}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="danger"
+              icon={<RotateCcw size={14} />}
+              onClick={reset}
+              loading={busy}
+            >
+              Sim, zerar
+            </Button>
+          </div>
+        </>
+      ) : (
+        <div className="adm-form-actions">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            icon={<RotateCcw size={14} />}
+            onClick={() => setAsking(true)}
+          >
+            Zerar uso
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Doar ou retirar tokens extras (não vencem; gastos só depois do limite do mês) + extrato. */
 function GrantBox({ t, onDone }: { t: TenantUse; onDone(): void }) {

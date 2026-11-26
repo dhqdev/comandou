@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.268.0',
+    date: '2026-11-26',
+    title: 'Zerar o uso de IA de um restaurante',
+    summary:
+      'No Super Admin › Tokens de IA, cada restaurante ganhou o botão Zerar uso: o consumo volta a zero para começar a contar de novo, por exemplo depois de trocar a chave do OpenRouter.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › Tokens de IA: ao abrir um restaurante, a caixa Zerar uso apaga o uso de IA dele (todos os períodos) depois de confirmar. O limite do mês volta a contar do zero e o que foi apagado (tokens, usos e custo) fica no histórico do restaurante.',
+      },
+    ],
+  },
+  {
     version: '0.267.2',
     date: '2026-11-26',
     title: 'Aba Operação do Super Admin volta a abrir',

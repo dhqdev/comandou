@@ -752,6 +752,38 @@ export class PlatformAiService {
     });
   }
 
+  /**
+   * Zera o uso de IA de um restaurante: apaga as linhas de `ai_usage` dele (limite do mês, pizza e
+   * extrato voltam a zero). Os tokens extras já gastos não voltam (use Doar). O que saiu fica no
+   * histórico do painel.
+   */
+  async resetUsage(tenantId: string, a: Actor) {
+    return this.db.tx(async (c) => {
+      const t = await c.query<{ name: string }>(`SELECT name FROM tenants WHERE id = $1`, [
+        tenantId,
+      ]);
+      if (!t.rowCount) throw new UnprocessableEntityException('Restaurante não encontrado');
+      const r = await c.query<{ calls: number; tokens: number; cost: number }>(
+        `WITH gone AS (DELETE FROM ai_usage WHERE tenant_id = $1
+                       RETURNING prompt_tokens + completion_tokens AS n, cost_usd)
+         SELECT count(*)::int AS calls, coalesce(sum(n), 0)::float8 AS tokens,
+                coalesce(sum(cost_usd), 0)::float8 AS cost FROM gone`,
+        [tenantId],
+      );
+      const { calls, tokens, cost } = r.rows[0]!;
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'platform.ai_usage_reset',
+        entity: 'tenant',
+        entityId: tenantId,
+        tenantId,
+        data: { calls, tokens, costUsd: cost },
+        ip: a.ip,
+      });
+      return { ok: true, calls, tokens, costUsd: cost, tenantName: t.rows[0]!.name };
+    });
+  }
+
   /** Extrato de um restaurante: últimas chamadas e as doações/retiradas de tokens. */
   async tenantHistory(tenantId: string) {
     const [usage, grants] = await Promise.all([

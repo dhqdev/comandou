@@ -154,6 +154,7 @@ export const ACTIONS: Record<string, [string, Group]> = {
   'platform.ai_tenant_updated': ['Assistente de IA do restaurante alterado', 'ia'],
   'platform.ai_tokens_granted': ['Tokens de IA doados', 'ia'],
   'platform.ai_tokens_removed': ['Tokens de IA retirados', 'ia'],
+  'platform.ai_usage_reset': ['Uso de IA zerado', 'ia'],
 };
 
 const FAIL = new Set([
@@ -359,6 +360,14 @@ export function describe(a: AuditRow, plans: Plan[] = []): string {
           ? `saldo ${d.balanceAfter.toLocaleString('pt-BR')}`
           : null,
         str('note'),
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    case 'platform.ai_usage_reset':
+      return [
+        typeof d.tokens === 'number' ? `${d.tokens.toLocaleString('pt-BR')} tokens apagados` : null,
+        typeof d.calls === 'number' ? `${d.calls.toLocaleString('pt-BR')} uso(s)` : null,
+        typeof d.costUsd === 'number' ? `US$ ${d.costUsd.toFixed(4)}` : null,
       ]
         .filter(Boolean)
         .join(' · ');
