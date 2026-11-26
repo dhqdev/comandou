@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.254.3',
+    date: '2026-11-26',
+    title: 'Itens do pedido mais bonitos e alinhados na Nova venda',
+    summary:
+      'Na Nova venda, a lista de itens do pedido ficou mais limpa e alinhada, e se arruma sozinha no notebook, no tablet deitado e no tablet em pé.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Nova venda: título, colunas e itens começam no mesmo recuo, os valores (Unitário e Total) ficam alinhados à direita e a quantidade virou um controle só (− 1 +). O topo da lista mostra quantos itens há e o subtotal.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Nova venda: os complementos e a observação ficam logo embaixo do nome do produto, no lugar da coluna Complementos que sobrava vazia no meio da lista.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Nova venda no tablet: com a lista mais estreita a coluna Unitário sai e o preço de cada um aparece embaixo do total (ex.: 2 × R$ 38,50); no tablet em pé e no celular cada item vira um bloco com o nome em cima e a quantidade e o total embaixo, com botões maiores para o toque.',
+      },
+    ],
+  },
+  {
     version: '0.254.2',
     date: '2026-11-26',
     title: 'Fotos na Nova venda pelo iPhone e tela que se ajusta ao notebook e ao zoom',

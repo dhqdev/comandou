@@ -108,6 +108,16 @@ sem a frase, busca e categorias lado a lado (áreas `'search cats'`), foto 16:10
 160px; o painel da direita é `clamp(300px, 26vw, 400px)`; com zoom alto (≤ 860px de largura) vale
 o jeito do celular. Os mínimos das fileiras deixam uma fileira de fotos e a lista visíveis; a
 coluna só rola em zoom extremo.
+**Itens do pedido (0.254.3, pedido do David: "mais bonito, idente melhor", notebook e tablet):**
+cabeçalho `nsale__items-head` (título, "N itens" e subtotal à direita); título, colunas e linhas no
+mesmo recuo (`--nsale-pad`, 16px); colunas Qtd | Produto | Unitário | Total | lixeira, com os
+valores alinhados à direita. Quantidade é um controle só (`nsale__step`: − número +). Complementos
+(`nsale__opts`, separados por " · ") e observação (`nsale__note`, lápis + campo sem borda que ganha
+contorno no foco) ficam embaixo do nome: **não volte com a coluna Complementos**. As colunas
+seguem a largura da própria lista (`container: nsale-items`), não a da tela: até 700px some o
+Unitário e o "2 × R$ X" vai embaixo do total (`nsale__each`, só com quantidade ≠ 1 ou peso); até
+480px cada item vira um bloco (nome e lixeira em cima, quantidade e total embaixo, botões de 40px).
+Cada célula tem a classe da coluna (`nsale__c-*`): nunca posicione por `nth-child`.
 
 ## Edição do item no garçom
 

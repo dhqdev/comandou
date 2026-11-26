@@ -14,6 +14,7 @@ import {
   Frown,
   HandCoins,
   Minus,
+  Pencil,
   Plus,
   ReceiptText,
   Scale,
@@ -211,6 +212,8 @@ export function NewSaleModal({
     (s, l) => s + multiplyCents(unitCents(l.product, l.optionIds), l.quantity),
     0,
   );
+  /** Unidades no pedido (item por peso conta como um). */
+  const itemCount = cart.reduce((n, l) => n + (l.product.soldByWeight ? 1 : l.quantity), 0);
   const discountCents = toCents(parseBrlInput(discount) ?? '0');
   const feeCents = channel === 'delivery' ? toCents(parseBrlInput(deliveryFee) ?? '0') : 0;
   const total = subtotal - discountCents + feeCents;
@@ -482,7 +485,17 @@ export function NewSaleModal({
         </div>
 
         <section className="nsale__items" aria-label="Itens do pedido">
-          <h3>Itens do pedido</h3>
+          <header className="nsale__items-head">
+            <h3>Itens do pedido</h3>
+            {cart.length > 0 && (
+              <>
+                <span className="nsale__items-count">
+                  {itemCount} {itemCount === 1 ? 'item' : 'itens'}
+                </span>
+                <span className="nsale__items-sum cm-num">{brl(fromCents(subtotal))}</span>
+              </>
+            )}
+          </header>
           {cart.length === 0 ? (
             <div className="nsale__empty">
               <Frown size={28} aria-hidden />
@@ -490,23 +503,33 @@ export function NewSaleModal({
               <span>Busque um produto ou toque nele na grade acima.</span>
             </div>
           ) : (
-            <div className="nsale__table" role="table">
+            <div className="nsale__table" role="table" aria-label="Itens do pedido">
               <div className="nsale__row nsale__row--head" role="row">
-                <span role="columnheader">Qtd</span>
-                <span role="columnheader">Produto</span>
-                <span role="columnheader">Complementos</span>
-                <span role="columnheader">Unitário</span>
-                <span role="columnheader">Total</span>
-                <span role="columnheader" aria-label="Remover" />
+                <span role="columnheader" className="nsale__c-qty">
+                  Qtd
+                </span>
+                <span role="columnheader" className="nsale__c-prod">
+                  Produto
+                </span>
+                <span role="columnheader" className="nsale__c-unit">
+                  Unitário
+                </span>
+                <span role="columnheader" className="nsale__c-sum">
+                  Total
+                </span>
+                <span role="columnheader" className="nsale__c-del">
+                  <span className="cm-sr-only">Remover</span>
+                </span>
               </div>
               {cart.map((l) => {
                 const unit = unitCents(l.product, l.optionIds);
                 const opts = l.product.optionGroups
                   .flatMap((g) => g.options)
                   .filter((o) => l.optionIds.includes(o.id));
+                const perUnit = `${brl(fromCents(unit))}${l.product.soldByWeight ? '/kg' : ''}`;
                 return (
                   <div key={l.uid} className="nsale__row" role="row">
-                    <span role="cell" className="nsale__qty">
+                    <span role="cell" className="nsale__c-qty">
                       {l.product.soldByWeight ? (
                         <button
                           type="button"
@@ -519,7 +542,7 @@ export function NewSaleModal({
                           <Scale size={14} aria-hidden /> {qtyLabel(l.quantity, 'kg')}
                         </button>
                       ) : (
-                        <>
+                        <span className="nsale__step">
                           <button
                             type="button"
                             aria-label="Diminuir"
@@ -537,30 +560,37 @@ export function NewSaleModal({
                           >
                             <Plus size={14} />
                           </button>
-                        </>
+                        </span>
                       )}
                     </span>
-                    <span role="cell" className="nsale__prod">
-                      <strong>{l.product.name}</strong>
-                      <input
-                        placeholder="Observação (ex.: sem cebola)"
-                        aria-label={`Observação de ${l.product.name}`}
-                        value={l.notes}
-                        maxLength={200}
-                        onChange={(e) => setLine(l, { notes: e.target.value })}
-                      />
+                    <span role="cell" className="nsale__c-prod nsale__prod">
+                      <strong title={l.product.name}>{l.product.name}</strong>
+                      {opts.length > 0 && (
+                        <span className="nsale__opts">{opts.map((o) => o.name).join(' · ')}</span>
+                      )}
+                      <label className="nsale__note">
+                        <Pencil size={12} aria-hidden />
+                        <input
+                          placeholder="Observação (ex.: sem cebola)"
+                          aria-label={`Observação de ${l.product.name}`}
+                          value={l.notes}
+                          maxLength={200}
+                          onChange={(e) => setLine(l, { notes: e.target.value })}
+                        />
+                      </label>
                     </span>
-                    <span role="cell" className="nsale__opts">
-                      {opts.length ? opts.map((o) => o.name).join(', ') : '—'}
+                    <span role="cell" className="nsale__c-unit cm-num">
+                      {perUnit}
                     </span>
-                    <span role="cell" className="nsale__unit cm-num">
-                      {brl(fromCents(unit))}
-                      {l.product.soldByWeight ? '/kg' : ''}
+                    <span role="cell" className="nsale__c-sum">
+                      <b className="cm-num">{brl(fromCents(multiplyCents(unit, l.quantity)))}</b>
+                      {(l.product.soldByWeight || l.quantity !== 1) && (
+                        <small className="nsale__each cm-num">
+                          {l.product.soldByWeight ? perUnit : `${l.quantity} × ${perUnit}`}
+                        </small>
+                      )}
                     </span>
-                    <span role="cell" className="nsale__sum cm-num">
-                      {brl(fromCents(multiplyCents(unit, l.quantity)))}
-                    </span>
-                    <span role="cell">
+                    <span role="cell" className="nsale__c-del">
                       <button
                         type="button"
                         className="nsale__del"
@@ -568,7 +598,7 @@ export function NewSaleModal({
                         title="Remover item"
                         onClick={() => setLine(l, null)}
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={16} />
                       </button>
                     </span>
                   </div>

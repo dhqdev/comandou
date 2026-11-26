@@ -300,8 +300,14 @@
   font-size: var(--cm-text-sm);
 }
 
-/* Itens do pedido */
+/* Itens do pedido (0.254.3, pedido do David: "mais bonito e com o recuo certo").
+   Título, cabeçalho e linhas começam no mesmo recuo (16px); Qtd e Produto à esquerda, Unitário
+   e Total à direita, alinhados pelos números. Complementos e observação ficam embaixo do nome
+   (sem coluna própria que sobrava vazia). As colunas seguem a largura da própria lista
+   (container query), então valem igual no notebook, no tablet deitado e com zoom. */
 .nsale__items {
+  --nsale-pad: 16px;
+  container: nsale-items / inline-size;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -309,9 +315,24 @@
   border-radius: var(--cm-radius-md);
   overflow: hidden;
 }
-.nsale__items h3 {
+.nsale__items-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cm-space-2);
+  padding: 12px var(--nsale-pad) 10px;
+}
+.nsale__items-head h3 {
   margin: 0;
-  padding: 12px 14px 6px;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+}
+.nsale__items-count {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.nsale__items-sum {
+  margin-left: auto;
   font-size: var(--cm-text-sm);
   font-weight: 700;
 }
@@ -334,116 +355,253 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .nsale__row {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1.6fr) minmax(0, 1fr) 92px 92px 36px;
-  gap: var(--cm-space-3);
+  grid-template-columns: 112px minmax(0, 1fr) 104px 112px 34px;
+  grid-template-areas: 'qty prod unit sum del';
+  column-gap: var(--cm-space-4);
   align-items: center;
-  padding: 8px 14px;
+  padding: 10px var(--nsale-pad);
   border-top: 1px solid var(--cm-border);
   font-size: var(--cm-text-sm);
+}
+.nsale__row:not(.nsale__row--head):hover {
+  background: color-mix(in oklab, var(--cm-text) 3%, transparent);
 }
 .nsale__row--head {
   position: sticky;
   top: 0;
   z-index: 1;
-  padding-block: 6px;
-  background: var(--cm-surface);
+  padding-block: 7px;
+  background: var(--cm-surface-muted);
   color: var(--cm-text-muted);
   font-size: var(--cm-text-xs);
   font-weight: 600;
 }
-.nsale__qty {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
+.nsale__c-qty {
+  grid-area: qty;
 }
-.nsale__qty button {
+.nsale__c-prod {
+  grid-area: prod;
+}
+.nsale__c-unit {
+  grid-area: unit;
+  justify-self: end;
+  color: var(--cm-text-muted);
+  white-space: nowrap;
+}
+.nsale__c-sum {
+  grid-area: sum;
+  justify-self: end;
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  white-space: nowrap;
+}
+.nsale__c-del {
+  grid-area: del;
+  justify-self: end;
+}
+.nsale__row--head .nsale__c-unit {
+  color: inherit;
+}
+.nsale__c-sum b {
+  font-size: var(--cm-text-md);
+  font-weight: 700;
+}
+/* "2 × R$ 11,90" embaixo do total: só quando a coluna Unitário some. */
+.nsale__each {
+  display: none;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+
+/* Quantidade: um controle só (− número +), em vez de dois botões soltos. */
+.nsale__step {
+  display: inline-grid;
+  grid-template-columns: 32px 36px 32px;
+  align-items: center;
+  height: 34px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-input-bg, var(--cm-surface));
+  overflow: hidden;
+}
+.nsale__step button {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--cm-border-strong);
-  border-radius: var(--cm-radius-sm);
-  background: var(--cm-surface);
-  color: var(--cm-text);
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--cm-text-muted);
   cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
-.nsale__qty b {
-  min-width: 28px;
+.nsale__step button:hover {
+  background: color-mix(in oklab, var(--cm-text) 7%, transparent);
+  color: var(--cm-text);
+}
+.nsale__step button:active {
+  transform: scale(0.94);
+}
+.nsale__step button:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: -2px;
+}
+.nsale__step b {
   text-align: center;
+  font-size: var(--cm-text-md);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.nsale__qty .nsale__weight {
+.nsale__weight {
   display: inline-flex;
-  width: auto;
-  height: auto;
   align-items: center;
-  gap: 4px;
-  min-height: 30px;
-  padding: 0 8px;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
   border: 1px solid var(--cm-border-strong);
   border-radius: var(--cm-radius-sm);
-  background: var(--cm-surface);
+  background: var(--cm-input-bg, var(--cm-surface));
   color: var(--cm-text);
   font: inherit;
   font-size: var(--cm-text-sm);
   font-weight: 650;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   cursor: pointer;
 }
-.nsale__qty .nsale__weight:hover {
+.nsale__weight:hover {
   border-color: var(--cm-brand-500);
 }
+
+/* Produto: nome, complementos e a observação, um embaixo do outro, no mesmo recuo. */
 .nsale__prod {
   display: grid;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 .nsale__prod strong {
+  font-size: var(--cm-text-md);
   font-weight: 650;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.nsale__prod input {
+.nsale__opts {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  line-height: 1.4;
+}
+.nsale__note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 420px;
   height: 26px;
-  padding: 0 6px;
-  margin-left: -6px;
+  padding: 0 8px;
+  margin-left: -8px;
   border: 1px solid transparent;
   border-radius: var(--cm-radius-xs);
+  color: var(--cm-text-subtle);
+  cursor: text;
+}
+.nsale__note:hover,
+.nsale__note:focus-within {
+  border-color: var(--cm-border-strong);
+  background: var(--cm-input-bg, var(--cm-surface));
+}
+.nsale__note:focus-within {
+  border-color: var(--cm-brand-500);
+}
+.nsale__note svg {
+  flex: none;
+}
+.nsale__note input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
   background: none;
   color: var(--cm-text);
   font: inherit;
   font-size: var(--cm-text-xs);
 }
-.nsale__prod input:hover,
-.nsale__prod input:focus {
-  border-color: var(--cm-border-strong);
-  outline: 0;
-}
-.nsale__opts {
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-xs);
-}
-.nsale__sum {
-  font-weight: 700;
+.nsale__note input::placeholder {
+  color: var(--cm-text-subtle);
 }
 .nsale__del {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border: 0;
   border-radius: var(--cm-radius-sm);
   background: none;
   color: var(--cm-text-subtle);
   cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
 .nsale__del:hover {
   color: var(--cm-danger);
   background: var(--cm-danger-bg);
+}
+.nsale__del:active {
+  transform: scale(0.94);
+}
+
+/* Lista média (tablet deitado, notebook com zoom): sai a coluna Unitário e o preço de cada um
+   vai para baixo do total. */
+@container nsale-items (max-width: 700px) {
+  .nsale__row {
+    grid-template-columns: 112px minmax(0, 1fr) auto 34px;
+    grid-template-areas: 'qty prod sum del';
+    column-gap: var(--cm-space-3);
+  }
+  .nsale__c-unit {
+    display: none;
+  }
+  .nsale__each {
+    display: block;
+  }
+}
+
+/* Lista estreita (tablet em pé, celular): cada item vira um bloco. Nome e lixeira em cima,
+   complementos e observação embaixo do nome, e quantidade e total na última linha. */
+@container nsale-items (max-width: 480px) {
+  .nsale__row--head {
+    display: none;
+  }
+  .nsale__row {
+    grid-template-columns: minmax(0, 1fr) auto 36px;
+    grid-template-areas:
+      'prod prod del'
+      'qty sum sum';
+    row-gap: 10px;
+    column-gap: var(--cm-space-2);
+    padding-block: 12px;
+  }
+  .nsale__row--head + .nsale__row {
+    border-top: 0;
+  }
+  .nsale__c-del {
+    align-self: start;
+  }
+  .nsale__c-sum {
+    padding-right: 2px;
+  }
+  .nsale__step {
+    grid-template-columns: 40px 40px 40px;
+    height: 40px;
+  }
+  .nsale__weight {
+    height: 40px;
+  }
 }
 
 /* Painel da direita */
@@ -608,11 +766,27 @@
   .nsale__price {
     font-size: var(--cm-text-md);
   }
-  .nsale__items h3 {
-    padding-top: 10px;
+  .nsale__items-head {
+    padding-block: 8px 6px;
   }
-  .nsale__row {
+  .nsale__row--head {
+    padding-block: 5px;
+  }
+  .nsale__row:not(.nsale__row--head) {
     padding-block: 6px;
+  }
+  .nsale__prod {
+    gap: 1px;
+  }
+  .nsale__prod strong {
+    font-size: var(--cm-text-sm);
+  }
+  .nsale__note {
+    height: 22px;
+  }
+  .nsale__step,
+  .nsale__weight {
+    height: 32px;
   }
   .nsale__side-head {
     padding: var(--cm-space-3) var(--cm-space-4);
@@ -623,18 +797,6 @@
   }
   .nsale__foot {
     padding: var(--cm-space-3) var(--cm-space-4);
-  }
-}
-
-@media (max-width: 1100px) {
-  .nsale__row {
-    grid-template-columns: 100px minmax(0, 1fr) 84px 32px;
-  }
-  .nsale__opts,
-  .nsale__unit,
-  .nsale__row--head > :nth-child(3),
-  .nsale__row--head > :nth-child(4) {
-    display: none;
   }
 }
 
@@ -717,33 +879,6 @@
   }
   .nsale__table {
     overflow: visible;
-  }
-  .nsale__row--head {
-    display: none;
-  }
-  .nsale__row {
-    grid-template-columns: minmax(0, 1fr) auto 32px;
-    grid-template-areas:
-      'prod prod del'
-      'qty sum sum';
-    gap: 6px var(--cm-space-2);
-  }
-  .nsale__row > :nth-child(1) {
-    grid-area: qty;
-  }
-  .nsale__row > :nth-child(2) {
-    grid-area: prod;
-  }
-  .nsale__row > :nth-child(5) {
-    grid-area: sum;
-    justify-self: end;
-  }
-  .nsale__row > :nth-child(6) {
-    grid-area: del;
-  }
-  .nsale__qty button {
-    width: 36px;
-    height: 36px;
   }
   .nsale__foot {
     position: sticky;
