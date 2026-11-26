@@ -286,7 +286,7 @@ function TopBar() {
     <header className="sf-appbar">
       <div className="sf-appbar__inner">
         <Link to="/pedir" className="sf-appbar__brand">
-          <Photo src={r.logoUrl} alt={r.name} className="sf-appbar__logo" eager />
+          <Photo src={r.logoUrl} alt={r.name} className="sf-appbar__logo" eager w={320} />
           <span>
             <strong>{r.name}</strong>
             <StoreStatusLine withTable />

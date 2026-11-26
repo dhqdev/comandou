@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.261.1',
+    date: '2026-11-26',
+    title: 'Fotos do cardápio e do PDV carregando bem mais rápido',
+    summary:
+      'O cardápio do cliente, a Nova venda do PDV e o app do garçom baixavam cada foto no tamanho original, mesmo num cartão pequeno. Agora recebem uma versão reduzida da foto, várias vezes mais leve, e a foto grande só aparece quando o cliente abre o produto.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cartões do cardápio, grade da Nova venda, app do garçom e as fotinhas das listas usam a foto reduzida (até 640 px, ou 320 px nas menores). Uma foto de 250 KB vira cerca de 50 KB no cartão.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A foto reduzida é feita uma vez só e guardada; as fotos já enviadas também ganham a sua na primeira vez que aparecem. Fotos repetidas saem da memória do servidor, sem ir ao banco, e não seguram mais as outras telas da loja enquanto carregam.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Ao abrir um produto, a foto do cartão aparece na hora e a foto grande entra por cima quando chega, sem quadro vazio.',
+      },
+    ],
+  },
+  {
     version: '0.261.0',
     date: '2026-11-26',
     title: 'Mesas em quadradinhos na Nova venda do PDV',

@@ -92,7 +92,7 @@ export function SideBar({ tabs, dot }: { tabs: MagicTab[]; dot(n: number): React
   return (
     <aside className="sf-side">
       <Link to="/pedir" className="sf-side__brand">
-        <Photo src={r.logoUrl} alt={r.name} className="sf-side__logo" eager />
+        <Photo src={r.logoUrl} alt={r.name} className="sf-side__logo" eager w={320} />
         <span>
           <strong>{r.name}</strong>
           <StoreStatusLine withTable />
@@ -123,7 +123,7 @@ export function SideBar({ tabs, dot }: { tabs: MagicTab[]; dot(n: number): React
                 if (!onHome) navigate('/pedir');
               }}
             >
-              <Photo src={sectionPhoto(c)} alt={c.name} className="sf-side__thumb" />
+              <Photo src={sectionPhoto(c)} alt={c.name} className="sf-side__thumb" w={320} />
               <span className="sf-side__name">{c.name}</span>
               <small>{c.products.length}</small>
             </button>
@@ -242,7 +242,7 @@ export function CartPanel() {
         <ul className="sf-cart__lines">
           {cart.map((l) => (
             <li key={l.key} className="sf-cart__line">
-              <Photo src={l.imageUrl} alt={l.name} className="sf-cart__photo" />
+              <Photo src={l.imageUrl} alt={l.name} className="sf-cart__photo" w={320} />
               <span className="sf-cart__info">
                 <strong>{l.name}</strong>
                 {l.optionNames.length > 0 && <small>{l.optionNames.join(', ')}</small>}

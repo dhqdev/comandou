@@ -5,6 +5,7 @@ import {
   optionsTotalCents,
   toCents,
 } from '@comandou/shared';
+import { sizedMedia } from '../../lib/media-size';
 import { Scale } from 'lucide-react';
 import { Check, ChevronDown, ChevronLeft, Minus, Plus, Share2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -420,7 +421,12 @@ export function ProductScreen() {
                     const on = count > 0;
                     const full = !single && !on && chosen >= g.maxSelect;
                     const img = o.imageUrl ? (
-                      <img className="og__img" src={o.imageUrl} alt="" loading="lazy" />
+                      <img
+                        className="og__img"
+                        src={sizedMedia(o.imageUrl, 320)}
+                        alt=""
+                        loading="lazy"
+                      />
                     ) : (
                       hasImg && <span className="og__img og__img--none" aria-hidden />
                     );

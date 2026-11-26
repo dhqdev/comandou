@@ -557,7 +557,7 @@ export function CartScreen() {
           <ul className="bag">
             {cart.map((l, i) => (
               <li key={l.key} className="bag__line" style={{ ['--i' as string]: i }}>
-                <Photo src={l.imageUrl} alt={l.name} className="bag__photo" />
+                <Photo src={l.imageUrl} alt={l.name} className="bag__photo" w={320} />
                 <div className="bag__info">
                   <strong>{l.name}</strong>
                   {product(l.productId)?.soldOut && (

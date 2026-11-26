@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
@@ -227,6 +229,46 @@ describe('Loja online: configurações e fotos', () => {
     expect(odd.text).toContain('location.replace("/pedir")');
     const other = await pub.get('/store/preview?p=%2Fpedir', HOST_B).expect(200);
     expect(other.text).not.toContain(media.id);
+  });
+
+  it('miniatura da foto: menor, guardada uma vez e só do mesmo restaurante', async () => {
+    const real = readFileSync(join(__dirname, '..', 'db', 'demo', 'fumaca', 'porcao-rustica.webp'));
+    const up = await http
+      .post('/api/v1/media?w=1080&h=810')
+      .set('Host', HOST_A)
+      .set('Cookie', cookies.adminA)
+      .set(CSRF)
+      .set('Content-Type', 'image/webp')
+      .send(real);
+    expect(up.status).toBe(201);
+    const id = (up.body as { id: string }).id;
+    const small = await pub.get(`/media/${id}?w=320`).buffer(true).expect(200);
+    expect(small.headers['content-type']).toBe('image/webp');
+    expect(small.headers['cache-control']).toContain('immutable');
+    expect(Number(small.headers['content-length'])).toBeLessThan(real.length / 3);
+    const rows = await ownerQuery<{ width: number; size: number }>(
+      `SELECT width, size FROM media_thumbs WHERE media_id = $1`,
+      [id],
+    );
+    expect(rows).toEqual([{ width: 320, size: Number(small.headers['content-length']) }]);
+    // Segunda vez: a mesma miniatura (da memória ou do banco), sem montar de novo.
+    const again = await pub.get(`/media/${id}?w=320`).expect(200);
+    expect(again.headers['content-length']).toBe(small.headers['content-length']);
+    // Sem w continua a original; tamanho fora da lista é recusado; outro restaurante não vê.
+    const full = await pub.get(`/media/${id}`).expect(200);
+    expect(Number(full.headers['content-length'])).toBe(real.length);
+    await pub.get(`/media/${id}?w=1000`).expect(400);
+    await pub.get(`/media/${id}?w=320`, HOST_B).expect(404);
+    // Imagem que não abre: segue a original, sem cache longo.
+    const fake = await http
+      .post('/api/v1/media')
+      .set('Host', HOST_A)
+      .set('Cookie', cookies.adminA)
+      .set(CSRF)
+      .set('Content-Type', 'image/webp')
+      .send(FAKE_WEBP);
+    const odd = await pub.get(`/media/${(fake.body as { id: string }).id}?w=640`).expect(200);
+    expect(odd.headers['cache-control']).toBe('public, max-age=300');
   });
 });
 

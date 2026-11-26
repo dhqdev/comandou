@@ -376,7 +376,7 @@ export function AppContentPanel({
           <ul className="aa-list">
             {data.notices.map((n) => {
               const st = noticeState(n);
-              const img = mediaUrl(n.imageId);
+              const img = mediaUrl(n.imageId, 320);
               return (
                 <li key={n.id} className="aa-row" data-off={st.tone === 'neutral' || undefined}>
                   {img ? (

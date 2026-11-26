@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react';
 import { X } from 'lucide-react';
+import { sizedMedia } from '../lib/media-size';
 import { type MascotMood } from './mascot';
 import { StoreMark } from './store-mark';
 import { DateInput, DateTimeInput } from './date-picker';
@@ -282,7 +283,13 @@ export function ItemThumb({
       aria-hidden
     >
       {show ? (
-        <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+        <img
+          src={sizedMedia(src, 320)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
       ) : (
         (name.trim()[0] ?? '?').toUpperCase()
       )}

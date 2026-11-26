@@ -6,6 +6,7 @@ import {
   Get,
   Headers,
   HttpCode,
+  Logger,
   NotFoundException,
   Param,
   ParseUUIDPipe,
@@ -26,16 +27,18 @@ import { ctxOf } from '../common/context';
 import { CurrentTenant, CurrentUser, Public, RequirePermission } from '../common/decorators';
 import { requireKey } from '../common/idempotency';
 import { money, uuid } from '../common/schemas';
-import { one } from '../common/sql';
+import { one, q } from '../common/sql';
 import { sniff } from '../common/file-sniff';
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { CepService, isUf } from './cep.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { cookieOf, CUSTOMER_COOKIE, CustomersService } from './customers.service';
 import { checkReceipt, PixService } from './pix.service';
 import { linkPreviewHtml, previewCsp, previewPath } from './link-preview';
+import { isThumbWidth, makeThumb, MediaMemory, ThumbQueue, type ThumbWidth } from './media-thumbs';
 import { SiteCopy } from '../chat/site-page';
 import {
   CORNER_STYLES,
@@ -610,6 +613,12 @@ export const MAX_IMAGES_PER_TENANT = 3000;
 export { sniff };
 
 const Dim = z.coerce.number().int().min(1).max(4096).optional();
+/** Miniatura pedida (lado maior). Sem `w`, a foto original. */
+const ThumbW = z.coerce
+  .number()
+  .int()
+  .refine(isThumbWidth, 'Tamanho de miniatura inválido')
+  .optional() as unknown as z.ZodType<ThumbWidth | undefined>;
 
 /**
  * Fotos do restaurante. O navegador reduz a imagem (WebP, até 1600 px) antes de enviar; aqui só
@@ -618,10 +627,17 @@ const Dim = z.coerce.number().int().min(1).max(4096).optional();
  */
 @Controller({ path: 'media', version: '1' })
 export class MediaController {
+  private readonly log = new Logger('Media');
+  private readonly memory = new MediaMemory();
+  private readonly thumbs = new ThumbQueue();
+
   constructor(
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
-  ) {}
+    realtime: RealtimeService,
+  ) {
+    realtime.onCacheClear((tenantId) => this.memory.forgetTenant(tenantId));
+  }
 
   @Post()
   @RequirePermission('catalog:write', 'settings:manage')
@@ -670,20 +686,81 @@ export class MediaController {
   @Get(':id')
   async get(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Query('w', new ZodPipe(ThumbW)) w: ThumbWidth | undefined,
     @CurrentTenant() t: ResolvedTenant,
     @Res() res: Response,
   ) {
-    const m = await this.db.withTenant({ tenantId: t.id }, (tx) =>
-      one<{ content_type: string; bytes: Buffer }>(
-        tx,
-        `SELECT content_type, bytes FROM media WHERE id = $1`,
-        [id],
-      ),
+    const key = `${t.id}:${id}:${w ?? 0}`;
+    let m = this.memory.get(key);
+    let immutable = true;
+    if (!m) {
+      const found = await this.load(t.id, id, w);
+      if (!found) throw new NotFoundException('Imagem não encontrada');
+      ({ media: m, immutable } = found);
+      if (immutable) this.memory.set(key, m);
+    }
+    res.setHeader('Content-Type', m.type);
+    // A original no lugar da miniatura (fila cheia) vale só por pouco tempo: na próxima visita
+    // o aparelho já pega a miniatura pronta.
+    res.setHeader(
+      'Cache-Control',
+      immutable ? 'public, max-age=31536000, immutable' : 'public, max-age=300',
     );
-    if (!m) throw new NotFoundException('Imagem não encontrada');
-    res.setHeader('Content-Type', m.content_type);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.setHeader('Content-Length', String(m.bytes.length));
     res.end(m.bytes);
+  }
+
+  /** Lê a foto (ou a miniatura) no banco; a miniatura que falta é montada e guardada uma vez. */
+  private async load(tenantId: string, id: string, w: ThumbWidth | undefined) {
+    type Row = { type: string; bytes: Buffer; thumb_type: string | null; thumb: Buffer | null };
+    const row = await this.db.withTenant({ tenantId }, (tx) =>
+      w
+        ? one<Row>(
+            tx,
+            // A original só vem quando a miniatura ainda não existe.
+            `SELECT m.content_type AS type,
+                    CASE WHEN t.bytes IS NULL THEN m.bytes END AS bytes,
+                    t.content_type AS thumb_type, t.bytes AS thumb
+               FROM media m
+               LEFT JOIN media_thumbs t ON t.media_id = m.id AND t.width = $2
+              WHERE m.id = $1`,
+            [id, w],
+          )
+        : one<Row>(
+            tx,
+            `SELECT content_type AS type, bytes, NULL AS thumb_type, NULL AS thumb
+               FROM media WHERE id = $1`,
+            [id],
+          ),
+    );
+    if (!row) return null;
+    if (row.thumb) return { media: { type: row.thumb_type!, bytes: row.thumb }, immutable: true };
+    const original = { type: row.type, bytes: row.bytes! };
+    if (!w) return { media: original, immutable: true };
+    const job = () =>
+      this.thumbs.run(`${tenantId}:${id}:${w}`, async () => {
+        const made = await makeThumb(original, w);
+        await this.db.withTenant({ tenantId }, (tx) =>
+          q(
+            tx,
+            `INSERT INTO media_thumbs (tenant_id, media_id, width, content_type, bytes, size)
+             VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`,
+            [tenantId, id, w, made.type, made.bytes, made.bytes.length],
+          ),
+        );
+        return made;
+      });
+    if (this.thumbs.busy) {
+      // Fila cheia: a original agora, a miniatura fica pronta para a próxima.
+      job().catch((e: unknown) => this.log.warn(`Miniatura ${id}: ${String(e)}`));
+      return { media: original, immutable: false };
+    }
+    try {
+      return { media: await job(), immutable: true };
+    } catch (e) {
+      // Foto que o decodificador não abre: segue a original, como sempre foi.
+      this.log.warn(`Miniatura ${id}: ${String(e)}`);
+      return { media: original, immutable: false };
+    }
   }
 }

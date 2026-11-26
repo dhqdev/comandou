@@ -109,6 +109,11 @@
   opacity: 0;
   transition: opacity 0.25s;
 }
+/* Miniatura já vista por baixo da foto grande que ainda carrega (abre o produto sem quadro vazio). */
+.ph img.ph__preview {
+  opacity: 1;
+  transition: none;
+}
 /* Foto que já tinha aparecido (ou veio do cache): na hora, sem fade (não pisca ao voltar). */
 .ph[data-instant] img {
   transition: none;

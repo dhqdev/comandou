@@ -447,7 +447,7 @@ export function PublicOrderPage() {
             <ul className="track__items">
               {o.items.map((i, n) => (
                 <li key={n}>
-                  <Photo src={i.imageUrl} alt={i.name} className="track__photo" />
+                  <Photo src={i.imageUrl} alt={i.name} className="track__photo" w={320} />
                   <span>{qtyLabel(i.quantity, i.unit)}</span>
                   <span>
                     {i.name}

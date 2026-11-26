@@ -66,6 +66,7 @@ export function ProductGallery({ photos, alt }: { photos: (string | null)[]; alt
                 alt={i === 0 ? alt : `${alt}, foto ${i + 1}`}
                 ratio="1 / 1"
                 eager={i === 0}
+                w="full"
               />
             </button>
           </div>

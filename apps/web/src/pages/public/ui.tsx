@@ -8,6 +8,7 @@ import {
 import { ChevronLeft, Heart, Minus, Plus, Trash2 } from 'lucide-react';
 import { ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { type MediaWidth, sizedMedia } from '../../lib/media-size';
 import { initials } from './store';
 import { useStore } from './context';
 
@@ -18,20 +19,31 @@ import { useStore } from './context';
 const shown = new Set<string>();
 export const photoShown = (src: string) => shown.has(src);
 
-/** Foto com proporção fixa, carregamento preguiçoso, fade-in e plano B com iniciais. */
+/**
+ * Foto com proporção fixa, carregamento preguiçoso, fade-in e plano B com iniciais. Pede a
+ * miniatura de 640 px (`w`): cartões, listas e logos não baixam a original de até 1600 px. Só a
+ * foto grande (galeria do produto, capa) passa `w="full"`.
+ */
 export function Photo({
-  src,
+  src: original,
   alt,
   ratio = '1 / 1',
   className = '',
   eager,
+  w = 640,
 }: {
   src: string | null;
   alt: string;
   ratio?: string;
   className?: string;
   eager?: boolean;
+  w?: MediaWidth | 'full';
 }) {
+  const src = w === 'full' ? original : sizedMedia(original, w);
+  // Foto grande cuja miniatura já apareceu (o cartão que abriu o produto): a miniatura fica por
+  // baixo enquanto a original chega, em vez do quadro vazio.
+  const thumb = w === 'full' ? sizedMedia(original, 640) : null;
+  const preview = thumb && thumb !== src && shown.has(thumb) ? thumb : null;
   const [state, setState] = useState<'loading' | 'ok' | 'error'>(
     !src ? 'error' : shown.has(src) ? 'ok' : 'loading',
   );
@@ -59,6 +71,9 @@ export function Photo({
       data-state={state}
       data-instant={instant || undefined}
     >
+      {preview && state === 'loading' && (
+        <img className="ph__preview" src={preview} alt="" aria-hidden draggable={false} />
+      )}
       {src && state !== 'error' && (
         <img
           ref={img}

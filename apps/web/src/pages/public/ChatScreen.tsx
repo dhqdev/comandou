@@ -149,7 +149,7 @@ function ChatAside({
     <aside className="sfchat__aside" aria-label={`Sobre ${r.name}`}>
       <section className="sfchat-card sfchat-store">
         <div className="sfchat-store__cover">
-          {r.coverUrl && <Photo src={r.coverUrl} alt="" className="sfchat-store__img" />}
+          {r.coverUrl && <Photo src={r.coverUrl} alt="" className="sfchat-store__img" w="full" />}
         </div>
         <div className="sfchat-store__id">
           <Photo src={r.logoUrl} alt={r.name} className="sfchat-store__logo" />

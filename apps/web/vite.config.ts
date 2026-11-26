@@ -84,7 +84,8 @@ export default defineConfig({
         runtimeCaching: [
           // Exceção: as fotos (GET /api/v1/media/<id>) são públicas e nunca mudam (trocar a foto
           // gera outro id). Guardadas no aparelho, o cardápio, o PDV e o garçom mostram as fotos
-          // sem internet. Só resposta 200 e com limite de quantidade e idade.
+          // sem internet. Só resposta 200 e com limite de quantidade e idade. A miniatura
+          // (?w=320|640) entra com o próprio endereço, separada da original.
           {
             urlPattern: ({ url, request, sameOrigin }) =>
               sameOrigin &&

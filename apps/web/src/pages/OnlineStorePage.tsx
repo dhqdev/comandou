@@ -617,7 +617,7 @@ function HighlightsTab({
               <h3>{c.name}</h3>
               <ul className="os-products">
                 {items.map((p) => {
-                  const url = mediaUrl(p.imageId);
+                  const url = mediaUrl(p.imageId, 320);
                   const draft = badges[p.id] ?? p.badge ?? '';
                   return (
                     <li key={p.id} className="os-product" data-on={p.featured || undefined}>

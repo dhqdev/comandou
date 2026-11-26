@@ -126,7 +126,7 @@ function TableOrdersScreen() {
                       <>
                         <span className="ocard__photos" aria-hidden>
                           {v.items.slice(0, 4).map((it, n) => (
-                            <Photo key={n} src={it.imageUrl ?? null} alt={it.name} />
+                            <Photo key={n} src={it.imageUrl ?? null} alt={it.name} w={320} />
                           ))}
                           {v.items.length > 4 && <span>+{v.items.length - 4}</span>}
                         </span>
@@ -242,7 +242,7 @@ function OnlineOrdersScreen() {
                   </span>
                   <span className="ocard__photos" aria-hidden>
                     {o.items.slice(0, 4).map((it, n) => (
-                      <Photo key={n} src={it.imageUrl ?? null} alt={it.name} />
+                      <Photo key={n} src={it.imageUrl ?? null} alt={it.name} w={320} />
                     ))}
                     {o.items.length > 4 && <span>+{o.items.length - 4}</span>}
                   </span>

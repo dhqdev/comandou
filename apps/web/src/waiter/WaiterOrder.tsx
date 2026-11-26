@@ -424,7 +424,7 @@ export function WaiterOrder() {
                         {p.imageId ? (
                           <img
                             className="wt-product__img"
-                            src={mediaUrl(p.imageId)!}
+                            src={mediaUrl(p.imageId, 640)!}
                             alt=""
                             loading="lazy"
                             decoding="async"

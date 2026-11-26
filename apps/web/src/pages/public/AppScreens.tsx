@@ -415,7 +415,7 @@ export function StoresScreen() {
       <ScreenHeader title="A loja" back="/pedir/conta" />
       <section className="app-store" data-cover={r.coverUrl ? true : undefined}>
         {r.coverUrl && (
-          <Photo src={r.coverUrl} alt="" ratio="16 / 7" className="app-store__cover" />
+          <Photo src={r.coverUrl} alt="" ratio="16 / 7" className="app-store__cover" w="full" />
         )}
         <div className="app-store__head">
           <StoreMark src={r.logoUrl} size={68} className="app-store__logo" />
@@ -982,7 +982,7 @@ export function AboutScreen() {
     <div className="sf-wrap sf-page app-page">
       <ScreenHeader title="Sobre" back="/pedir/conta" />
       <section className="app-about">
-        {r.coverUrl && <Photo src={r.coverUrl} alt="" className="app-about__cover" />}
+        {r.coverUrl && <Photo src={r.coverUrl} alt="" className="app-about__cover" w="full" />}
         <StoreMark src={r.logoUrl} size={72} className="app-about__logo" />
         <h2>{r.name}</h2>
         {menu.appearance.headline && (

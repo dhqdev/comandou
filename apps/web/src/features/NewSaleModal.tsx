@@ -488,7 +488,7 @@ export function NewSaleModal({
               >
                 <span className="nsale__photo">
                   {p.imageId ? (
-                    <img src={mediaUrl(p.imageId)!} alt="" loading="lazy" decoding="async" />
+                    <img src={mediaUrl(p.imageId, 640)!} alt="" loading="lazy" decoding="async" />
                   ) : (
                     <span className="nsale__initials" aria-hidden>
                       {initials(p.name)}

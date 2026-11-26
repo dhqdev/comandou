@@ -1,7 +1,14 @@
 import { ApiError } from './api';
+import { type MediaWidth, sizedMedia } from './media-size';
 
-/** URL pública de uma foto guardada no Comandou (ou null). */
-export const mediaUrl = (id: string | null | undefined) => (id ? `/api/v1/media/${id}` : null);
+export { sizedMedia, type MediaWidth } from './media-size';
+
+/**
+ * URL pública de uma foto guardada no Comandou (ou null). Com `w`, a miniatura (lado maior em
+ * px): use em cartão, grade e lista; a original só onde a foto aparece grande.
+ */
+export const mediaUrl = (id: string | null | undefined, w?: MediaWidth) =>
+  id ? (w ? sizedMedia(`/api/v1/media/${id}`, w) : `/api/v1/media/${id}`) : null;
 
 const MAX_SIDE = 1600;
 const MAX_INPUT_BYTES = 25 * 1024 * 1024;
