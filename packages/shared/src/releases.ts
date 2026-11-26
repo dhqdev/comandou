@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.264.0',
+    date: '2026-11-26',
+    title: 'Fechar caixa: confirmar o valor esperado num toque',
+    summary:
+      'No fechamento do caixa não precisa mais digitar o que bateu: um botão confirma todos os valores esperados de uma vez, e cada forma de pagamento tem o seu botão de confirmar. Dá para corrigir depois o que não bateu.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Caixa > Fechar caixa: "Confirmar valores esperados" preenche o contado de todas as formas com o esperado. O botão de visto ao lado de cada campo faz o mesmo só para aquela forma e fica verde quando o contado bate.',
+      },
+    ],
+  },
+  {
     version: '0.263.0',
     date: '2026-11-26',
     title: 'Estoque revisado: complementos, fichas e botões grandes',

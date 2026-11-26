@@ -255,8 +255,13 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   );
   await page.getByRole('button', { name: 'Fechar caixa' }).click();
   dialog = page.getByRole('dialog').filter({ hasText: 'Fechamento conferido' });
+  // "Confirmar valores esperados" preenche o contado; depois a pessoa corrige o que não bateu.
+  await dialog.getByRole('button', { name: 'Confirmar valores esperados' }).click();
+  await expect(dialog.getByLabel('Contado Dinheiro')).toHaveValue('118,50');
+  await expect(dialog.getByLabel('Contado PIX')).toHaveValue('40,00');
+  await expect(dialog.getByText('Diferença total: R$ 0,00')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Confirmar valores esperados' })).toBeDisabled();
   await dialog.getByLabel('Contado Dinheiro').fill('118,00');
-  await dialog.getByLabel('Contado PIX').fill('40,00');
   await expect(dialog.getByText('Diferença total: -R$ 0,50')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Fechar caixa' })).toBeDisabled();
   await dialog.getByLabel(/Observação/).fill('faltaram 50 centavos');

@@ -1,6 +1,7 @@
 import {
   channelInfo,
   CHANNEL_LABELS,
+  formatBRL,
   fromCents,
   PAYMENT_METHODS,
   toCents,
@@ -12,6 +13,8 @@ import {
   ArrowLeftRight,
   ArrowUpCircle,
   Banknote,
+  Check,
+  CheckCheck,
   Lock,
   LockOpen,
   ShoppingBag,
@@ -849,6 +852,25 @@ function CloseModal({
     methods.map((m) => [m, parseBrlInput(counted[m] ?? '')]),
   ) as Record<PaymentMethod, string | null>;
   const ready = methods.every((m) => parsed[m] !== null);
+  // Preenche o contado com o esperado (o operador só confirma o que bateu). Esperado negativo
+  // (sangria maior que a entrada) não vira contado: esse a pessoa digita.
+  const expectedInput = (m: PaymentMethod) => {
+    const cents = toCents(session.expected[m]);
+    return cents < 0 ? null : formatBRL(cents).replace(/^R\$\s*/, '');
+  };
+  function confirmExpected(only?: PaymentMethod) {
+    setCounted((c) => {
+      const next = { ...c };
+      for (const m of only ? [only] : methods) {
+        const v = expectedInput(m);
+        if (v !== null) next[m] = v;
+      }
+      return next;
+    });
+  }
+  const matches = (m: PaymentMethod) =>
+    parsed[m] !== null && toCents(parsed[m]!) === toCents(session.expected[m]);
+  const allConfirmed = methods.every((m) => expectedInput(m) === null || matches(m));
   const diff = ready
     ? methods.reduce((s, m) => s + toCents(parsed[m]!) - toCents(session.expected[m]), 0)
     : 0;
@@ -891,9 +913,29 @@ function CloseModal({
       }
     >
       <div style={{ display: 'grid', gap: 16 }}>
-        <p className="cm-hint" style={{ margin: 0 }}>
-          Conte o dinheiro da gaveta e confira os comprovantes de cada forma de pagamento.
-        </p>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <p className="cm-hint" style={{ margin: 0, flex: '1 1 240px' }}>
+            Conte o dinheiro da gaveta e confira os comprovantes de cada forma de pagamento. Se
+            bateu, é só confirmar o valor esperado.
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<CheckCheck size={16} aria-hidden />}
+            disabled={allConfirmed}
+            onClick={() => confirmExpected()}
+          >
+            Confirmar valores esperados
+          </Button>
+        </div>
         <table className="cm-table">
           <thead>
             <tr>
@@ -909,14 +951,26 @@ function CloseModal({
                 <td>{PAYMENT_METHOD_LABELS[m]}</td>
                 <td className="cm-num">{brl(session.expected[m])}</td>
                 <td>
-                  <input
-                    className="cm-input"
-                    inputMode="decimal"
-                    aria-label={`Contado ${PAYMENT_METHOD_LABELS[m]}`}
-                    placeholder="0,00"
-                    value={counted[m] ?? ''}
-                    onChange={(e) => setCounted((c) => ({ ...c, [m]: e.target.value }))}
-                  />
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      className="cm-input"
+                      inputMode="decimal"
+                      aria-label={`Contado ${PAYMENT_METHOD_LABELS[m]}`}
+                      placeholder="0,00"
+                      value={counted[m] ?? ''}
+                      onChange={(e) => setCounted((c) => ({ ...c, [m]: e.target.value }))}
+                      style={{ flex: 1, minWidth: 0 }}
+                    />
+                    {expectedInput(m) !== null && (
+                      <Button
+                        variant={matches(m) ? 'success' : 'secondary'}
+                        icon={<Check size={16} aria-hidden />}
+                        aria-label={`Confirmar esperado ${PAYMENT_METHOD_LABELS[m]}`}
+                        title="Bateu: usar o valor esperado"
+                        onClick={() => confirmExpected(m)}
+                      />
+                    )}
+                  </div>
                 </td>
                 <td className="cm-num">
                   {parsed[m] !== null ? (
