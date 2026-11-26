@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.255.1',
+    date: '2026-11-26',
+    title: 'Aviso com botão de fechar próprio',
+    summary:
+      'O X dos avisos agora se chama Fechar aviso para quem usa leitor de tela, e não se confunde com o Fechar da janela aberta.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Com um aviso aberto dentro de uma janela (como a mesa no Salão), o X do aviso e o Fechar da janela tinham o mesmo nome. O do aviso passou a se chamar Fechar aviso.',
+      },
+    ],
+  },
+  {
     version: '0.255.0',
     date: '2026-11-26',
     title: 'LGPD: o cliente baixa ou apaga os próprios dados',

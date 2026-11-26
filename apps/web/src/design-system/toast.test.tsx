@@ -34,7 +34,7 @@ describe('aviso (toast)', () => {
     fireEvent.click(btn);
     expect(screen.getAllByText(MSG)).toHaveLength(1);
 
-    fireEvent.click(screen.getByLabelText('Fechar'));
+    fireEvent.click(screen.getByLabelText('Fechar aviso'));
     expect(screen.queryByText(MSG)).toBeNull();
 
     fireEvent.click(btn);

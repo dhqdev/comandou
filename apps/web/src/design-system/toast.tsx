@@ -118,7 +118,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   <p className="cm-fix__error">{t.message}</p>
                   <FixSteps plan={t.plan} onGo={() => drop(t.id)} />
                 </div>
-                <button className="cm-toast__close" aria-label="Fechar" onClick={() => drop(t.id)}>
+                <button
+                  className="cm-toast__close"
+                  aria-label="Fechar aviso"
+                  onClick={() => drop(t.id)}
+                >
                   <X size={14} />
                 </button>
               </div>
