@@ -1,5 +1,6 @@
-/* Fidelidade no cardápio online: bloco no início, tela com saldo e bloco na finalização.
-   Sóbrio como o resto do cardápio: superfície, linha fina e a cor da loja só no destaque. */
+/* Fidelidade no cardápio online: tela de pontos (nível, saldo com o PIN do balcão, recompensas,
+   níveis e extrato) e o bloco da finalização. Sóbrio como o resto do cardápio: superfície, linha
+   fina e a cor da loja (ou a do nível) só no destaque. */
 .loy-card {
   position: relative;
 }
@@ -15,15 +16,14 @@
 .loy-card__rule {
   margin-right: 120px;
 }
+/* Recompensa sem foto: só o ícone, solto (sem quadradinho colorido). */
 .loy-reward__icon {
   display: grid;
   place-items: center;
   width: 36px;
   height: 36px;
   flex: none;
-  border-radius: var(--sf-r-sm);
-  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
-  color: var(--cm-brand-700);
+  color: var(--cm-brand-600);
 }
 /* Tela */
 .loy-card {
@@ -208,4 +208,269 @@
 }
 .sum__discount {
   color: var(--cm-success);
+}
+
+/* ---------------------------------------------------------------- nível do cliente */
+.loy-me {
+  --lv: var(--cm-brand-600);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+}
+.loy-me__who {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.loy-me__avatar {
+  flex: none;
+  box-shadow:
+    0 0 0 3px var(--cm-surface),
+    0 0 0 5px var(--lv);
+}
+.loy-me__who > span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.loy-me__who strong {
+  font-size: var(--cm-text-xl);
+  font-weight: 800;
+  letter-spacing: var(--cm-tracking-tight);
+  overflow-wrap: anywhere;
+}
+.loy-me__who small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.loy-me__level {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-text);
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+}
+.loy-me__level::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--lv);
+}
+.loy-me__next {
+  display: grid;
+  gap: 8px;
+}
+.loy-bar--level {
+  height: 10px;
+  margin: 0;
+}
+.loy-bar--level span {
+  background: var(--lv);
+}
+.loy-me__hint,
+.loy-me__perks {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+}
+.loy-me__hint strong {
+  color: var(--cm-text);
+}
+.loy-me__perks {
+  padding-top: 12px;
+  border-top: 1px solid var(--cm-border);
+  color: var(--cm-text);
+}
+
+/* ---------------------------------------------------------------- saldo e PIN */
+.loy-balance .loy-card__balance {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.loy-balance .loy-card__balance svg {
+  align-self: center;
+  color: var(--cm-brand-600);
+}
+.loy-pin {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cm-border);
+}
+.loy-pin__hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.loy-pin__box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: var(--sf-r);
+  background: color-mix(in oklab, var(--cm-brand-500) 8%, var(--cm-surface));
+  color: var(--cm-text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.loy-pin__box:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.loy-pin__label {
+  font-weight: 650;
+}
+.loy-pin__digits {
+  display: flex;
+  gap: 4px;
+  font-family: var(--cm-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.loy-pin__digits b {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  font-size: 1.5rem;
+  font-weight: 750;
+}
+.loy-pin__renew {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  font-size: var(--cm-text-sm);
+}
+.loy-spin {
+  animation: loy-spin 0.8s linear infinite;
+}
+@keyframes loy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------------------------------------------------------- níveis */
+.loy-levels {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border-top: 1px solid var(--cm-border);
+}
+.loy-levels__item {
+  --lv: var(--cm-border-strong);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cm-border);
+}
+.loy-levels__dot {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  border-radius: 50%;
+  border: 3px solid var(--lv);
+}
+.loy-levels__item[data-on] .loy-levels__dot {
+  background: var(--lv);
+}
+.loy-levels__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.loy-levels__text strong {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.loy-levels__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.loy-levels__you {
+  padding: 1px 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text) !important;
+  font-size: var(--cm-text-2xs) !important;
+  font-weight: 700;
+}
+.loy-levels__perks {
+  margin-top: 2px;
+  color: var(--cm-text);
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+}
+
+/* ---------------------------------------------------------------- indique e extrato */
+.loy-invite {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  text-decoration: none;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.loy-invite:active {
+  transform: scale(0.98);
+  transition-duration: 80ms;
+}
+.loy-invite > svg:first-child {
+  flex: none;
+  color: var(--cm-brand-600);
+}
+.loy-invite > span {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.loy-invite small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.loy-invite > svg:last-child {
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+.loy-more {
+  margin-top: 10px;
+  min-height: 40px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loy-spin {
+    animation: none;
+  }
+}
+/* Tablet e notebook: a tela não estica além de uma coluna confortável de ler. */
+@media (min-width: 900px) {
+  .sf .loy {
+    max-width: 760px;
+  }
 }

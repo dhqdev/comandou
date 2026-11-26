@@ -38,6 +38,7 @@ import { PRODUCT_STOCK_MISSING } from '../stock/availability-sql';
 import { StockService } from '../stock/stock.service';
 import { PlanService } from '../plans/plan.service';
 import { LoyaltyService, RedeemQuote } from '../loyalty/loyalty.service';
+import { CouponQuote, CouponsService } from '../coupons/coupons.service';
 
 export interface OrderItemInput {
   productId: string;
@@ -70,6 +71,8 @@ export interface CreateOrderInput {
     customerId?: string;
     /** Recompensa do programa de fidelidade trocada neste pedido (exige customerId). */
     rewardId?: string;
+    /** Código do cupom da loja usado neste pedido (exige customerId; um por pedido). */
+    couponCode?: string;
     /** Pix pelo cardápio: o pedido nasce esperando o comprovante (orders.pix_status). */
     pix?: boolean;
     /** Pago pelo app (PagBank): nasce em análise e só é aceito depois de pago. */
@@ -321,6 +324,7 @@ export class OrdersService {
     private readonly messaging: MessagingService,
     private readonly plans: PlanService,
     private readonly loyalty: LoyaltyService,
+    private readonly coupons: CouponsService,
   ) {}
 
   // ---------------------------------------------------------------- avisos depois do COMMIT
@@ -652,16 +656,39 @@ export class OrdersService {
       );
     }
 
+    // Cupom da loja (aba Cupons do app): um por pedido, com a conta aberta, e não junto com uma
+    // recompensa dos pontos. Entrega grátis tira a taxa; os outros descontam dos itens.
+    let coupon: CouponQuote | null = null;
+    if (input.online?.couponCode) {
+      if (!input.online.customerId)
+        throw new UnprocessableEntityException('Entre na sua conta para usar o cupom');
+      if (reward)
+        throw new UnprocessableEntityException(
+          'Use um cupom ou uma recompensa dos pontos por pedido',
+        );
+      coupon = await this.coupons.quoteIn(
+        tx,
+        input.online.customerId,
+        input.online.couponCode,
+        subtotal,
+        input.channel === 'pickup' ? 0 : toCents(input.deliveryFee ?? '0'),
+        input.channel,
+      );
+    }
+
     if (input.minSubtotal && subtotal < toCents(input.minSubtotal))
       throw new UnprocessableEntityException(
         `Pedido mínimo de R$ ${input.minSubtotal.replace('.', ',')} (sem a taxa de entrega)`,
       );
     const staffDiscount = toCents(input.discount ?? '0');
-    const discount = staffDiscount + (reward?.discountCents ?? 0);
+    const discount =
+      staffDiscount +
+      (reward?.discountCents ?? 0) +
+      (coupon && !coupon.freeDelivery ? coupon.discountCents : 0);
     // Retirada não tem taxa de serviço nem frete: o cliente busca no balcão.
     const pickup = input.channel === 'pickup';
     const staffSurcharge = pickup ? 0 : toCents(input.surcharge ?? '0');
-    const deliveryFee = pickup ? 0 : toCents(input.deliveryFee ?? '0');
+    const deliveryFee = pickup || coupon?.freeDelivery ? 0 : toCents(input.deliveryFee ?? '0');
     // Garçom não dá desconto nem acréscimo: isso fica com o caixa/gerente (cliente online não passa aqui).
     if (
       ctx.userId &&
@@ -744,6 +771,8 @@ export class OrdersService {
         order!.id,
         reward,
       );
+    if (coupon)
+      await this.coupons.recordIn(tx, ctx.tenantId, input.online!.customerId!, order!.id, coupon);
     await this.insertLines(tx, ctx, order!.id, lines);
     await this.history(tx, ctx, order!.id, null, status);
     // Baixa de insumos pela ficha técnica (trava os insumos por último). Pedido em análise também
@@ -1070,9 +1099,11 @@ export class OrdersService {
       min_select: number;
       max_select: number;
       charge: ChargeRule;
+      allow_repeat: boolean;
     }>(
       tx,
-      `SELECT pog.product_id, g.id AS group_id, g.name, g.min_select, g.max_select, g.charge
+      `SELECT pog.product_id, g.id AS group_id, g.name, g.min_select, g.max_select, g.charge,
+              g.allow_repeat
          FROM product_option_groups pog JOIN option_groups g ON g.id = pog.group_id
         WHERE pog.product_id = ANY($1::uuid[]) AND g.active`,
       [productIds],
@@ -1105,12 +1136,20 @@ export class OrdersService {
         );
       }
       const groups = links.filter((l) => l.product_id === p.id);
-      const chosen = [...new Set(it.optionIds ?? [])].map((id) => {
+      // Grupo que deixa repetir (2x o mesmo sabor) guarda cada vez; nos outros, a mesma opção
+      // conta uma vez só. O máximo do grupo conta as repetições.
+      const seen = new Set<string>();
+      const chosen = (it.optionIds ?? []).flatMap((id) => {
         const o = omap.get(id);
-        if (!o || !o.active || !groups.some((g) => g.group_id === o.group_id)) {
+        const g = o && groups.find((x) => x.group_id === o.group_id);
+        if (!o || !o.active || !g) {
           throw new UnprocessableEntityException(`Opção inválida para ${p.name}`);
         }
-        return o;
+        if (!g.allow_repeat) {
+          if (seen.has(id)) return [];
+          seen.add(id);
+        }
+        return [o];
       });
       for (const g of groups) {
         const n = chosen.filter((o) => o.group_id === g.group_id).length;
@@ -1394,7 +1433,10 @@ export class OrdersService {
     }
     // Fidelidade: pedido concluído rende pontos; cancelado devolve os pontos trocados nele.
     if (to === 'completed') await this.loyalty.earnForOrderIn(tx, ctx.tenantId, o.id);
-    if (to === 'cancelled') await this.loyalty.refundForOrderIn(tx, ctx.tenantId, o.id);
+    if (to === 'cancelled') {
+      await this.loyalty.refundForOrderIn(tx, ctx.tenantId, o.id);
+      await this.coupons.refundForOrderIn(tx, o.id);
+    }
     await this.audit.record(tx, {
       tenantId: ctx.tenantId,
       actorUserId: ctx.userId,

@@ -117,6 +117,7 @@ const SOURCE_LABEL: Record<string, string> = {
   site_ia: 'Sites com IA (comandou.com)',
   photo_tune: 'Melhorar a foto do item',
   photo_clean: 'Foto do item com fundo limpo',
+  photo_create: 'Foto do item criada pela IA',
   menu_model: 'Item em 3D pela foto',
 };
 

@@ -29,7 +29,9 @@ import {
   useToast,
   Skeleton,
 } from '../design-system';
+import { AppContentPanel } from '../features/AppContentPanel';
 import { BrandingCard } from '../features/BrandingCard';
+import { CouponsPanel } from '../features/CouponsPanel';
 import { ImagePicker } from '../features/ImagePicker';
 import { LoyaltyPanel } from '../features/LoyaltyPanel';
 import { SlideTabs } from '../features/SlideTabs';
@@ -51,6 +53,8 @@ type Tab =
   | 'banners'
   | 'destaques'
   | 'fidelidade'
+  | 'cupons'
+  | 'app'
   | 'funcionamento'
   | 'pix'
   | 'pagamentos';
@@ -682,6 +686,8 @@ export function OnlineStorePage() {
         'banners',
         'destaques',
         'fidelidade',
+        'cupons',
+        'app',
         'funcionamento',
         'pix',
         'pagamentos',
@@ -741,6 +747,8 @@ export function OnlineStorePage() {
             { value: 'banners', label: 'Banners' },
             { value: 'destaques', label: 'Destaques' },
             { value: 'fidelidade', label: 'Fidelidade' },
+            { value: 'cupons', label: 'Cupons' },
+            { value: 'app', label: 'App do cliente' },
             { value: 'funcionamento', label: 'Funcionamento' },
             { value: 'pix', label: 'Pix' },
             { value: 'pagamentos', label: 'Pagamentos' },
@@ -798,6 +806,8 @@ export function OnlineStorePage() {
             {tab === 'fidelidade' && (
               <LoyaltyPanel canManage={canManage} products={sorted} onSaved={refresh} />
             )}
+            {tab === 'cupons' && <CouponsPanel canManage={canManage} onSaved={refresh} />}
+            {tab === 'app' && <AppContentPanel canManage={canManage} products={sorted} />}
             {tab === 'funcionamento' && <StoreSettingsCard canManage={canManage} />}
             {tab === 'pix' && <PixSettingsCard canManage={canManage} />}
             {tab === 'pagamentos' && <OnlinePaySettingsCard canManage={canManage} />}

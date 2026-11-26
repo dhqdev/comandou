@@ -16,7 +16,7 @@ export function menuTreeSql(extra: string) {
          'soldByWeight', p.sold_by_weight, 'weightTare', p.weight_tare::text, ${extra}
          'optionGroups', COALESCE((SELECT json_agg(json_build_object(
              'id', g.id, 'name', g.name, 'minSelect', g.min_select, 'maxSelect', g.max_select,
-             'kind', g.kind, 'charge', g.charge,
+             'kind', g.kind, 'charge', g.charge, 'allowRepeat', g.allow_repeat,
              'options', COALESCE((SELECT json_agg(json_build_object('id', o.id, 'name', o.name,
                                     'priceDelta', o.price_delta::text, 'isDefault', o.is_default,
                                     'description', o.description,

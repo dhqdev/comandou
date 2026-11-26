@@ -54,6 +54,12 @@ cookie, CSRF, corpo gigante e Host estranho.
   (`pay/pix`, `pay/card`, `pay/cancel`, 0.236) segue a mesma conferência, cobra só o saldo do banco
   igual ao `amount` que o cliente viu, não grava CPF/e-mail e trava a comanda no máximo 10 minutos
   (qualquer um na mesa solta; o que for pago depois sem saldo é devolvido sozinho).
+- PIN do cliente no balcão (0.256, `loyalty/pin/:pin`, `coupons/pin/:pin`): só a equipe com
+  `orders:manage`, limite próprio por minuto (6 números se adivinham), mostra só o nome e o fim do
+  celular, e troca/uso grava quem fez. Cupom do cardápio: o servidor sempre confere de novo no
+  `POST /store/orders` (validade, limite total e por cliente com trava, primeiro pedido), nunca
+  confia no desconto que o navegador mandou. Código de convite: o servidor recusa o próprio código
+  e quem já tem pedido concluído.
 - `@SkipTenant()` desliga a sessão também: só com `PlatformHostGuard` + `PlatformSessionGuard`
   (painel) ou token próprio conferido **antes** de ler o corpo (`bearerMatches`, tempo constante).
 - `@SkipCsrf()` só para webhook de terceiro com token ou assinatura.

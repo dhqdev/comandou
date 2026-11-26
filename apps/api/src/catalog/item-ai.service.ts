@@ -18,7 +18,7 @@ import { DatabaseService } from '../database/database.service';
 import { AI_KEY_CONTEXT } from '../chat/ai.service';
 import { loadAiQuota, recordAiUsage, type AiConfig } from '../chat/ai-quota';
 import { OpenRouterClient, OpenRouterError } from '../chat/openrouter';
-import { aiPrompt, cleanPrompt, itemName, photoPrompts } from './ai-prompts';
+import { aiPrompt, cleanPrompt, createPrompt, itemName, photoPrompts } from './ai-prompts';
 import { buildDish, normalizeShape, writeGlb, type DishShape } from './dish3d';
 import { jsonOf, notFood, readTips, type PhotoTips } from './item-ai';
 import { MAX_MODEL_BYTES } from './models.controller';
@@ -198,6 +198,44 @@ export class ItemAiService {
     );
     const out = sniff(r.bytes);
     if (!out) throw new ServiceUnavailableException('A IA devolveu uma foto que não deu para ler');
+    return { mime: out, body: r.bytes };
+  }
+
+  /**
+   * "Criar foto com IA" ao escolher a foto do item: a IA de imagem faz a foto do zero pelo nome e
+   * pela descrição (o pedido está no criar-foto.md). Mesmo interruptor e modelo do fundo limpo; se
+   * o modelo não criar pela API de imagens, cai no modelo de imagem do sistema. Não grava: a tela
+   * mostra e, se ficar boa, envia como uma foto qualquer.
+   */
+  async photoCreate(ctx: Ctx, item: string, description: string) {
+    if (!item.trim()) throw new UnprocessableEntityException('Dê um nome ao item antes');
+    const { c, client } = await this.ready(ctx, 'photo');
+    const prompt = createPrompt(aiPrompt('criar-foto'), item, description);
+    let model = c.image_model;
+    let r: Awaited<ReturnType<OpenRouterClient['editImage']>>;
+    try {
+      try {
+        r = await client.editImage(model, prompt, null);
+      } catch (e) {
+        if (!(e instanceof OpenRouterError) || ![400, 404, 405, 422].includes(e.status)) throw e;
+        this.logger.warn(`criar pela API de imagens recusado (${e.message}); tentando o outro`);
+        model = this.env.AI_IMAGE_MODEL;
+        r = await client.image(model, prompt);
+      }
+    } catch (e) {
+      this.logger.warn(`foto criada pela IA falhou: ${(e as Error).message}`);
+      throw new ServiceUnavailableException(
+        e instanceof OpenRouterError && e.status === 402
+          ? 'A IA está sem saldo agora. Fale com o suporte do Comandou.'
+          : 'A IA não conseguiu criar a foto agora. Tente de novo em instantes.',
+      );
+    }
+    await this.db.withCentral(ctx, (tx) =>
+      recordAiUsage(tx, { userId: ctx.userId, model, usage: r.usage, source: 'photo_create' }),
+    );
+    const out = sniff(r.bytes);
+    if (!out || !PHOTO_TYPES.has(out))
+      throw new ServiceUnavailableException('A IA devolveu uma foto que não deu para ler');
     return { mime: out, body: r.bytes };
   }
 

@@ -1,0 +1,1685 @@
+/*
+ * App do cliente (0.256): topo do início (saudação com nível e pontos, sino dos avisos, a loja e a
+ * faixa do horário), os grupos em quadradinhos com os pontinhos, o "Ganhe N pts" dos cartões e as
+ * telas novas (Cupons, Pontos com o PIN, Conta em quadrados, Avisos, Ajuda, Sobre, Indique um
+ * amigo, Pagamento e Escolher loja). Importado depois de shell.css: vale sobre as peças comuns.
+ * Só tokens --cm-*: a cor da loja vale aqui, no claro e no escuro.
+ */
+
+/* ================================================================ topo do início */
+.hm-top {
+  display: grid;
+  gap: 12px;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
+}
+.hm-hello {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hm-hello__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.hm-hello__hi {
+  margin: 0;
+  font-size: var(--cm-text-xl);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: var(--cm-tracking-tight);
+  overflow-wrap: anywhere;
+}
+.hm-hello__hi strong {
+  font-weight: 800;
+}
+.hm-hello__line {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Nível e pontos numa linha que leva à tela de pontos. */
+.hm-hello__pts {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-height: 30px;
+  color: var(--cm-text);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--cm-radius-sm);
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.hm-hello__pts:active {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}
+.hm-hello__pts:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.hm-hello__pts > svg:not(.hm-hello__go) {
+  flex: none;
+  color: var(--cm-brand-600);
+}
+.hm-hello__pts b {
+  font-size: var(--cm-text-md);
+  font-weight: 800;
+}
+.hm-hello__pts--join {
+  color: var(--cm-brand-700);
+}
+.hm-hello__go {
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+/* Nível: bolinha na cor do nível (ou da loja) e o nome. */
+.hm-level {
+  --lv: var(--cm-brand-600);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 4px;
+  font-weight: 750;
+}
+.hm-level::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--lv);
+}
+.hm-hello__tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hm-iconbtn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cm-border);
+  border-radius: 50%;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  text-decoration: none;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.hm-iconbtn:active {
+  transform: scale(0.92);
+  transition-duration: 80ms;
+}
+.hm-iconbtn:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.hm-iconbtn[data-me] {
+  padding: 1px;
+  overflow: hidden;
+}
+.hm-iconbtn[data-me] .cavatar {
+  width: 100% !important;
+  height: 100% !important;
+}
+.hm-iconbtn__dot {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+  box-shadow: 0 0 0 2px var(--cm-surface);
+}
+/* No celular a conta já está nas abas de baixo: o topo fica só com o sino. */
+.sf[data-layout='phone'] .hm-iconbtn--me {
+  display: none;
+}
+
+/* Loja: logo, nome e endereço; tocar abre horários, entrega e retirada. */
+.hm-store {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 10px 8px 8px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    border-color var(--cm-dur);
+}
+.hm-store:active {
+  transform: scale(0.98);
+  transition-duration: 80ms;
+}
+.hm-store:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+@media (hover: hover) {
+  .hm-store:hover {
+    border-color: var(--cm-border-strong);
+  }
+}
+.hm-store__logo {
+  width: 44px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--cm-surface-sunken);
+}
+.hm-store__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.hm-store__text strong {
+  overflow: hidden;
+  font-size: var(--cm-text-md);
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hm-store__text small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hm-store__more {
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+
+/* Faixa do horário: verde suave aberta, âmbar fechada. */
+.hm-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-warning-bg);
+  color: var(--cm-warning);
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  line-height: 1.3;
+}
+.hm-status[data-open] {
+  background: var(--cm-success-bg);
+  color: var(--cm-success);
+}
+.hm-status > svg {
+  flex: none;
+}
+.hm-status__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: sf-ping 2.4s ease-out infinite;
+}
+.hm-status__eta {
+  color: var(--cm-text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.hm-status__eta svg {
+  vertical-align: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-status__dot {
+    animation: none;
+  }
+}
+
+/* Banner (ou a capa) logo depois do topo, antes dos grupos. */
+.hm-banners .banners {
+  margin-top: 14px;
+}
+.banner--cover {
+  cursor: default;
+  min-height: 0;
+  aspect-ratio: 16 / 7;
+  padding: 0;
+  background: var(--cm-surface-sunken);
+}
+.banner--cover[data-img]::before {
+  display: none;
+}
+.sf[data-layout='phone'] .banner--cover {
+  aspect-ratio: 16 / 8;
+  min-height: 0;
+}
+.banner--cover:hover .banner__img {
+  transform: none;
+}
+
+/* ================================================================ grupos em quadradinhos */
+.ctiles {
+  margin-top: 16px;
+}
+.ctiles__track {
+  display: grid;
+  grid-auto-flow: column;
+  /* Quatro por página: a largura da faixa menos os espaços, dividida por quatro. */
+  grid-auto-columns: calc((100% - 3 * 10px) / 4);
+  gap: 10px;
+  padding: 2px 16px 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 16px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.ctiles__track::-webkit-scrollbar {
+  display: none;
+}
+.ctile {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: center;
+  cursor: pointer;
+  scroll-snap-align: start;
+  animation: sf-bubble-in var(--cm-spring-dur) var(--cm-spring) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+/* A cada quatro, um ponto de parada (a página seguinte começa ali). */
+.ctile:not(:nth-child(4n + 1)) {
+  scroll-snap-align: none;
+}
+.ctile span {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+.ctile__photo {
+  width: 100%;
+  max-width: 80px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    outline-color var(--cm-dur);
+}
+.ctile[aria-current='true'] {
+  color: var(--cm-text);
+}
+.ctile[aria-current='true'] .ctile__photo {
+  outline-color: var(--cm-brand-500);
+}
+.ctile:active .ctile__photo {
+  transform: scale(0.92);
+  transition-duration: 80ms;
+}
+.ctile:focus-visible {
+  outline: none;
+}
+.ctile:focus-visible .ctile__photo {
+  box-shadow: var(--cm-focus);
+}
+:root[data-sf-seen] .ctile {
+  animation: none;
+}
+.ctiles__dots {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 10px;
+}
+.ctiles__dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-border-strong);
+  transition:
+    width var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    background-color var(--cm-dur);
+}
+.ctiles__dots span[data-on] {
+  width: 18px;
+  background: var(--cm-brand-500);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ctile {
+    animation: none;
+  }
+}
+
+/* ================================================================ "Ganhe N pts" no cartão */
+.pcard__pts {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: calc(100% - 12px);
+  padding: 3px 8px 3px 6px;
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in oklab, var(--cm-surface) 94%, transparent);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 8px -4px rgb(0 0 0 / 0.35);
+  pointer-events: none;
+}
+.pcard__pts svg {
+  flex: none;
+  color: var(--cm-brand-600);
+}
+.pcard__pts b {
+  color: var(--cm-text);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ================================================================ tablet e notebook */
+/* Topo numa linha: saudação e pontos, a loja e a faixa do horário. */
+.sf:not([data-layout='phone']) .hm-top {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: 12px 16px;
+  padding-top: 4px;
+}
+.sf:not([data-layout='phone']) .hm-hello {
+  grid-column: 1 / -1;
+}
+.sf:not([data-layout='phone']) .hm-hello__hi {
+  font-size: var(--cm-text-2xl);
+}
+.sf:not([data-layout='phone']) .hm-status {
+  min-height: 56px;
+  border-radius: var(--sf-card-r);
+}
+/* Barra do topo (tablet) e menu lateral (notebook) já mostram a loja e o "aberta": o topo do
+   início fica com o endereço e o horário completo. */
+.sf[data-layout='desktop'] .hm-banners .banners,
+.sf[data-layout='tablet'] .hm-banners .banners {
+  margin-top: 16px;
+}
+/* Capa no lugar do banner: a mesma altura dos banners (e do esqueleto que abre o cardápio). */
+.sf[data-layout='tablet'] .banner--cover {
+  height: 168px;
+}
+
+/* ================================================================ cupons */
+.cpns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-content: start;
+}
+.cpns > .form-error,
+.cpns > .form-hint {
+  margin: 0;
+}
+/* Código digitado: campo com o ícone e o Conferir ao lado. */
+.cpns__form,
+.ck-coupon__form {
+  display: flex;
+  gap: 8px;
+}
+.cpns__field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 0 14px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--sf-r);
+  background: var(--cm-surface);
+  color: var(--cm-text-subtle);
+  transition:
+    border-color var(--cm-dur),
+    box-shadow var(--cm-dur);
+}
+.cpns__field:focus-within {
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
+  color: var(--cm-brand-600);
+}
+.cpns__field input,
+.ck-coupon__form input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: 1rem; /* 16px: sem zoom no iPhone */
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.cpns__field input::placeholder,
+.ck-coupon__form input::placeholder {
+  color: var(--cm-text-subtle);
+  font-weight: 500;
+  letter-spacing: 0;
+  opacity: 1;
+}
+.cpns__apply,
+.ck-coupon__apply,
+.cpn__use {
+  flex: none;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--sf-r);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.cpns__apply {
+  min-height: 50px;
+}
+.cpns__apply:active:not(:disabled),
+.ck-coupon__apply:active:not(:disabled),
+.cpn__use:active:not(:disabled) {
+  transform: scale(0.96);
+  transition-duration: 80ms;
+}
+.cpns__apply:disabled,
+.ck-coupon__apply:disabled,
+.cpn__use:disabled {
+  color: var(--cm-text-subtle);
+  cursor: not-allowed;
+}
+.cpns__apply:focus-visible,
+.ck-coupon__apply:focus-visible,
+.cpn__use:focus-visible,
+.cpn__code:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+/* Escolhido para o próximo pedido. */
+.cpns__chosen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--sf-r);
+  background: var(--cm-success-bg);
+  color: var(--cm-success);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.cpns__chosen span {
+  flex: 1;
+  min-width: 0;
+}
+.cpns__chosen strong {
+  font-weight: 800;
+}
+.cpns__chosen .link {
+  min-height: 32px;
+  color: inherit;
+  font-weight: 700;
+}
+.cpns__login {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  text-decoration: none;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.cpns__login:active {
+  transform: scale(0.98);
+  transition-duration: 80ms;
+}
+.cpns__login > svg {
+  flex: none;
+  color: var(--cm-brand-600);
+}
+.cpns__login span {
+  display: grid;
+  gap: 2px;
+}
+.cpns__login small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.cpns__empty-ic {
+  color: var(--cm-text-subtle);
+}
+.cpns__list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cpns__note {
+  text-align: center;
+}
+
+/* O cupom tem cara de ticket: corpo, a linha picotada com dois recortes e o rodapé do código. */
+.cpn {
+  --cpn-notch: 9px;
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  animation: sf-rise 0.2s var(--sf-ease) both;
+}
+.cpn[data-on] {
+  border-color: var(--cm-brand-500);
+  box-shadow: 0 0 0 1px var(--cm-brand-500);
+}
+.cpn__body {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 16px 14px;
+}
+.cpn__photo {
+  flex: none;
+  width: 72px;
+  border-radius: var(--sf-r-lg);
+  background: var(--cm-surface-sunken);
+}
+.cpn__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.cpn__head {
+  color: var(--cm-brand-700);
+  font-size: var(--cm-text-xl);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: var(--cm-tracking-tight);
+}
+.cpn__title {
+  font-weight: 700;
+}
+.cpn__desc {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.cpn__rules {
+  margin-top: 2px;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+  line-height: 1.4;
+}
+.cpn__foot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px 12px 16px;
+  border-top: 1.5px dashed var(--cm-border-strong);
+}
+.cpn__foot::before,
+.cpn__foot::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--cpn-notch) * -1 - 1px);
+  width: calc(var(--cpn-notch) * 2);
+  height: calc(var(--cpn-notch) * 2);
+  border: 1px solid var(--cm-border);
+  border-radius: 50%;
+  background: var(--sf-page);
+}
+.cpn__foot::before {
+  left: calc(var(--cpn-notch) * -1 - 1px);
+}
+.cpn__foot::after {
+  right: calc(var(--cpn-notch) * -1 - 1px);
+}
+.cpn__code {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px dashed var(--cm-border-strong);
+  border-radius: var(--sf-r-sm);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.cpn__code:active {
+  transform: scale(0.96);
+  transition-duration: 80ms;
+}
+.cpn__code svg {
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+.cpn__use {
+  color: var(--cm-brand-700);
+}
+.cpn__chosen,
+.cpn__why {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  text-align: right;
+}
+.cpn__chosen {
+  color: var(--cm-success);
+}
+.cpn__why {
+  color: var(--cm-text-muted);
+  font-weight: 600;
+}
+/* Não dá para usar (já usou, pedido mínimo, só no primeiro pedido): fica apagado. */
+.cpn[data-blocked] .cpn__head {
+  color: var(--cm-text-muted);
+}
+.cpn[data-blocked] .cpn__photo {
+  filter: grayscale(1);
+}
+
+/* Cupom na finalização. */
+.ck-coupon .form-hint {
+  margin: 4px 0 0;
+}
+.ck-coupon__form {
+  margin-top: 6px;
+}
+.ck-coupon__form input {
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--sf-r-sm);
+  background: var(--cm-surface);
+  transition:
+    border-color var(--cm-dur),
+    box-shadow var(--cm-dur);
+}
+.ck-coupon__form input:focus {
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
+}
+.ck-coupon__apply {
+  min-height: 46px;
+}
+.ck-coupon__see {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  margin-top: 4px;
+  font-size: var(--cm-text-sm);
+}
+.ck-coupon__chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  padding: 10px 6px 10px 14px;
+  border: 1.5px dashed var(--cm-border-strong);
+  border-radius: var(--sf-r);
+  background: var(--cm-surface-sunken);
+}
+.ck-coupon__chip[data-state='ok'] {
+  border-color: color-mix(in oklab, var(--cm-success) 55%, transparent);
+  background: var(--cm-success-bg);
+}
+.ck-coupon__chip[data-state='error'] {
+  border-color: color-mix(in oklab, var(--cm-danger) 45%, transparent);
+}
+.ck-coupon__ic {
+  flex: none;
+  color: var(--cm-brand-600);
+}
+.ck-coupon__chip[data-state='ok'] .ck-coupon__ic {
+  color: var(--cm-success);
+}
+.ck-coupon__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.ck-coupon__code {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.ck-coupon__what {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.ck-coupon__chip[data-state='ok'] .ck-coupon__what {
+  color: var(--cm-success);
+}
+.ck-coupon__chip[data-state='error'] .ck-coupon__what {
+  color: var(--cm-danger);
+}
+.ck-coupon__x {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.ck-coupon__x:active {
+  transform: scale(0.9);
+  transition-duration: 80ms;
+}
+.ck-coupon__x:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+/* Sacola ao lado (notebook): o cupom escolhido entra na finalização. */
+.sf-cart__coupon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.sf-cart__coupon svg {
+  flex: none;
+  color: var(--cm-brand-600);
+}
+
+/* Tablet e notebook: os cupons em duas colunas, o campo do código mais curto. */
+.sf:not([data-layout='phone']) .cpns {
+  max-width: 920px;
+}
+.sf:not([data-layout='phone']) .cpns__form {
+  max-width: 520px;
+}
+.sf:not([data-layout='phone']) .cpns__list {
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  align-items: start;
+}
+
+/* ================================================================ conta em quadrados */
+/* Celular: três quadrados por linha (ícone e nome; a linha de detalhe fica para o tablet). */
+.sf[data-layout='phone'] .acct__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.sf[data-layout='phone'] .acct-tile:not(.acct-tile--wide) {
+  gap: 8px;
+  min-height: calc((100cqi - 16px) / 3);
+  padding: 12px;
+}
+.sf[data-layout='phone'] .acct-tile:not(.acct-tile--wide) .acct-tile__icon {
+  width: 40px;
+  height: 40px;
+}
+.sf[data-layout='phone'] .acct-tile:not(.acct-tile--wide) .acct-tile__icon svg {
+  width: 21px;
+  height: 21px;
+}
+.sf[data-layout='phone'] .acct-tile:not(.acct-tile--wide) .acct-tile__text strong {
+  font-size: clamp(12.5px, 3.6vw, 14.5px);
+  font-weight: 650;
+  overflow-wrap: normal;
+  hyphens: auto;
+}
+.sf[data-layout='phone'] .acct-tile:not(.acct-tile--wide) .acct-tile__text small {
+  display: none;
+}
+/* Quadrado que é botão (Sair): mesmo desenho do link. */
+button.acct-tile {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.acct-tile[data-tone='danger'] {
+  color: var(--cm-danger);
+}
+.acct-tile[data-tone='danger'] .acct-tile__icon {
+  background: var(--cm-danger-bg);
+  color: var(--cm-danger);
+}
+@media (hover: hover) {
+  .acct-tile[data-tone='danger']:hover {
+    background: var(--cm-danger-bg);
+    border-color: color-mix(in oklab, var(--cm-danger) 30%, var(--cm-border));
+  }
+}
+/* Número de novidades no canto (avisos e respostas da loja). */
+.acct-tile__count {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font-size: var(--cm-text-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.acct-invite {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--acct-r);
+  background: var(--cm-surface);
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+  animation: acct-in var(--cm-spring-dur) var(--cm-spring) backwards;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+.acct-invite svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--cm-brand-600);
+}
+/* Sem a conta: os quadrados vêm logo depois do formulário de entrar. */
+.acct > .auth ~ .acct__grid {
+  margin-top: 8px;
+}
+
+/* ================================================================ telas da conta (avisos, pagamento, a loja, convite, ajuda, sobre) */
+.app-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-content: start;
+}
+.app-page > .form-hint,
+.app-page > .form-error {
+  margin: 0;
+}
+.app-empty-ic {
+  color: var(--cm-text-subtle);
+}
+.app-big {
+  margin: 4px 0 -4px;
+  font-size: var(--cm-text-2xl);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: var(--cm-tracking-tight);
+}
+.app-sec {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.app-sec__title {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+}
+.app-sec__hint {
+  margin: -4px 0 2px;
+}
+.app-note {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+.app-note svg {
+  flex: none;
+  margin-top: 2px;
+}
+.app-card {
+  padding: 14px 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+}
+
+/* Lista com linha fina entre os itens (formas de pagamento, entrega, links). */
+.app-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  overflow: hidden;
+}
+.app-list > li + li,
+.app-list > .app-row + .app-row {
+  border-top: 1px solid var(--cm-border);
+}
+.app-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 14px 10px 16px;
+  border: 0;
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+.app-row__ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--cm-text-muted);
+}
+.app-row__ic svg {
+  width: 21px;
+  height: 21px;
+}
+.app-row__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.app-row__text strong {
+  font-weight: 650;
+}
+.app-row__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.4;
+}
+.app-row__go {
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+.app-row--pick,
+.app-row--link {
+  cursor: pointer;
+  transition: background-color var(--cm-dur);
+}
+.app-row--pick:active,
+.app-row--link:active {
+  background: var(--cm-surface-muted);
+}
+@media (hover: hover) {
+  .app-row--pick:hover,
+  .app-row--link:hover {
+    background: var(--cm-surface-muted);
+  }
+}
+.app-row--pick:focus-visible,
+.app-row--link:focus-visible {
+  outline: none;
+  box-shadow: inset var(--cm-focus);
+}
+.app-row__radio {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--cm-border-strong);
+  border-radius: 50%;
+  color: transparent;
+  transition:
+    background-color var(--cm-dur),
+    border-color var(--cm-dur);
+}
+.app-row--pick[aria-checked='true'] .app-row__radio {
+  border-color: var(--cm-brand-600);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+.app-row--pick[aria-checked='true'] .app-row__ic {
+  color: var(--cm-brand-600);
+}
+
+/* Botão secundário das telas (mapa, WhatsApp, Instagram). */
+.app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.app-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--sf-r);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.app-btn:active {
+  transform: scale(0.96);
+  transition-duration: 80ms;
+}
+.app-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.app-btn svg {
+  flex: none;
+  color: var(--cm-text-muted);
+}
+
+/* Notificações: um cartão por aviso, com a foto em cima quando há. */
+.ntc-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ntc {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  animation: sf-rise 0.2s var(--sf-ease) both;
+}
+.ntc__photo {
+  width: 100%;
+  aspect-ratio: 16 / 8;
+  background: var(--cm-surface-sunken);
+}
+.ntc__body {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px 16px;
+}
+.ntc__when {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+}
+.ntc__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+}
+.ntc__title {
+  margin: 0;
+  font-size: var(--cm-text-lg);
+  font-weight: 750;
+  line-height: 1.25;
+}
+.ntc__text {
+  margin: 0;
+  color: var(--cm-text-muted);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+.ntc__go {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  margin-top: 6px;
+  padding: 0 14px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--sf-r);
+  background: var(--cm-surface);
+  color: var(--cm-brand-700);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.ntc__go:active {
+  transform: scale(0.96);
+  transition-duration: 80ms;
+}
+.ntc__go:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+
+/* A loja: logo, nome e a situação; endereço, horário, pedidos e contato. */
+.app-store {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.app-store__logo {
+  flex: none;
+  border-radius: 50%;
+}
+.app-store__text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.app-store__text h2 {
+  margin: 0;
+  font-size: var(--cm-text-xl);
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.app-store__text .status {
+  margin: 0;
+}
+.app-addr {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px 12px;
+}
+.app-addr p {
+  margin: 0;
+  line-height: 1.45;
+}
+.app-addr__ic {
+  margin-top: 1px;
+  color: var(--cm-brand-600);
+}
+.app-addr .app-btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.app-hours {
+  display: grid;
+  margin: 0;
+}
+.app-hours__day {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  font-size: var(--cm-text-sm);
+}
+.app-hours__day + .app-hours__day {
+  border-top: 1px solid var(--cm-border);
+}
+.app-hours__day dt {
+  font-weight: 600;
+}
+.app-hours__day dt small {
+  color: var(--cm-brand-700);
+  font-size: inherit;
+  font-weight: 700;
+}
+.app-hours__day dd {
+  margin: 0;
+  color: var(--cm-text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.app-hours__day[data-today] dt,
+.app-hours__day[data-today] dd {
+  color: var(--cm-text);
+  font-weight: 700;
+}
+
+/* Indique um amigo. */
+.ref-hero {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: 18px 132px 18px 18px;
+  min-height: 132px;
+  align-content: center;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+}
+.ref-hero h2 {
+  margin: 0;
+  font-size: var(--cm-text-xl);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: var(--cm-tracking-tight);
+}
+.ref-hero p {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+}
+.ref-hero__art {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 112px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.ref-code {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 18px;
+  border: 1.5px dashed var(--cm-border-strong);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  text-align: center;
+}
+.ref-code > small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.ref-code__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--sf-r);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.ref-code__value:active {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}
+.ref-code__value:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.ref-code__value svg {
+  color: var(--cm-text-subtle);
+}
+.ref-code__share {
+  flex: none;
+  width: 100%;
+  max-width: 360px;
+  min-height: 50px;
+  margin-top: 4px;
+}
+.ref-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+}
+.ref-stats > div {
+  display: grid;
+  gap: 2px;
+  padding: 12px 10px;
+  text-align: center;
+}
+.ref-stats > div + div {
+  border-left: 1px solid var(--cm-border);
+}
+.ref-stats dt {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+}
+.ref-stats dd {
+  margin: 0;
+  font-size: var(--cm-text-xl);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.ref-stats dd small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+}
+.ref-steps {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+}
+.ref-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+}
+.ref-steps li + li {
+  border-top: 1px solid var(--cm-border);
+}
+.ref-steps svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--cm-brand-600);
+}
+
+/* Ajuda: perguntas que abrem a resposta embaixo (a seta gira). */
+.faq {
+  display: grid;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  overflow: hidden;
+}
+.faq__item + .faq__item {
+  border-top: 1px solid var(--cm-border);
+}
+.faq__q {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 14px 12px 16px;
+  border: 0;
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--cm-dur);
+}
+.faq__q span {
+  flex: 1;
+  min-width: 0;
+}
+.faq__q:active {
+  background: var(--cm-surface-muted);
+}
+@media (hover: hover) {
+  .faq__q:hover {
+    background: var(--cm-surface-muted);
+  }
+}
+.faq__q:focus-visible {
+  outline: none;
+  box-shadow: inset var(--cm-focus);
+}
+.faq__chev {
+  flex: none;
+  color: var(--cm-text-subtle);
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.faq__item[data-open] .faq__chev {
+  transform: rotate(180deg);
+}
+.faq__a {
+  margin: 0;
+  padding: 0 16px 16px;
+  color: var(--cm-text-muted);
+  line-height: 1.55;
+  white-space: pre-line;
+  animation: sf-rise 0.18s var(--sf-ease) both;
+}
+
+/* Sobre: capa, logo e nome; o texto da loja e os links. */
+.app-about {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.app-about__cover {
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface-sunken);
+}
+.app-about__cover + .app-about__logo {
+  margin-top: -44px;
+  box-shadow: 0 0 0 4px var(--sf-page);
+}
+.app-about__logo {
+  border-radius: 50%;
+  background: var(--cm-surface);
+}
+.app-about h2 {
+  margin: 4px 0 0;
+  font-size: var(--cm-text-2xl);
+  font-weight: 800;
+  line-height: 1.15;
+}
+.app-about__headline {
+  margin: 0;
+  color: var(--cm-text-muted);
+}
+.app-about__text {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+/* Tablet e notebook: as telas da conta numa coluna confortável no meio. */
+.sf:not([data-layout='phone']) .app-page {
+  max-width: 760px;
+}
+.sf:not([data-layout='phone']) .ntc-list {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  align-items: start;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ntc,
+  .faq__a {
+    animation: none;
+  }
+}
+
+/* ================================================================ opções do item */
+/* Opções com foto: um cartão por opção, a foto à esquerda (do jeito do cardápio da loja). */
+.og__list[data-cards] {
+  gap: 10px;
+  padding-top: 12px;
+  padding-bottom: 4px;
+}
+.og__list[data-cards] .og__row {
+  min-height: 96px;
+  padding: 0 12px 0 0;
+  gap: 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  overflow: hidden;
+  transition:
+    border-color var(--cm-dur),
+    box-shadow var(--cm-dur);
+}
+.og__list[data-cards] .og__row:first-child {
+  border-top: 1px solid var(--cm-border);
+}
+.og__list[data-cards] .og__row[data-on] {
+  border-color: var(--cm-brand-500);
+  box-shadow: 0 0 0 1px var(--cm-brand-500);
+}
+.og__list[data-cards] .og__img {
+  align-self: stretch;
+  width: 96px;
+  height: auto;
+  min-height: 96px;
+  border-radius: 0;
+  mix-blend-mode: var(--cm-photo-blend, normal);
+  background: var(--cm-photo-bg, var(--cm-surface-sunken));
+}
+.og__img--none {
+  display: block;
+  background: var(--cm-surface-sunken);
+}
+.og__list[data-cards] .og__text {
+  padding: 12px 0;
+}
+.og__list[data-cards] .og__name {
+  font-weight: 700;
+}
+.og__list[data-cards] .og__row--qty {
+  min-height: 118px;
+}
+
+/* Contador da opção que pode repetir: + / quantidade / −. */
+.og__qty {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.og__list[data-cards] .og__qty {
+  flex-direction: column;
+  padding: 6px 0;
+}
+.og__qbtn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sf-r);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+  cursor: pointer;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    background-color var(--cm-dur),
+    color var(--cm-dur);
+}
+.og__qbtn:first-child {
+  color: var(--cm-brand-600);
+}
+.og__row[data-on] .og__qbtn:first-child:not(:disabled) {
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+.og__qbtn:active:not(:disabled) {
+  transform: scale(0.9);
+  transition-duration: 80ms;
+}
+.og__qbtn:disabled {
+  color: var(--cm-text-subtle);
+  cursor: not-allowed;
+}
+.og__qbtn:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+/* No contador de lado (sem foto) o − vem antes: − 1 +. */
+.og__list:not([data-cards]) .og__qty {
+  flex-direction: row-reverse;
+}
+.og__qn {
+  min-width: 26px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-md);
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  animation: sf-check var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.og__row[data-on] .og__qn {
+  color: var(--cm-text);
+}
+.og__row--qty[data-full] .og__text,
+.og__row--qty[data-full] .og__img {
+  opacity: 0.45;
+}
+@media (prefers-reduced-motion: reduce) {
+  .og__qn {
+    animation: none;
+  }
+}
+.og__row--qty {
+  cursor: default;
+}
+
+/* Notebook: a capa é uma grade e a margem automática do .sf-wrap encolhia o topo (saudação, loja
+   e horário) para o tamanho do conteúdo, desalinhado da busca. Ocupa a coluna inteira. */
+.sf:not([data-layout='phone']) .sf-hero > .sf-wrap {
+  margin-inline: 0;
+}

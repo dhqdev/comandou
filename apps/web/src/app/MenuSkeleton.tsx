@@ -46,6 +46,7 @@ function Card() {
   );
 }
 const PAIRS = [0, 1, 2, 3, 4].map((k) => <Pair key={k} />);
+const TILES = [0, 1, 2, 3].map((k) => <Pair key={k} />);
 const CARDS = [0, 1, 2, 3].map((k) => <Card key={k} />);
 
 export function MenuSkeleton() {
@@ -97,21 +98,20 @@ export function MenuSkeleton() {
         </div>
         <div className="cm-msk__main">
           <div className="cm-msk__hero">
-            <i className="cm-msk__cover" />
-            <i className="cm-msk__logo" />
-            <span>
+            <span className="cm-msk__hello">
               <i className="cm-msk__name" />
               <i className="cm-msk__status" />
             </span>
             <i className="cm-msk__info" />
+            <i className="cm-msk__store" />
+            <i className="cm-msk__ride" />
           </div>
-          <i className="cm-msk__ride" />
           <div className="cm-msk__search">
             <i />
             <i />
           </div>
-          <div className="cm-msk__chips">{PAIRS}</div>
           <i className="cm-msk__banner" />
+          <div className="cm-msk__chips">{TILES}</div>
           <i className="cm-msk__title" />
           <div className="cm-msk__grid">{CARDS}</div>
         </div>

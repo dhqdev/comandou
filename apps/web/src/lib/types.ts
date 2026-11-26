@@ -34,6 +34,8 @@ export interface MenuGroup {
   kind?: OptionGroupKind;
   /** Como cobra as opções escolhidas: soma, a mais cara ou a média. */
   charge?: ChargeRule;
+  /** A mesma opção pode ser escolhida mais de uma vez (contador + e − no cardápio). */
+  allowRepeat?: boolean;
   options: MenuOption[];
 }
 export interface MenuProduct {

@@ -228,3 +228,30 @@ export function glbBlob(base64: string): Blob {
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new Blob([bytes], { type: 'model/gltf-binary' });
 }
+
+/** Foto do item criada do zero pela IA, pelo nome e pela descrição (volta a foto). */
+export async function photoCreate(name: string, description?: string | null): Promise<Blob> {
+  let res: Response;
+  try {
+    res = await fetch('/api/v1/catalog-ai/photo/create', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Comandou-Request': '1',
+        Accept: 'image/*',
+      },
+      body: JSON.stringify({
+        name: name.trim().slice(0, 120),
+        ...(description?.trim() ? { description: description.trim().slice(0, 500) } : {}),
+      }),
+    });
+  } catch {
+    throw new ApiError(0, 'Sem conexão com o servidor');
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => undefined)) as { message?: string } | undefined;
+    throw new ApiError(res.status, body?.message ?? `Erro ${res.status}`, body);
+  }
+  return res.blob();
+}

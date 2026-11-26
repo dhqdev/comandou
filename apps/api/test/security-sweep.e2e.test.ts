@@ -103,11 +103,16 @@ const PUBLIC_TENANT_ROUTES = [
   'GET /api/v1/store/account/reservations',
   'GET /api/v1/store/account/reservations/:id',
   'POST /api/v1/store/account/reservations/:id/cancel',
+  // App do cliente (0.256): trocar o PIN e usar o convite de um amigo, só a conta do cookie.
+  'POST /api/v1/store/account/loyalty/pin',
+  'POST /api/v1/store/account/referral',
   'DELETE /api/v1/store/account/photo',
   'GET /api/v1/store/account/photo',
   'PUT /api/v1/store/account/photo',
   'POST /api/v1/store/account/signup',
   'POST /api/v1/store/account/signup/code',
+  // Ajuda, avisos, sobre e horário da loja (só o que a loja publica no app).
+  'GET /api/v1/store/app',
   'GET /api/v1/store/branding',
   'GET /api/v1/store/cep',
   'GET /api/v1/store/cep/:cep',
@@ -120,6 +125,9 @@ const PUBLIC_TENANT_ROUTES = [
   'POST /api/v1/store/chat/start',
   'POST /api/v1/store/chat/typing',
   'GET /api/v1/store/chat/unread',
+  // Cupons: a vitrine e a conferência de um código (limitada; o pedido confere de novo).
+  'GET /api/v1/store/coupons',
+  'POST /api/v1/store/coupons/check',
   'POST /api/v1/store/delivery-quote',
   'GET /api/v1/store/geocode',
   'GET /api/v1/store/locate',

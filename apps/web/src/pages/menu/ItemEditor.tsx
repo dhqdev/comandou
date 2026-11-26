@@ -521,6 +521,7 @@ export function ItemEditor() {
                     width={148}
                     value={form.imageId}
                     disabled={!canWrite}
+                    ai={{ name: form.name, description: form.description }}
                     onChange={(img) => set('imageId', img)}
                   />
                   <PhotoTuneButton

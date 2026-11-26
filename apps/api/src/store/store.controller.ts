@@ -144,6 +144,14 @@ const OnlineOrder = z
       .max(60),
     /** Recompensa do programa de fidelidade (só com a conta aberta). */
     rewardId: uuid.optional(),
+    /** Cupom da loja (só com a conta aberta; um por pedido). */
+    couponCode: z
+      .string()
+      .trim()
+      .min(3)
+      .max(30)
+      .optional()
+      .transform((v) => v || undefined),
     /** Mesa: onde o celular está (a loja confere se é no restaurante). */
     presence: Presence.optional(),
   })

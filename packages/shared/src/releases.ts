@@ -20,6 +20,51 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.256.0',
+    date: '2026-11-26',
+    title: 'App do cliente novo: pontos no topo, cupons, PIN e Conta em quadrados',
+    summary:
+      'O cardápio online virou um app completo: início com os pontos e a situação da loja, opções do item com foto e contador, cupons, PIN para usar pontos e cupons no balcão e uma Conta com todas as telas. Tudo se ajusta pela Loja online.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Início do cardápio: saudação com o nível e os pontos do cliente, aviso de loja aberta ou fechada com o horário, banner em cima e as categorias em quadrados com foto. Cada item mostra quantos pontos rende ("Ganhe N pts"). A parte da entrega saiu do início e fica na sacola.',
+      },
+      {
+        tag: 'novo',
+        text: 'Opções do item em cartões com foto, contador de + e − para as opções que podem repetir e a regra escrita ("Escolha de 1 até 3 opções"). No cadastro do grupo, a loja marca "Pode repetir a mesma opção".',
+      },
+      {
+        tag: 'novo',
+        text: 'Cupons: aba Cupons no app, cupom de porcentagem, valor ou entrega grátis com validade, pedido mínimo, limite por cliente, só no primeiro pedido e cupom só pelo código. O cliente aplica na sacola ou digita o código na finalização. Loja online › Cupons cria, liga e mostra quem usou.',
+      },
+      {
+        tag: 'novo',
+        text: 'PIN do cliente: a tela de pontos do app mostra um PIN de 6 números. No balcão, o botão PIN do cliente (PDV, Cupons e Fidelidade) mostra o nome, o saldo e o nível, troca recompensas e registra o uso de cupons.',
+      },
+      {
+        tag: 'novo',
+        text: 'Conta em quadrados: Pontos, Minha conta, Notificações, Endereços, Pagamento, Cupons, Indique um amigo, Favoritos, Reservas, Conversa, A loja (endereço, mapa e horários), Ajuda, Sobre e Sair, cada uma com a sua tela.',
+      },
+      {
+        tag: 'novo',
+        text: 'Loja online › App do cliente: avisos com foto que abrem um produto ou mostram um cupom (aparecem em Notificações), perguntas da Ajuda por assunto (com perguntas prontas para começar) e o texto do Sobre com o Instagram.',
+      },
+      {
+        tag: 'novo',
+        text: 'Fidelidade: níveis (Bronze, Prata, Ouro…) com cor e benefício, contados desde o começo ou numa janela de tempo; pontos fixos por item; e Indique um amigo, com pontos para quem indica e para o amigo no primeiro pedido concluído.',
+      },
+      {
+        tag: 'novo',
+        text: 'Foto do item com IA no próprio clique da imagem: no cardápio, ao tocar na foto do item ou da opção, dá para enviar uma foto ou pedir para a IA criar uma pelo nome e pela descrição.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Celular, tablet e notebook: a Conta tem 3 quadrados por linha no celular e 4 com a explicação no tablet e no computador; as novas telas seguem a largura do app em cada aparelho.',
+      },
+    ],
+  },
+  {
     version: '0.255.1',
     date: '2026-11-26',
     title: 'Aviso com botão de fechar próprio',

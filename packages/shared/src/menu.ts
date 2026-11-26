@@ -41,9 +41,10 @@ interface PricedGroup {
 export function optionsTotalCents(groups: PricedGroup[], optionIds: string[]): number {
   let total = 0;
   for (const g of groups) {
-    const deltas = g.options
-      .filter((o) => optionIds.includes(o.id))
-      .map((o) => toCents(o.priceDelta));
+    // A mesma opção escolhida duas vezes (grupo que deixa repetir) cobra duas vezes.
+    const deltas = g.options.flatMap((o) =>
+      optionIds.filter((id) => id === o.id).map(() => toCents(o.priceDelta)),
+    );
     total += groupOptionCharges(g.charge, deltas).reduce((a, b) => a + b, 0);
   }
   return total;

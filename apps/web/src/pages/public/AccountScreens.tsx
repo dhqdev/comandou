@@ -1,7 +1,14 @@
 import {
+  Bell,
   CalendarDays,
+  CreditCard,
   Download,
   ChevronRight,
+  Info,
+  LifeBuoy,
+  Store,
+  TicketPercent,
+  UserPlus,
   Eye,
   EyeOff,
   Gift,
@@ -32,8 +39,10 @@ import {
   ReactNode,
   Suspense,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
+import { scheduleText } from '@comandou/shared';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { clickPoint, Mascot, switchTheme, useTheme, useToast, Skeleton } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
@@ -63,7 +72,10 @@ import {
   loyaltyUnit,
   maskCep,
   maskPhone,
+  PAYMENT_OPTIONS,
+  pendingInvite,
   SavedAddress,
+  seenNotices,
   STEP_LABEL,
 } from './store';
 import { Field, ScreenHeader, Switch } from './ui';
@@ -380,35 +392,56 @@ function PhotoStack({ photos }: { photos: (string | null | undefined)[] }) {
 }
 
 /**
- * Bloco da conta: ícone em cima (fotos no canto quando há), nome e uma linha curta embaixo.
- * Afunda ao tocar e volta com a mola; `--i` escalona a entrada.
+ * Bloco da conta (quadrado): ícone em cima (fotos ou o número de novidades no canto), nome e uma
+ * linha curta embaixo. Afunda ao tocar e volta com a mola; `--i` escalona a entrada.
  */
 function Tile({
   to,
+  onClick,
   icon,
   label,
   hint,
   photos,
+  count,
+  tone,
   i,
 }: {
-  to: string;
+  to?: string;
+  onClick?(): void;
   icon: ReactNode;
   label: string;
   hint?: string;
   photos?: (string | null | undefined)[];
+  count?: number;
+  tone?: 'danger';
   i: number;
 }) {
-  return (
-    <Link className="acct-tile" to={to} style={{ '--i': i } as CSSProperties}>
+  const inner = (
+    <>
       <span className="acct-tile__top">
         <span className="acct-tile__icon">{icon}</span>
         {photos && <PhotoStack photos={photos} />}
+        {!!count && (
+          <span className="acct-tile__count" aria-label={`${count} novo(s)`}>
+            {count > 99 ? '99+' : count}
+          </span>
+        )}
       </span>
       <span className="acct-tile__text">
         <strong>{label}</strong>
         {hint && <small>{hint}</small>}
       </span>
+    </>
+  );
+  const style = { '--i': i } as CSSProperties;
+  return to ? (
+    <Link className="acct-tile" to={to} style={style} data-tone={tone}>
+      {inner}
     </Link>
+  ) : (
+    <button type="button" className="acct-tile" style={style} data-tone={tone} onClick={onClick}>
+      {inner}
+    </button>
   );
 }
 
@@ -526,12 +559,13 @@ function LoyaltyTile({ l, i }: { l: LoyaltyOn; i: number }) {
 }
 
 /**
- * Aba "Conta": formulário de entrada ou o perfil. Foto e nome no topo, o pedido em andamento,
- * a fidelidade e as telas em blocos grandes com o que importa de cada uma; conversa, tema e
- * senha numa lista curta; Sair no fim.
+ * Aba "Conta": formulário de entrada ou o perfil. Foto e nome no topo, o pedido em andamento, a
+ * fidelidade e cada tela num quadrado (Minha conta, Notificações, Endereços, Pagamento, Cupons,
+ * Indique um amigo, Favoritos, Reservas, Conversa, A loja, Ajuda, Sobre e Sair); tema, senha e
+ * privacidade numa lista curta embaixo. Sem a conta, os quadrados que não pedem login seguem.
  */
 export function AccountScreen() {
-  const { account, logout, menu, rules } = useStore();
+  const { account, logout, menu, rules, favs, customer, coupon } = useStore();
   const chat = useStoreChat();
   const loyalty = useLoyalty();
   const [theme] = useTheme();
@@ -541,6 +575,13 @@ export function AccountScreen() {
   const reserveCfg = useReservationConfig();
   const reservations = useAccountReservations(!!me && rules.reservations);
   const nextReservation = nextAccountReservation(reservations);
+  // Avisos da loja que este aparelho ainda não abriu (número no quadrado Notificações).
+  const notices = menu.notices;
+  const unseen = useMemo(() => {
+    const seen = new Set(seenNotices());
+    return (notices ?? []).filter((id) => !seen.has(id)).length;
+  }, [notices]);
+  const [invite] = useState(pendingInvite);
   if (!account)
     return (
       <div className="sf-wrap sf-page">
@@ -551,13 +592,30 @@ export function AccountScreen() {
   const dark = theme === 'dark';
   const live = liveOrder(orders);
   const home = account.addresses.find((a) => a.isDefault) ?? account.addresses[0];
+  const referral = loyalty?.referral ?? null;
+  const unit = (n: number) => (loyalty ? loyaltyUnit(loyalty, n) : 'pontos');
+  const payLabel = PAYMENT_OPTIONS.find((o) => o.value === customer.paymentMethod)?.label;
   // Ordem de entrada de cada parte.
   let n = 0;
   const at = (i: number) => ({ '--i': i }) as CSSProperties;
   return (
     <div className="sf-wrap sf-page acct">
       {!me ? (
-        <AuthForms />
+        <>
+          <AuthForms />
+          {invite && referral && (
+            <p className="acct-invite" style={at(n++)}>
+              <UserPlus size={18} aria-hidden />
+              <span>
+                Você recebeu o convite <strong>{invite}</strong>. Crie a conta e use o código em
+                Indique um amigo
+                {referral.friendPoints > 0 &&
+                  ` para ganhar ${referral.friendPoints.toLocaleString('pt-BR')} ${unit(referral.friendPoints)}`}
+                .
+              </span>
+            </p>
+          )}
+        </>
       ) : (
         <>
           <header className="acct__hero" style={at(n++)}>
@@ -581,59 +639,159 @@ export function AccountScreen() {
               <ChevronRight className="acct-row__chev" aria-hidden />
             </Link>
           )}
-          <nav className="acct__grid" aria-label="Minha conta">
-            {loyalty && <LoyaltyTile l={loyalty} i={n++} />}
-            {/* Na mesa não há entrega: endereços ficam para o cardápio online. */}
-            {rules.delivery && (
-              <Tile
-                i={n++}
-                to="/pedir/conta/enderecos"
-                icon={<MapPin />}
-                label="Endereços"
-                hint={home ? `${home.street}, ${home.number}` : 'Nenhum ainda'}
-              />
-            )}
-            <Tile
-              i={n++}
-              to="/pedir/conta/dados"
-              icon={<UserRound />}
-              label="Meus dados"
-              hint={me.email ?? 'Nome e e-mail'}
-            />
-            {/* Reservas da conta: as do cardápio e as que a loja anotou no cadastro. */}
-            {rules.reservations && (reserveCfg?.enabled || !!reservations?.length) && (
-              <Tile
-                i={n++}
-                to="/pedir/reservas"
-                icon={<CalendarDays />}
-                label="Reservas"
-                hint={
-                  nextReservation
-                    ? new Date(nextReservation.startsAt).toLocaleString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        timeZone: nextReservation.timeZone,
-                      })
-                    : 'Nenhuma por vir'
-                }
-              />
-            )}
-          </nav>
         </>
       )}
+      <nav className="acct__grid" aria-label="Minha conta">
+        {me && loyalty && <LoyaltyTile l={loyalty} i={n++} />}
+        {me && (
+          <Tile
+            i={n++}
+            to="/pedir/conta/dados"
+            icon={<UserRound />}
+            label="Minha conta"
+            hint={me.email ?? 'Nome, e-mail e foto'}
+          />
+        )}
+        <Tile
+          i={n++}
+          to="/pedir/conta/notificacoes"
+          icon={<Bell />}
+          label="Notificações"
+          hint={
+            unseen ? `${unseen} ${unseen === 1 ? 'aviso novo' : 'avisos novos'}` : 'Avisos da loja'
+          }
+          count={unseen}
+        />
+        {/* Na mesa não há entrega: endereços ficam para o cardápio online. */}
+        {me && rules.delivery && (
+          <Tile
+            i={n++}
+            to="/pedir/conta/enderecos"
+            icon={<MapPin />}
+            label="Endereços"
+            hint={home ? `${home.street}, ${home.number}` : 'Nenhum ainda'}
+          />
+        )}
+        <Tile
+          i={n++}
+          to="/pedir/conta/pagamento"
+          icon={<CreditCard />}
+          label="Pagamento"
+          hint={payLabel ? `Preferida: ${payLabel}` : 'Formas de pagar'}
+        />
+        {rules.coupons && (
+          <Tile
+            i={n++}
+            to="/pedir/cupons"
+            icon={<TicketPercent />}
+            label="Cupons"
+            hint={
+              coupon
+                ? `${coupon} no próximo pedido`
+                : menu.coupons
+                  ? `${menu.coupons} na loja`
+                  : 'Tem um código?'
+            }
+          />
+        )}
+        {rules.loyalty && referral && (
+          <Tile
+            i={n++}
+            to="/pedir/conta/indique"
+            icon={<UserPlus />}
+            label="Indique um amigo"
+            hint={
+              referral.points > 0
+                ? `Ganhe ${referral.points.toLocaleString('pt-BR')} ${unit(referral.points)}`
+                : 'Convide quem ainda não pede'
+            }
+          />
+        )}
+        {rules.favorites && (
+          <Tile
+            i={n++}
+            to="/pedir/favoritos"
+            icon={<Heart />}
+            label="Favoritos"
+            hint={
+              favs.length
+                ? `${favs.length} ${favs.length === 1 ? 'item' : 'itens'}`
+                : 'Nenhum ainda'
+            }
+          />
+        )}
+        {/* Reservas da conta: as do cardápio e as que a loja anotou no cadastro. */}
+        {me && rules.reservations && (reserveCfg?.enabled || !!reservations?.length) && (
+          <Tile
+            i={n++}
+            to="/pedir/reservas"
+            icon={<CalendarDays />}
+            label="Reservas"
+            hint={
+              nextReservation
+                ? new Date(nextReservation.startsAt).toLocaleString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: nextReservation.timeZone,
+                  })
+                : 'Nenhuma por vir'
+            }
+          />
+        )}
+        {chat.enabled && (
+          <Tile
+            i={n++}
+            to="/pedir/conversa"
+            icon={<MessageCircle />}
+            label="Conversa"
+            hint={
+              chat.unread
+                ? `${chat.unread} ${chat.unread === 1 ? 'resposta nova' : 'respostas novas'}`
+                : 'Fale com a loja'
+            }
+            count={chat.unread}
+          />
+        )}
+        <Tile
+          i={n++}
+          to="/pedir/conta/loja"
+          icon={<Store />}
+          label="A loja"
+          hint={scheduleText(menu.store.isOpen, menu.store.schedule)}
+        />
+        <Tile
+          i={n++}
+          to="/pedir/conta/ajuda"
+          icon={<LifeBuoy />}
+          label="Ajuda"
+          hint="Perguntas frequentes"
+        />
+        <Tile
+          i={n++}
+          to="/pedir/conta/sobre"
+          icon={<Info />}
+          label="Sobre"
+          hint={menu.restaurant.name}
+        />
+        {me && (
+          <Tile
+            i={n++}
+            icon={<LogOut />}
+            label="Sair"
+            hint="Sair desta conta"
+            tone="danger"
+            onClick={async () => {
+              await logout();
+              toast('Você saiu da conta');
+            }}
+          />
+        )}
+      </nav>
 
-      {(chat.enabled || themeRow || me) && (
-        <nav className="acct-list" aria-label="Ajuda e ajustes" style={at(n++)}>
-          {chat.enabled && (
-            <Row
-              to="/pedir/conversa"
-              icon={<MessageCircle />}
-              label="Conversar com a loja"
-              count={chat.unread}
-            />
-          )}
+      {(themeRow || me) && (
+        <nav className="acct-list" aria-label="Ajustes" style={at(n++)}>
           {themeRow && (
             <Row
               icon={dark ? <Moon /> : <Sun />}
@@ -647,19 +805,6 @@ export function AccountScreen() {
             <Row to="/pedir/conta/privacidade" icon={<ShieldCheck />} label="Privacidade e dados" />
           )}
         </nav>
-      )}
-      {me && (
-        <button
-          type="button"
-          className="acct__out"
-          style={at(n++)}
-          onClick={async () => {
-            await logout();
-            toast('Você saiu da conta');
-          }}
-        >
-          <LogOut aria-hidden /> Sair da conta
-        </button>
       )}
       <p className="store-foot__brand sf-note">
         <Mascot size={20} badge /> Pedidos online por <strong>Comandou</strong>

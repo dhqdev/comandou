@@ -2,12 +2,14 @@ import { fromCents, storeScreenAllowed } from '@comandou/shared';
 import {
   BellRing,
   ChevronRight,
+  Gift,
   HandPlatter,
   Heart,
   House,
   MessageCircle,
   ReceiptText,
   ShoppingBag,
+  TicketPercent,
   UserRound,
 } from 'lucide-react';
 import {
@@ -50,6 +52,7 @@ import { InstallHint, useHomeScreenMeta } from './InstallHint';
 import { TableHere } from './TableHere';
 import { TableBillScreen, TableServiceScreen } from './TableServiceScreen';
 import {
+  captureInvite,
   isTableId,
   rememberTable,
   storedTableId,
@@ -65,6 +68,8 @@ import './public.css';
 import './storefront.css';
 // Depois do storefront.css: a moldura do tablet e do notebook ajusta as peças comuns.
 import './shell.css';
+// Por último: o início do app (saudação, faixa da loja, grupos) e as telas novas da Conta.
+import './app.css';
 
 /*
  * Quem abre o cardápio baixa só o início e o produto. Sacola, pedidos, conversa e conta vêm em
@@ -111,6 +116,34 @@ const ForgotPasswordScreen = lazyPage(
   () => import('./AccountScreens'),
   (m) => m.ForgotPasswordScreen,
 );
+const CouponsScreen = lazyPage(
+  () => import('./CouponScreens'),
+  (m) => m.CouponsScreen,
+);
+const NoticesScreen = lazyPage(
+  () => import('./AppScreens'),
+  (m) => m.NoticesScreen,
+);
+const PaymentScreen = lazyPage(
+  () => import('./AppScreens'),
+  (m) => m.PaymentScreen,
+);
+const StoresScreen = lazyPage(
+  () => import('./AppScreens'),
+  (m) => m.StoresScreen,
+);
+const ReferralScreen = lazyPage(
+  () => import('./AppScreens'),
+  (m) => m.ReferralScreen,
+);
+const HelpScreen = lazyPage(
+  () => import('./AppScreens'),
+  (m) => m.HelpScreen,
+);
+const AboutScreen = lazyPage(
+  () => import('./AppScreens'),
+  (m) => m.AboutScreen,
+);
 const LATER_SCREENS = [
   CartScreen,
   OrdersScreen,
@@ -122,11 +155,20 @@ const LATER_SCREENS = [
   ForgotPasswordScreen,
   PublicOrderPage,
   ChatScreen,
+  CouponsScreen,
+  NoticesScreen,
 ];
 
-/** Abas do cardápio: embaixo no celular, no topo no tablet e no menu lateral no notebook. */
-function useNavTabs(): MagicTab[] {
-  const { account, rules } = useStore();
+/** Quantas abas cabem embaixo (celular) e na barra do topo (tablet). */
+const MAX_TABS = 5;
+
+/**
+ * Abas do cardápio: embaixo no celular, no topo no tablet e no menu lateral no notebook. As do
+ * app (Início, Cupons, Pontos, Pedidos e Conta) vêm primeiro; Favoritos e Conversa entram se
+ * sobrar lugar (`fit`) e, senão, moram nos quadrados da Conta.
+ */
+function useNavTabs(fit = false): MagicTab[] {
+  const { account, rules, menu } = useStore();
   const chat = useStoreChat();
   const me = account?.customer ?? null;
   const name = me?.name.split(' ')[0];
@@ -150,13 +192,24 @@ function useNavTabs(): MagicTab[] {
   // Cada cardápio só mostra as abas que as regras dele deixam (store-rules.ts): na mesa, o
   // cardápio, a aba do meio (chamar o garçom e fechar a conta) e os pedidos da mesa.
   const atTable = rules.mode === 'table';
-  return [
-    { to: '/pedir', label: 'Cardápio', icon: House, end: true, badge: 0 },
+  const coupons = rules.coupons && (menu.coupons ?? 0) > 0;
+  // Pontos pedem a conta do cliente (o saldo é de quem entrou).
+  const points = rules.loyalty && rules.accountTab && !!menu.loyalty;
+  const base: MagicTab[] = [
+    { to: '/pedir', label: atTable ? 'Cardápio' : 'Início', icon: House, end: true, badge: 0 },
     ...(rules.tableService
       ? [{ to: '/pedir/mesa', label: 'Garçom', icon: BellRing, badge: 0 }]
       : []),
-    ...(rules.favorites
-      ? [{ to: '/pedir/favoritos', label: 'Favoritos', icon: Heart, badge: 0 }]
+    ...(coupons ? [{ to: '/pedir/cupons', label: 'Cupons', icon: TicketPercent, badge: 0 }] : []),
+    ...(points
+      ? [
+          {
+            to: '/pedir/fidelidade',
+            label: menu.loyalty?.mode === 'stamps' ? 'Carimbos' : 'Pontos',
+            icon: Gift,
+            badge: 0,
+          },
+        ]
       : []),
     {
       to: '/pedir/pedidos',
@@ -164,11 +217,30 @@ function useNavTabs(): MagicTab[] {
       icon: atTable ? HandPlatter : ReceiptText,
       badge: 0,
     },
+  ];
+  const extras: MagicTab[] = [
+    ...(rules.favorites
+      ? [{ to: '/pedir/favoritos', label: 'Favoritos', icon: Heart, badge: 0 }]
+      : []),
     ...(chat.enabled
       ? [{ to: '/pedir/conversa', label: 'Conversa', icon: MessageCircle, badge: chat.unread }]
       : []),
+  ];
+  const accountTab = rules.accountTab ? 1 : 0;
+  // Sem a aba Conta, Favoritos e Conversa ficam sempre (não teriam outro lugar).
+  const room = !fit || !accountTab ? extras.length : MAX_TABS - base.length - accountTab;
+  const shown = extras.slice(0, Math.max(0, room));
+  const hidden = extras.slice(shown.length);
+  // A conversa que não coube nas abas leva a bolinha das respostas novas para a Conta.
+  const unread = hidden.reduce((n, t) => n + t.badge, 0);
+  const pedidos = base.pop()!;
+  return [
+    ...base,
+    ...shown.filter((t) => t.to === '/pedir/favoritos'),
+    pedidos,
+    ...shown.filter((t) => t.to !== '/pedir/favoritos'),
     ...(rules.accountTab
-      ? [{ to: '/pedir/conta', label: name ?? 'Entrar', icon: meIcon, badge: 0 }]
+      ? [{ to: '/pedir/conta', label: name ?? 'Entrar', icon: meIcon, badge: unread }]
       : []),
   ];
 }
@@ -189,7 +261,9 @@ function BottomNav() {
   const { pathname } = useLocation();
   // Produto e sacola têm a própria barra embaixo (adicionar / finalizar).
   const focused = /^\/pedir\/(produto|sacola|reservar|conversa)/.test(pathname);
-  return <MagicNav tabs={useNavTabs()} hidden={focused} label="Navegação do cardápio" dot={dot} />;
+  return (
+    <MagicNav tabs={useNavTabs(true)} hidden={focused} label="Navegação do cardápio" dot={dot} />
+  );
 }
 
 /**
@@ -198,7 +272,7 @@ function BottomNav() {
  */
 function TopBar() {
   const { menu, count, subtotal, bump } = useStore();
-  const tabs = useNavTabs();
+  const tabs = useNavTabs(true);
   const r = menu.restaurant;
   return (
     <header className="sf-appbar">
@@ -245,8 +319,9 @@ function CartPill() {
   const { count, subtotal, bump } = useStore();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  // Só nas telas de navegar pelo cardápio (início, favoritos e lista de pedidos).
-  const hidden = count === 0 || !/^\/pedir(\/favoritos|\/pedidos)?\/?$/.test(pathname);
+  // Só nas telas de navegar pelo cardápio (início, favoritos, cupons, pontos e pedidos).
+  const hidden =
+    count === 0 || !/^\/pedir(\/favoritos|\/pedidos|\/cupons|\/fidelidade)?\/?$/.test(pathname);
   return (
     <button
       type="button"
@@ -338,6 +413,16 @@ function Screens() {
           <Route path="conta/senha" element={<PasswordScreen />} />
           <Route path="conta/privacidade" element={<PrivacyScreen />} />
           <Route path="conta/esqueci-senha" element={<ForgotPasswordScreen />} />
+          <Route path="conta/notificacoes" element={<NoticesScreen />} />
+          <Route path="conta/pagamento" element={<PaymentScreen />} />
+          <Route path="conta/loja" element={<StoresScreen />} />
+          <Route
+            path="conta/indique"
+            element={<Allowed screen="conta/indique" el={<ReferralScreen />} />}
+          />
+          <Route path="conta/ajuda" element={<HelpScreen />} />
+          <Route path="conta/sobre" element={<AboutScreen />} />
+          <Route path="cupons" element={<Allowed screen="cupons" el={<CouponsScreen />} />} />
           <Route
             path="fidelidade"
             element={<Allowed screen="fidelidade" el={<LoyaltyScreen />} />}
@@ -364,7 +449,7 @@ function Chrome() {
   useEffect(() => preloadPages(LATER_SCREENS), []);
   useHomeScreenMeta(menu.restaurant.name);
   // Aviso de instalar o app: só nas telas de olhar o cardápio (não no meio da sacola).
-  const installSpot = /^\/pedir(\/favoritos|\/pedidos)?\/?$/.test(pathname);
+  const installSpot = /^\/pedir(\/favoritos|\/pedidos|\/cupons|\/fidelidade)?\/?$/.test(pathname);
   // Telas de escolher produto (início e favoritos): no notebook largo a sacola fica ao lado.
   const browse = /^\/pedir(\/favoritos)?\/?$/.test(pathname);
   return (
@@ -447,6 +532,8 @@ export function StoreApp() {
     root.classList.add('sf-root');
     return () => root.classList.remove('sf-root');
   }, []);
+  // Link de convite de um amigo (?convite=): o código espera em Conta › Indique um amigo.
+  useEffect(() => captureInvite(window.location.search), []);
 
   const loadMenu = useCallback(
     () =>
@@ -490,13 +577,15 @@ export function StoreApp() {
       () => null,
     );
     if (!st || checkCacheEpoch(st.cacheEpoch)) return;
+    const { cacheEpoch: _e, ...now } = st;
     setMenu((m) =>
       !m ||
-      (m.store.isOpen === st.isOpen &&
-        m.store.acceptsDelivery === st.acceptsDelivery &&
-        m.store.acceptsPickup === st.acceptsPickup)
+      (m.store.isOpen === now.isOpen &&
+        m.store.acceptsDelivery === now.acceptsDelivery &&
+        m.store.acceptsPickup === now.acceptsPickup &&
+        JSON.stringify(m.store.schedule ?? null) === JSON.stringify(now.schedule ?? null))
         ? m
-        : { ...m, store: { ...m.store, ...st } },
+        : { ...m, store: { ...m.store, ...now } },
     );
   }, []);
   useEffect(() => {

@@ -15,6 +15,7 @@ import { track } from './pixel';
 import {
   AccountState,
   CartLine,
+  COUPON_KEY,
   CustomerInfo,
   EMPTY_CUSTOMER,
   isLine,
@@ -72,6 +73,9 @@ export interface StoreCtx {
   /** Programa de fidelidade (null enquanto carrega). Com a conta aberta, traz o saldo. */
   loyalty: PublicLoyalty | null;
   refreshLoyalty(): Promise<void>;
+  /** Código do cupom escolhido para o próximo pedido (aba Cupons ou sacola). */
+  coupon: string | null;
+  setCoupon(code: string | null): void;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -120,6 +124,12 @@ export function StoreProvider({
   // Dados salvos por versões antigas não têm os campos novos (CEP, cidade…).
   const customer = useMemo(() => ({ ...EMPTY_CUSTOMER, ...stored }), [stored]);
   const [favs, setFavs] = useStored<string[]>('cm-favs', []);
+  // Cupom escolhido na aba Cupons: fica guardado até o pedido sair (ou o cliente tirar).
+  const [coupon, setCouponState] = useStored<string | null>(COUPON_KEY, null);
+  const setCoupon = useCallback(
+    (code: string | null) => setCouponState(code?.trim() ? code.trim().toUpperCase() : null),
+    [setCouponState],
+  );
   const [account, setAccount] = useState<AccountState | null>(null);
   const [bump, setBump] = useState(0);
   const tableId = menu.table?.id ?? null;
@@ -292,6 +302,7 @@ export function StoreProvider({
       // A sacola fica guardada na conta; o aparelho volta vazio para o próximo cliente.
       setCart(() => []);
       setCartSync(null);
+      setCoupon(null);
       // Aparelho dividido (tablet da mesa, celular emprestado): o próximo cliente não vê nome,
       // telefone, CPF nem a observação de quem saiu.
       setCustomer(() => EMPTY_CUSTOMER);
@@ -308,6 +319,8 @@ export function StoreProvider({
     refreshMenu,
     loyalty,
     refreshLoyalty,
+    coupon: rules.coupons ? coupon : null,
+    setCoupon,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

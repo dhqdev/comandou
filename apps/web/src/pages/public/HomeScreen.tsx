@@ -1,15 +1,15 @@
-import { toCents } from '@comandou/shared';
+import { levelOf, scheduleText, toCents } from '@comandou/shared';
 import {
+  Bell,
   Bike,
   ChevronRight,
   Clock,
+  Gift,
   HandPlatter,
-  Info,
   MapPin,
   Moon,
   Plus,
   Search,
-  ShoppingBag,
   SlidersHorizontal,
   Star,
   Store,
@@ -30,16 +30,7 @@ import {
 import { Link, useNavigate, useNavigationType } from 'react-router';
 import { Button, Mascot, Modal } from '../../design-system';
 import { brl } from '../../lib/money';
-import {
-  ClosedArt,
-  CookingArt,
-  DeliveryArt,
-  FavoritesArt,
-  MotoboyArt,
-  PickupArt,
-  SearchArt,
-  WaiterArt,
-} from './art';
+import { CookingArt, DeliveryArt, FavoritesArt, SearchArt } from './art';
 import { CustomerAvatar } from './avatars';
 import { useStore } from './context';
 import { reducedMotion, setMorph } from './morph';
@@ -54,11 +45,18 @@ import {
   useActiveSection,
   useLayout,
 } from './sections';
-import { deliveryFeeText, StoreStatusLine } from './Shell';
-import { PublicBanner, PublicProduct, recentOrders } from './store';
+import {
+  loyaltyUnit,
+  productPoints,
+  PublicBanner,
+  PublicProduct,
+  ptsText,
+  recentOrders,
+  seenNotices,
+} from './store';
 import { track } from './pixel';
 import { LoopRail } from './LoopRail';
-import { LoyaltyStrip } from './LoyaltyScreens';
+import { useLoyalty } from './LoyaltyScreens';
 import { ReserveCard } from './ReservationScreens';
 import { AtTableTile } from './AtTableTile';
 import { TableWelcome } from './TableWelcome';
@@ -98,8 +96,10 @@ function useQuickAdd() {
 
 /** Cartão do produto (grade de duas colunas): foto, coração, selo, nome, preço e "+". */
 function ProductCard({ p, i = 0, rank }: { p: PublicProduct; i?: number; rank?: number }) {
-  const { favs, toggleFav } = useStore();
+  const { favs, toggleFav, menu, rules } = useStore();
   const open = useOpenProduct();
+  // "Ganhe N pts": quanto o item rende na fidelidade (a loja pode esconder).
+  const pts = rules.loyalty && !p.soldOut ? productPoints(menu.loyalty, p) : null;
   const quick = useQuickAdd();
   const ref = useRef<HTMLDivElement>(null);
   return (
@@ -132,6 +132,11 @@ function ProductCard({ p, i = 0, rank }: { p: PublicProduct; i?: number; rank?: 
         {rank && (
           <span className="pcard__rank" aria-hidden>
             {rank}
+          </span>
+        )}
+        {pts && (
+          <span className="pcard__pts" aria-label={`Ganhe ${ptsText(pts)}`}>
+            <Gift size={12} aria-hidden /> Ganhe <b>{ptsText(pts)}</b>
           </span>
         )}
       </div>
@@ -186,11 +191,31 @@ function ProductGrid({ list, ranked = false }: { list: PublicProduct[]; ranked?:
   );
 }
 
-/** Banners que dão a volta sem fim (para os dois lados) e trocam sozinhos a cada 5 s. */
-function Banners({ banners, onPick }: { banners: PublicBanner[]; onPick(b: PublicBanner): void }) {
+/**
+ * Banners que dão a volta sem fim (para os dois lados) e trocam sozinhos a cada 5 s. Sem
+ * promoção cadastrada, a capa da loja ocupa o lugar (parada, sem os pontinhos).
+ */
+function Banners({
+  banners,
+  cover,
+  name,
+  onPick,
+}: {
+  banners: PublicBanner[];
+  cover: string | null;
+  name: string;
+  onPick(b: PublicBanner): void;
+}) {
   const [cur, setCur] = useState(0);
   const onIndex = useCallback((i: number) => setCur(i), []);
-  if (!banners.length) return null;
+  if (!banners.length)
+    return cover ? (
+      <section className="banners banners--cover">
+        <div className="banner banner--cover" data-img="">
+          <img src={cover} alt={name} className="banner__img" />
+        </div>
+      </section>
+    ) : null;
   return (
     <section className="banners">
       <LoopRail
@@ -277,7 +302,7 @@ function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
           <DeliveryArt delivery={s.acceptsDelivery} ride={s.isOpen} className="sf-info__art" />
         )}
         <span className={`status ${s.isOpen ? 'is-open' : 'is-closed'}`}>
-          {s.isOpen ? 'Aberto agora' : 'Fechado agora'}
+          {scheduleText(s.isOpen, s.schedule)}
         </span>
         {menu.appearance.headline && (
           <p className="sf-info__about sf-info__headline">{menu.appearance.headline}</p>
@@ -416,143 +441,130 @@ function FilterSheet({
 }
 
 /**
- * Capa da loja com a logo, o nome e uma linha só com o essencial (aberto, tempo e entrega ou a
- * mesa). No celular, conta e sacola ficam sobre a foto, a logo e o nome vão para o meio e só a
- * situação fica embaixo: o tempo e a entrega estão no bloco da moto (RideTile). Tocar no nome
- * abre as informações da loja.
+ * Topo do app (todas as telas): a saudação com o nível e os pontos, o sino dos avisos da loja, a
+ * loja (logo, nome e endereço, que abrem as informações) e a faixa do horário: "Aberta até 23h" ou
+ * "Fechada. Abre hoje às 10h30". A entrega e a retirada ficam na sacola, não no início.
  */
-function StoreHeader({ onInfo }: { onInfo(): void }) {
-  const { menu, account, count, table, rules } = useStore();
+function AppTop({ onInfo }: { onInfo(): void }) {
+  const { menu, account, table, rules } = useStore();
+  const l = useLoyalty();
+  const me = account?.customer ?? null;
   const r = menu.restaurant;
   const s = menu.store;
-  const me = account?.customer ?? null;
+  const first = me?.name.trim().split(/\s+/)[0];
+  // Avisos novos (que este aparelho ainda não abriu): bolinha no sino.
+  const live = menu.notices ?? [];
+  const fresh = useMemo(() => {
+    const seen = new Set(seenNotices());
+    return live.some((id) => !seen.has(id));
+  }, [live]);
+  const acc = l?.account ?? null;
+  const level = acc && l?.levels?.length ? levelOf(l.levels, acc.earned ?? 0).current : null;
+  const status =
+    table && !s.isOpen ? 'Pedidos pelo celular pausados' : scheduleText(s.isOpen, s.schedule);
   return (
-    <section className="sf-store">
-      <div className="sf-cover">
-        {r.coverUrl ? (
-          <img src={r.coverUrl} alt="" className="sf-cover__img" />
-        ) : (
-          <div className="sf-cover__art" />
-        )}
-        <div className="sf-cover__bar">
-          {rules.accountLogin ? (
-            // Com a conta aberta, a bolinha mostra a foto do perfil (ou o avatar escolhido), a
-            // mesma da aba Conta; sem conta, o bonequinho.
-            <Link
-              className="sf-glass"
-              data-me={me ? '' : undefined}
-              to="/pedir/conta"
-              aria-label="Minha conta"
-            >
-              {me ? (
-                <CustomerAvatar customer={me} size={36} className="sf-glass__me" decorative />
-              ) : (
-                <UserRound size={19} />
+    <section className="hm-top" aria-label="Sua conta e a loja">
+      <div className="hm-hello">
+        <div className="hm-hello__text">
+          <p className="hm-hello__hi">
+            {first ? (
+              <>
+                Olá, <strong>{first}</strong>
+              </>
+            ) : (
+              <strong>Olá!</strong>
+            )}
+          </p>
+          {l && acc ? (
+            <Link className="hm-hello__pts" to="/pedir/fidelidade">
+              {level && (
+                <span
+                  className="hm-level"
+                  style={level.color ? ({ '--lv': level.color } as CSSProperties) : undefined}
+                >
+                  {level.name}
+                </span>
               )}
+              <Gift size={15} aria-hidden />
+              <b>{acc.balance.toLocaleString('pt-BR')}</b> {loyaltyUnit(l, acc.balance)}
+              <ChevronRight size={15} aria-hidden className="hm-hello__go" />
+            </Link>
+          ) : l && rules.accountLogin && !me ? (
+            <Link className="hm-hello__pts hm-hello__pts--join" to="/pedir/conta">
+              <Gift size={15} aria-hidden /> Entre e ganhe {loyaltyUnit(l)} a cada pedido
+              <ChevronRight size={15} aria-hidden className="hm-hello__go" />
+            </Link>
+          ) : !me && rules.accountLogin ? (
+            <Link className="hm-hello__pts hm-hello__pts--join" to="/pedir/conta">
+              Entre na sua conta
+              <ChevronRight size={15} aria-hidden className="hm-hello__go" />
             </Link>
           ) : (
-            <span />
+            menu.appearance.headline && <p className="hm-hello__line">{menu.appearance.headline}</p>
           )}
-          <Link
-            className="sf-glass"
-            to="/pedir/sacola"
-            aria-label={count ? `Sacola com ${count} itens` : 'Sacola'}
-          >
-            <ShoppingBag size={19} />
-            {count > 0 && <span className="cartpill__count">{count}</span>}
-          </Link>
+        </div>
+        <div className="hm-hello__tools">
+          {!table && live.length > 0 && (
+            <Link
+              className="hm-iconbtn"
+              to="/pedir/conta/notificacoes"
+              aria-label={fresh ? 'Avisos da loja (novos)' : 'Avisos da loja'}
+            >
+              <Bell size={20} />
+              {fresh && <i className="hm-iconbtn__dot" aria-hidden />}
+            </Link>
+          )}
+          {rules.accountLogin && (
+            <Link
+              className="hm-iconbtn hm-iconbtn--me"
+              to="/pedir/conta"
+              aria-label="Minha conta"
+              data-me={me ? '' : undefined}
+            >
+              {me ? <CustomerAvatar customer={me} size={40} decorative /> : <UserRound size={20} />}
+            </Link>
+          )}
         </div>
       </div>
-      <div className="sf-head">
-        <Photo src={r.logoUrl} alt={r.name} className="sf-head__logo" eager />
-        <div className="sf-head__text">
-          <h1>
-            <button type="button" className="sf-head__name" onClick={onInfo}>
-              {r.name}
-              <ChevronRight size={18} aria-hidden className="sf-head__more" />
-            </button>
-          </h1>
-          {/* Os ícones separam os itens: quebrou a linha, não sobra ponto solto no fim. */}
-          <span className="sf-head__meta">
-            <StoreStatusLine />
-            <span className="sf-head__eta">
-              <Clock size={13} aria-hidden /> {s.etaMin}–{s.etaMax} min
-            </span>
+      <button type="button" className="hm-store" onClick={onInfo}>
+        <Photo src={r.logoUrl} alt={r.name} className="hm-store__logo" eager />
+        <span className="hm-store__text">
+          <strong>{r.name}</strong>
+          <small>
             {table ? (
-              <span className="sf-head__eta sf-head__table">
+              <>
                 <HandPlatter size={13} aria-hidden /> Mesa {table.label}
-              </span>
+              </>
             ) : (
-              s.acceptsDelivery && (
-                <span className="sf-head__eta">
-                  <Bike size={13} aria-hidden /> {deliveryFeeText(s)}
-                </span>
-              )
+              r.address || 'Horários, entrega e retirada'
             )}
-          </span>
-          {menu.appearance.headline && <p className="sf-head__line">{menu.appearance.headline}</p>}
-        </div>
-        <button
-          type="button"
-          className="sf-head__info"
-          onClick={onInfo}
-          aria-label="Mais informações da loja"
-          title="Mais informações"
-        >
-          <Info size={18} />
-        </button>
-      </div>
+          </small>
+        </span>
+        <ChevronRight size={18} aria-hidden className="hm-store__more" />
+      </button>
+      <p className="hm-status" data-open={s.isOpen || undefined} role="status">
+        {s.isOpen ? <i className="hm-status__dot" aria-hidden /> : <Moon size={15} aria-hidden />}
+        <span>
+          {status}
+          {s.isOpen && (
+            <span className="hm-status__eta">
+              {' '}
+              · <Clock size={13} aria-hidden /> {s.etaMin}–{s.etaMax} min
+            </span>
+          )}
+          {!s.isOpen && table && <span className="hm-status__eta"> · Chame o garçom</span>}
+        </span>
+      </p>
     </section>
   );
 }
 
 /**
- * Bloco do jeito que o pedido chega, com o desenho no lugar do texto: o motoboy andando com o
- * tempo grande (entrega), a lojinha (só retirada) ou a bandeja (mesa do QR Code). No celular fica
- * logo abaixo da capa; no tablet e no notebook, ao lado da fidelidade e da reserva. Tocar abre as
- * informações da loja (horário, taxa, endereço).
+ * Grupos do cardápio em quadradinhos com foto (como num app), de quatro em quatro com os
+ * pontinhos embaixo: tocar leva o cardápio até a categoria. Quando passam por baixo da busca, as
+ * categorias em texto aparecem presas nela.
  */
-function RideTile({ onInfo }: { onInfo(): void }) {
-  const { menu, table } = useStore();
-  const s = menu.store;
-  if (!s.isOpen || (!table && !s.acceptsDelivery && !s.acceptsPickup)) return null;
-  const moto = !table && s.acceptsDelivery;
-  const title = table ? `Mesa ${table.label}` : `${s.etaMin}–${s.etaMax} min`;
-  const sub = table
-    ? table.selfPickup
-      ? 'Você busca no balcão'
-      : 'Vai direto para a mesa'
-    : moto
-      ? deliveryFeeText(s)
-      : 'Retire no balcão';
-  return (
-    <button
-      type="button"
-      className="sf-tile sf-tile--ride"
-      onClick={onInfo}
-      aria-label={`${title}, ${sub}. Mais informações da loja`}
-    >
-      {table ? (
-        <WaiterArt live className="sf-tile__art" />
-      ) : moto ? (
-        <MotoboyArt ride className="sf-tile__art" />
-      ) : (
-        <PickupArt live className="sf-tile__art" />
-      )}
-      <span className="sf-tile__text">
-        <strong>{title}</strong>
-        <small>{sub}</small>
-      </span>
-      {moto && <i className="sf-road" aria-hidden />}
-    </button>
-  );
-}
-
-/**
- * Categorias com foto (celular), logo abaixo da busca: tocar leva o cardápio até a categoria.
- * Quando passam por baixo da busca, as categorias em texto aparecem presas nela.
- */
-function CategoryBubbles({
+function CategoryTiles({
   sections,
   box,
 }: {
@@ -560,59 +572,56 @@ function CategoryBubbles({
   box: RefObject<HTMLElement | null>;
 }) {
   const cur = useActiveSection() ?? sections[0]?.id;
+  const rail = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(0);
+  const [pages, setPages] = useState(1);
+  useEffect(() => {
+    const el = rail.current;
+    if (!el) return;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const w = el.clientWidth || 1;
+      setPages(Math.max(1, Math.round(el.scrollWidth / w)));
+      setPage(Math.round(el.scrollLeft / w));
+    };
+    const on = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    measure();
+    el.addEventListener('scroll', on, { passive: true });
+    window.addEventListener('resize', on);
+    return () => {
+      cancelAnimationFrame(frame);
+      el.removeEventListener('scroll', on);
+      window.removeEventListener('resize', on);
+    };
+  }, [sections.length]);
   return (
-    <nav className="cbubbles" aria-label="Categorias" ref={box}>
-      {sections.map((c, i) => (
-        <button
-          key={c.id}
-          type="button"
-          className="cbubble"
-          style={{ '--i': Math.min(i, 8) } as CSSProperties}
-          aria-current={c.id === cur}
-          onClick={() => requestJump(c.id)}
-        >
-          <Photo src={sectionPhoto(c)} alt="" className="cbubble__photo" eager={i < 5} />
-          <span>{c.name}</span>
-        </button>
-      ))}
-    </nav>
-  );
-}
-
-/**
- * Loja fechada (ou pedidos da mesa pausados): o único aviso grande do início. Aberta, o essencial
- * já está na linha da capa e o cliente vai direto para os produtos.
- */
-function ClosedCard({ onInfo }: { onInfo(): void }) {
-  const { table } = useStore();
-  return (
-    <section className="sf-ride" data-closed>
-      <div className="sf-ride__top">
-        <div className="sf-ride__text" role="status">
-          <strong className="sf-ride__title">
-            <Moon size={18} aria-hidden />{' '}
-            {table ? 'Pedidos pelo celular pausados' : 'Estamos fechados agora'}
-          </strong>
-          <small className="sf-ride__sub">
-            {table ? 'Chame o garçom para pedir.' : 'Monte a sacola; o pedido sai quando abrir.'}
-          </small>
-        </div>
-        <ClosedArt live className="sf-ride__art" />
+    <nav className="ctiles" aria-label="Categorias" ref={box}>
+      <div className="ctiles__track" ref={rail}>
+        {sections.map((c, i) => (
+          <button
+            key={c.id}
+            type="button"
+            className="ctile"
+            style={{ '--i': Math.min(i, 8) } as CSSProperties}
+            aria-current={c.id === cur}
+            onClick={() => requestJump(c.id)}
+          >
+            <Photo src={sectionPhoto(c)} alt="" className="ctile__photo" eager={i < 5} />
+            <span>{c.name}</span>
+          </button>
+        ))}
       </div>
-      <button
-        type="button"
-        className="sf-ride__info"
-        onClick={onInfo}
-        aria-label="Mais informações da loja"
-      >
-        <span>
-          <Clock size={15} aria-hidden /> Horários
-        </span>
-        <span className="sf-ride__more">
-          <ChevronRight size={16} aria-hidden />
-        </span>
-      </button>
-    </section>
+      {pages > 1 && (
+        <div className="ctiles__dots" aria-hidden>
+          {Array.from({ length: pages }, (_, i) => (
+            <span key={i} data-on={i === Math.min(page, pages - 1) || undefined} />
+          ))}
+        </div>
+      )}
+    </nav>
   );
 }
 
@@ -904,19 +913,13 @@ export function HomeScreen() {
   const body = (
     <>
       <div className="sf-hero">
-        <StoreHeader onInfo={() => setSheet('info')} />
-        {phone && (
+        <div className="sf-wrap">
+          <AppTop onInfo={() => setSheet('info')} />
+        </div>
+        {/* Mesa do QR Code: boas-vindas e os passos (chamar o garçom, a conta). */}
+        {table && phone && (
           <div className="sf-wrap sf-ridewrap">
-            {table ? (
-              <TableWelcome onInfo={() => setSheet('info')} />
-            ) : (
-              <RideTile onInfo={() => setSheet('info')} />
-            )}
-          </div>
-        )}
-        {!menu.store.isOpen && (
-          <div className="sf-wrap sf-intro">
-            <ClosedCard onInfo={() => setSheet('info')} />
+            <TableWelcome onInfo={() => setSheet('info')} />
           </div>
         )}
       </div>
@@ -963,7 +966,13 @@ export function HomeScreen() {
         </div>
         {chips && <CategoryChips sections={wheel} show={past} />}
       </div>
-      {chips && <CategoryBubbles sections={wheel} box={under} />}
+      {/* O banner (ou a capa da loja) vem antes dos grupos, como na vitrine de um app. */}
+      {!term && (
+        <div className="sf-wrap hm-banners">
+          <Banners banners={menu.banners} cover={r.coverUrl} name={r.name} onPick={pickBanner} />
+        </div>
+      )}
+      {chips && <CategoryTiles sections={wheel} box={under} />}
 
       <div className="sf-wrap sf-body">
         {term ? (
@@ -996,19 +1005,12 @@ export function HomeScreen() {
                   <ChevronRight size={16} />
                 </Link>
               )}
-              {!phone &&
-                (table ? (
-                  <TableWelcome onInfo={() => setSheet('info')} />
-                ) : (
-                  <RideTile onInfo={() => setSheet('info')} />
-                ))}
-              <LoyaltyStrip />
+              {!phone && table && <TableWelcome onInfo={() => setSheet('info')} />}
               {/* Quem já está sentado na mesa não precisa reservar (store-rules.ts). */}
               {rules.reservations && <ReserveCard />}
               {/* Já no restaurante: lê o QR Code da mesa e pede para ela (sem entrega). */}
               <AtTableTile />
             </div>
-            <Banners banners={menu.banners} onPick={pickBanner} />
 
             {wheel.length === 0 ? (
               <div className="empty-state">

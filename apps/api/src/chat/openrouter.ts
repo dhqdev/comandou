@@ -260,7 +260,8 @@ export class OpenRouterClient {
   async editImage(
     model: string,
     prompt: string,
-    input: string,
+    /** Foto para editar (data URL); null cria a imagem do zero, só pelo pedido. */
+    input: string | null,
     opts: { signal?: AbortSignal } = {},
   ): Promise<{ mime: string; bytes: Buffer; usage: Usage }> {
     const res = await fetch(`${this.baseUrl}/images`, {
@@ -269,7 +270,7 @@ export class OpenRouterClient {
       body: JSON.stringify({
         model,
         prompt,
-        input_references: [{ type: 'image_url', image_url: { url: input } }],
+        ...(input ? { input_references: [{ type: 'image_url', image_url: { url: input } }] } : {}),
         n: 1,
         output_format: 'jpeg',
       }),

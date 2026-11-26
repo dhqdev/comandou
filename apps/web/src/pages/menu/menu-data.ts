@@ -33,6 +33,8 @@ export interface OptionGroup {
   active: boolean;
   kind: OptionGroupKind;
   charge: ChargeRule;
+  /** A mesma opção pode ser escolhida mais de uma vez (3 bolas do mesmo sabor). */
+  allowRepeat?: boolean;
   productCount: number;
   options: {
     id: string;

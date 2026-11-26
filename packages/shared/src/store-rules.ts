@@ -32,6 +32,8 @@ export interface StoreRules {
   favorites: boolean;
   /** Faixa e tela da fidelidade. */
   loyalty: boolean;
+  /** Aba Cupons (vitrine e código) e o cupom na sacola: só online e com a conta do cliente. */
+  coupons: boolean;
   /** Aviso de instalar o cardápio como app. */
   installHint: boolean;
   /** Aba do meio da mesa: chamar o garçom e fechar a conta pelo celular. */
@@ -57,6 +59,7 @@ export function storeRules(mode: StoreMode, t: StoreToggles = {}): StoreRules {
       reservations: false,
       favorites: false,
       loyalty: false,
+      coupons: false,
       installHint: false,
       tableService: true,
     };
@@ -69,6 +72,7 @@ export function storeRules(mode: StoreMode, t: StoreToggles = {}): StoreRules {
     reservations: true,
     favorites: true,
     loyalty: true,
+    coupons: accounts,
     installHint: true,
     tableService: false,
   };
@@ -79,6 +83,9 @@ export function storeScreenAllowed(rules: StoreRules, screen: string): boolean {
   if (screen.startsWith('conversa')) return rules.chat;
   if (screen.startsWith('favoritos')) return rules.favorites;
   if (screen.startsWith('fidelidade')) return rules.loyalty;
+  if (screen.startsWith('cupons')) return rules.coupons;
+  // Indique um amigo vale pontos: só onde há fidelidade.
+  if (screen.startsWith('conta/indique')) return rules.loyalty;
   // Reservar e as reservas da conta (lista e acompanhamento pelo id).
   if (screen.startsWith('reservar') || screen.startsWith('reservas')) return rules.reservations;
   if (screen === 'mesa' || screen.startsWith('mesa/')) return rules.tableService;

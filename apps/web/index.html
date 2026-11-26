@@ -243,48 +243,40 @@
         flex: none;
         margin: 0 16px;
       }
+      /* Topo do app: saudação e pontos, o sino, a loja e a faixa do horário. */
       .cm-msk__hero {
-        position: relative;
         display: grid;
-        justify-items: center;
-        gap: 10px;
-        margin: 0 !important;
-        padding-bottom: 4px;
+        grid-template-columns: minmax(0, 1fr) 44px;
+        align-items: center;
+        gap: 12px;
+        padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
       }
-      .cm-msk__cover {
-        width: 100%;
-        height: 200px;
-        border-radius: 0 !important;
-      }
-      .cm-msk__logo {
-        width: 92px;
-        height: 92px;
-        margin-top: -58px;
-        border-radius: 50% !important;
-        border: 4px solid var(--b-bg);
-        box-sizing: border-box;
-      }
-      .cm-msk__hero > span {
+      .cm-msk__hello {
         display: grid;
-        justify-items: center;
-        gap: 10px;
-        width: 100%;
+        gap: 9px;
       }
       .cm-msk__name {
-        width: 62%;
+        width: 52%;
         height: 22px;
       }
       .cm-msk__status {
-        width: 90px;
-        height: 12px;
-        margin-top: -3px;
+        width: 38%;
+        height: 14px;
       }
       .cm-msk__info {
-        display: none !important;
+        width: 44px;
+        height: 44px;
+        border-radius: 50% !important;
+      }
+      .cm-msk__store {
+        grid-column: 1 / -1;
+        height: 62px;
+        border-radius: 16px !important;
       }
       .cm-msk__ride {
-        height: 98px;
-        border-radius: 16px !important;
+        grid-column: 1 / -1;
+        height: 40px;
+        border-radius: 999px !important;
       }
       .cm-msk__search {
         display: flex;
@@ -300,24 +292,25 @@
         height: 46px;
         border-radius: 50%;
       }
+      /* Grupos em quadradinhos, quatro por linha. */
       .cm-msk__chips {
-        display: flex;
-        gap: 20px;
-        overflow: hidden;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
       }
       .cm-msk__chips span {
         display: grid;
-        flex: none;
         justify-items: center;
         gap: 8px;
       }
       .cm-msk__chips span i:first-child {
-        width: 66px;
-        height: 66px;
-        border-radius: 50%;
+        width: 100%;
+        max-width: 80px;
+        aspect-ratio: 1;
+        border-radius: 16px;
       }
       .cm-msk__chips span i:last-child {
-        width: 48px;
+        width: 70%;
         height: 10px;
       }
       .cm-msk__banner {
@@ -383,7 +376,7 @@
         width: 44px;
         height: 9px;
       }
-      /* Tablet (700–1099px): barra no topo, categorias numa coluna e a capa como cartão. */
+      /* Tablet (700–1099px): barra no topo, categorias numa coluna e o topo do app em duas colunas. */
       @media (min-width: 700px) {
         :root[data-boot='menu'] .cm-msk,
         .cm-msk--react {
@@ -414,62 +407,26 @@
           margin: 0;
         }
         .cm-msk__hero {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          height: 172px;
-          padding: 0 16px;
-          border-radius: 16px;
-          background: var(--b-bone);
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+          gap: 12px 16px;
+          padding-top: 4px;
         }
-        .cm-msk__cover,
+        .cm-msk__info {
+          justify-self: end;
+        }
+        .cm-msk__hello .cm-msk__name {
+          width: 40%;
+          height: 26px;
+        }
+        .cm-msk__store,
+        .cm-msk__ride {
+          grid-column: auto;
+          height: 60px;
+          border-radius: 16px !important;
+        }
         .cm-msk__chips,
         .cm-msk__tabs {
           display: none !important;
-        }
-        .cm-msk__hero > .cm-msk__logo {
-          align-self: flex-end;
-          width: 60px;
-          height: 60px;
-          margin: 0 0 18px;
-          border: 3px solid var(--b-shine);
-          background: var(--b-shine);
-        }
-        .cm-msk__hero > span {
-          display: grid;
-          justify-items: start;
-          align-self: flex-end;
-          flex: 1;
-          gap: 8px;
-          margin-bottom: 18px;
-        }
-        .cm-msk__hero .cm-msk__name {
-          width: 55%;
-          height: 24px;
-          background: var(--b-shine);
-        }
-        .cm-msk__hero .cm-msk__status {
-          width: 100px;
-          background: var(--b-shine);
-        }
-        .cm-msk__info {
-          display: block !important;
-          width: 40px;
-          height: 40px;
-          border-radius: 50% !important;
-          background: var(--b-shine) !important;
-        }
-        .cm-msk__search {
-          order: 1;
-        }
-        .cm-msk__ride {
-          order: 2;
-          height: 74px;
-        }
-        .cm-msk__banner,
-        .cm-msk__title,
-        .cm-msk__grid {
-          order: 3;
         }
         .cm-msk__banner {
           height: 168px;
@@ -512,9 +469,6 @@
         }
         .cm-msk__main {
           padding: 20px 28px 32px;
-        }
-        .cm-msk__hero {
-          height: 196px;
         }
         .cm-msk__grid {
           grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -673,18 +627,19 @@
           </div>
           <div class="cm-msk__main">
             <div class="cm-msk__hero">
-              <i class="cm-msk__cover"></i>
-              <i class="cm-msk__logo"></i>
-              <span><i class="cm-msk__name"></i><i class="cm-msk__status"></i></span>
+              <span class="cm-msk__hello"
+                ><i class="cm-msk__name"></i><i class="cm-msk__status"></i
+              ></span>
               <i class="cm-msk__info"></i>
+              <i class="cm-msk__store"></i>
+              <i class="cm-msk__ride"></i>
             </div>
-            <i class="cm-msk__ride"></i>
             <div class="cm-msk__search"><i></i><i></i></div>
+            <i class="cm-msk__banner"></i>
             <div class="cm-msk__chips">
               <span><i></i><i></i></span><span><i></i><i></i></span><span><i></i><i></i></span
-              ><span><i></i><i></i></span><span><i></i><i></i></span>
+              ><span><i></i><i></i></span>
             </div>
-            <i class="cm-msk__banner"></i>
             <i class="cm-msk__title"></i>
             <div class="cm-msk__grid">
               <div class="cm-msk__card"><i></i><i></i><i></i></div>

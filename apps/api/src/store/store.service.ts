@@ -17,7 +17,9 @@ import {
   PIX_KEY_TYPE_LABELS,
   pixBrCode,
   storeRules,
+  storeSchedule,
   type PixKeyType,
+  type StoreSchedule,
   type PixReceiptStatus,
 } from '@comandou/shared';
 import { createHash } from 'node:crypto';
@@ -370,6 +372,8 @@ export interface OnlineOrderInput {
   customerId?: string;
   /** Recompensa do programa de fidelidade trocada no pedido. */
   rewardId?: string;
+  /** Cupom da loja (aba Cupons). */
+  couponCode?: string;
   /** Mesa: onde o celular está (a loja confere com o ponto dela no mapa). */
   presence?: Presence;
 }
@@ -431,6 +435,24 @@ export class StoreService {
                                'America/Sao_Paulo') AS tz) z`,
     );
     return withinHours(s.hours ?? [], now!.dow, now!.hhmm);
+  }
+
+  /**
+   * Faixa da loja no app: aberta até que horas ou quando abre de novo (hora local do
+   * restaurante). Sem horário ligado, só o aberto/fechado do botão.
+   */
+  async scheduleIn(tx: Tx, s: StoreSettings, openNow: boolean): Promise<StoreSchedule> {
+    if (!s.hoursEnabled || !s.hours?.length) return { closesAt: null, opensAt: null };
+    const now = await one<{ dow: number; hhmm: string }>(
+      tx,
+      `SELECT extract(dow FROM now() AT TIME ZONE z.tz)::int AS dow,
+              to_char(now() AT TIME ZONE z.tz, 'HH24:MI') AS hhmm
+         FROM (SELECT COALESCE((SELECT timezone FROM tenants WHERE id = app_current_tenant()),
+                               'America/Sao_Paulo') AS tz) z`,
+    );
+    // Botão "loja fechada" desligado à mão no meio do turno: não promete horário de abrir hoje.
+    if (!openNow && !s.isOpen) return { closesAt: null, opensAt: null };
+    return storeSchedule(s.hours, now!.dow, now!.hhmm, openNow);
   }
 
   /** A loja com o "recebe agora" e se a página do restaurante (/site) já foi criada. */
@@ -704,10 +726,12 @@ export class StoreService {
     const status = await this.db.withTenant({ tenantId }, async (tx) => {
       const s = await this.settingsIn(tx);
       if (!s.enabled) throw new NotFoundException('Cardápio online desativado');
+      const isOpen = await this.openNowIn(tx, s);
       return {
-        isOpen: await this.openNowIn(tx, s),
+        isOpen,
         acceptsDelivery: s.acceptsDelivery,
         acceptsPickup: s.acceptsPickup,
+        schedule: await this.scheduleIn(tx, s, isOpen),
       };
     });
     // Quando o Super Admin limpou o cache da loja: o cardápio aberto limpa e recarrega.
@@ -765,6 +789,7 @@ export class StoreService {
           imageId: string | null;
           featured: boolean;
           badge: string | null;
+          loyaltyPoints: number | null;
           modelV: number | null;
           modelUsdz: boolean;
           photoIds: string[] | null;
@@ -776,7 +801,7 @@ export class StoreService {
         // O cardápio online usa o cardápio Delivery (itens e preços dele), igual ao pedido que chega.
         // Na mesa vale o Principal (o do salão), que é o que o pedido de mesa cobra.
         menuTreeSql(
-          `'featured', p.featured, 'badge', p.badge,
+          `'featured', p.featured, 'badge', p.badge, 'loyaltyPoints', p.loyalty_points,
            'modelV', (SELECT floor(extract(epoch FROM pm.updated_at))::bigint FROM product_models pm
                        WHERE pm.product_id = p.id AND pm.glb IS NOT NULL),
            'modelUsdz', COALESCE((SELECT pm.usdz IS NOT NULL FROM product_models pm
@@ -805,6 +830,44 @@ export class StoreService {
       const rules = storeRules(table ? 'table' : 'online', s);
       const productIds = new Set(visible.flatMap((c) => c.products.map((p) => p.id)));
       const categoryIds = new Set(visible.map((c) => c.id));
+      const openNow = await this.openNowIn(tx, s);
+      // Resumo do programa de fidelidade (o saldo vem em /store/loyalty): o início já mostra os
+      // pontos de cada item e as abas do app sem esperar outra chamada.
+      const lp = rules.loyalty
+        ? await one<{
+            enabled: boolean;
+            mode: 'points' | 'stamps';
+            pointsPerReal: string;
+            showItemPoints: boolean;
+          }>(
+            tx,
+            `SELECT enabled, mode, points_per_real::text AS "pointsPerReal",
+                    show_item_points AS "showItemPoints" FROM loyalty_programs`,
+          )
+        : null;
+      // Cupons na vitrine (aba Cupons): só no cardápio online com contas.
+      const coupons =
+        !table && s.accountsEnabled
+          ? ((
+              await one<{ n: number }>(
+                tx,
+                `SELECT count(*)::int AS n FROM coupons
+                  WHERE active AND listed AND (starts_at IS NULL OR starts_at <= now())
+                    AND (ends_at IS NULL OR ends_at > now())`,
+              )
+            )?.n ?? 0)
+          : 0;
+      // Avisos no ar (tela Notificações): o sino do início mostra a bolinha se houver um novo.
+      const notices = table
+        ? []
+        : (
+            await q<{ id: string }>(
+              tx,
+              `SELECT id FROM store_notices
+                WHERE active AND starts_at <= now() AND (ends_at IS NULL OR ends_at > now())
+                ORDER BY starts_at DESC LIMIT 30`,
+            )
+          ).map((n) => n.id);
       return {
         restaurant: {
           name: tenantName,
@@ -818,7 +881,9 @@ export class StoreService {
           logoUrl: mediaUrl(s.logoImageId),
         },
         store: {
-          isOpen: await this.openNowIn(tx, s),
+          isOpen: openNow,
+          // Faixa do app: "Aberta até 23h" ou "Fechada. Abre hoje às 10h30".
+          schedule: await this.scheduleIn(tx, s, openNow),
           acceptsDelivery: s.acceptsDelivery,
           acceptsPickup: s.acceptsPickup,
           deliveryFee: s.deliveryFee,
@@ -850,6 +915,11 @@ export class StoreService {
           chatEnabled: rules.chat,
         },
         mode: rules.mode,
+        loyalty: lp?.enabled
+          ? { mode: lp.mode, pointsPerReal: lp.pointsPerReal, showItemPoints: lp.showItemPoints }
+          : null,
+        coupons,
+        notices,
         // Banner que aponta para produto/categoria fora do cardápio vira banner sem link.
         banners: banners.map(({ imageId, active: _a, position: _p, ...b }) => {
           const ok =
@@ -1074,6 +1144,7 @@ export class StoreService {
           changeFor: !atTable && input.paymentMethod === 'cash' ? input.changeFor : undefined,
           customerId: input.customerId,
           rewardId: input.rewardId,
+          couponCode: input.couponCode,
           taxDocument: atTable ? input.customerCpf : undefined,
         },
         minSubtotal: atTable ? undefined : minSubtotal,

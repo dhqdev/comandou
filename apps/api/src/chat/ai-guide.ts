@@ -71,7 +71,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/loja-online',
     name: 'Loja online',
     perms: ['settings:manage'],
-    text: 'o cardápio do cliente (link /pedir), com prévia ao lado. Abas Aparência (cores e logo), Página, Banners, Destaques, Fidelidade (pontos ou carimbos), Funcionamento (horários), Pix e Pagamentos (pagamento online). O cardápio abre de dois jeitos: online (entrega e retirada) e mesa (QR Code de cada mesa, em Ajustes › Mesas do salão; na mesa não tem entrega, reserva, conversa nem fidelidade).',
+    text: 'o cardápio do cliente (link /pedir), com prévia ao lado. Abas Aparência (cores e logo), Página, Banners, Destaques, Fidelidade (pontos ou carimbos, níveis, pontos por item, indique um amigo e o PIN do cliente no balcão), Cupons (porcentagem, valor ou entrega grátis), App do cliente (Ajuda, Avisos e Sobre), Funcionamento (horários), Pix e Pagamentos (pagamento online). O cardápio abre de dois jeitos: online (entrega e retirada) e mesa (QR Code de cada mesa, em Ajustes › Mesas do salão; na mesa não tem entrega, reserva, conversa nem fidelidade).',
   },
   {
     path: '/clientes',

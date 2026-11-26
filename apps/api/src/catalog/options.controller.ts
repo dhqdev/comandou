@@ -45,6 +45,8 @@ const groupShape = {
   charge: z.enum(['sum', 'max', 'average']).default('sum'),
   minSelect: z.number().int().min(0).max(50).default(0),
   maxSelect: z.number().int().min(1).max(50).default(1),
+  /** A mesma opção pode ser escolhida mais de uma vez (2x o mesmo sabor). */
+  allowRepeat: z.boolean().default(false),
 };
 const GroupIn = z
   .object({ ...groupShape, options: z.array(OptionIn).max(100).default([]) })
@@ -67,7 +69,7 @@ const LinkIn = z.object({ groupIds: z.array(z.string().uuid()).max(30) });
 
 const GROUPS_SQL = `
   SELECT g.id, g.name, g.min_select AS "minSelect", g.max_select AS "maxSelect", g.active,
-         g.kind, g.charge,
+         g.kind, g.charge, g.allow_repeat AS "allowRepeat",
          (SELECT count(*)::int FROM product_option_groups pog WHERE pog.group_id = g.id) AS "productCount",
          COALESCE(json_agg(json_build_object('id', o.id, 'name', o.name, 'priceDelta', o.price_delta::text,
                   'position', o.position, 'active', o.active, 'isDefault', o.is_default,
@@ -102,9 +104,9 @@ export class OptionsController {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
       const g = await one<{ id: string }>(
         tx,
-        `INSERT INTO option_groups (tenant_id, name, min_select, max_select, kind, charge)
-         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-        [t.id, b.name, b.minSelect, b.maxSelect, b.kind, b.charge],
+        `INSERT INTO option_groups (tenant_id, name, min_select, max_select, kind, charge, allow_repeat)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+        [t.id, b.name, b.minSelect, b.maxSelect, b.kind, b.charge, b.allowRepeat],
       );
       for (const [i, o] of b.options.entries()) {
         await q(
@@ -149,9 +151,10 @@ export class OptionsController {
     const row = await this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
       const g = await one(
         tx,
-        `UPDATE option_groups SET name = $2, min_select = $3, max_select = $4, kind = $5, charge = $6, active = $7
+        `UPDATE option_groups SET name = $2, min_select = $3, max_select = $4, kind = $5, charge = $6, active = $7,
+                allow_repeat = $8
           WHERE id = $1 RETURNING id`,
-        [id, b.name, b.minSelect, b.maxSelect, b.kind, b.charge, b.active],
+        [id, b.name, b.minSelect, b.maxSelect, b.kind, b.charge, b.active, b.allowRepeat],
       );
       if (!g) return undefined;
       const current = await q<{ id: string }>(

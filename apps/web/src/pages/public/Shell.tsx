@@ -1,5 +1,5 @@
-import { fromCents, toCents } from '@comandou/shared';
-import { ChevronRight, Clock, HandPlatter, ShoppingBag } from 'lucide-react';
+import { fromCents, scheduleText, toCents } from '@comandou/shared';
+import { ChevronRight, Clock, HandPlatter, ShoppingBag, TicketPercent } from 'lucide-react';
 import { ReactNode, useEffect, useMemo, useRef } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router';
 import { SlideTabs } from '../../features/SlideTabs';
@@ -26,7 +26,8 @@ export function StoreStatusLine({
   const open = menu.store.isOpen;
   return (
     <span className={`status ${open ? 'is-open' : 'is-closed'} ${className}`}>
-      {open ? 'Aberto agora' : 'Fechado agora'}
+      {/* "Aberta até 23h" / "Fechada. Abre hoje às 10h30" (sem horário: aberta/fechada agora). */}
+      {scheduleText(open, menu.store.schedule)}
       {withTable && table && <span className="status__table">· Mesa {table.label}</span>}
     </span>
   );
@@ -187,7 +188,7 @@ export function SideBar({ tabs, dot }: { tabs: MagicTab[]; dot(n: number): React
  * retirada, total e o botão que já abre a finalização.
  */
 export function CartPanel() {
-  const { cart, setCart, subtotal, count, menu, product, bump, table } = useStore();
+  const { cart, setCart, subtotal, count, menu, product, bump, table, coupon } = useStore();
   const { channels, channel, setChannel } = useChannel();
   const navigate = useNavigate();
   const s = menu.store;
@@ -295,6 +296,11 @@ export function CartPanel() {
         {belowMin && (
           <p className="form-hint">
             Pedido mínimo de {brl(s.minOrder)}. Faltam {brl(fromCents(minOrder - subtotal))}.
+          </p>
+        )}
+        {coupon && count > 0 && (
+          <p className="form-hint sf-cart__coupon">
+            <TicketPercent size={15} aria-hidden /> Cupom <b>{coupon}</b> entra na finalização
           </p>
         )}
         <button

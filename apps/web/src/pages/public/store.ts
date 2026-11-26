@@ -1,10 +1,16 @@
 import type { PublicOnlinePay } from './OnlinePay';
 import {
   fromCents,
+  itemPoints,
   multiplyCents,
   optionsTotalCents,
+  orderPoints,
   toCents,
+  type CouponKind,
+  type HourSlot,
+  type LoyaltyLevel,
   type PixKeyType,
+  type StoreSchedule,
 } from '@comandou/shared';
 import { useEffect, useState } from 'react';
 import type { MenuGroup } from '../../lib/types';
@@ -26,6 +32,8 @@ export interface PublicProduct {
   rating?: { average: number; count: number } | null;
   /** Modelo 3D do prato (GLB e, se houver, o USDZ do iPhone). */
   model?: { glb: string; usdz: string | null } | null;
+  /** Pontos fixos que o item rende na fidelidade (null = pela regra do programa). */
+  loyaltyPoints?: number | null;
   optionGroups: MenuGroup[];
 }
 export interface PublicCategory {
@@ -35,7 +43,10 @@ export interface PublicCategory {
   products: PublicProduct[];
 }
 /** Situação da loja agora (GET /store/status). */
-export type StoreStatus = Pick<PublicMenu['store'], 'isOpen' | 'acceptsDelivery' | 'acceptsPickup'>;
+export type StoreStatus = Pick<
+  PublicMenu['store'],
+  'isOpen' | 'acceptsDelivery' | 'acceptsPickup' | 'schedule'
+>;
 
 export interface PublicMenu {
   restaurant: {
@@ -52,6 +63,8 @@ export interface PublicMenu {
   };
   store: {
     isOpen: boolean;
+    /** Faixa do app: aberta até que horas ou quando abre de novo (sem horário: null). */
+    schedule?: StoreSchedule | null;
     acceptsDelivery: boolean;
     acceptsPickup: boolean;
     deliveryFee: string;
@@ -82,6 +95,15 @@ export interface PublicMenu {
     /** Conversa com a loja pelo cardápio (no lugar do WhatsApp). */
     chatEnabled: boolean;
   };
+  /**
+   * Resumo da fidelidade (o saldo vem em /store/loyalty): o início mostra os pontos de cada item
+   * sem esperar outra chamada. null = programa desligado (ou cardápio da mesa).
+   */
+  loyalty?: PublicLoyaltyRule | null;
+  /** Quantos cupons estão na vitrine (aba Cupons). 0 = a aba não aparece. */
+  coupons?: number;
+  /** Ids dos avisos da loja no ar (o sino do início mostra a bolinha se houver um novo). */
+  notices?: string[];
   banners: PublicBanner[];
   /** Ids dos produtos que mais saíram nos últimos 30 dias. */
   popular: string[];
@@ -223,6 +245,16 @@ export const PAYMENT_OPTIONS: { value: CustomerInfo['paymentMethod']; label: str
 
 export const lineTotal = (l: CartLine) => multiplyCents(toCents(l.unit), l.quantity);
 
+/** Nomes das opções na sacola, na ordem escolhida: a mesma repetida vira "2× Nome". */
+export function optionNamesOf(ids: string[], opts: { id: string; name: string }[]) {
+  const counts = new Map<string, number>();
+  for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
+  return [...counts].map(([id, n]) => {
+    const name = opts.find((o) => o.id === id)?.name ?? '';
+    return n > 1 ? `${n}× ${name}` : name;
+  });
+}
+
 /**
  * Acerta a sacola guardada no aparelho com o cardápio atual: tira o que saiu do cardápio (ou
  * cuja opção sumiu) e atualiza preço, nome e foto. Assim o total mostrado é o que o servidor vai
@@ -241,7 +273,7 @@ export function syncCart(cart: CartLine[], product: (id: string) => PublicProduc
       continue;
     }
     const unit = fromCents(toCents(p.price) + optionsTotalCents(p.optionGroups, l.optionIds));
-    const optionNames = chosen.map((o) => o!.name);
+    const optionNames = optionNamesOf(l.optionIds, opts);
     if (
       unit !== l.unit ||
       p.name !== l.name ||
@@ -538,13 +570,21 @@ export interface LoyaltyReward {
 }
 export interface LoyaltyEntry {
   id: string;
-  kind: 'earn' | 'redeem' | 'refund' | 'expire' | 'adjust';
+  kind: 'earn' | 'redeem' | 'refund' | 'expire' | 'adjust' | 'bonus' | 'store';
   points: number;
   discount: string | null;
   note: string | null;
   createdAt: string;
   orderNumber: number | null;
 }
+/** Regra dos pontos que vem junto com o cardápio. */
+export interface PublicLoyaltyRule {
+  mode: 'points' | 'stamps';
+  pointsPerReal: string;
+  /** O cardápio mostra "Ganhe N pts" em cada item. */
+  showItemPoints: boolean;
+}
+export type { LoyaltyLevel };
 export type PublicLoyalty =
   | { enabled: false }
   | {
@@ -553,12 +593,27 @@ export type PublicLoyalty =
       pointsPerReal: string;
       stampMinOrder: string;
       expiryDays: number | null;
+      /** Pontos ganhos nos últimos N dias decidem o nível (null = desde sempre). */
+      levelWindowDays?: number | null;
+      showItemPoints?: boolean;
+      /** Níveis do programa (Bronze, Prata, Ouro...), do menor para o maior. */
+      levels?: LoyaltyLevel[];
+      /** Indique um amigo: pontos de quem indica e do amigo (null = desligado). */
+      referral?: { points: number; friendPoints: number } | null;
       rewards: LoyaltyReward[];
       account: {
         balance: number;
         expiresAt: string | null;
         pending: number;
         history: LoyaltyEntry[];
+        /** Pontos ganhos na janela dos níveis. */
+        earned?: number;
+        /** PIN de 6 números para usar os pontos e os cupons no balcão. */
+        pin?: string;
+        referralCode?: string;
+        /** Já informou o código de quem o convidou. */
+        referred?: boolean;
+        friends?: { invited: number; paid: number };
       } | null;
     };
 export type LoyaltyOn = Extract<PublicLoyalty, { enabled: true }>;
@@ -569,6 +624,44 @@ export function loyaltyPoints(l: LoyaltyOn, spentCents: number) {
   if (l.mode === 'stamps') return spentCents >= toCents(l.stampMinOrder) ? 1 : 0;
   return Math.floor((spentCents * toCents(l.pointsPerReal)) / 10_000);
 }
+
+/**
+ * Pontos que a sacola rende, na mesma conta da API (`orderPoints`): itens com número fixo rendem
+ * esse número e o resto rende pela regra sobre o que sobrou depois do desconto.
+ */
+export function cartPoints(
+  l: LoyaltyOn,
+  cart: CartLine[],
+  product: (id: string) => Pick<PublicProduct, 'loyaltyPoints'> | undefined,
+  spentCents: number,
+) {
+  return orderPoints(
+    { mode: l.mode, pointsPerReal: l.pointsPerReal, stampMinOrder: l.stampMinOrder },
+    spentCents,
+    cart.map((c) => ({
+      totalCents: lineTotal(c),
+      quantity: c.quantity,
+      fixed: product(c.productId)?.loyaltyPoints ?? null,
+      weight: c.weight,
+    })),
+  );
+}
+
+/**
+ * "Ganhe N pts" do cartão do item: o número fixo do item ou o preço × pontos por real. null =
+ * não mostra (programa de carimbos, desligado ou a loja escondeu os pontos dos itens).
+ */
+export function productPoints(
+  rule: PublicLoyaltyRule | null | undefined,
+  p: Pick<PublicProduct, 'price' | 'loyaltyPoints' | 'soldByWeight'>,
+): number | null {
+  if (!rule || !rule.showItemPoints || rule.mode !== 'points') return null;
+  const n = itemPoints(rule, toCents(p.price), p.loyaltyPoints);
+  return n && n > 0 ? n : null;
+}
+
+/** "1.250 pts" / "1 pt". */
+export const ptsText = (n: number) => `${n.toLocaleString('pt-BR')} ${n === 1 ? 'pt' : 'pts'}`;
 export const loyaltyUnit = (l: Pick<LoyaltyOn, 'mode'>, n = 2) =>
   l.mode === 'stamps' ? (n === 1 ? 'carimbo' : 'carimbos') : n === 1 ? 'ponto' : 'pontos';
 
@@ -601,4 +694,85 @@ export const LOYALTY_LABEL: Record<LoyaltyEntry['kind'], string> = {
   refund: 'Devolvido (pedido cancelado)',
   expire: 'Venceram',
   adjust: 'Ajuste da loja',
+  bonus: 'Indicação de amigo',
+  store: 'Troca na loja',
 };
+
+// ---------------------------------------------------------------- cupons e telas do app
+
+/** Cupom da vitrine (GET /store/coupons) ou conferido pelo código. */
+export interface PublicCoupon {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  kind: CouponKind;
+  value: string | null;
+  maxDiscount: string | null;
+  minOrder: string;
+  endsAt: string | null;
+  firstOrderOnly: boolean;
+  perCustomer: number;
+  imageUrl: string | null;
+  usedByMe: number;
+  /** Por que não dá para usar agora (null = dá). */
+  blocked: string | null;
+}
+/** Resposta de POST /store/coupons/check. */
+export interface CouponCheck {
+  coupon: PublicCoupon;
+  /** Desconto nesta sacola ("12.00"), ou null se não vale agora. */
+  discount: string | null;
+}
+
+/** Aviso da loja para os clientes (tela Notificações). */
+export interface StoreNotice {
+  id: string;
+  title: string;
+  body: string | null;
+  imageUrl: string | null;
+  targetType: 'none' | 'product' | 'coupon';
+  target: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  createdAt: string;
+}
+export interface StoreFaq {
+  id: string;
+  section: string;
+  question: string;
+  answer: string;
+}
+/** Telas Ajuda, Notificações, Sobre e Escolher loja (GET /store/app). */
+export interface PublicAppInfo {
+  about: string | null;
+  instagram: string | null;
+  address: string | null;
+  whatsapp: string | null;
+  hours: HourSlot[];
+  location: { lat: number; lng: number } | null;
+  faq: StoreFaq[];
+  notices: StoreNotice[];
+}
+
+/** Avisos já vistos neste aparelho (a bolinha do sino some depois de abrir a tela). */
+const SEEN_NOTICES = 'cm-notices-seen';
+export const seenNotices = () => read<string[]>(SEEN_NOTICES, []);
+export function markNoticesSeen(ids: string[]) {
+  write(SEEN_NOTICES, [...new Set([...ids, ...seenNotices()])].slice(0, 100));
+}
+
+/** Cupom escolhido para o próximo pedido (aba Cupons → sacola). */
+export const COUPON_KEY = 'cm-coupon';
+
+/** Convite de um amigo (link com ?convite=CODIGO): fica guardado até a pessoa usar o código. */
+const INVITE_KEY = 'cm-invite';
+export function captureInvite(search: string) {
+  const code = new URLSearchParams(search).get('convite')?.trim().toUpperCase();
+  if (code && /^[A-Z0-9]{4,12}$/.test(code)) write(INVITE_KEY, code);
+}
+export const pendingInvite = () => {
+  const v = read<string | null>(INVITE_KEY, null);
+  return typeof v === 'string' ? v : null;
+};
+export const clearInvite = () => write(INVITE_KEY, null);

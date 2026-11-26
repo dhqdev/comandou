@@ -182,6 +182,7 @@ export function GroupEditor({
   const [min, setMin] = useState('0');
   const [max, setMax] = useState('5');
   const [active, setActive] = useState(true);
+  const [repeat, setRepeat] = useState(false);
   const [rows, setRows] = useState<OptRow[]>([emptyRow()]);
   const [products, setProducts] = useState<Product[]>([]);
   const [links, setLinks] = useState<GroupLink[]>([]);
@@ -201,6 +202,7 @@ export function GroupEditor({
       setMin('0');
       setMax('5');
       setActive(true);
+      setRepeat(false);
       setRows([emptyRow()]);
     } else {
       setName(group.name);
@@ -209,6 +211,7 @@ export function GroupEditor({
       setMin(String(group.minSelect));
       setMax(String(group.maxSelect));
       setActive(group.active);
+      setRepeat(!!group.allowRepeat);
       setRows(
         group.options.map((o) => ({
           key: rowKey++,
@@ -280,6 +283,8 @@ export function GroupEditor({
         charge,
         minSelect: minN,
         maxSelect: maxN,
+        // Vai sempre: o PUT sem ele voltaria a "não repetir".
+        allowRepeat: repeat && maxN > 1,
         options: filled.map((r) => ({
           id: r.id,
           name: r.name.trim(),
@@ -391,6 +396,18 @@ export function GroupEditor({
             {GROUP_KIND[kind].hint}{' '}
             {minN > 0 ? 'Obrigatório: o pedido só segue com a escolha feita.' : 'Opcional.'}
           </p>
+          {maxN > 1 && kind !== 'remove' && (
+            <label className="mn-check cm-form__wide">
+              <input
+                type="checkbox"
+                checked={repeat}
+                disabled={!canWrite}
+                onChange={(e) => setRepeat(e.target.checked)}
+              />
+              Pode repetir a mesma opção (ex.: 3 bolas do mesmo sabor). No cardápio online cada
+              opção ganha o contador + e −.
+            </label>
+          )}
           {!isNew && (
             <span className="cm-label-row cm-form__wide">
               <label className="mn-check">
@@ -424,6 +441,16 @@ export function GroupEditor({
                     width={44}
                     value={r.imageId}
                     disabled={!canWrite}
+                    ai={
+                      r.name.trim()
+                        ? {
+                            name: r.name,
+                            description:
+                              r.description.trim() ||
+                              (name.trim() ? `Opção de ${name.trim()}` : null),
+                          }
+                        : null
+                    }
                     onChange={(img) =>
                       setRows((x) => x.map((y) => (y.key === r.key ? { ...y, imageId: img } : y)))
                     }

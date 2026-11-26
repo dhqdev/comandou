@@ -6,7 +6,7 @@ import {
   toCents,
 } from '@comandou/shared';
 import { Scale } from 'lucide-react';
-import { Check, ChevronDown, ChevronLeft, Plus, Share2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, Minus, Plus, Share2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { track } from './pixel';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -18,6 +18,7 @@ import { Model3DButton } from './Model3D';
 import { reducedMotion, takeMorph } from './morph';
 import { ProductGallery } from './ProductGallery';
 import { ProductReviews, RatingChip } from './ProductReviews';
+import { optionNamesOf } from './store';
 import { HeartButton, Stepper } from './ui';
 
 /** Curva de mola do sistema (tokens.css), lida na hora; reserva se o CSS não tiver carregado. */
@@ -30,14 +31,18 @@ const asChips = (g: MenuGroup) =>
   g.options.length <= 4 &&
   g.options.every((o) => o.name.length <= 16 && !o.imageUrl && !o.description);
 
-/** Linha embaixo do nome do grupo: quantas opções a pessoa pode (ou precisa) escolher. */
-export function groupRule(g: Pick<MenuGroup, 'minSelect' | 'maxSelect'>) {
+/**
+ * Linha embaixo do nome do grupo: quantas opções a pessoa pode (ou precisa) escolher, como
+ * "Escolha de 1 até 3 opções". Grupo que deixa repetir avisa ("pode repetir").
+ */
+export function groupRule(g: Pick<MenuGroup, 'minSelect' | 'maxSelect' | 'allowRepeat'>) {
   const { minSelect: min, maxSelect: max } = g;
   const n = (k: number) => `${k} ${k === 1 ? 'opção' : 'opções'}`;
+  const repeat = g.allowRepeat && max > 1 ? ' · pode repetir' : '';
   if (max === 1) return 'Escolha 1 opção';
-  if (min > 0 && min === max) return `Escolha ${n(min)}`;
-  if (min > 0) return `Escolha de ${min} a ${n(max)}`;
-  return `Escolha até ${n(max)}`;
+  if (min > 0 && min === max) return `Escolha ${n(min)}${repeat}`;
+  if (min > 0) return `Escolha de ${min} até ${n(max)}${repeat}`;
+  return `Escolha até ${n(max)}${repeat}`;
 }
 
 /** Tela do produto: foto grande, personalização (tamanhos, adicionais) e barra de adicionar. */
@@ -227,6 +232,15 @@ export function ProductScreen() {
       return { ...s, [gid]: [...cur, oid] };
     });
   }
+  /** Grupo que deixa repetir: + põe mais uma vez a opção, − tira uma (o máximo conta todas). */
+  function bump(gid: string, oid: string, delta: 1 | -1, max: number) {
+    setSel((s) => {
+      const cur = s[gid] ?? [];
+      if (delta > 0) return cur.length >= max ? s : { ...s, [gid]: [...cur, oid] };
+      const i = cur.lastIndexOf(oid);
+      return i < 0 ? s : { ...s, [gid]: [...cur.slice(0, i), ...cur.slice(i + 1)] };
+    });
+  }
 
   function add() {
     if (missing.length) {
@@ -245,7 +259,7 @@ export function ProductScreen() {
         imageUrl: p!.imageUrl,
         unit: fromCents(unit),
         optionIds: ids,
-        optionNames: options.filter((o) => ids.includes(o.id)).map((o) => o.name),
+        optionNames: optionNamesOf(ids, options),
         quantity: qty,
         weight: p!.soldByWeight || undefined,
         notes: notes.trim(),
@@ -338,6 +352,9 @@ export function ProductScreen() {
         {p.optionGroups.map((g) => {
           const single = g.maxSelect === 1;
           const chosen = sel[g.id]?.length ?? 0;
+          // Com foto em alguma opção, cada uma vira um cartão com a foto à esquerda.
+          const hasImg = g.options.some((o) => !!o.imageUrl);
+          const repeat = !single && !!g.allowRepeat;
           const required = g.minSelect > 0;
           const done = required && chosen >= g.minSelect;
           const late = shake && chosen < g.minSelect;
@@ -397,10 +414,61 @@ export function ProductScreen() {
                   })}
                 </div>
               ) : (
-                <div className="og__list">
+                <div className="og__list" data-cards={hasImg || undefined}>
                   {g.options.map((o) => {
-                    const on = sel[g.id]?.includes(o.id) ?? false;
+                    const count = (sel[g.id] ?? []).filter((x) => x === o.id).length;
+                    const on = count > 0;
                     const full = !single && !on && chosen >= g.maxSelect;
+                    const img = o.imageUrl ? (
+                      <img className="og__img" src={o.imageUrl} alt="" loading="lazy" />
+                    ) : (
+                      hasImg && <span className="og__img og__img--none" aria-hidden />
+                    );
+                    const text = (
+                      <span className="og__text">
+                        <span className="og__name">{o.name}</span>
+                        {o.description && <span className="og__desc">{o.description}</span>}
+                        {toCents(o.priceDelta) > 0 && (
+                          <span className="og__price">+ {brl(o.priceDelta)}</span>
+                        )}
+                      </span>
+                    );
+                    // Pode repetir (3 bolas do mesmo sabor): contador com + e −.
+                    if (repeat)
+                      return (
+                        <div
+                          key={o.id}
+                          className="og__row og__row--qty"
+                          data-on={on || undefined}
+                          data-full={full || undefined}
+                        >
+                          {img}
+                          {text}
+                          <span className="og__qty" role="group" aria-label={o.name}>
+                            <button
+                              type="button"
+                              className="og__qbtn"
+                              aria-label={`Mais ${o.name}`}
+                              disabled={chosen >= g.maxSelect}
+                              onClick={() => bump(g.id, o.id, 1, g.maxSelect)}
+                            >
+                              <Plus size={18} />
+                            </button>
+                            <span className="og__qn" aria-live="polite" key={count}>
+                              {count}
+                            </span>
+                            <button
+                              type="button"
+                              className="og__qbtn"
+                              aria-label={`Menos ${o.name}`}
+                              disabled={!count}
+                              onClick={() => bump(g.id, o.id, -1, g.maxSelect)}
+                            >
+                              <Minus size={18} />
+                            </button>
+                          </span>
+                        </div>
+                      );
                     return (
                       <label
                         key={o.id}
@@ -408,16 +476,8 @@ export function ProductScreen() {
                         data-on={on || undefined}
                         data-full={full || undefined}
                       >
-                        <span className="og__text">
-                          <span className="og__name">{o.name}</span>
-                          {o.description && <span className="og__desc">{o.description}</span>}
-                          {toCents(o.priceDelta) > 0 && (
-                            <span className="og__price">+ {brl(o.priceDelta)}</span>
-                          )}
-                        </span>
-                        {o.imageUrl && (
-                          <img className="og__img" src={o.imageUrl} alt="" loading="lazy" />
-                        )}
+                        {img}
+                        {text}
                         {single ? (
                           <>
                             <input

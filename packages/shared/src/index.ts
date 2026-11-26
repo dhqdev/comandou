@@ -31,3 +31,4 @@ export * from './store-rules';
 export * from './district';
 export * from './print-marks';
 export * from './print-templates';
+export * from './customer-app';

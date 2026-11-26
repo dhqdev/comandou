@@ -68,6 +68,10 @@ import {
 } from '../store-chat/store-chat.controller';
 import { StoreChatService } from '../store-chat/store-chat.service';
 import { LoyaltyController } from '../loyalty/loyalty.controller';
+import { CouponsController, StoreCouponsController } from '../coupons/coupons.controller';
+import { CouponsService } from '../coupons/coupons.service';
+import { AppContentController, StoreAppController } from '../app-content/app-content.controller';
+import { AppContentService } from '../app-content/app-content.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import {
   OnlinePayAdminController,
@@ -125,6 +129,10 @@ import { OrdersService } from './orders.service';
     PublicReservationsController,
     AccountReservationsController,
     LoyaltyController,
+    CouponsController,
+    StoreCouponsController,
+    AppContentController,
+    StoreAppController,
     PublicStoreChatController,
     SupportChatController,
     PixReceiptsController,
@@ -163,6 +171,8 @@ import { OrdersService } from './orders.service';
     CustomerMailService,
     ReservationsService,
     LoyaltyService,
+    CouponsService,
+    AppContentService,
     StoreChatService,
     PixService,
     OnlinePayService,

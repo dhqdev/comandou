@@ -83,30 +83,40 @@ export class PrivacyService {
       const key = `app_phone_key($2::text)`;
       const p = [cid, phone];
 
-      const [addresses, sessions, orders, reservations, loyalty, reviews, storeChat, whatsapp] =
-        await Promise.all([
-          cid
-            ? q(
-                tx,
-                `SELECT label AS nome, street AS rua, number AS numero, district AS bairro,
+      const [
+        addresses,
+        sessions,
+        orders,
+        reservations,
+        loyalty,
+        reviews,
+        storeChat,
+        whatsapp,
+        coupons,
+        member,
+      ] = await Promise.all([
+        cid
+          ? q(
+              tx,
+              `SELECT label AS nome, street AS rua, number AS numero, district AS bairro,
                       complement AS complemento, reference AS referencia, cep, city AS cidade,
                       state AS uf, lat::text, lng::text, is_default AS principal
                  FROM customer_addresses WHERE customer_id = $1 ORDER BY created_at`,
-                [cid],
-              )
-            : [],
-          cid
-            ? q(
-                tx,
-                `SELECT created_at AS "entrouEm", last_seen_at AS "ultimoUso", expires_at AS "valeAte",
+              [cid],
+            )
+          : [],
+        cid
+          ? q(
+              tx,
+              `SELECT created_at AS "entrouEm", last_seen_at AS "ultimoUso", expires_at AS "valeAte",
                       revoked_at AS "encerradaEm", user_agent AS navegador
                  FROM customer_sessions WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 200`,
-                [cid],
-              )
-            : [],
-          q(
-            tx,
-            `SELECT o.number AS numero, o.created_at AS "feitoEm", o.status AS situacao,
+              [cid],
+            )
+          : [],
+        q(
+          tx,
+          `SELECT o.number AS numero, o.created_at AS "feitoEm", o.status AS situacao,
                   o.channel AS canal, o.total::text, o.customer_name AS nome,
                   o.customer_phone AS telefone, o.delivery_address AS "enderecoDeEntrega",
                   o.tax_document AS "cpfNaNota", o.notes AS observacao,
@@ -124,56 +134,75 @@ export class PrivacyService {
                OR app_phone_key(o.customer_phone) = ${key}
                OR app_phone_key(o.fiado_phone) = ${key}
             ORDER BY o.created_at DESC LIMIT 5000`,
-            p,
-          ),
-          q(
-            tx,
-            `SELECT code AS codigo, starts_at AS "dataHora", party_size AS pessoas, status AS situacao,
+          p,
+        ),
+        q(
+          tx,
+          `SELECT code AS codigo, starts_at AS "dataHora", party_size AS pessoas, status AS situacao,
                   name AS nome, phone AS telefone, email, occasion AS ocasiao, notes AS recado,
                   created_at AS "feitaEm"
              FROM reservations
             WHERE ($1::uuid IS NOT NULL AND customer_id = $1) OR app_phone_key(phone) = ${key}
             ORDER BY starts_at DESC LIMIT 2000`,
-            p,
-          ),
-          cid
-            ? q(
-                tx,
-                `SELECT kind AS tipo, points AS pontos, discount::text AS desconto, note AS nota,
+          p,
+        ),
+        cid
+          ? q(
+              tx,
+              `SELECT kind AS tipo, points AS pontos, discount::text AS desconto, note AS nota,
                       created_at AS em
                  FROM loyalty_entries WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 5000`,
-                [cid],
-              )
-            : [],
-          cid
-            ? q(
-                tx,
-                `SELECT pr.name AS item, r.rating AS nota, r.comment AS comentario, r.created_at AS em
+              [cid],
+            )
+          : [],
+        cid
+          ? q(
+              tx,
+              `SELECT pr.name AS item, r.rating AS nota, r.comment AS comentario, r.created_at AS em
                  FROM product_reviews r JOIN products pr ON pr.id = r.product_id
                 WHERE r.customer_id = $1 ORDER BY r.created_at DESC`,
-                [cid],
-              )
-            : [],
-          q(
-            tx,
-            `SELECT m.sender AS quem, m.body AS texto, m.file_kind AS arquivo, m.created_at AS em
+              [cid],
+            )
+          : [],
+        q(
+          tx,
+          `SELECT m.sender AS quem, m.body AS texto, m.file_kind AS arquivo, m.created_at AS em
              FROM store_chat_messages m JOIN store_chats c ON c.id = m.chat_id
             WHERE (($1::uuid IS NOT NULL AND c.customer_id = $1) OR app_phone_key(c.phone) = ${key})
               AND m.deleted_at IS NULL
             ORDER BY m.created_at LIMIT 5000`,
-            p,
-          ),
-          phone
-            ? q(
-                tx,
-                `SELECT m.role AS quem, m.content AS texto, m.created_at AS em
+          p,
+        ),
+        phone
+          ? q(
+              tx,
+              `SELECT m.role AS quem, m.content AS texto, m.created_at AS em
                  FROM ai_customer_messages m
                 WHERE app_phone_key(m.phone) = app_phone_key($1)
                 ORDER BY m.created_at LIMIT 5000`,
-                [phone],
-              )
-            : [],
-        ]);
+              [phone],
+            )
+          : [],
+        cid
+          ? q(
+              tx,
+              `SELECT c.code AS cupom, c.title AS nome, r.discount::text AS desconto,
+                      r.channel AS onde, r.refunded_at AS "devolvidoEm", r.created_at AS em
+                 FROM coupon_redemptions r JOIN coupons c ON c.id = r.coupon_id
+                WHERE r.customer_id = $1 ORDER BY r.created_at DESC LIMIT 2000`,
+              [cid],
+            )
+          : [],
+        cid
+          ? one(
+              tx,
+              `SELECT referral_code AS "codigoDeConvite", (referred_by IS NOT NULL) AS "veioPorConvite",
+                      created_at AS "desde"
+                 FROM loyalty_members WHERE customer_id = $1`,
+              [cid],
+            )
+          : null,
+      ]);
 
       await this.log(tx, tenantId, 'export', who, {
         orders: orders.length,
@@ -190,6 +219,8 @@ export class PrivacyService {
         pedidos: orders,
         reservas: reservations,
         fidelidade: loyalty,
+        programa: member ?? null,
+        cupons: coupons,
         avaliacoes: reviews,
         conversaComALoja: storeChat,
         conversaNoWhatsApp: whatsapp,

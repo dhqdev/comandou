@@ -1,0 +1,144 @@
+/* PIN do cliente no balcão (PDV e Loja online › Fidelidade). */
+.cpin__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.cpin__title svg {
+  color: var(--cm-brand-600);
+}
+.cpin__form {
+  display: grid;
+  gap: 12px;
+}
+.cpin__form .cm-hint {
+  margin: 0;
+}
+.cpin__row {
+  display: flex;
+  gap: 8px;
+}
+.cpin__pin {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.cpin__row .cm-btn {
+  height: 52px;
+}
+.cpin {
+  display: grid;
+  gap: 12px;
+}
+.cpin__who {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cpin__name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.cpin__name strong {
+  font-size: var(--cm-text-lg);
+  overflow-wrap: anywhere;
+}
+.cpin__name small {
+  color: var(--cm-text-muted);
+}
+.cpin__level {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-brand-700);
+  font-weight: 700;
+}
+.cpin__level::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.cpin__balance {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+}
+.cpin__balance > span {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.cpin__balance strong {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.cpin__balance strong small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-md);
+  font-weight: 600;
+}
+.cpin__balance > small {
+  color: var(--cm-warning);
+}
+.cpin__sec {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+}
+.cpin__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+}
+.cpin__list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+.cpin__list li + li {
+  border-top: 1px solid var(--cm-border);
+}
+.cpin__list li[data-off] .cpin__item {
+  color: var(--cm-text-muted);
+}
+.cpin__item {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.cpin__item small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.cpin__code {
+  padding: 1px 6px;
+  border: 1px dashed var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  font-family: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}

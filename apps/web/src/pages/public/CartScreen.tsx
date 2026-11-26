@@ -40,6 +40,7 @@ import { newIdempotencyKey } from '../../lib/idempotency';
 import { brl, parseBrlInput } from '../../lib/money';
 import { useStore } from './context';
 import { track } from './pixel';
+import { CouponCheckout, couponApplied, useCouponQuote } from './CouponScreens';
 import { LoyaltyCheckout, useLoyalty } from './LoyaltyScreens';
 import {
   addressLine,
@@ -93,6 +94,8 @@ export function CartScreen() {
     here,
     setHere,
     rules,
+    coupon,
+    setCoupon,
   } = useStore();
   const loyalty = useLoyalty();
   const [rewardId, setRewardId] = useState<string | null>(null);
@@ -176,16 +179,24 @@ export function CartScreen() {
   const zoneFee = zones && pinned?.quote.covered ? pinned.quote.fee : null;
   const fee = channel === 'delivery' ? toCents(zoneFee ?? s.deliveryFee) : 0;
   // Recompensa da fidelidade: sai do valor dos itens (a API confere saldo e valor de novo).
-  const reward = rewardId ? loyalty?.rewards.find((r) => r.id === rewardId) : undefined;
+  // Cupom da aba Cupons (ou digitado aqui): um desconto por pedido, então tira a recompensa.
+  const couponQuote = useCouponQuote(channel, subtotal, fee);
+  const couponOk = couponApplied(couponQuote);
+  const reward =
+    rewardId && !couponOk ? loyalty?.rewards.find((r) => r.id === rewardId) : undefined;
   const rewardCents =
     reward && loyalty?.account && loyalty.account.balance >= reward.cost
       ? (rewardDiscount(reward, cart, subtotal) ?? 0)
       : 0;
+  const couponCents =
+    couponOk && !couponOk.freeDelivery ? Math.min(couponOk.discountCents, subtotal) : 0;
+  const freeByCoupon = !!couponOk?.freeDelivery && channel === 'delivery';
+  const feeToPay = freeByCoupon ? 0 : fee;
   // Mesa com taxa de serviço: a comanda cobra a taxa sobre os itens (a API faz a mesma conta).
   const serviceFee = atTable
     ? tableServiceFee(subtotal - rewardCents, table?.serviceFeePercent)
     : 0;
-  const total = subtotal - rewardCents + fee + serviceFee;
+  const total = subtotal - rewardCents - couponCents + feeToPay + serviceFee;
   const minOrder = (zones && pinned?.quote.minOrder) || s.minOrder;
   const belowMin = !atTable && subtotal < toCents(minOrder);
   const set = <K extends keyof CustomerInfo>(k: K, v: CustomerInfo[K]) =>
@@ -223,7 +234,8 @@ export function CartScreen() {
     atTable || customer.paymentMethod !== 'cash' || !changeFor || changeCents >= total;
   const soldOut = cart.filter((l) => product(l.productId)?.soldOut);
   // O que impede o pedido e não depende do cliente digitar: o botão fica desligado.
-  const blocked = !channel || belowMin || !s.isOpen || soldOut.length > 0;
+  const blocked =
+    !channel || belowMin || !s.isOpen || soldOut.length > 0 || couponQuote.kind === 'checking';
   // O que falta preencher: o botão fica ligado e, ao tocar, leva até o primeiro que falta.
   const missing: { key: keyof typeof sections; text: string }[] = [
     ...(!name.trim() ? [{ key: 'who' as const, text: 'seu nome' }] : []),
@@ -373,6 +385,7 @@ export function CartScreen() {
             notes: l.notes || undefined,
           })),
           rewardId: me && rewardCents > 0 ? rewardId : undefined,
+          couponCode: me && couponOk && coupon ? coupon : undefined,
           presence: atTable && table?.confirmLocation && here ? here : undefined,
         },
       });
@@ -409,6 +422,7 @@ export function CartScreen() {
         setCard(EMPTY_CARD);
       }
       if (rewardId) setRewardId(null);
+      if (couponOk) setCoupon(null);
       if (loyalty) void refreshLoyalty();
       rememberOrder({
         token,
@@ -423,7 +437,7 @@ export function CartScreen() {
       setSent({
         number: r.number,
         token,
-        total: fromCents(total),
+        total: r.total ?? fromCents(total),
         channel,
         awaiting: r.status === 'awaiting',
         note,
@@ -963,11 +977,19 @@ export function CartScreen() {
             </section>
           )}
 
+          <CouponCheckout quote={couponQuote} />
+
           <LoyaltyCheckout
             cart={cart}
             subtotal={subtotal}
+            discount={couponCents}
             value={rewardCents > 0 ? rewardId : null}
             onChange={setRewardId}
+            locked={
+              couponOk
+                ? `Você está usando o cupom ${coupon}. É um desconto por pedido: tire o cupom para trocar pontos.`
+                : null
+            }
           />
 
           <Field label="Observação do pedido (opcional)" wide>
@@ -996,6 +1018,14 @@ export function CartScreen() {
                     : fee
                       ? brl(fromCents(fee))
                       : 'Grátis'}
+                </dd>
+              </>
+            )}
+            {(couponCents > 0 || (freeByCoupon && fee > 0)) && (
+              <>
+                <dt>Cupom {coupon}</dt>
+                <dd className="sum__discount">
+                  −{brl(fromCents(couponCents > 0 ? couponCents : fee))}
                 </dd>
               </>
             )}

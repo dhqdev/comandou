@@ -4,7 +4,8 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { fromCents, toCents } from '@comandou/shared';
+import { randomInt } from 'node:crypto';
+import { fromCents, orderPoints, toCents } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
@@ -23,6 +24,24 @@ export interface LoyaltySettings {
   expiryDays: number | null;
   /** Pedidos do balcão com o celular de um cliente cadastrado também pontuam. */
   countStaffOrders: boolean;
+  /** Pontos ganhos nos últimos N dias decidem o nível. null = desde sempre. */
+  levelWindowDays: number | null;
+  /** Indique um amigo: pontos para quem indicou (0 = desligado). */
+  referralPoints: number;
+  /** Indique um amigo: pontos para o amigo, no primeiro pedido concluído dele. */
+  referralFriendPoints: number;
+  /** O cardápio mostra "Ganhe N pts" em cada item. */
+  showItemPoints: boolean;
+}
+
+export interface LevelInput {
+  name: string;
+  minPoints: number;
+  perks: string | null;
+  color: string | null;
+}
+export interface Level extends LevelInput {
+  id: string;
 }
 
 export interface RewardInput {
@@ -45,6 +64,10 @@ const DEFAULTS: LoyaltySettings = {
   stampMinOrder: '0.00',
   expiryDays: null,
   countStaffOrders: true,
+  levelWindowDays: null,
+  referralPoints: 0,
+  referralFriendPoints: 0,
+  showItemPoints: true,
 };
 const COLUMN: Record<keyof LoyaltySettings, string> = {
   enabled: 'enabled',
@@ -53,10 +76,23 @@ const COLUMN: Record<keyof LoyaltySettings, string> = {
   stampMinOrder: 'stamp_min_order',
   expiryDays: 'expiry_days',
   countStaffOrders: 'count_staff_orders',
+  levelWindowDays: 'level_window_days',
+  referralPoints: 'referral_points',
+  referralFriendPoints: 'referral_friend_points',
+  showItemPoints: 'show_item_points',
 };
 const SETTINGS_COLS = `enabled, mode, points_per_real::text AS "pointsPerReal",
   stamp_min_order::text AS "stampMinOrder", expiry_days AS "expiryDays",
-  count_staff_orders AS "countStaffOrders"`;
+  count_staff_orders AS "countStaffOrders", level_window_days AS "levelWindowDays",
+  referral_points AS "referralPoints", referral_friend_points AS "referralFriendPoints",
+  show_item_points AS "showItemPoints"`;
+const LEVEL_COLS = `id, name, min_points AS "minPoints", perks, color`;
+const MAX_LEVELS = 8;
+/** Letras do código de convite (sem 0/O e 1/I, que se confundem ao ditar). */
+const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const newPin = () => String(randomInt(0, 1_000_000)).padStart(6, '0');
+const newCode = () =>
+  Array.from({ length: 6 }, () => CODE_ABC[randomInt(0, CODE_ABC.length)]).join('');
 const REWARD_COLS = `r.id, r.name, r.cost, r.kind, r.amount::text, r.product_id AS "productId",
   r.active, r.position`;
 const ENTRY_COLS = `e.id, e.kind, e.points, e.discount::text, e.note, e.created_at AS "createdAt",
@@ -318,10 +354,10 @@ export class LoyaltyService {
          SELECT (SELECT count(*) FROM bal WHERE b > 0)::int AS members,
                 (SELECT COALESCE(sum(b), 0) FROM bal WHERE b > 0)::int AS outstanding,
                 COALESCE(sum(points) FILTER (WHERE kind = 'earn'), 0)::int AS earned,
-                COALESCE(-sum(points) FILTER (WHERE kind = 'redeem'), 0)::int
+                COALESCE(-sum(points) FILTER (WHERE kind IN ('redeem','store')), 0)::int
                   - COALESCE(sum(points) FILTER (WHERE kind = 'refund'), 0)::int AS redeemed,
-                (count(*) FILTER (WHERE kind = 'redeem') - count(*) FILTER (WHERE kind = 'refund'))::int AS redemptions,
-                (COALESCE(sum(discount) FILTER (WHERE kind = 'redeem'), 0)
+                (count(*) FILTER (WHERE kind IN ('redeem','store')) - count(*) FILTER (WHERE kind = 'refund'))::int AS redemptions,
+                (COALESCE(sum(discount) FILTER (WHERE kind IN ('redeem','store')), 0)
                   - COALESCE((SELECT sum(r.discount) FROM loyalty_entries f
                                 JOIN loyalty_entries r ON r.order_id = f.order_id AND r.kind = 'redeem'
                                WHERE f.kind = 'refund' AND f.created_at > now() - make_interval(days => $1)), 0))::text AS discount,
@@ -351,7 +387,7 @@ export class LoyaltyService {
         tx,
         `SELECT c.id, c.name, c.phone, sum(e.points)::int AS balance,
                 COALESCE(sum(e.points) FILTER (WHERE e.kind = 'earn'), 0)::int AS earned,
-                COALESCE(-sum(e.points) FILTER (WHERE e.kind IN ('redeem','refund')), 0)::int AS redeemed,
+                COALESCE(-sum(e.points) FILTER (WHERE e.kind IN ('redeem','refund','store')), 0)::int AS redeemed,
                 max(e.created_at) AS "lastAt"
            FROM loyalty_entries e JOIN customers c ON c.id = e.customer_id
           GROUP BY c.id ORDER BY sum(e.points) DESC, max(e.created_at) DESC LIMIT 30`,
@@ -413,6 +449,279 @@ export class LoyaltyService {
     });
   }
 
+  // ---------------------------------------------------------------- níveis e pontos por item
+
+  levelsIn(tx: Tx) {
+    return q<Level>(tx, `SELECT ${LEVEL_COLS} FROM loyalty_levels ORDER BY min_points`);
+  }
+
+  levels(ctx: Ctx) {
+    return this.db.withTenant(ctx, (tx) => this.levelsIn(tx));
+  }
+
+  /** Troca a lista inteira de níveis (a tela edita tudo junto e salva). */
+  async saveLevels(ctx: Ctx, list: LevelInput[]) {
+    if (list.length > MAX_LEVELS)
+      throw new UnprocessableEntityException(`No máximo ${MAX_LEVELS} níveis`);
+    const mins = new Set(list.map((l) => l.minPoints));
+    if (mins.size !== list.length)
+      throw new UnprocessableEntityException('Dois níveis não podem começar na mesma pontuação');
+    return this.db.withTenant(ctx, async (tx) => {
+      await q(tx, `DELETE FROM loyalty_levels`);
+      for (const l of list)
+        await q(
+          tx,
+          `INSERT INTO loyalty_levels (tenant_id, name, min_points, perks, color) VALUES ($1,$2,$3,$4,$5)`,
+          [ctx.tenantId, l.name, l.minPoints, l.perks, l.color],
+        );
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'loyalty.levels_updated',
+        entity: 'loyalty_program',
+        entityId: ctx.tenantId,
+        data: { levels: list.map((l) => `${l.name} (${l.minPoints})`) },
+        ip: ctx.ip,
+      });
+      return this.levelsIn(tx);
+    });
+  }
+
+  /** Itens com pontos fixos (os outros rendem pela regra do programa). */
+  itemPoints(ctx: Ctx) {
+    return this.db.withTenant(ctx, (tx) =>
+      q<{ productId: string; points: number }>(
+        tx,
+        `SELECT id AS "productId", loyalty_points AS points FROM products
+          WHERE loyalty_points IS NOT NULL ORDER BY name`,
+      ),
+    );
+  }
+
+  async setItemPoints(ctx: Ctx, items: { productId: string; points: number | null }[]) {
+    return this.db.withTenant(ctx, async (tx) => {
+      let changed = 0;
+      for (const it of items) {
+        const r = await one(
+          tx,
+          `UPDATE products SET loyalty_points = $2 WHERE id = $1
+             AND loyalty_points IS DISTINCT FROM $2 RETURNING id`,
+          [it.productId, it.points],
+        );
+        if (r) changed++;
+      }
+      if (changed)
+        await this.audit.record(tx, {
+          tenantId: ctx.tenantId,
+          actorUserId: ctx.userId,
+          action: 'loyalty.item_points_updated',
+          entity: 'loyalty_program',
+          entityId: ctx.tenantId,
+          data: { items: changed },
+          ip: ctx.ip,
+        });
+      return q<{ productId: string; points: number }>(
+        tx,
+        `SELECT id AS "productId", loyalty_points AS points FROM products
+          WHERE loyalty_points IS NOT NULL ORDER BY name`,
+      );
+    });
+  }
+
+  /** Pontos ganhos na janela dos níveis (só os créditos de pedido e os bônus). */
+  private async earnedIn(tx: Tx, s: LoyaltySettings, customerId: string) {
+    const r = await one<{ n: number }>(
+      tx,
+      `SELECT COALESCE(sum(points), 0)::int AS n FROM loyalty_entries
+        WHERE customer_id = $1 AND kind IN ('earn','bonus')
+          AND ($2::int IS NULL OR created_at > now() - make_interval(days => $2))`,
+      [customerId, s.levelWindowDays],
+    );
+    return r?.n ?? 0;
+  }
+
+  // ---------------------------------------------------------------- PIN e convite
+
+  /** PIN e código de convite do cliente (criados na primeira vez). */
+  async memberIn(tx: Tx, tenantId: string, customerId: string) {
+    const read = () =>
+      one<{
+        pin: string;
+        referralCode: string;
+        referredBy: string | null;
+        referralPaidAt: Date | null;
+      }>(
+        tx,
+        `SELECT pin, referral_code AS "referralCode", referred_by AS "referredBy",
+                referral_paid_at AS "referralPaidAt"
+           FROM loyalty_members WHERE customer_id = $1`,
+        [customerId],
+      );
+    for (let i = 0; i < 12; i++) {
+      const cur = await read();
+      if (cur) return cur;
+      // ON CONFLICT sem alvo: PIN ou código já usados por outro cliente não derrubam a
+      // transação; só tenta de novo com outros.
+      await q(
+        tx,
+        `INSERT INTO loyalty_members (tenant_id, customer_id, pin, referral_code)
+         VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
+        [tenantId, customerId, newPin(), newCode()],
+      );
+    }
+    throw new ConflictException('Não deu para gerar o PIN agora. Tente de novo.');
+  }
+
+  /** O cliente troca o PIN (ex.: alguém viu). */
+  async newPin(tenantId: string, customerId: string) {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      await this.memberIn(tx, tenantId, customerId);
+      for (let i = 0; i < 12; i++) {
+        const pin = newPin();
+        const taken = await one(tx, `SELECT 1 FROM loyalty_members WHERE pin = $1`, [pin]);
+        if (taken) continue;
+        await q(tx, `UPDATE loyalty_members SET pin = $2 WHERE customer_id = $1`, [
+          customerId,
+          pin,
+        ]);
+        return { pin };
+      }
+      throw new ConflictException('Não deu para gerar o PIN agora. Tente de novo.');
+    });
+  }
+
+  /** Amigos que o cliente indicou: quantos entraram e quantos já fizeram o primeiro pedido. */
+  private async friendsIn(tx: Tx, customerId: string) {
+    const r = await one<{ invited: number; paid: number }>(
+      tx,
+      `SELECT count(*)::int AS invited, count(referral_paid_at)::int AS paid
+         FROM loyalty_members WHERE referred_by = $1`,
+      [customerId],
+    );
+    return { invited: r?.invited ?? 0, paid: r?.paid ?? 0 };
+  }
+
+  /**
+   * O cliente digita o código de quem o indicou. Vale uma vez e só antes do primeiro pedido
+   * concluído; os pontos entram quando esse primeiro pedido for concluído.
+   */
+  async useReferral(tenantId: string, customerId: string, rawCode: string) {
+    const code = rawCode.trim().toUpperCase();
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const s = await this.settingsIn(tx);
+      if (!s.enabled || (!s.referralPoints && !s.referralFriendPoints))
+        throw new UnprocessableEntityException('A loja não está com o convite de amigos agora');
+      const me = await this.memberIn(tx, tenantId, customerId);
+      if (me.referredBy) throw new ConflictException('Você já usou um código de convite');
+      if (me.referralCode === code)
+        throw new UnprocessableEntityException('Esse é o seu próprio código');
+      const friend = await one<{ id: string }>(
+        tx,
+        `SELECT customer_id AS id FROM loyalty_members WHERE referral_code = $1`,
+        [code],
+      );
+      if (!friend) throw new UnprocessableEntityException('Código de convite não encontrado');
+      const done = await one(
+        tx,
+        `SELECT 1 FROM orders WHERE customer_id = $1 AND status = 'completed' LIMIT 1`,
+        [customerId],
+      );
+      if (done)
+        throw new UnprocessableEntityException('O convite vale só antes do primeiro pedido');
+      await q(
+        tx,
+        `UPDATE loyalty_members SET referred_by = $2 WHERE customer_id = $1 AND referred_by IS NULL`,
+        [customerId, friend.id],
+      );
+      return { ok: true, friendPoints: s.referralFriendPoints };
+    });
+  }
+
+  // ---------------------------------------------------------------- balcão (PIN)
+
+  /**
+   * A equipe digita o PIN que o cliente mostra no app: quem é, o saldo, o nível e o que dá para
+   * trocar ou usar agora no balcão.
+   */
+  async byPin(ctx: Ctx, pin: string) {
+    return this.db.withTenant(ctx, async (tx) => this.pinViewIn(tx, pin));
+  }
+
+  private async pinViewIn(tx: Tx, pin: string) {
+    const m = await one<{ customerId: string; name: string; phone: string }>(
+      tx,
+      `SELECT m.customer_id AS "customerId", c.name, c.phone
+         FROM loyalty_members m JOIN customers c ON c.id = m.customer_id
+        WHERE m.pin = $1 AND c.blocked_at IS NULL`,
+      [pin],
+    );
+    if (!m) throw new NotFoundException('PIN não encontrado. Confira com o cliente.');
+    const s = await this.settingsIn(tx);
+    const { balance, expiresAt } = await this.balanceIn(tx, s, m.customerId);
+    const levels = await this.levelsIn(tx);
+    const earned = await this.earnedIn(tx, s, m.customerId);
+    const rewards = (await this.rewardsIn(tx, true)).map(
+      ({ imageId: _i, active: _a, position: _p, ...r }) => r,
+    );
+    return {
+      customer: {
+        id: m.customerId,
+        name: m.name,
+        // Só o fim do telefone: a equipe confere com o cliente sem expor o número todo.
+        phoneEnd: m.phone.slice(-4),
+      },
+      enabled: s.enabled,
+      mode: s.mode,
+      balance,
+      expiresAt,
+      earned,
+      levels,
+      rewards,
+      history: await this.historyIn(tx, m.customerId),
+    };
+  }
+
+  /** Troca uma recompensa no balcão pelo PIN do cliente (a equipe dá o desconto no caixa). */
+  async redeemAtStore(ctx: Ctx, pin: string, rewardId: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const view = await this.pinViewIn(tx, pin);
+      const s = await this.settingsIn(tx);
+      if (!s.enabled)
+        throw new UnprocessableEntityException('O programa de fidelidade está pausado');
+      const r = (await this.rewardsIn(tx, true)).find((x) => x.id === rewardId);
+      if (!r) throw new UnprocessableEntityException('Essa recompensa não está mais disponível');
+      const { balance } = await this.balanceIn(tx, s, view.customer.id, true);
+      if (balance < r.cost)
+        throw new UnprocessableEntityException(
+          `O cliente tem ${balance} ${s.mode === 'stamps' ? 'carimbos' : 'pontos'}; essa recompensa pede ${r.cost}`,
+        );
+      await q(
+        tx,
+        `INSERT INTO loyalty_entries (tenant_id, customer_id, kind, points, reward_id, discount, note, created_by)
+         VALUES ($1,$2,'store',$3,$4,$5,$6,$7)`,
+        [
+          ctx.tenantId,
+          view.customer.id,
+          -r.cost,
+          r.id,
+          r.kind === 'discount' ? r.amount : (r.productPrice ?? null),
+          r.name.slice(0, 120),
+          ctx.userId,
+        ],
+      );
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'loyalty.redeemed_at_store',
+        entity: 'customer',
+        entityId: view.customer.id,
+        data: { reward: r.name, cost: r.cost },
+        ip: ctx.ip,
+      });
+      return this.pinViewIn(tx, pin);
+    });
+  }
+
   // ---------------------------------------------------------------- cliente (cardápio)
 
   /** O que o cardápio mostra: regra, recompensas e, com a conta aberta, saldo e extrato. */
@@ -443,20 +752,36 @@ export class LoyaltyService {
           r.kind === 'product' ? (menuPrice.get(r.productId ?? '') ?? productPrice) : r.amount,
         imageUrl: mediaUrl(imageId),
       }));
-      const account = customerId
-        ? {
-            ...(await this.balanceIn(tx, s, customerId)),
-            history: await this.historyIn(tx, customerId),
-            // Pontos dos pedidos em andamento (entram quando o pedido for concluído).
-            pending: await this.pendingIn(tx, s, customerId),
-          }
-        : null;
+      const member = customerId ? await this.memberIn(tx, tenantId, customerId) : null;
+      const account =
+        customerId && member
+          ? {
+              ...(await this.balanceIn(tx, s, customerId)),
+              history: await this.historyIn(tx, customerId),
+              // Pontos dos pedidos em andamento (entram quando o pedido for concluído).
+              pending: await this.pendingIn(tx, s, customerId),
+              // Pontos ganhos na janela dos níveis (decide o nível).
+              earned: await this.earnedIn(tx, s, customerId),
+              // PIN para usar os pontos e os cupons no balcão da loja.
+              pin: member.pin,
+              referralCode: member.referralCode,
+              referred: !!member.referredBy,
+              friends: await this.friendsIn(tx, customerId),
+            }
+          : null;
+      const referralOn = s.referralPoints > 0 || s.referralFriendPoints > 0;
       return {
         enabled: true as const,
         mode: s.mode,
         pointsPerReal: s.pointsPerReal,
         stampMinOrder: s.stampMinOrder,
         expiryDays: s.expiryDays,
+        levelWindowDays: s.levelWindowDays,
+        showItemPoints: s.showItemPoints,
+        levels: await this.levelsIn(tx),
+        referral: referralOn
+          ? { points: s.referralPoints, friendPoints: s.referralFriendPoints }
+          : null,
         rewards,
         account,
       };
@@ -568,16 +893,69 @@ export class LoyaltyService {
           )?.id ?? null;
     }
     if (!customerId) return;
-    const points = pointsFor(s, toCents(o.spent));
-    if (points <= 0) return;
+    // Itens com pontos fixos rendem o número deles; o resto, pela regra (customer-app.ts).
+    const lines = await q<{ total: string; quantity: string; unit: string; fixed: number | null }>(
+      tx,
+      `SELECT i.total::text, i.quantity::text, i.unit, p.loyalty_points AS fixed
+         FROM order_items i LEFT JOIN products p ON p.id = i.product_id
+        WHERE i.order_id = $1 AND i.status <> 'cancelled'`,
+      [orderId],
+    );
+    const points = orderPoints(
+      s,
+      toCents(o.spent),
+      lines.map((l) => ({
+        totalCents: toCents(l.total),
+        quantity: Number(l.quantity),
+        fixed: l.fixed,
+        weight: l.unit === 'kg',
+      })),
+    );
     // Pontos que já tinham vencido não voltam com a compra nova.
     await this.expireIn(tx, s, customerId);
-    await q(
+    if (points > 0) {
+      const earned = await one(
+        tx,
+        `INSERT INTO loyalty_entries (tenant_id, customer_id, kind, points, order_id)
+         VALUES ($1,$2,'earn',$3,$4) ON CONFLICT DO NOTHING RETURNING id`,
+        [tenantId, customerId, points, orderId],
+      );
+      if (!earned) return;
+    }
+    await this.payReferralIn(tx, tenantId, s, customerId);
+  }
+
+  /**
+   * Indique um amigo: no primeiro pedido concluído de quem foi indicado, os dois ganham os pontos
+   * do convite (uma vez só, marcado em referral_paid_at).
+   */
+  private async payReferralIn(tx: Tx, tenantId: string, s: LoyaltySettings, customerId: string) {
+    if (!s.referralPoints && !s.referralFriendPoints) return;
+    const m = await one<{ referredBy: string }>(
       tx,
-      `INSERT INTO loyalty_entries (tenant_id, customer_id, kind, points, order_id)
-       VALUES ($1,$2,'earn',$3,$4) ON CONFLICT DO NOTHING`,
-      [tenantId, customerId, points, orderId],
+      `SELECT referred_by AS "referredBy" FROM loyalty_members
+        WHERE customer_id = $1 AND referred_by IS NOT NULL AND referral_paid_at IS NULL
+        FOR UPDATE`,
+      [customerId],
     );
+    if (!m) return;
+    await q(tx, `UPDATE loyalty_members SET referral_paid_at = now() WHERE customer_id = $1`, [
+      customerId,
+    ]);
+    if (s.referralFriendPoints > 0)
+      await q(
+        tx,
+        `INSERT INTO loyalty_entries (tenant_id, customer_id, kind, points, note)
+         VALUES ($1,$2,'bonus',$3,'Bônus do convite de um amigo')`,
+        [tenantId, customerId, s.referralFriendPoints],
+      );
+    if (s.referralPoints > 0)
+      await q(
+        tx,
+        `INSERT INTO loyalty_entries (tenant_id, customer_id, kind, points, note)
+         VALUES ($1,$2,'bonus',$3,'Amigo indicado fez o primeiro pedido')`,
+        [tenantId, m.referredBy, s.referralPoints],
+      );
   }
 
   /** Pedido cancelado: devolve os pontos trocados nele (uma vez). */

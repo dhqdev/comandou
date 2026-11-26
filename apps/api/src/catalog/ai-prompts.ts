@@ -7,7 +7,7 @@ import { join } from 'node:path';
  */
 export const AI_PROMPTS_DIR = join(__dirname, '..', '..', 'assets', 'ai');
 
-export type PromptFile = 'melhorar-foto' | 'item-3d';
+export type PromptFile = 'melhorar-foto' | 'item-3d' | 'criar-foto';
 
 const cache = new Map<PromptFile, string>();
 
@@ -57,4 +57,20 @@ export function itemName(item: string): string {
       .trim()
       .slice(0, 80) || 'item do cardápio'
   );
+}
+
+/**
+ * Pedido da foto criada do zero (criar-foto.md): o texto depois da linha "---", com o nome e a
+ * descrição do item no lugar das marcas. Descrição limpa como o nome (sem aspas nem quebras).
+ */
+export function createPrompt(md: string, item: string, description: string): string {
+  const cut = md.indexOf('\n---\n');
+  const body = (cut >= 0 ? md.slice(cut + 5) : md).trim();
+  const desc =
+    description
+      .replace(/["\n\r]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 240) || 'sem descrição';
+  return body.replaceAll('{{item}}', itemName(item)).replaceAll('{{descricao}}', desc);
 }

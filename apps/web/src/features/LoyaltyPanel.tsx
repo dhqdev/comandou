@@ -1,5 +1,5 @@
 import { toCents } from '@comandou/shared';
-import { Gift, Pencil, Plus, Stamp, Trash2 } from 'lucide-react';
+import { Gift, KeyRound, Pencil, Plus, Stamp, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -15,7 +15,9 @@ import {
 } from '../design-system';
 import { api, Product } from '../lib/api';
 import { brl, parseBrlInput } from '../lib/money';
+import { CustomerPinModal } from './CustomerPin';
 import { SelectField } from './forms';
+import { ItemPointsCard, LevelsCard, ReferralCard } from './LoyaltyExtras';
 import './loyalty-panel.css';
 
 export interface LoyaltySettings {
@@ -25,6 +27,10 @@ export interface LoyaltySettings {
   stampMinOrder: string;
   expiryDays: number | null;
   countStaffOrders: boolean;
+  levelWindowDays: number | null;
+  referralPoints: number;
+  referralFriendPoints: number;
+  showItemPoints: boolean;
 }
 export interface LoyaltyReward {
   id: string;
@@ -114,6 +120,7 @@ export function LoyaltyPanel({
   const [form, setForm] = useState(EMPTY_REWARD);
   const [days, setDays] = useState<'30' | '90' | '365'>('30');
   const [report, setReport] = useState<LoyaltyReport | null>(null);
+  const [pin, setPin] = useState(false);
 
   const fill = (x: LoyaltySettings) => {
     setS(x);
@@ -229,7 +236,14 @@ export function LoyaltyPanel({
 
   return (
     <div className="os-stack">
-      <Card title="Programa de fidelidade">
+      <Card
+        title="Programa de fidelidade"
+        actions={
+          <Button variant="secondary" icon={<KeyRound size={16} />} onClick={() => setPin(true)}>
+            PIN do cliente
+          </Button>
+        }
+      >
         <label className="os-toggle">
           <span>
             <strong>Programa ligado</strong>
@@ -394,6 +408,12 @@ export function LoyaltyPanel({
           </ul>
         )}
       </Card>
+
+      <LevelsCard canManage={canManage} s={s} save={save} busy={busy} />
+      {s.mode === 'points' && (
+        <ItemPointsCard canManage={canManage} s={s} save={save} busy={busy} products={products} />
+      )}
+      <ReferralCard canManage={canManage} s={s} save={save} busy={busy} />
 
       <Card
         title="Resultado"
@@ -563,6 +583,7 @@ export function LoyaltyPanel({
           </label>
         </div>
       </Modal>
+      <CustomerPinModal open={pin} onClose={() => setPin(false)} />
     </div>
   );
 }

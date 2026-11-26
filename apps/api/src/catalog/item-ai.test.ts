@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { imageSize } from '../common/image-size';
-import { aiPrompt, cleanPrompt, photoPrompts } from './ai-prompts';
+import { aiPrompt, cleanPrompt, createPrompt, photoPrompts } from './ai-prompts';
 import { jsonOf, notFood, readCrop, readTips } from './item-ai';
 
 describe('Melhorar a foto do item', () => {
@@ -54,6 +54,16 @@ describe('Melhorar a foto do item', () => {
     const p = cleanPrompt(clean, 'Bife "acebolado"\ncom fritas');
     expect(p).toContain('Bife acebolado com fritas');
     expect(p).not.toContain('{{item}}');
+  });
+
+  it('o .md da foto criada pela IA leva o nome e a descrição do item, sem texto na foto', () => {
+    const p = createPrompt(aiPrompt('criar-foto'), 'X-Bacon "duplo"', 'Pão, 2 carnes\ne bacon');
+    expect(p).toContain('X-Bacon duplo');
+    expect(p).toContain('Pão, 2 carnes e bacon');
+    expect(p).not.toContain('{{');
+    expect(p).not.toContain('# Criar');
+    expect(p).toMatch(/sem texto/i);
+    expect(createPrompt(aiPrompt('criar-foto'), 'Suco', '')).toContain('sem descrição');
   });
 
   it('o .md do 3D pede a forma com os tipos que o servidor monta', () => {

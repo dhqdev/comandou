@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Globe,
   HandPlatter,
+  KeyRound,
   Link2,
   MapPin,
   MessageSquareText,
@@ -39,6 +40,7 @@ import {
 import { Link } from 'react-router';
 import { Alert, Segmented, useToast } from '../design-system';
 import { useCan } from '../app/auth';
+import { CustomerPinModal } from '../features/CustomerPin';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { PixReceiptChip, PixReceiptModal } from '../features/PixReceipt';
@@ -470,6 +472,7 @@ export function PdvPage() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selling, setSelling] = useState(false);
+  const [pinOpen, setPinOpen] = useState(false);
   const [freeTable, setFreeTable] = useState<DiningTable | null>(null);
   /** Comanda aberta no próprio PDV (toque numa mesa ocupada ou numa comanda). */
   const [tabId, setTabId] = useState<string | null>(null);
@@ -959,6 +962,16 @@ export function PdvPage() {
           >
             <Link2 size={17} />
           </button>
+          {canManage && (
+            <button
+              className="pdv__icon"
+              aria-label="PIN do cliente: pontos e cupons"
+              title="PIN do cliente: pontos e cupons"
+              onClick={() => setPinOpen(true)}
+            >
+              <KeyRound size={17} />
+            </button>
+          )}
         </div>
         {canSell && (
           <button
@@ -1303,6 +1316,7 @@ export function PdvPage() {
         </div>
       </section>
 
+      <CustomerPinModal open={pinOpen} onClose={() => setPinOpen(false)} />
       <NewSaleModal
         open={selling}
         onClose={() => setSelling(false)}

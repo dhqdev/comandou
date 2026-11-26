@@ -14,6 +14,7 @@ describe('regras de cada cardápio', () => {
       reservations: false,
       favorites: false,
       loyalty: false,
+      coupons: false,
       installHint: false,
       tableService: true,
     });
@@ -21,6 +22,8 @@ describe('regras de cada cardápio', () => {
       'conversa',
       'favoritos',
       'fidelidade',
+      'cupons',
+      'conta/indique',
       'reservar',
       'reservas',
       'reservas/abc',
@@ -47,11 +50,15 @@ describe('regras de cada cardápio', () => {
       accountTab: true,
       delivery: true,
       reservations: true,
+      coupons: true,
     });
     const off = storeRules('online', { chatEnabled: false, accountsEnabled: false });
     expect(off.chat).toBe(false);
     expect(off.accountTab).toBe(false);
     expect(off.accountLogin).toBe(false);
+    // Cupom pede a conta do cliente (limite por cliente e primeiro pedido).
+    expect(off.coupons).toBe(false);
+    expect(storeScreenAllowed(off, 'cupons')).toBe(false);
     expect(storeRules('table', { accountsEnabled: false }).accountLogin).toBe(false);
     expect(storeScreenAllowed(off, 'conta/enderecos')).toBe(true);
     expect(storeScreenAllowed(off, 'conversa')).toBe(false);
