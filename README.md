@@ -151,6 +151,9 @@ O histórico de versões aparece no próprio sistema, na tela **Novidades** (tel
 - **Dinheiro sem arredondamento errado.** Valores em decimal (nunca ponto flutuante); pagamento,
   fechamento de pedido e de caixa com chave de idempotência; registro financeiro confirmado nunca
   é apagado, só estornado.
+- **LGPD na mão do cliente.** O cliente do cardápio baixa os próprios dados e apaga a conta em
+  Conta › Privacidade e dados; a equipe atende pela ficha do cliente ou pelo telefone. Pedidos e
+  notas ficam pelo prazo fiscal, sem nome, telefone e endereço.
 - **Confirmação só depois do servidor.** A tela não mostra pagamento ou operação de caixa como
   confirmados antes da resposta do backend; o aviso em tempo real é só um sinal.
 - **Tudo ao vivo, com o sinal à vista.** Pedidos, cozinha, mesas, caixa, entregas, reservas,

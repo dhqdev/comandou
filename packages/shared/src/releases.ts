@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.255.0',
+    date: '2026-11-26',
+    title: 'LGPD: o cliente baixa ou apaga os próprios dados',
+    summary:
+      'O cliente do cardápio online baixa tudo o que a loja guarda dele e apaga a conta sozinho, e a equipe atende pela ficha do cliente ou pelo telefone de quem pediu sem conta.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápio › Conta › Privacidade e dados: o cliente baixa um arquivo com o cadastro, endereços, pedidos, reservas, pontos, avaliações e as conversas com a loja e com a IA do WhatsApp, e pode apagar a conta digitando a senha e a palavra APAGAR.',
+      },
+      {
+        tag: 'novo',
+        text: 'Clientes: a ficha do cliente ganhou o bloco Dados pessoais (LGPD) e a lista ganhou o botão Pedido LGPD, para atender pelo telefone quem pediu no balcão, por telefone ou pelo WhatsApp. Só dono e gerente usam, e cada atendimento fica registrado.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Apagar não mexe no caixa: pedidos, pagamentos e notas ficam pelo prazo fiscal, sem nome, telefone e endereço (o CPF só fica no pedido com nota autorizada). Pedido em andamento, fiado em aberto, Pix a devolver ou reserva marcada travam o apagar até terminar. O registro do atendimento não guarda dado pessoal.',
+      },
+    ],
+  },
+  {
     version: '0.254.6',
     date: '2026-11-26',
     title: 'Pedidos no modo Completo mais bonitos e com mais informação',

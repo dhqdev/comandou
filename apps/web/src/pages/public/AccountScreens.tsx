@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  Download,
   ChevronRight,
   Eye,
   EyeOff,
@@ -17,6 +18,7 @@ import {
   Pencil,
   Plus,
   ReceiptText,
+  ShieldCheck,
   Star,
   Sun,
   Trash2,
@@ -36,6 +38,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { clickPoint, Mascot, switchTheme, useTheme, useToast, Skeleton } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
+import { datedName, saveJson } from '../../lib/download';
 import { AddressArt, LoyaltyArt } from './art';
 import { Photo } from './ui';
 import { ProfilePhoto } from './ProfilePhoto';
@@ -640,6 +643,9 @@ export function AccountScreen() {
             />
           )}
           {me && <Row to="/pedir/conta/senha" icon={<KeyRound />} label="Trocar senha" />}
+          {me && (
+            <Row to="/pedir/conta/privacidade" icon={<ShieldCheck />} label="Privacidade e dados" />
+          )}
         </nav>
       )}
       {me && (
@@ -1020,6 +1026,105 @@ export function PasswordScreen() {
           {busy ? 'Salvando…' : 'Trocar senha'}
         </button>
       </form>
+    </div>
+  );
+}
+
+/**
+ * Privacidade e dados (LGPD): baixar tudo o que a loja guarda da conta e apagar a conta. Apagar
+ * pede a senha e a palavra APAGAR; pedidos e notas ficam na loja sem o nome (prazo fiscal).
+ */
+export function PrivacyScreen() {
+  const me = useMe();
+  const { logout } = useStore();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const exp = useAsync();
+  const del = useAsync();
+  const [form, setForm] = useState({ password: '', confirm: '' });
+  if (!me) return null;
+  const ready = form.password.length > 0 && form.confirm.trim().toUpperCase() === 'APAGAR';
+  return (
+    <div className="sf-wrap sf-page privacy">
+      <ScreenHeader title="Privacidade e dados" back="/pedir/conta" />
+      <section className="privacy__block">
+        <h2>Baixar meus dados</h2>
+        <p>
+          Um arquivo com o seu cadastro, endereços, pedidos, reservas, pontos, avaliações e
+          conversas com a loja.
+        </p>
+        {exp.error && <p className="form-error">{exp.error}</p>}
+        <button
+          type="button"
+          className="cta cta--inline cta--ghost privacy__btn"
+          disabled={exp.busy}
+          onClick={async () => {
+            const data = await exp.run(() =>
+              api<unknown>('/store/account/privacy/export', { method: 'POST' }),
+            );
+            if (data) {
+              saveJson(data, datedName('meus-dados'));
+              toast('Arquivo baixado', 'success');
+            }
+          }}
+        >
+          {exp.busy ? (
+            <Loader2 size={20} className="ck-send__spin" aria-hidden />
+          ) : (
+            <Download aria-hidden />
+          )}
+          Baixar meus dados
+        </button>
+      </section>
+
+      <section className="privacy__block privacy__block--danger">
+        <h2>Apagar minha conta</h2>
+        <p>
+          Apaga o cadastro, os endereços, a foto, os pontos, as avaliações e as conversas. Não dá
+          para desfazer.
+        </p>
+        <p className="privacy__note">
+          Os pedidos continuam na loja, sem o seu nome e telefone, porque a lei fiscal pede que
+          vendas e notas fiquem guardadas.
+        </p>
+        <form
+          className="auth__form"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const ok = await del.run(() =>
+              api('/store/account/privacy/erase', { method: 'POST', json: form }),
+            );
+            if (ok) {
+              await logout();
+              toast('Sua conta foi apagada', 'success');
+              navigate('/pedir', { replace: true });
+            }
+          }}
+        >
+          <Field label="Sua senha">
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </Field>
+          <Field label="Digite APAGAR para confirmar">
+            <input
+              autoComplete="off"
+              autoCapitalize="characters"
+              required
+              value={form.confirm}
+              onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+            />
+          </Field>
+          {del.error && <p className="form-error">{del.error}</p>}
+          <button className="cta cta--danger" disabled={del.busy || !ready}>
+            {del.busy ? 'Apagando…' : 'Apagar minha conta'}
+          </button>
+        </form>
+      </section>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   Mail,
   MapPin,
   MessageCircle,
+  ShieldCheck,
   UserCheck,
   Users,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ import { useLiveData } from '../lib/realtime';
 import type { CustomerDetail, CustomerList, CustomerRow } from '../lib/types';
 import { CustomerAvatar } from './public/avatars';
 import { CustomerCharts, CustomerKpis, CustomerMix, readings } from './customers/CustomerInsights';
+import { CustomerPrivacy, PrivacyRequestModal } from './customers/PrivacyTools';
 import './customers/customers.css';
 import './online-store.css';
 
@@ -345,6 +347,16 @@ function CustomerPanel({
                   </div>
                 )}
               </section>
+
+              {canManage && (
+                <CustomerPrivacy
+                  customerId={c.id}
+                  onErased={() => {
+                    onChanged();
+                    onClose();
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -422,6 +434,8 @@ const searchText = (c: CustomerRow) =>
 /** Clientes com conta no cardápio online: quem são, quanto pedem e quando voltaram. */
 export function CustomersPage() {
   const toast = useToast();
+  const { me } = useAuth();
+  const [lgpd, setLgpd] = useState(false);
   const [data, setData] = useState<CustomerList | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   useLinkParam('abrir', setOpen);
@@ -487,6 +501,17 @@ export function CustomersPage() {
           lv={lv}
           searchLabel="Buscar cliente"
           searchHint="nome, celular ou e-mail"
+          actions={
+            me?.permissions.includes('customers:manage') && (
+              <Button
+                variant="secondary"
+                icon={<ShieldCheck size={16} />}
+                onClick={() => setLgpd(true)}
+              >
+                Pedido LGPD
+              </Button>
+            )
+          }
           summary={
             rows &&
             `${rows.length} ${rows.length === 1 ? 'cliente' : 'clientes'}` +
@@ -601,6 +626,11 @@ export function CustomersPage() {
         </Alert>
       )}
       <CustomerPanel id={open} onClose={() => setOpen(null)} onChanged={() => load(search)} />
+      <PrivacyRequestModal
+        open={lgpd}
+        onClose={() => setLgpd(false)}
+        onChanged={() => load(search)}
+      />
     </>
   );
 }

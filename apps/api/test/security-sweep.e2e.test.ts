@@ -96,6 +96,9 @@ const PUBLIC_TENANT_ROUTES = [
   'POST /api/v1/store/account/password',
   'POST /api/v1/store/account/password/forgot',
   'POST /api/v1/store/account/password/reset',
+  // LGPD da conta (0.255): só a conta do cookie; apagar pede a senha e conta no bloqueio do login.
+  'POST /api/v1/store/account/privacy/erase',
+  'POST /api/v1/store/account/privacy/export',
   // Reservas da conta: só as do cliente do cookie (de outra pessoa é 404).
   'GET /api/v1/store/account/reservations',
   'GET /api/v1/store/account/reservations/:id',

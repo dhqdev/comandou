@@ -29,3 +29,21 @@ export async function downloadFile(url: string, fallbackName: string): Promise<v
   // O navegador precisa do endereço vivo até começar a salvar.
   window.setTimeout(() => URL.revokeObjectURL(href), 30_000);
 }
+
+/** Entrega um objeto como arquivo .json (dados que a API já devolveu, ex.: LGPD). */
+export function saveJson(data: unknown, name: string): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(href), 30_000);
+}
+
+/** Nome de arquivo com a data de hoje: `meus-dados-2026-11-26.json`. */
+export function datedName(prefix: string, ext = 'json'): string {
+  return `${prefix}-${new Date().toISOString().slice(0, 10)}.${ext}`;
+}

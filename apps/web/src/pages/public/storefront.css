@@ -4027,3 +4027,38 @@ html.sf-root {
   margin-top: 4px;
   font-weight: 500;
 }
+
+/* Conta › Privacidade e dados (LGPD): dois blocos com linha fina, baixar e apagar. */
+.privacy__block {
+  display: grid;
+  gap: 8px;
+  padding: 18px 0;
+  border-top: 1px solid var(--cm-border);
+}
+.privacy__block h2 {
+  margin: 0;
+  font-size: var(--cm-text-lg);
+  font-weight: 700;
+}
+.privacy__block p {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.5;
+}
+.privacy__block .privacy__note {
+  color: var(--cm-text-subtle);
+}
+.privacy .privacy__btn {
+  justify-self: start;
+  width: auto;
+  margin-top: 6px;
+  border-style: solid;
+}
+.privacy__block--danger .auth__form {
+  margin-top: 6px;
+}
+.privacy .cta--danger {
+  background: var(--cm-danger);
+  color: #fff;
+}

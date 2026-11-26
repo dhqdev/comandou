@@ -25,4 +25,7 @@ Escala: **A**lto / **M**édio / **B**aixo (impacto × probabilidade).
 - Dados pessoais atuais: nome e e-mail de usuários, IP e user-agent em sessões/auditoria, e-mail em tentativas de login falhas.
 - Minimização: logs HTTP não incluem corpo, cookies nem cabeçalho `Authorization`.
 - Retenção: ver [operação](operations.md#retenção-de-dados-lgpd) (limpeza automática desde a Etapa 7).
-- Pendentes: tela para exportação e exclusão a pedido do titular (hoje manual).
+- Pedidos do titular (cliente do cardápio): tela desde a 0.255 (Conta › Privacidade e dados no
+  cardápio; Clientes › ficha e Pedido LGPD pelo telefone na equipe). Ver
+  [operação](operations.md#retenção-de-dados-lgpd).
+- Pendentes: o mesmo para a equipe do restaurante (nome, e-mail, IP), hoje manual.

@@ -331,6 +331,42 @@ export class CustomersService {
     });
   }
 
+  /**
+   * Confere a senha de quem já está dentro da conta (antes de apagar a conta). Senha errada conta
+   * no mesmo bloqueio do login.
+   */
+  async confirmPassword(tenantId: string, c: Customer, password: string, ip?: string) {
+    const phone = c.phone;
+    const failures = await this.db.withTenant({ tenantId }, async (tx) => {
+      const r = await one<{ n: number }>(
+        tx,
+        `SELECT count(*)::int AS n FROM audit_log
+          WHERE tenant_id = $1 AND action = 'customer.login_failed' AND data->>'phone' = $2
+            AND created_at > now() - make_interval(mins => $3)`,
+        [tenantId, phone, this.env.AUTH_ACCOUNT_LOCK_MINUTES],
+      );
+      return r?.n ?? 0;
+    });
+    if (failures >= this.env.AUTH_ACCOUNT_LOCK_THRESHOLD)
+      throw new ThrottlerException('Muitas tentativas com senha errada. Aguarde alguns minutos.');
+    const row = await this.db.withTenant({ tenantId }, (tx) =>
+      one<{ password_hash: string }>(tx, `SELECT password_hash FROM customers WHERE id = $1`, [
+        c.id,
+      ]),
+    );
+    if (await verifyPassword(password, row?.password_hash ?? DUMMY_HASH)) return;
+    await this.db.withTenant({ tenantId }, (tx) =>
+      this.audit.record(tx, {
+        tenantId,
+        action: 'customer.login_failed',
+        entity: 'customer',
+        data: { phone },
+        ip,
+      }),
+    );
+    throw new UnprocessableEntityException('Senha incorreta');
+  }
+
   /** Cliente dono do cookie, ou null (sem conta, sessão vencida ou conta bloqueada). */
   async resolve(tenantId: string, token: string | undefined): Promise<Customer | null> {
     if (!token || token.length > 100) return null;

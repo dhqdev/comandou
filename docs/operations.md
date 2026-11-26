@@ -248,5 +248,23 @@ servidor separado e confira que a API sobe e o login funciona nesse banco. Ensai
 | Auditoria | 5 anos | manual, com autorização |
 | Backups | regra de ciclo de vida do bucket (sugestão: 35 dias) | B2 |
 
-Pedidos de titular (acesso, correção, exclusão de nome e telefone de cliente em pedidos) ainda
-são atendidos manualmente pelo dono do restaurante com o suporte; não há tela para isso.
+### Pedidos do titular (0.255)
+
+- **O próprio cliente**, no cardápio: Conta › Privacidade e dados. "Baixar meus dados" entrega um
+  arquivo JSON; "Apagar minha conta" pede a senha e a palavra APAGAR.
+- **A equipe** (dono e gerente, `customers:manage`): Clientes › ficha do cliente › Dados pessoais
+  (LGPD), ou o botão **Pedido LGPD** da lista para quem pediu sem conta (pelo telefone). O mesmo
+  telefone acha a conta, se houver.
+- **O que sai do ar**: conta (endereços, sessões, foto, sacola, CPF do cadastro, pontos,
+  avaliações), conversa com a loja e com a IA do WhatsApp, avisos de WhatsApp já enviados, códigos
+  de confirmação e o telefone guardado nos logins errados. A pessoa é achada pela conta e pelo
+  telefone (DDD + 8 últimos dígitos, `app_phone_key`).
+- **O que fica**: pedidos, pagamentos, comandas, cobranças do fiado e reservas antigas, com
+  "Cliente removido" no nome e sem telefone, endereço e CPF (o CPF só fica quando saiu nota
+  autorizada com ele). A nota fiscal emitida não muda.
+- **O que trava**: pedido em andamento, fiado ou "a receber" em aberto, Pix a devolver ou cobrança
+  online esperando, e reserva marcada. A tela diz o motivo.
+- **Prova do atendimento**: tabela `privacy_requests` (tipo, quem fez, quantas linhas mudaram,
+  sem dado pessoal) e o histórico do restaurante (`customer.data_exported`/`customer.data_erased`).
+- **Backups** ainda têm o dado até a regra de ciclo de vida do bucket descartá-los.
+- Pedidos da equipe do restaurante (nome, e-mail, IP) seguem manuais, com o suporte.

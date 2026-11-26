@@ -54,6 +54,8 @@ import { AccountController, CustomersController } from '../store/account.control
 import { StoreReviewsController } from '../store/reviews.controller';
 import { MenuPixelReportController, StorePixelController } from '../store/pixel.controller';
 import { CustomersService } from '../store/customers.service';
+import { AccountPrivacyController, StaffPrivacyController } from '../store/privacy.controller';
+import { PrivacyService } from '../store/privacy.service';
 import { CustomerMailService } from '../store/customer-mail.service';
 import { MediaController, StoreController } from '../store/store.controller';
 import { PixReceiptsController } from '../store/pix.controller';
@@ -112,6 +114,8 @@ import { OrdersService } from './orders.service';
     StoreController,
     MediaController,
     AccountController,
+    AccountPrivacyController,
+    StaffPrivacyController,
     CustomersController,
     StoreReviewsController,
     StorePixelController,
@@ -155,6 +159,7 @@ import { OrdersService } from './orders.service';
     WhatsAppClient,
     StoreService,
     CustomersService,
+    PrivacyService,
     CustomerMailService,
     ReservationsService,
     LoyaltyService,

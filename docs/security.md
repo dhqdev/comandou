@@ -37,6 +37,7 @@ houve teste de invasão por terceiros; recomendamos um antes de abrir para muito
 | Cliente imprimir QR Code ou letra grande pela observação; IA do editor gravar modelo ruim | texto do pedido tem o `@@` desfeito antes de montar o papel (`withMarks` em `printing/templates.ts`); a IA dos modelos só propõe: sintaxe e largura conferidas no servidor, Liquid sem arquivos nem rede, salvar continua com a pessoa (`printing:manage`) | `templates.test.ts`, `template-ai.test.ts` |
 | IA das fotos e do 3D do item devolver valor absurdo, texto longo ou arquivo estranho; nome do item virar instrução | nome entre aspas, sem aspas nem quebras (`itemName`); resposta presa em faixas (`readTips`, `normalizeShape`); foto que volta conferida pela assinatura; a IA não grava nada (a pessoa usa a foto ou publica o 3D pelas rotas de sempre, `catalog:write`) | `item-ai.test.ts`, `dish3d.test.ts`, `product-model.e2e.test.ts` |
 | Dados pessoais guardados demais | limpeza automática de sessões, chaves de idempotência e posição do entregador | `security.e2e.test.ts` |
+| Pedido de titular (LGPD) mal atendido ou usado para apagar dado de outra pessoa | o cliente baixa e apaga só a conta do cookie, apagar pede a senha (conta no bloqueio do login) e a palavra APAGAR; a equipe só com `customers:manage` (dono e gerente), telefone no corpo e nunca na URL; apagar é a função `app_privacy_erase` (0122), que filtra pelo restaurante em todo comando, trava com pedido em andamento, valor em aberto, Pix a devolver ou reserva marcada, e mantém pedidos, pagamentos e notas sem nome, telefone, endereço e CPF (o CPF só fica com nota autorizada); o registro `privacy_requests` não guarda dado pessoal | `privacy.e2e.test.ts`, `security-sweep.e2e.test.ts` |
 | Dono de um restaurante tomar a conta que a pessoa usa em outro (mesmo banco) | conta compartilhada não ganha PIN (409) nem entra por PIN (403); trocar a própria senha de conta compartilhada pede a senha atual, conferida de novo no banco (`app_set_own_password`, migração 0101) | `pin-login.e2e.test.ts`, `backoffice.e2e.test.ts` |
 | Administrador agir em nome de alguém da equipe pela prévia (Equipe › Abrir) | a prévia do app do entregador é só leitura (`GET deliveries/preview/:userId`, só `users:manage`), não cria sessão e a tela não manda GPS nem pega ou conclui corrida | `waiter-delivery.e2e.test.ts` |
 | Adivinhar PIN com muitas tentativas ao mesmo tempo | contagem, conferência e registro do erro na mesma transação, uma por vez por restaurante (`pg_advisory_xact_lock`) | `pin-login.e2e.test.ts` |
@@ -110,5 +111,7 @@ um Pix solto e pago depois é achado pela conferência e devolvido se a conta j�
 - **WhatsApp por QR Code (Baileys)** não é oficial e o número pode ser banido (decisão do dono).
 - **Sem teste de invasão externo** e sem programa de divulgação de falhas. A varredura automática
   ajuda, mas não substitui uma pessoa de fora tentando invadir.
-- **Pedidos de titular (LGPD)** são atendidos manualmente.
+- **Pedidos de titular da equipe do restaurante (LGPD)** (nome, e-mail, IP das sessões) ainda são
+  atendidos manualmente; os do cliente do cardápio têm tela desde a 0.255.
+- **Backups** guardam o dado apagado até a regra de ciclo de vida do bucket descartá-los.
 - **Licença** do código ainda não definida.

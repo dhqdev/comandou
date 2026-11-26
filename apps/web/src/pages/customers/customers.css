@@ -567,3 +567,49 @@
   white-space: nowrap;
   vertical-align: middle;
 }
+
+/* Dados pessoais (LGPD): baixar, apagar com a palavra APAGAR e os pedidos já atendidos. */
+.cl-privacy {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+.cl-privacy__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cl-privacy__confirm {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cm-border);
+}
+.cl-privacy__confirm .cm-hint {
+  margin: 0;
+}
+.cl-privacy__log {
+  margin-top: 16px;
+}
+.cl-privacy__log ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cl-privacy__log li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--cm-border);
+  font-size: var(--cm-text-sm);
+}
+.cl-privacy__log li svg {
+  color: var(--cm-text-subtle);
+}
+.cl-privacy__log time {
+  color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
+}

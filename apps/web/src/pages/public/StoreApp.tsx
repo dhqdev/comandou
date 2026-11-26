@@ -103,6 +103,10 @@ const PasswordScreen = lazyPage(
   () => import('./AccountScreens'),
   (m) => m.PasswordScreen,
 );
+const PrivacyScreen = lazyPage(
+  () => import('./AccountScreens'),
+  (m) => m.PrivacyScreen,
+);
 const ForgotPasswordScreen = lazyPage(
   () => import('./AccountScreens'),
   (m) => m.ForgotPasswordScreen,
@@ -114,6 +118,7 @@ const LATER_SCREENS = [
   ProfileScreen,
   AddressesScreen,
   PasswordScreen,
+  PrivacyScreen,
   ForgotPasswordScreen,
   PublicOrderPage,
   ChatScreen,
@@ -331,6 +336,7 @@ function Screens() {
           <Route path="conta/dados" element={<ProfileScreen />} />
           <Route path="conta/enderecos" element={<AddressesScreen />} />
           <Route path="conta/senha" element={<PasswordScreen />} />
+          <Route path="conta/privacidade" element={<PrivacyScreen />} />
           <Route path="conta/esqueci-senha" element={<ForgotPasswordScreen />} />
           <Route
             path="fidelidade"

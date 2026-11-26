@@ -75,6 +75,11 @@ cookie, CSRF, corpo gigante e Host estranho.
 - Painel: ação que não volta (excluir, produção, assinar) pede `PlatformAuthService.confirmCode`
   (código do autenticador, mesmo em navegador confiável) e grava a tentativa negada na auditoria.
 
+- Dado pessoal novo de cliente (nome, telefone, endereço, CPF, conversa) numa tabela: entra no
+  `app_privacy_erase` e no export da LGPD (`store/privacy.service.ts`), senão o pedido do titular
+  deixa o dado para trás. Função SECURITY DEFINER filtra `app_current_tenant()` em todo comando (o
+  dono ignora o RLS).
+
 ### Entrada de dados (A05 Injeção, ASVS V1/V2)
 - Corpo sempre por `ZodPipe` (o Zod descarta campo desconhecido: nada de `role`, `tenantId` ou
   `price` vindos de fora). Parâmetro com `ParseUUIDPipe`. Texto com `.max()`.
