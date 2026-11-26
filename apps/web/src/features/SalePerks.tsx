@@ -31,7 +31,13 @@ export interface PerkCart {
 export function perkQuote(
   perk: SalePerk | null,
   cart: PerkCart,
-): { discountCents: number; freeDelivery: boolean; problem: string | null } {
+): {
+  discountCents: number;
+  freeDelivery: boolean;
+  problem: string | null;
+  /** Recompensa de produto grátis sem o produto no pedido: o id dele (a tela oferece colocar). */
+  missing?: string;
+} {
   if (!perk) return { discountCents: 0, freeDelivery: false, problem: null };
   if (perk.kind === 'reward') {
     const r = perk.reward;
@@ -42,6 +48,7 @@ export function perkQuote(
           discountCents: 0,
           freeDelivery: false,
           problem: `Coloque ${r.productName ?? 'o produto'} no pedido para usar a recompensa.`,
+          missing: r.productId ?? undefined,
         };
       return {
         discountCents: Math.min(unit, cart.subtotalCents),

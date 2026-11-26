@@ -54,6 +54,9 @@ describe('perkQuote (Nova venda)', () => {
     const r = reward({ kind: 'product', amount: null, productId: 'p1', productName: 'X-Burguer' });
     expect(perkQuote(r, cart()).discountCents).toBe(2590);
     expect(perkQuote(r, cart({ unitByProduct: new Map() })).problem).toMatch(/X-Burguer/);
+    // A tela oferece "Colocar no pedido" com o id do produto que falta.
+    expect(perkQuote(r, cart({ unitByProduct: new Map() })).missing).toBe('p1');
+    expect(perkQuote(r, cart()).missing).toBeUndefined();
   });
   it('cupom: porcentagem, pedido mínimo e entrega grátis só na entrega', () => {
     expect(perkQuote(coupon({}), cart()).discountCents).toBe(500);

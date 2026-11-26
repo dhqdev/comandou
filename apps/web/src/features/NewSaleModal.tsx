@@ -43,6 +43,7 @@ import './sale-extras.css';
 import { AddressQuick } from './AddressQuick';
 import { CustomerPicker, type OrderCustomer } from './CustomerPicker';
 import { perkQuote, SalePerks, type SalePerk } from './SalePerks';
+import type { PinReward } from './CustomerPin';
 import { WeighForm } from './WeighForm';
 import { groupNeed } from '../waiter/item-editor';
 import { addDays, dayKey, joinLocal } from '../pages/agenda/agenda-utils';
@@ -59,6 +60,13 @@ interface CartLine {
 }
 
 let nextLineId = 1;
+
+/** Quanto vale uma unidade grátis da linha, como a API conta: o preço base (sem adicionais) e,
+ * no item por peso, o que a pessoa leva. */
+function freeValue(l: CartLine) {
+  const base = toCents(l.product.price);
+  return Math.min(base, multiplyCents(base, l.quantity));
+}
 
 const CHANNEL_ICON: Record<OrderChannel, ReactNode> = {
   counter: <Store size={20} />,
@@ -142,8 +150,12 @@ export function NewSaleModal({
   /** Recompensa ou cupom do cliente escolhido usado nesta venda (sai ao trocar de cliente). */
   const [perk, setPerk] = useState<SalePerk | null>(null);
   const canPerks = useCan('orders:manage');
+  /** Linha que a recompensa de produto pôs no pedido (sai junto se a recompensa sair). */
+  const rewardLine = useRef<{ rewardId: string; uid: number } | null>(null);
+  /** Recompensa esperando os complementos ou o peso do produto para marcar a linha. */
+  const rewardPending = useRef<{ rewardId: string; productId: string } | null>(null);
   function setCustomer(c: OrderCustomer) {
-    if (c.id !== customer.id) setPerk(null);
+    if (c.id !== customer.id) choosePerk(null);
     setCustomerState(c);
   }
   const [address, setAddress] = useState('');
@@ -227,7 +239,10 @@ export function NewSaleModal({
   const itemCount = cart.reduce((n, l) => n + (l.product.soldByWeight ? 1 : l.quantity), 0);
   const discountCents = toCents(parseBrlInput(discount) ?? '0');
   const typedFeeCents = channel === 'delivery' ? toCents(parseBrlInput(deliveryFee) ?? '0') : 0;
-  const unitByProduct = new Map(cart.map((l) => [l.product.id, toCents(l.product.price)]));
+  // Produto em mais de uma linha: vale a unidade grátis de maior valor (igual à API).
+  const unitByProduct = new Map<string, number>();
+  for (const l of cart)
+    unitByProduct.set(l.product.id, Math.max(freeValue(l), unitByProduct.get(l.product.id) ?? 0));
   const perkInfo = perkQuote(perk, {
     channel,
     subtotalCents: subtotal,
@@ -241,12 +256,21 @@ export function NewSaleModal({
 
   function add(p: MenuProduct, optionIds: string[] = [], kg?: number) {
     const key = `${p.id}:${[...optionIds].sort().join(',')}`;
+    if (p.soldByWeight && kg === undefined) return setWeighing({ product: p, optionIds });
+    // O produto da recompensa entra numa linha só dele, marcada para sair junto com ela.
+    const pending = rewardPending.current;
+    if (pending?.productId === p.id) {
+      rewardPending.current = null;
+      const uid = nextLineId++;
+      rewardLine.current = { rewardId: pending.rewardId, uid };
+      setCart((c) => [...c, { uid, key, product: p, optionIds, quantity: kg ?? 1, notes: '' }]);
+      return;
+    }
     if (p.soldByWeight) {
       // Cada pesagem é uma linha (dois potes de sorvete são duas linhas com pesos diferentes).
-      if (kg === undefined) return setWeighing({ product: p, optionIds });
       setCart((c) => [
         ...c,
-        { uid: nextLineId++, key, product: p, optionIds, quantity: kg, notes: '' },
+        { uid: nextLineId++, key, product: p, optionIds, quantity: kg!, notes: '' },
       ]);
       return;
     }
@@ -263,6 +287,50 @@ export function NewSaleModal({
     else add(p);
   }
 
+  /**
+   * Recompensa de produto grátis: põe o produto no pedido (se ainda não está). Com complementos
+   * ou peso, abre a escolha; a API confere de novo no envio (produto no pedido e saldo).
+   */
+  function addRewardItem(r: PinReward) {
+    if (r.kind !== 'product' || !r.productId) return;
+    if (cart.some((l) => l.product.id === r.productId)) return;
+    const p = menu?.flatMap((c) => c.products).find((x) => x.id === r.productId);
+    if (!p) {
+      toast(`${r.productName ?? 'O produto'} não está no cardápio deste atendimento`, 'neutral');
+      return;
+    }
+    if (p.soldOut) {
+      toast(`${p.name} está esgotado`, 'neutral');
+      return;
+    }
+    rewardPending.current = { rewardId: r.id, productId: p.id };
+    choose(p);
+  }
+
+  /** Escolher ou tirar a recompensa/cupom; tirar a recompensa tira o item que ela pôs. */
+  function choosePerk(next: SalePerk | null) {
+    const placed = rewardLine.current;
+    if (placed && (next?.kind !== 'reward' || next.reward.id !== placed.rewardId)) {
+      rewardLine.current = null;
+      setCart((c) =>
+        c.flatMap((l) =>
+          l.uid !== placed.uid
+            ? [l]
+            : l.product.soldByWeight || l.quantity <= 1
+              ? []
+              : [{ ...l, quantity: l.quantity - 1 }],
+        ),
+      );
+    }
+    rewardPending.current = null;
+    setPerk(next);
+    if (next?.kind === 'reward') addRewardItem(next.reward);
+  }
+  // Fechou a escolha de complementos ou do peso sem adicionar: a recompensa não espera mais.
+  useEffect(() => {
+    if (!picking && !weighing) rewardPending.current = null;
+  }, [picking, weighing]);
+
   function setLine(l: CartLine, patch: Partial<CartLine> | null) {
     setCart((c) =>
       patch ? c.map((x) => (x.uid === l.uid ? { ...x, ...patch } : x)) : c.filter((x) => x !== l),
@@ -273,6 +341,8 @@ export function NewSaleModal({
     setCart([]);
     setCustomerState({ id: null, name: '', phone: '' });
     setPerk(null);
+    rewardLine.current = null;
+    rewardPending.current = null;
     setAddress('');
     setDeliveryFee('');
     setDiscount('');
@@ -286,6 +356,18 @@ export function NewSaleModal({
   const needsAddress = channel === 'delivery' && !address.trim();
   const fiadoProblem = fiado ? fiadoIssue(fiado, customer) : null;
   const perkProblem = perkInfo.problem;
+  // A linha que sai grátis: a que a recompensa pôs ou, se a pessoa já tinha o produto, a de
+  // maior valor dele (a mesma que a API desconta).
+  const freeProduct =
+    perk?.kind === 'reward' && perk.reward.kind === 'product' && perkInfo.discountCents > 0
+      ? perk.reward.productId
+      : null;
+  const freeLines = freeProduct ? cart.filter((l) => l.product.id === freeProduct) : [];
+  const freeUid =
+    freeLines.find((l) => l.uid === rewardLine.current?.uid)?.uid ??
+    freeLines.reduce<CartLine | null>((a, l) => (!a || freeValue(l) > freeValue(a) ? l : a), null)
+      ?.uid ??
+    null;
   const canSubmit =
     cart.length > 0 && !needsTable && !needsAddress && !fiadoProblem && !perkProblem && total >= 0;
   const freeOrSame = tables.filter((t) => t.active);
@@ -563,6 +645,7 @@ export function NewSaleModal({
               </div>
               {cart.map((l) => {
                 const unit = unitCents(l.product, l.optionIds);
+                const free = l.uid === freeUid;
                 const opts = l.product.optionGroups
                   .flatMap((g) => g.options)
                   .filter((o) => l.optionIds.includes(o.id));
@@ -605,6 +688,12 @@ export function NewSaleModal({
                     </span>
                     <span role="cell" className="nsale__c-prod nsale__prod">
                       <strong title={l.product.name}>{l.product.name}</strong>
+                      {free && (
+                        <span className="nsale__free">
+                          <Gift size={12} aria-hidden />
+                          {l.product.soldByWeight ? 'Grátis' : '1 grátis'} pela recompensa
+                        </span>
+                      )}
                       {opts.length > 0 && (
                         <span className="nsale__opts">{opts.map((o) => o.name).join(' · ')}</span>
                       )}
@@ -667,7 +756,7 @@ export function NewSaleModal({
                 customer={customer}
                 onCustomer={setCustomer}
                 perk={perk}
-                onPerk={setPerk}
+                onPerk={choosePerk}
               />
             )}
             {!customer.id && (channel === 'delivery' || channel === 'pickup' || customer.phone) && (
@@ -861,15 +950,32 @@ export function NewSaleModal({
             <dd className="totals__grand">{brl(fromCents(Math.max(0, total)))}</dd>
           </dl>
           {error && <Alert tone="danger">{error}</Alert>}
-          {(needsTable || needsAddress || fiadoProblem || perkProblem) && cart.length > 0 && (
-            <p className="nsale__need">
-              {needsTable
-                ? 'Escolha a mesa para enviar.'
-                : needsAddress
-                  ? 'Informe o endereço de entrega.'
-                  : (fiadoProblem ?? perkProblem)}
-            </p>
-          )}
+          {(needsTable || needsAddress || fiadoProblem || perkProblem) &&
+            (cart.length > 0 || perkInfo.missing) && (
+              <p className="nsale__need">
+                {needsTable
+                  ? 'Escolha a mesa para enviar.'
+                  : needsAddress
+                    ? 'Informe o endereço de entrega.'
+                    : (fiadoProblem ?? perkProblem)}
+                {!needsTable &&
+                  !needsAddress &&
+                  !fiadoProblem &&
+                  perkInfo.missing &&
+                  perk?.kind === 'reward' && (
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        className="link-btn"
+                        onClick={() => addRewardItem(perk.reward)}
+                      >
+                        Colocar no pedido
+                      </button>
+                    </>
+                  )}
+              </p>
+            )}
           <Button size="lg" block loading={busy} disabled={!canSubmit} onClick={submit}>
             {fiado ? 'Vender fiado' : 'Enviar pedido'}{' '}
             <kbd className="kbd nsale__kbd">Ctrl+Enter</kbd>

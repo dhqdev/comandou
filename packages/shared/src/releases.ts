@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.267.1',
+    date: '2026-11-26',
+    title: 'Nova venda: a recompensa de produto grátis já coloca o item no pedido',
+    summary:
+      'Escolhido o cliente, tocar em Usar numa recompensa de produto grátis já coloca o produto no pedido, marcado como "1 grátis pela recompensa". Tirar a recompensa tira o item que ela pôs.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Nova venda: ao usar uma recompensa de produto grátis (ex.: Batata frita média), o produto entra no pedido na hora, com o selo "1 grátis pela recompensa" e o desconto no total. Produto com complementos obrigatórios ou vendido por peso abre a escolha antes. Se o produto já estava no pedido, não duplica.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tirar a recompensa, trocar por outra ou trocar de cliente tira o item que ela colocou. Sem o produto no pedido, o aviso embaixo do total ganhou o botão "Colocar no pedido". Produto esgotado ou fora do cardápio do atendimento avisa na hora.',
+      },
+      {
+        tag: 'correção',
+        text: 'Recompensa de produto vendido por peso: a tela mostrava de desconto o preço do quilo inteiro, e o pedido saía com o valor do que foi pesado. Agora a tela mostra o mesmo valor que o pedido.',
+      },
+    ],
+  },
+  {
     version: '0.267.0',
     date: '2026-11-26',
     title: 'Super Admin mais limpo, gráficos da operação, credenciais em cartões e e-mails novos',

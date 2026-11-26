@@ -529,6 +529,21 @@
   font-size: var(--cm-text-xs);
   line-height: 1.4;
 }
+/* Item que sai grátis pela recompensa do cliente: pílula verde suave, sem riscar o preço (o
+ * desconto aparece no total como "Recompensa"). */
+.nsale__free {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  padding: 1px 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-success-bg);
+  color: var(--cm-success);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  line-height: 1.5;
+}
 /* Observação do item: em repouso parece um botão discreto (borda tracejada); no clique vira um
  * campo de verdade, com um contorno só (o da caixa) e o anel de foco da marca. */
 .nsale__note {
