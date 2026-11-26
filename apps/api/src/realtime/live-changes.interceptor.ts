@@ -13,6 +13,7 @@ const AREAS = new Map<string, { area: LiveArea; personal?: boolean }>(
     finance: { area: 'finance' },
     customers: { area: 'customers' },
     loyalty: { area: 'customers' },
+    birthdays: { area: 'customers' },
     users: { area: 'team' },
     waiters: { area: 'team' },
     // Pagamento da equipe lança no Financeiro: avisa a tela Financeiro (a Equipe ouve as duas).

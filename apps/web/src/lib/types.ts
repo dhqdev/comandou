@@ -1,4 +1,6 @@
 import type {
+  BirthdayGiftKind,
+  BirthdayTheme,
   ChargeRule,
   DisputeAlternative,
   DriverStatus,
@@ -163,6 +165,9 @@ export interface CustomerRow {
   topItem?: string | null;
   /** CPF/CNPJ (só números), quando informado. */
   document?: string | null;
+  /** Aniversário (dia e mês), quando informado. */
+  birthDay?: number | null;
+  birthMonth?: number | null;
 }
 export interface CustomerList {
   summary: {
@@ -191,6 +196,14 @@ export interface CustomerDetail {
   document?: string | null;
   stateRegistration?: string | null;
   ieIndicator?: 1 | 2 | 9 | null;
+  /** Aniversário: dia e mês, ano opcional. */
+  birthDay?: number | null;
+  birthMonth?: number | null;
+  birthYear?: number | null;
+  /** O cliente (ou a equipe) pediu para não mandar o parabéns. */
+  birthdayOptOut?: boolean;
+  /** Parabéns dos últimos anos (o mais novo primeiro). */
+  greetings?: BirthdayGreeting[];
   addresses: {
     id: string;
     label: string | null;
@@ -235,6 +248,63 @@ export interface CustomerDetail {
     hours: { hour: number; orders: number }[];
     payments: { method: string; amount: string; count: number }[];
   };
+}
+
+export type BirthdayGreetingStatus = 'queued' | 'sending' | 'sent' | 'failed';
+export interface BirthdayGreeting {
+  id: string;
+  year: number;
+  status: BirthdayGreetingStatus;
+  lastError: string | null;
+  giftKind: BirthdayGiftKind;
+  giftPoints: number | null;
+  giftText: string | null;
+  /** Último dia em que o presente em texto vale ("2026-03-17"). Só na ficha. */
+  giftUntil?: string | null;
+  sentAt: string | null;
+  createdAt: string;
+}
+
+/** Clientes › Aniversários (GET /birthdays). */
+export interface BirthdaySettings {
+  enabled: boolean;
+  sendHour: number;
+  theme: BirthdayTheme;
+  artLine: string;
+  /** null = o texto padrão (defaultMessage). */
+  message: string | null;
+  giftKind: BirthdayGiftKind;
+  giftPoints: number | null;
+  giftText: string | null;
+  giftDays: number;
+  updatedAt?: string | null;
+  defaultMessage: string;
+}
+export interface BirthdayOverview {
+  settings: BirthdaySettings;
+  whatsapp: { ready: boolean; reason: 'ok' | 'off' | 'meta' | 'plan' | 'server' };
+  loyaltyEnabled: boolean;
+  loyaltyMode: 'points' | 'stamps';
+  timezone: string;
+  /** "2026-11-26", no fuso do restaurante. */
+  today: string;
+  stats: { total: number; withBirthday: number; optedOut: number };
+  upcoming: {
+    id: string;
+    name: string;
+    day: number;
+    month: number;
+    year: number | null;
+    optOut: boolean;
+    blocked: boolean;
+    inDays: number;
+    status: BirthdayGreetingStatus | null;
+  }[];
+  history: (Omit<BirthdayGreeting, 'createdAt'> & {
+    customerId: string;
+    name: string;
+    createdAt: string;
+  })[];
 }
 
 export interface OrderItem {

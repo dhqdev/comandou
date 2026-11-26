@@ -2,6 +2,7 @@ import { formatDocument, IE_INDICATORS, isValidCnpj, isValidCpf } from '@comando
 import {
   Ban,
   Bell,
+  Cake,
   CalendarDays,
   Clock,
   KeyRound,
@@ -30,13 +31,17 @@ import { OrderDetailModal } from '../features/OrderDetailModal';
 import { SidePanel } from '../features/SidePanel';
 import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
+import { daysToBirthday, inDaysLabel } from '../lib/birthday';
 import { brl } from '../lib/money';
 import { useLiveData } from '../lib/realtime';
 import type { CustomerDetail, CustomerList, CustomerRow } from '../lib/types';
 import { CustomerAvatar } from './public/avatars';
+import { BirthdayPanel } from './customers/BirthdayPanel';
+import { CustomerBirthday } from './customers/CustomerBirthday';
 import { CustomerCharts, CustomerKpis, CustomerMix, readings } from './customers/CustomerInsights';
 import { CustomerPrivacy, PrivacyRequestModal } from './customers/PrivacyTools';
 import './customers/customers.css';
+import './customers/birthdays.css';
 import './online-store.css';
 
 const fmtPhone = (d: string) =>
@@ -270,6 +275,15 @@ function CustomerPanel({
                 )}
               </section>
 
+              <CustomerBirthday
+                c={c}
+                canManage={canManage}
+                onSaved={(x) => {
+                  setC(x);
+                  onChanged();
+                }}
+              />
+
               <TaxData c={c} canManage={canManage} busy={busy} save={save} />
 
               <section className="cl-block">
@@ -367,6 +381,11 @@ function CustomerPanel({
 }
 
 const ordersBucket = (n: number) => (n === 0 ? '0' : n === 1 ? '1' : n <= 5 ? '2-5' : '6+');
+/** Aniversário: hoje, nos próximos 30 dias, mais adiante ou sem data. */
+const birthdayBucket = (c: CustomerRow) => {
+  const d = daysToBirthday(c);
+  return d === null ? 'none' : d === 0 ? 'today' : d <= 30 ? 'soon' : 'later';
+};
 
 const FIELDS: ListField<CustomerRow>[] = [
   {
@@ -402,6 +421,17 @@ const FIELDS: ListField<CustomerRow>[] = [
     ],
   },
   {
+    key: 'bday',
+    label: 'Aniversário',
+    value: birthdayBucket,
+    options: [
+      { value: 'today', label: 'Hoje' },
+      { value: 'soon', label: 'Nos próximos 30 dias' },
+      { value: 'later', label: 'Mais adiante' },
+      { value: 'none', label: 'Sem data' },
+    ],
+  },
+  {
     key: 'email',
     label: 'E-mail',
     value: (c) => (c.email ? 'yes' : 'no'),
@@ -416,6 +446,7 @@ const TABS: ListTab[] = [
   { id: 'todos', label: 'Todos', filters: {} },
   { id: 'recorrentes', label: 'Recorrentes', filters: { orders: ['2-5', '6+'] } },
   { id: 'sem-pedido', label: 'Sem pedido', filters: { orders: ['0'] } },
+  { id: 'aniversariantes', label: 'Aniversariantes', filters: { bday: ['today', 'soon'] } },
   { id: 'bloqueados', label: 'Bloqueados', filters: { status: ['blocked'] } },
 ];
 
@@ -425,6 +456,8 @@ const SORTS: ListSort<CustomerRow>[] = [
   { key: 'orders', label: 'Pedidos', get: (c) => c.orders },
   { key: 'name', label: 'Nome', get: (c) => fold(c.name), asc: true },
   { key: 'created', label: 'Cadastro', get: (c) => c.createdAt },
+  // Sem data vai para o fim.
+  { key: 'bday', label: 'Próximo aniversário', get: (c) => daysToBirthday(c) ?? 999, asc: true },
 ];
 
 // O servidor também acha pelo CPF/CNPJ: sem ele aqui, a linha vinha e sumia na tela.
@@ -436,6 +469,8 @@ export function CustomersPage() {
   const toast = useToast();
   const { me } = useAuth();
   const [lgpd, setLgpd] = useState(false);
+  const [bday, setBday] = useState(false);
+  useLinkParam('aniversarios', () => setBday(true));
   const [data, setData] = useState<CustomerList | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   useLinkParam('abrir', setOpen);
@@ -502,15 +537,20 @@ export function CustomersPage() {
           searchLabel="Buscar cliente"
           searchHint="nome, celular ou e-mail"
           actions={
-            me?.permissions.includes('customers:manage') && (
-              <Button
-                variant="secondary"
-                icon={<ShieldCheck size={16} />}
-                onClick={() => setLgpd(true)}
-              >
-                Pedido LGPD
+            <>
+              <Button variant="secondary" icon={<Cake size={16} />} onClick={() => setBday(true)}>
+                Aniversários
               </Button>
-            )
+              {me?.permissions.includes('customers:manage') && (
+                <Button
+                  variant="secondary"
+                  icon={<ShieldCheck size={16} />}
+                  onClick={() => setLgpd(true)}
+                >
+                  Pedido LGPD
+                </Button>
+              )}
+            </>
           }
           summary={
             rows &&
@@ -559,6 +599,7 @@ export function CustomersPage() {
                         <ClAvatar c={c} />
                         <span>
                           {c.name} {c.blocked && <Badge tone="danger">Bloqueado</Badge>}
+                          <BirthdaySoon c={c} />
                           {c.email && (
                             <>
                               <br />
@@ -626,11 +667,34 @@ export function CustomersPage() {
         </Alert>
       )}
       <CustomerPanel id={open} onClose={() => setOpen(null)} onChanged={() => load(search)} />
+      <BirthdayPanel
+        open={bday}
+        onClose={() => setBday(false)}
+        onOpenCustomer={(id) => {
+          setBday(false);
+          setOpen(id);
+        }}
+      />
       <PrivacyRequestModal
         open={lgpd}
         onClose={() => setLgpd(false)}
         onChanged={() => load(search)}
       />
+    </>
+  );
+}
+
+/** Aniversário chegando (até 7 dias), embaixo do nome na lista. */
+function BirthdaySoon({ c }: { c: CustomerRow }) {
+  const d = daysToBirthday(c);
+  if (d === null || d > 7) return null;
+  return (
+    <>
+      <br />
+      <small className="cl-soon" data-today={d === 0 || undefined}>
+        <Cake size={13} aria-hidden />
+        Aniversário {inDaysLabel(d)}
+      </small>
     </>
   );
 }

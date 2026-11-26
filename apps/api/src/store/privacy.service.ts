@@ -71,7 +71,11 @@ export class PrivacyService {
             `SELECT name, phone, email, document AS cpf, marketing_opt_in AS "aceitaPromocoes",
                     created_at AS "criadaEm", last_login_at AS "ultimoAcesso",
                     phone_verified_at AS "telefoneConfirmadoEm", photo IS NOT NULL AS "temFoto",
-                    avatar, staff_notes AS "anotacaoDaLoja", blocked_at AS "bloqueadaEm"
+                    avatar, staff_notes AS "anotacaoDaLoja", blocked_at AS "bloqueadaEm",
+                    CASE WHEN birth_day IS NULL THEN NULL
+                         ELSE lpad(birth_day::text, 2, '0') || '/' || lpad(birth_month::text, 2, '0')
+                              || COALESCE('/' || birth_year, '') END AS aniversario,
+                    NOT birthday_opt_out AS "aceitaParabens"
                FROM customers WHERE id = $1`,
             [cid],
           )
@@ -94,6 +98,7 @@ export class PrivacyService {
         whatsapp,
         coupons,
         member,
+        birthdays,
       ] = await Promise.all([
         cid
           ? q(
@@ -202,6 +207,15 @@ export class PrivacyService {
               [cid],
             )
           : null,
+        cid
+          ? q(
+              tx,
+              `SELECT year AS ano, status AS situacao, gift_kind AS presente, gift_points AS pontos,
+                      gift_text AS "presenteEscrito", sent_at AS "enviadoEm"
+                 FROM birthday_greetings WHERE customer_id = $1 ORDER BY year DESC`,
+              [cid],
+            )
+          : [],
       ]);
 
       await this.log(tx, tenantId, 'export', who, {
@@ -224,6 +238,7 @@ export class PrivacyService {
         avaliacoes: reviews,
         conversaComALoja: storeChat,
         conversaNoWhatsApp: whatsapp,
+        parabensDeAniversario: birthdays,
       };
     });
   }

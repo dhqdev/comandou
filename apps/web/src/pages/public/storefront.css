@@ -2462,6 +2462,7 @@ html.sf-root {
 }
 .pdp__notes textarea,
 .f input,
+.f select,
 .f textarea {
   width: 100%;
   min-height: 48px;
@@ -2479,6 +2480,7 @@ html.sf-root {
 }
 .pdp__notes textarea:focus,
 .f input:focus,
+.f select:focus,
 .f textarea:focus {
   outline: 0;
   border-color: var(--cm-brand-500);
@@ -2709,6 +2711,38 @@ html.sf-root {
 .ck-pixlogin__go:active {
   transform: scale(0.96);
 }
+/* Conta › Meus dados: aniversário em três campos (dia, mês e ano opcional). */
+.bday {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+}
+.bday legend {
+  padding: 0;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.bday__fields {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 100px;
+  gap: 0 10px;
+}
+.bday__fields .f {
+  margin-top: 6px;
+  font-weight: 500;
+  font-size: var(--cm-text-xs);
+}
+.bday > small {
+  margin-top: 4px;
+}
+.bday .f__hint {
+  font-size: var(--cm-text-xs);
+}
+
 .ck-toggle {
   display: flex;
   align-items: center;

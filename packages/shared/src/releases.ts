@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.260.0',
+    date: '2026-11-26',
+    title: 'Parabéns de aniversário pelo WhatsApp, com arte e o nome do cliente',
+    summary:
+      'Com o aniversário na ficha do cliente, o WhatsApp da loja manda no dia uma arte com o nome dele, a cor e a logo do restaurante, e a mensagem que você escrever. Dá para incluir um presente, e cada cliente recebe uma vez por ano.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Aniversário na ficha do cliente (dia e mês, ano opcional) e na conta do cardápio, em Meus dados. A lista de Clientes ganhou a aba Aniversariantes e mostra quem faz aniversário nos próximos dias.',
+      },
+      {
+        tag: 'novo',
+        text: 'Clientes › Aniversários: liga o parabéns automático, escolhe o horário de envio, o estilo da arte (Festa, Bolo, Elegante ou Simples), a frase e o texto com {cliente}, {restaurante} e {presente}. A prévia mostra a arte e a mensagem como chegam no WhatsApp, e dá para mandar um teste para o seu número.',
+      },
+      {
+        tag: 'novo',
+        text: 'Presente opcional: pontos (ou carimbos) da fidelidade, que entram na conta do cliente junto com o parabéns, ou um presente escrito com validade, como "Sobremesa grátis", que a equipe confere na ficha.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cada cliente recebe uma vez por ano, um parabéns a cada 25 segundos para o número da loja não parecer robô. Quem pediu para não receber ou está bloqueado fica de fora, e o histórico mostra o que saiu e o que falhou, com Tentar de novo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A IA que atende no WhatsApp sabe do parabéns enviado e responde ao "obrigado!" lembrando do presente.',
+      },
+      {
+        tag: 'correção',
+        text: 'Meus dados no cardápio aberto direto pelo link agora já vem com o nome, o e-mail e o CPF preenchidos.',
+      },
+    ],
+  },
+  {
     version: '0.259.0',
     date: '2026-11-26',
     title: 'Perfil e cupons do cliente na mesa, e CPF na conta',

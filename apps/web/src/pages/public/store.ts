@@ -159,6 +159,11 @@ export interface CustomerAccount {
   avatar?: string | null;
   /** Foto do perfil (null = mostra o avatar). */
   photoUrl?: string | null;
+  /** Aniversário (dia e mês, ano opcional) e se quer o parabéns da loja. */
+  birthDay?: number | null;
+  birthMonth?: number | null;
+  birthYear?: number | null;
+  birthdayOptOut?: boolean;
 }
 export interface SavedAddress {
   id: string;

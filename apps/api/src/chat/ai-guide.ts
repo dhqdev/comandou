@@ -77,7 +77,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/clientes',
     name: 'Clientes',
     perms: ['customers:read'],
-    text: 'cadastro dos clientes com histórico de pedidos, endereços, favoritos, pontos de fidelidade, CPF/CNPJ para nota e observações da equipe.',
+    text: 'cadastro dos clientes com histórico de pedidos, endereços, favoritos, pontos de fidelidade, aniversário, CPF/CNPJ para nota e observações da equipe. Aba Aniversariantes (hoje e próximos 30 dias). O botão Aniversários (ou /clientes?aniversarios=1) liga o parabéns automático pelo WhatsApp da loja (só o conectado por QR Code): no dia, a partir da hora escolhida, cada cliente com a data na ficha recebe uma arte com o nome dele (estilos Festa, Bolo, Elegante ou Simples, com a cor e a logo da loja) e a mensagem com {cliente}, {restaurante} e {presente}; presente opcional em pontos da fidelidade ou um presente escrito com validade; uma vez por ano, com prévia, teste para um número e histórico. O cliente põe o aniversário e pode recusar o parabéns em Conta › Meus dados do cardápio.',
   },
   {
     path: '/financeiro',

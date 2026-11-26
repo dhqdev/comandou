@@ -146,6 +146,11 @@ const CHANNEL_WORDS: Record<string, string> = {
 };
 
 /** Bloco dos pedidos deste número (das últimas 24 horas). */
+/** Hoje é aniversário do cliente e o parabéns automático já saiu por esta conversa. */
+export function birthdayText(b: { gift: string | null }) {
+  return `Hoje é aniversário deste cliente e o restaurante já mandou os parabéns nesta conversa, com uma arte${b.gift ? ` e o presente: ${b.gift.replace(/[\n\r*]/g, ' ').slice(0, 120)}` : ''}. Se ele agradecer ou comentar, responda com carinho e deseje um bom dia, sem repetir o parabéns inteiro nem inventar outro presente.`;
+}
+
 export function ordersText(orders: AgentOrder[], timezone = 'America/Sao_Paulo'): string {
   const lines = orders.map((o) => {
     const at = o.createdAt.toLocaleTimeString('pt-BR', {
@@ -268,6 +273,8 @@ export function customerPrompt(o: {
   menuFiles?: number;
   /** Pedidos recentes deste número (undefined = não se sabe o número, como no teste). */
   orders?: AgentOrder[];
+  /** O restaurante mandou o parabéns de aniversário para este número hoje (presente, se houve). */
+  birthday?: { gift: string | null } | null;
 }): string {
   const s = o.settings;
   const name = s.agentName?.trim() || o.fallbackName;
@@ -355,7 +362,7 @@ ${s.greeting?.trim() ? `Na primeira mensagem da conversa, cumprimente assim (pod
 Sobre a loja agora:
 ${storeLines.map((l) => `- ${l}`).join('\n')}
 ${s.about?.trim() ? `\nSobre a casa (informado pelo gerente):\n${s.about.trim()}\n` : ''}
-${o.customerName ? `Nome do cliente no WhatsApp (pode não ser o nome real): ${o.customerName.replace(/[\n\r"]/g, ' ').slice(0, 60)}.\n` : ''}${o.memory?.trim() ? `\nResumo da conversa até aqui (conversas anteriores com este cliente; use para lembrar o que já foi dito, sem repetir à toa):\n${o.memory.trim()}\n\n` : ''}${o.reservations ? `\n${reservationsText(o.reservations)}\n\n` : ''}${o.orders ? `\n${ordersText(o.orders, o.timezone)}\n\n` : ''}Data e hora agora: ${o.now.toLocaleString('pt-BR', { timeZone: o.timezone ?? 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' })} (hoje = ${o.now.toLocaleDateString('sv-SE', { timeZone: o.timezone ?? 'America/Sao_Paulo' })}). Use isto para entender "hoje", "amanhã", "sexta".
+${o.customerName ? `Nome do cliente no WhatsApp (pode não ser o nome real): ${o.customerName.replace(/[\n\r"]/g, ' ').slice(0, 60)}.\n` : ''}${o.memory?.trim() ? `\nResumo da conversa até aqui (conversas anteriores com este cliente; use para lembrar o que já foi dito, sem repetir à toa):\n${o.memory.trim()}\n\n` : ''}${o.reservations ? `\n${reservationsText(o.reservations)}\n\n` : ''}${o.orders ? `\n${ordersText(o.orders, o.timezone)}\n\n` : ''}${o.birthday ? `\n${birthdayText(o.birthday)}\n\n` : ''}Data e hora agora: ${o.now.toLocaleString('pt-BR', { timeZone: o.timezone ?? 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' })} (hoje = ${o.now.toLocaleDateString('sv-SE', { timeZone: o.timezone ?? 'America/Sao_Paulo' })}). Use isto para entender "hoje", "amanhã", "sexta".
 
 Cardápio (só o que você pode oferecer):
 ${menu || '(nenhum item liberado: diga que o cardápio está sendo atualizado e ofereça chamar alguém da equipe)'}`;

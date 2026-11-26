@@ -42,7 +42,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { scheduleText } from '@comandou/shared';
+import { BIRTHDAY_MONTHS, scheduleText } from '@comandou/shared';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { clickPoint, Mascot, switchTheme, useTheme, useToast, Skeleton } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
@@ -67,6 +67,7 @@ import {
   AccountOrder,
   AccountState,
   addressLine,
+  CustomerAccount,
   fmtPhone,
   LoyaltyOn,
   loyaltyRule,
@@ -80,6 +81,7 @@ import {
   STEP_LABEL,
 } from './store';
 import { Field, ScreenHeader, Switch } from './ui';
+import { birthdayForm, readBirthday, type BirthdayForm } from '../../lib/birthday';
 
 function useAsync() {
   const [busy, setBusy] = useState(false);
@@ -850,17 +852,26 @@ function useMe() {
 }
 
 export function ProfileScreen() {
-  const { setAccount } = useStore();
   const me = useMe();
+  // O formulário nasce com a conta já carregada (aberta direto pelo link, ela chega depois).
+  return me ? <ProfileForm key={me.id} me={me} /> : null;
+}
+
+function ProfileForm({ me }: { me: CustomerAccount }) {
+  const { setAccount } = useStore();
   const toast = useToast();
   const [form, setForm] = useState({
-    name: me?.name ?? '',
-    email: me?.email ?? '',
-    cpf: maskDocument(me?.cpf ?? ''),
-    optIn: me?.marketingOptIn ?? false,
+    name: me.name,
+    email: me.email ?? '',
+    cpf: maskDocument(me.cpf ?? ''),
+    optIn: me.marketingOptIn,
+    birthday: birthdayForm(me),
+    greet: !me.birthdayOptOut,
   });
   const { busy, error, run } = useAsync();
-  if (!me) return null;
+  const bday = readBirthday(form.birthday);
+  const setBday = (p: Partial<BirthdayForm>) =>
+    setForm({ ...form, birthday: { ...form.birthday, ...p } });
   return (
     <div className="sf-wrap sf-page">
       <ScreenHeader title="Meus dados" back="/pedir/conta" />
@@ -875,6 +886,7 @@ export function ProfileScreen() {
         className="auth__form"
         onSubmit={async (e) => {
           e.preventDefault();
+          if (bday.error) return;
           const acc = await run(() =>
             api<AccountState>('/store/account', {
               method: 'PATCH',
@@ -883,6 +895,8 @@ export function ProfileScreen() {
                 email: form.email.trim() || null,
                 cpf: onlyDigits(form.cpf) || null,
                 marketingOptIn: form.optIn,
+                birthday: bday.value,
+                birthdayOptOut: !form.greet,
               },
             }),
           );
@@ -921,6 +935,58 @@ export function ProfileScreen() {
             onChange={(e) => setForm({ ...form, cpf: maskDocument(e.target.value) })}
           />
         </Field>
+        <fieldset className="bday">
+          <legend>Aniversário (opcional)</legend>
+          <div className="bday__fields">
+            <Field label="Dia">
+              <input
+                inputMode="numeric"
+                maxLength={2}
+                placeholder="DD"
+                autoComplete="bday-day"
+                value={form.birthday.day}
+                onChange={(e) => setBday({ day: e.target.value.replace(/\D/g, '') })}
+              />
+            </Field>
+            <Field label="Mês">
+              <select
+                autoComplete="bday-month"
+                value={form.birthday.month}
+                onChange={(e) => setBday({ month: e.target.value })}
+              >
+                <option value="">Mês</option>
+                {BIRTHDAY_MONTHS.map((m, i) => (
+                  <option key={m} value={i + 1}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Ano">
+              <input
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="Opcional"
+                autoComplete="bday-year"
+                value={form.birthday.year}
+                onChange={(e) => setBday({ year: e.target.value.replace(/\D/g, '') })}
+              />
+            </Field>
+          </div>
+          {bday.error ? (
+            <small className="form-error">{bday.error}</small>
+          ) : (
+            <small className="f__hint">No seu dia, a loja manda um parabéns pelo WhatsApp.</small>
+          )}
+        </fieldset>
+        <label className="ck-toggle">
+          <span>Receber parabéns no aniversário</span>
+          <Switch
+            label="Receber parabéns no aniversário"
+            checked={form.greet}
+            onChange={(v) => setForm({ ...form, greet: v })}
+          />
+        </label>
         <label className="ck-toggle">
           <span>Receber promoções da loja</span>
           <Switch
@@ -930,7 +996,7 @@ export function ProfileScreen() {
           />
         </label>
         {error && <p className="form-error">{error}</p>}
-        <button className="cta" disabled={busy}>
+        <button className="cta" disabled={busy || !!bday.error}>
           {busy ? 'Salvando…' : 'Salvar'}
         </button>
       </form>

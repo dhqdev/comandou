@@ -51,7 +51,14 @@ export interface Customer {
   avatar: string | null;
   /** Foto enviada pelo cliente (null = mostra o avatar). */
   photoUrl: string | null;
+  /** Aniversário (dia e mês; o ano é opcional) e se aceita o parabéns da loja. */
+  birthDay: number | null;
+  birthMonth: number | null;
+  birthYear: number | null;
+  birthdayOptOut: boolean;
 }
+/** Aniversário informado (null apaga). */
+export type BirthdayInput = { day: number; month: number; year?: number | null } | null;
 export interface AddressInput {
   label?: string | null;
   street: string;
@@ -74,9 +81,12 @@ const photoUrlSql = (p: string, base: string) =>
 const OWN_PHOTO = `'/api/v1/store/account/photo'`;
 /** Foto vista pela equipe (aba Clientes). */
 const staffPhoto = (p: string) => `'/api/v1/customers/' || ${p}id || '/photo'`;
+const BIRTHDAY_COLS = (p = '') =>
+  `${p}birth_day AS "birthDay", ${p}birth_month AS "birthMonth", ${p}birth_year AS "birthYear",
+   ${p}birthday_opt_out AS "birthdayOptOut"`;
 const customerCols = (p = '') =>
   `${p}id, ${p}name, ${p}phone, ${p}email, ${p}marketing_opt_in AS "marketingOptIn", ${p}document AS cpf, ${p}created_at AS "createdAt",
-   ${p}avatar, ${photoUrlSql(p, OWN_PHOTO)} AS "photoUrl"`;
+   ${p}avatar, ${photoUrlSql(p, OWN_PHOTO)} AS "photoUrl", ${BIRTHDAY_COLS(p)}`;
 const CUSTOMER_COLS = customerCols();
 /** Foto do perfil: até 1 MB (o navegador já manda ~30 KB, 320 × 320). */
 export const MAX_CUSTOMER_PHOTO_BYTES = 1024 * 1024;
@@ -450,6 +460,8 @@ export class CustomersService {
       marketingOptIn?: boolean;
       avatar?: string | null;
       cpf?: string | null;
+      birthday?: BirthdayInput;
+      birthdayOptOut?: boolean;
     },
   ) {
     return this.db.withTenant({ tenantId }, async (tx) => {
@@ -471,7 +483,11 @@ export class CustomersService {
                 photo = CASE WHEN $6::boolean THEN NULL ELSE photo END,
                 photo_type = CASE WHEN $6::boolean THEN NULL ELSE photo_type END,
                 photo_at = CASE WHEN $6::boolean THEN NULL ELSE photo_at END,
-                document = CASE WHEN $8::boolean THEN $9 ELSE document END
+                document = CASE WHEN $8::boolean THEN $9 ELSE document END,
+                birth_day = CASE WHEN $10::boolean THEN $11 ELSE birth_day END,
+                birth_month = CASE WHEN $10::boolean THEN $12 ELSE birth_month END,
+                birth_year = CASE WHEN $10::boolean THEN $13 ELSE birth_year END,
+                birthday_opt_out = COALESCE($14, birthday_opt_out)
           WHERE id = $1 RETURNING ${CUSTOMER_COLS}`,
         [
           c.id,
@@ -483,6 +499,11 @@ export class CustomersService {
           p.avatar ?? null,
           p.cpf !== undefined,
           p.cpf ?? null,
+          p.birthday !== undefined,
+          p.birthday?.day ?? null,
+          p.birthday?.month ?? null,
+          p.birthday?.year ?? null,
+          p.birthdayOptOut ?? null,
         ],
       );
     });
@@ -866,6 +887,7 @@ export class CustomersService {
                 c.avatar, ${photoUrlSql('c.', staffPhoto('c.'))} AS "photoUrl",
                 c.blocked_at IS NOT NULL AS blocked, c.created_at AS "createdAt",
                 c.last_login_at AS "lastLoginAt", c.document,
+                c.birth_day AS "birthDay", c.birth_month AS "birthMonth",
                 COALESCE(st.orders, 0) AS orders, COALESCE(st.spent, '0.00') AS spent,
                 st.last_order_at AS "lastOrderAt", fav.name AS "topItem"
            FROM customers c
@@ -951,11 +973,19 @@ export class CustomersService {
                 avatar, ${photoUrlSql('', staffPhoto(''))} AS "photoUrl",
                 staff_notes AS "staffNotes", blocked_at IS NOT NULL AS blocked,
                 last_login_at AS "lastLoginAt", document, state_registration AS "stateRegistration",
-                ie_indicator AS "ieIndicator"
+                ie_indicator AS "ieIndicator", ${BIRTHDAY_COLS()}
            FROM customers WHERE id = $1`,
         [id],
       );
       if (!c) throw new NotFoundException('Cliente não encontrado');
+      const greetings = await q(
+        tx,
+        `SELECT id, year, status, last_error AS "lastError", gift_kind AS "giftKind",
+                gift_points AS "giftPoints", gift_text AS "giftText", gift_until::text AS "giftUntil",
+                sent_at AS "sentAt", created_at AS "createdAt"
+           FROM birthday_greetings WHERE customer_id = $1 ORDER BY year DESC LIMIT 5`,
+        [id],
+      );
       const addresses = await q(
         tx,
         `SELECT ${ADDRESS_COLS} FROM customer_addresses WHERE customer_id = $1 ORDER BY is_default DESC, created_at`,
@@ -990,7 +1020,7 @@ export class CustomersService {
         [id],
       );
       const insights = await this.insights(tx, id);
-      return { ...c, addresses, orders, stats, favorites, insights };
+      return { ...c, addresses, orders, stats, favorites, insights, greetings };
     });
   }
 
@@ -1067,9 +1097,30 @@ export class CustomersService {
       document?: string | null;
       stateRegistration?: string | null;
       ieIndicator?: 1 | 2 | 9 | null;
+      birthday?: BirthdayInput;
+      birthdayOptOut?: boolean;
     },
   ) {
     await this.db.withTenant(ctx, async (tx) => {
+      // Aniversário (a equipe preenche na ficha quando o cliente conta).
+      if (p.birthday !== undefined || p.birthdayOptOut !== undefined)
+        await q(
+          tx,
+          `UPDATE customers SET
+             birth_day = CASE WHEN $2::boolean THEN $3 ELSE birth_day END,
+             birth_month = CASE WHEN $2::boolean THEN $4 ELSE birth_month END,
+             birth_year = CASE WHEN $2::boolean THEN $5 ELSE birth_year END,
+             birthday_opt_out = COALESCE($6, birthday_opt_out)
+           WHERE id = $1`,
+          [
+            id,
+            p.birthday !== undefined,
+            p.birthday?.day ?? null,
+            p.birthday?.month ?? null,
+            p.birthday?.year ?? null,
+            p.birthdayOptOut ?? null,
+          ],
+        );
       // Dados fiscais do cliente (destinatário da NF-e / CPF na nota).
       const fiscal: [string, unknown][] = (
         [
@@ -1111,6 +1162,7 @@ export class CustomersService {
           blocked: p.blocked,
           notes: p.staffNotes !== undefined,
           fiscal: p.document !== undefined || p.stateRegistration !== undefined,
+          birthday: p.birthday !== undefined || p.birthdayOptOut !== undefined,
         },
         ip: ctx.ip,
       });

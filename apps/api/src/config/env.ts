@@ -325,6 +325,11 @@ const schema = z.object({
   /** Lembretes da Agenda pelo WhatsApp: de quanto em quanto tempo procura os que venceram. 0 desliga. */
   AGENDA_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(60),
   /**
+   * Parabéns de aniversário pelo WhatsApp: de quanto em quanto tempo procura os aniversariantes
+   * do dia (depois da hora escolhida pelo restaurante). 0 desliga.
+   */
+  BIRTHDAY_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(300),
+  /**
    * Notas fiscais paradas (pendente, processando ou cancelando há mais de 15 minutos, por exemplo
    * depois de perder a fila): de quanto em quanto tempo procura e reenfileira. 0 desliga.
    */

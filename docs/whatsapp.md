@@ -119,6 +119,42 @@ cancelar) continua indo para a equipe com `[[ATENDENTE]]`.
 - Ritmo: mais de 8 mensagens por minuto ou 60 por hora do mesmo número ficam sem resposta da IA.
 - Resumo da memória que parece instrução é descartado.
 
+## Parabéns de aniversário
+
+Clientes › **Aniversários** (`apps/web/src/pages/customers/BirthdayPanel.tsx`, API
+`apps/api/src/birthdays/`, migração 0125). No dia do aniversário do cliente, o WhatsApp da loja
+manda uma arte com o nome dele e uma mensagem. Só pelo WhatsApp por QR Code (a API oficial da Meta
+só manda modelo aprovado).
+
+**De onde vem a data.** Dia e mês (ano opcional) na ficha do cliente (bloco Aniversário) ou pelo
+próprio cliente em Conta › Meus dados do cardápio. Quem nasceu em 29/02 recebe em 28/02 nos anos
+que não são bissextos. O cliente (ou a equipe) pode recusar o parabéns (`birthday_opt_out`).
+
+**Quando sai.** A varredura `BirthdaysService.sweep` roda a cada `BIRTHDAY_INTERVAL_SECONDS`
+(padrão 300; 0 desliga; nas cópias de versão antiga fica desligada). Para cada restaurante com o
+parabéns ligado e a sessão do WhatsApp conectada, no fuso da loja, entre a hora escolhida (7h a
+20h) e as 22h, cria um registro por aniversariante em `birthday_greetings` (único por cliente e
+ano: nunca manda duas vezes) e põe na fila `birthday.send`, um a cada 25 s. Fica de fora quem
+recusou e quem está bloqueado. Se o WhatsApp cair, a fila tenta de novo; o que não saiu até as 22h
+fica como falha no histórico, com "Tentar de novo".
+
+**Arte.** Desenhada pelo servidor (não é IA), em SVG virando PNG 1080 × 1350 pelo
+`@resvg/resvg-wasm`, com as fontes em `apps/api/assets/fonts` (Inter, Pacifico e Playfair Display,
+licença OFL). Quatro estilos (Festa, Bolo, Elegante e Simples) com a cor da loja e a logo (ou o
+favicon) da Loja online; logo em WebP é lida pelo `@jsquash/webp`. O primeiro nome encolhe até
+caber, emoji e letra que a fonte não tem saem do desenho. Prévia ao vivo em
+`GET /birthdays/preview` e teste para um número em `POST /birthdays/test` (não dá presente).
+
+**Mensagem e presente.** Texto com `{cliente}`, `{restaurante}` e `{presente}` (vai como legenda
+da foto, até 1000 caracteres). Presente opcional: pontos (ou carimbos) da fidelidade, lançados
+como ajuste "Presente de aniversário" na mesma transação que cria o registro, ou um presente
+escrito ("Sobremesa grátis") com validade, que a equipe confere na ficha do cliente. Depois do
+envio, a IA que atende no WhatsApp sabe do parabéns daquele número por 20 horas e responde ao
+"obrigado!" sabendo do presente.
+
+**LGPD.** O aniversário e os parabéns enviados entram no arquivo do cliente; apagar o cliente
+apaga os parabéns junto.
+
 ## WhatsApp do Super Admin
 
 O painel tem um número próprio (Super Admin › **WhatsApp**, `apps/web/src/platform/WhatsAppAdminPage.tsx`),

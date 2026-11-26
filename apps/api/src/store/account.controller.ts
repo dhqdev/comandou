@@ -17,7 +17,7 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { CUSTOMER_AVATARS, isValidCnpj, isValidCpf } from '@comandou/shared';
+import { CUSTOMER_AVATARS, isValidBirthday, isValidCnpj, isValidCpf } from '@comandou/shared';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
@@ -89,6 +89,16 @@ const Signup = z
   .superRefine(
     notPersonal((v) => ({ password: v.password, personal: [v.phone, v.email, v.name] })),
   );
+/** Aniversário: dia e mês, ano opcional (null apaga). */
+const birthday = z
+  .object({
+    day: z.number().int().min(1).max(31),
+    month: z.number().int().min(1).max(12),
+    year: z.number().int().min(1900).max(2100).nullable().optional(),
+  })
+  .refine((b) => isValidBirthday(b), 'Data de aniversário inválida')
+  .nullable();
+
 const Login = z.object({ phone: z.string().trim().max(25), password: z.string().min(1).max(200) });
 const Profile = z
   .object({
@@ -105,6 +115,9 @@ const Profile = z
     cpf: cpf.nullable().transform((v) => v || null),
     /** Avatar desenhado; escolher um tira a foto. null volta para o automático. */
     avatar: z.enum(CUSTOMER_AVATARS).nullable(),
+    birthday,
+    /** true = não quer receber o parabéns da loja no aniversário. */
+    birthdayOptOut: z.boolean(),
   })
   .partial();
 
@@ -532,6 +545,8 @@ const CustomerPatch = z
       .nullable()
       .transform((v) => v || null),
     ieIndicator: z.union([z.literal(1), z.literal(2), z.literal(9)]).nullable(),
+    birthday,
+    birthdayOptOut: z.boolean(),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');

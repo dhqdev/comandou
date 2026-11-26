@@ -403,6 +403,19 @@ dica `cl-tip`) e fatias `cl-share` em degraus do laranja da loja e depois cinza 
 o resto vira Outros). Frases de leitura em `readings()` com bolinha laranja. Dados de
 `insights` no `GET /customers/:id` (sem cancelados; mês, dia e hora no fuso do restaurante).
 
+## Clientes › Aniversários
+
+`pages/customers/BirthdayPanel.tsx` + `birthdays.css` (prefixo `bd-`; ficha em `CustomerBirthday.tsx`,
+classes `cl-bday*`). `SidePanel` xl: ajustes à esquerda (liga/desliga `os-toggle`, horário, estilo
+da arte em `Segmented`, frase, mensagem com os botões das variáveis, presente) e, a partir de
+860px de contêiner, a prévia fixa à direita no jeito do WhatsApp (`--cm-chat-wall`, balão
+`--cm-chat-other`, a arte de verdade vinda da API e a legenda com o negrito do WhatsApp); embaixo
+Próximos 30 dias e Já enviados em linhas finas com bolinha de situação. Rodapé só com a linha de
+situação e o Salvar (o fechar é o do topo); no celular o Salvar ocupa a largura. Resultado do salvar
+e do teste fica dentro da janela (sem toast). Na lista, "Aniversário hoje/em N dias" embaixo do
+nome (`cl-soon`, até 7 dias). O aniversário é dia e mês com ano opcional: dois `SelectField` e um
+`TextField` (não é campo de data).
+
 ## Super Admin › Cobrança (calendário)
 
 `platform/BillingCalendar.tsx` (classes `adm-cal*` e `adm-charge*` em `admin.css`), no jeito

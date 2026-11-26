@@ -405,6 +405,17 @@ const SECTIONS: StaticEntry[] = [
     perms: ['settings:manage'],
   },
   {
+    id: 'c-aniversarios',
+    group: 'Seções',
+    title: 'Parabéns de aniversário',
+    hint: 'Clientes',
+    words:
+      'aniversario aniversariantes parabens feliz aniversario data de nascimento whatsapp arte presente mensagem automatica',
+    icon: 'customers',
+    to: '/clientes?aniversarios=1',
+    perms: ['customers:read'],
+  },
+  {
     id: 'c-fidelidade',
     group: 'Seções',
     title: 'Programa de fidelidade',

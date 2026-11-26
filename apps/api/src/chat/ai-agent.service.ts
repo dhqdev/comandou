@@ -9,6 +9,7 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { type BirthdayGiftKind, giftMessageLine } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import { menuTreeSql } from '../catalog/menu-sql';
 import { Ctx } from '../common/context';
@@ -509,6 +510,35 @@ export class AiAgentService implements OnModuleInit {
     );
   }
 
+  /**
+   * Parabéns de aniversário que saiu para este número nas últimas 20 horas (a IA responde ao
+   * "obrigado!" sabendo do que se trata). Mesmo critério de telefone dos pedidos.
+   */
+  async birthdayIn(tx: Tx, phone: string): Promise<{ gift: string | null } | null> {
+    const g = await one<{
+      kind: BirthdayGiftKind;
+      points: number | null;
+      text: string | null;
+      until: string | null;
+      stamps: boolean;
+    }>(
+      tx,
+      `SELECT g.gift_kind AS kind, g.gift_points AS points, g.gift_text AS text, g.gift_until::text AS until,
+              COALESCE((SELECT mode = 'stamps' FROM loyalty_programs), false) AS stamps
+         FROM birthday_greetings g JOIN customers c ON c.id = g.customer_id
+        WHERE g.status = 'sent' AND g.sent_at > now() - interval '20 hours'
+          AND app_phone_key(c.phone) = app_phone_key($1)
+        ORDER BY g.sent_at DESC LIMIT 1`,
+      [phone],
+    );
+    if (!g) return null;
+    const until = g.until
+      ? { year: +g.until.slice(0, 4), month: +g.until.slice(5, 7), day: +g.until.slice(8, 10) }
+      : null;
+    const line = giftMessageLine({ ...g, until });
+    return { gift: line ? line.replace(/^🎁 Presente nosso: /, '') : null };
+  }
+
   /** Monta o prompt com o que o gerente configurou (ou com um rascunho, no teste). */
   private async prompt(
     ctx: { tenantId: string; userId?: string | null },
@@ -518,9 +548,8 @@ export class AiAgentService implements OnModuleInit {
     extra: { phone?: string | null; memory?: string | null } = {},
   ) {
     const info = await this.tenantInfo(ctx);
-    const { settings, menu, store, reservations, menuFiles, orders } = await this.db.withTenant(
-      ctx,
-      async (tx) => {
+    const { settings, menu, store, reservations, menuFiles, orders, birthday } =
+      await this.db.withTenant(ctx, async (tx) => {
         const saved = await this.settingsIn(tx);
         const s = { ...saved, ...(draft ?? {}) };
         return {
@@ -531,9 +560,9 @@ export class AiAgentService implements OnModuleInit {
           menuFiles: (await one<{ n: number }>(tx, `SELECT count(*)::int AS n FROM ai_menu_files`))!
             .n,
           orders: extra.phone ? await this.ordersIn(tx, extra.phone) : undefined,
+          birthday: extra.phone ? await this.birthdayIn(tx, extra.phone) : null,
         };
-      },
-    );
+      });
     return {
       settings,
       store,
@@ -555,6 +584,7 @@ export class AiAgentService implements OnModuleInit {
         memory: extra.memory ?? null,
         menuFiles,
         orders,
+        birthday,
       }),
     };
   }

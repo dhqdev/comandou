@@ -17,6 +17,8 @@ import { FiscalRulesService } from '../fiscal/fiscal-rules.service';
 import { FocusClient } from '../fiscal/focus.client';
 import { AgendaController } from '../agenda/agenda.controller';
 import { AgendaService } from '../agenda/agenda.service';
+import { BirthdaysController } from '../birthdays/birthdays.controller';
+import { BirthdaysService } from '../birthdays/birthdays.service';
 import { MessagingController } from '../messaging/messaging.controller';
 import { WhatsAppModule } from '../messaging/whatsapp.module';
 import { MessagingService } from '../messaging/messaging.service';
@@ -84,7 +86,7 @@ import { OnlinePayService } from '../online-pay/online-pay.service';
 import { OrdersController, PaymentsController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
-/** Operação e retaguarda do restaurante: pedidos, salão, cozinha, caixa, estoque, entregas, impressão, financeiro, equipe, nota fiscal, WhatsApp e a agenda pessoal. */
+/** Operação e retaguarda do restaurante: pedidos, salão, cozinha, caixa, estoque, entregas, impressão, financeiro, equipe, nota fiscal, WhatsApp (com o parabéns de aniversário) e a agenda pessoal. */
 @Module({
   imports: [WhatsAppModule],
   controllers: [
@@ -115,6 +117,7 @@ import { OrdersService } from './orders.service';
     FiscalController,
     MessagingController,
     AgendaController,
+    BirthdaysController,
     StoreController,
     MediaController,
     AccountController,
@@ -164,6 +167,7 @@ import { OrdersService } from './orders.service';
     FocusClient,
     MessagingService,
     AgendaService,
+    BirthdaysService,
     WhatsAppClient,
     StoreService,
     CustomersService,
