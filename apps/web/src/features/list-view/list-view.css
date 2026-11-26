@@ -194,6 +194,15 @@
   color: var(--cm-text);
 }
 
+/* Notebook/computador (mouse): sem o botão de ordem e o "Ordenar por" ao lado da busca (pedido
+   do David, 0.262.4: só a busca e os filtros). A lista segue na ordem padrão da tela; tablet e
+   celular continuam com os dois. */
+@media (min-width: 901px) and (pointer: fine) {
+  .lv-sort {
+    display: none;
+  }
+}
+
 /* ---------------------------------------------------------------- chips */
 .lv-chips {
   display: flex;

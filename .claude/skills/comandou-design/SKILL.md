@@ -320,6 +320,9 @@ filtro vindo de uma aba; todos antes do traço e do "+ Filtro". Mais usados = os
 usados 3 vezes (menos os que a pessoa tirou). Tabela que ordena pelo cabeçalho (Pedidos) passa
 `sortInHeader` e some o "Ordenar por" ao lado da busca (pedido do David: nada de maior/menor e
 Data/Número ali).
+**No notebook (≥901px, mouse) o botão de ordem e o "Ordenar por" (`.lv-sort`) não aparecem em
+lista nenhuma** (0.262.4, pedido do David: só busca e filtros); a lista fica na `defaultSort` (ou
+no primeiro de `sorts`). Tablet e celular seguem com os dois. Não volte a mostrar no notebook.
 
 ## Detalhe do pedido (gaveta da direita)
 

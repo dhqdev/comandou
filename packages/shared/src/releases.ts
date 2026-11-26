@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.262.4',
+    date: '2026-11-26',
+    title: 'Busca das listas mais limpa no notebook',
+    summary:
+      'No notebook e no computador, as listas (Itens do cardápio, Pedidos, Clientes, Estoque e as demais) mostram só a busca e os filtros. Saíram o botão de ordem e a caixa de ordenar (como "Categoria") ao lado da busca.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Notebook: sem o botão de crescente/decrescente e sem o "Ordenar por" ao lado do Pesquisar em todas as listas. Cada lista segue na ordem de sempre da tela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tablet e celular continuam com os dois, como antes.',
+      },
+    ],
+  },
+  {
     version: '0.262.3',
     date: '2026-11-26',
     title: 'Conversa do cardápio sem pular com o teclado',
