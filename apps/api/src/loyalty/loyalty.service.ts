@@ -572,24 +572,6 @@ export class LoyaltyService {
     throw new ConflictException('Não deu para gerar o PIN agora. Tente de novo.');
   }
 
-  /** O cliente troca o PIN (ex.: alguém viu). */
-  async newPin(tenantId: string, customerId: string) {
-    return this.db.withTenant({ tenantId }, async (tx) => {
-      await this.memberIn(tx, tenantId, customerId);
-      for (let i = 0; i < 12; i++) {
-        const pin = newPin();
-        const taken = await one(tx, `SELECT 1 FROM loyalty_members WHERE pin = $1`, [pin]);
-        if (taken) continue;
-        await q(tx, `UPDATE loyalty_members SET pin = $2 WHERE customer_id = $1`, [
-          customerId,
-          pin,
-        ]);
-        return { pin };
-      }
-      throw new ConflictException('Não deu para gerar o PIN agora. Tente de novo.');
-    });
-  }
-
   /** Amigos que o cliente indicou: quantos entraram e quantos já fizeram o primeiro pedido. */
   private async friendsIn(tx: Tx, customerId: string) {
     const r = await one<{ invited: number; paid: number }>(

@@ -183,16 +183,6 @@ export class StoreAppController {
     return this.content.publicView(t.id);
   }
 
-  /** Gera outro PIN (o de antes deixa de valer no balcão). */
-  @Public()
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
-  @Post('account/loyalty/pin')
-  @HttpCode(200)
-  async newPin(@CurrentTenant() t: ResolvedTenant, @Req() req: Request) {
-    const c = await this.who(t, req);
-    return this.loyalty.newPin(t.id, c.id);
-  }
-
   /** Indique um amigo: o cliente informa o código de quem o convidou (uma vez). */
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 5 } })

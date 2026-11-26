@@ -72,6 +72,24 @@ describe('trackViewport', () => {
     expect(css('--cm-fixgap')).toBe('200px');
   });
 
+  it('no fim da página (elástico ao passar do fim) a folga não muda e o menu não some', () => {
+    vi.spyOn(root, 'clientHeight', 'get').mockReturnValue(844);
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844);
+    vi.spyOn(root, 'scrollHeight', 'get').mockReturnValue(3000);
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ bottom: 844 } as DOMRect);
+    const vv = fakeViewport(844, 0);
+    trackViewport();
+    expect(css('--cm-fixgap')).toBe('0px');
+    // Passou do fim e está quicando: as medidas mudam, mas o menu fica onde estava.
+    Object.defineProperty(window, 'scrollY', { value: 2200, configurable: true });
+    rect.mockReturnValue({ bottom: 760 } as DOMRect);
+    vv.fire();
+    expect(css('--cm-fixgap')).toBe('0px');
+    Object.defineProperty(window, 'scrollY', { value: 0, configurable: true });
+  });
+
   it('com as peças fixas no fim da tela, a folga é 0', () => {
     vi.spyOn(root, 'clientHeight', 'get').mockReturnValue(844);
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844);

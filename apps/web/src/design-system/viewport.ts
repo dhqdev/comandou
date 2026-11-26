@@ -16,7 +16,9 @@
  * tela. No Safari do iOS 26, depois de abrir e fechar o teclado, a área "de layout" das peças
  * fixas pode ficar mais curta que a janela (WebKit 297779): o menu de baixo sobe ao rolar e fica
  * uma faixa vazia embaixo. Um marcador invisível preso em bottom: 0 mede essa folga e o menu
- * desce de volta. Fora desse defeito a folga é 0 e nada muda.
+ * desce de volta. Fora desse defeito a folga é 0 e nada muda. No fim da página (e no elástico de
+ * passar do fim) a folga não é medida de novo: lá as medidas mudam enquanto a página quica e o
+ * menu sumia até o dedo soltar.
  *
  * Teclado previsto nas conversas: no iPhone o tamanho do teclado só chega depois que ele termina
  * de subir. Até lá a conversa (presa à tela) era empurrada para cima, com o topo cortado, e só
@@ -60,6 +62,16 @@ function phone() {
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(pointer: coarse) and (max-width: 860px)').matches
   );
+}
+
+/**
+ * A página está no fim ou passou de uma das pontas (o elástico do iPhone deixa o scrollY
+ * negativo ou além do fim enquanto quica).
+ */
+export function overscrolled() {
+  const y = window.scrollY;
+  const end = document.documentElement.scrollHeight - window.innerHeight;
+  return y < 0 || (end > 0 && y >= end - 1);
 }
 
 /** Marcador invisível preso no fim da área das peças fixas. */
@@ -116,6 +128,10 @@ export function trackViewport() {
       predicted = 0;
     }
     apply(vv.height, top, covered, open);
+    // Elástico das pontas (rolar além do fim e soltar): o navegador mexe nas medidas enquanto a
+    // página quica, e a folga medida ali empurrava o menu de baixo para fora da tela até o dedo
+    // sair. Na ponta, a folga fica como estava.
+    if (!open && overscrolled()) return;
     // Com o teclado aberto quem manda é o --cm-kb; a folga só vale com ele fechado.
     const gap = open ? 0 : Math.round(window.innerHeight - probe.getBoundingClientRect().bottom);
     const fix = gap > 2 && gap < window.innerHeight / 2 ? gap : 0;

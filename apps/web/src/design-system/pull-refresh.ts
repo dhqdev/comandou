@@ -73,13 +73,38 @@ const atTop = (el: HTMLElement) => el.scrollTop <= 0;
 const atBottom = (el: HTMLElement) => el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
 
 /**
+ * Partes da página que esticam sem levar junto o que é preso na tela (position: fixed). Um
+ * `transform` num pai faz o fixo passar a contar a partir desse pai: o menu de baixo do cardápio
+ * ia parar no fim da página (sumia da tela) enquanto o dedo esticava, e só voltava ao soltar.
+ * Aqui o que contém uma peça fixa é aberto nos filhos, e a peça fixa fica parada.
+ */
+export function pageMovers(root: HTMLElement): HTMLElement[] {
+  const fixed = [...root.querySelectorAll<HTMLElement>('*')].filter(
+    (el) => getComputedStyle(el).position === 'fixed',
+  );
+  if (!fixed.length) return [root];
+  const out: HTMLElement[] = [];
+  const walk = (el: HTMLElement) => {
+    if (fixed.includes(el)) return;
+    if (!fixed.some((f) => el.contains(f))) {
+      out.push(el);
+      return;
+    }
+    for (const c of el.children) if (c instanceof HTMLElement) walk(c);
+  };
+  walk(root);
+  return out;
+}
+
+/**
  * O que mexe na tela: o conteúdo de dentro de quem rola (ele continua cortado pela caixa, sem
- * passar por cima do cabeçalho). A página inteira rola pelo documento: aí desce o #root.
+ * passar por cima do cabeçalho). A página inteira rola pelo documento: aí desce o #root, menos
+ * as peças presas na tela (menu de baixo, pílula da sacola), que ficam onde estão.
  */
 function moversFor(scroller: HTMLElement | undefined): HTMLElement[] {
   if (!scroller || scroller === document.scrollingElement) {
     const root = document.getElementById('root') ?? document.body;
-    return [root];
+    return pageMovers(root);
   }
   return [...scroller.children].filter((c): c is HTMLElement => c instanceof HTMLElement);
 }
