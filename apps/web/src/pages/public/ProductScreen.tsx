@@ -385,13 +385,12 @@ export function ProductScreen() {
                       'Obrigatório'
                     )}
                   </span>
+                ) : !single && chosen > 0 ? (
+                  <span className="og__tag is-count" key={chosen}>
+                    {chosen}/{g.maxSelect}
+                  </span>
                 ) : (
-                  !single &&
-                  chosen > 0 && (
-                    <span className="og__tag is-count" key={chosen}>
-                      {chosen}/{g.maxSelect}
-                    </span>
-                  )
+                  <span className="og__tag is-opt">Opcional</span>
                 )}
               </div>
               {asChips(g) ? (

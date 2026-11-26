@@ -22,6 +22,16 @@ export function groupHint(g: Pick<MenuGroup, 'kind' | 'minSelect' | 'maxSelect'>
   return `Escolha até ${g.maxSelect}`;
 }
 
+/**
+ * Selo do grupo na escolha das opções (PDV, garçom e cardápio): grupo com mínimo no cadastro é
+ * Obrigatório até ter a escolha feita (aí vira Pronto); sem mínimo é Opcional.
+ */
+export type GroupNeed = 'required' | 'done' | 'optional';
+export function groupNeed(g: Pick<MenuGroup, 'minSelect'>, chosen: number): GroupNeed {
+  if (g.minSelect <= 0) return 'optional';
+  return chosen >= g.minSelect ? 'done' : 'required';
+}
+
 /** Primeiro grupo que ainda não tem o mínimo escolhido (na ordem da tela). */
 export function missingGroup(
   groups: MenuGroup[],

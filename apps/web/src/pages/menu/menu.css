@@ -142,6 +142,16 @@
   flex: none;
   accent-color: var(--cm-brand-600);
 }
+/* Obrigatório do grupo: texto em duas linhas, caixa alinhada ao título. */
+.mn-required {
+  align-items: flex-start;
+  padding: var(--cm-space-2) var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+}
+.mn-required input {
+  margin-top: 2px;
+}
 .mn-checks {
   display: grid;
   gap: var(--cm-space-2);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MenuGroup } from '../lib/types';
-import { groupHint, groupMode, missingGroup, unitCents } from './item-editor';
+import { groupHint, groupMode, groupNeed, missingGroup, unitCents } from './item-editor';
 
 const g = (over: Partial<MenuGroup>): MenuGroup => ({
   id: 'g',
@@ -55,5 +55,15 @@ describe('edição do item no garçom', () => {
     };
     expect(unitCents(p, [])).toBe(3490);
     expect(unitCents(p, ['bacon', 'ovo'])).toBe(4290);
+  });
+});
+
+describe('groupNeed', () => {
+  it('marca obrigatório pelo mínimo do cadastro e opcional sem mínimo', () => {
+    expect(groupNeed({ minSelect: 1 }, 0)).toBe('required');
+    expect(groupNeed({ minSelect: 2 }, 1)).toBe('required');
+    expect(groupNeed({ minSelect: 1 }, 1)).toBe('done');
+    expect(groupNeed({ minSelect: 0 }, 0)).toBe('optional');
+    expect(groupNeed({ minSelect: 0 }, 3)).toBe('optional');
   });
 });

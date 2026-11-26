@@ -334,15 +334,14 @@ function GroupSection({
           <span className="wt-ie__pill" data-ok={ok || undefined} data-flash={flash || undefined}>
             {ok ? <Check size={14} strokeWidth={3} aria-label="Escolhido" /> : 'Obrigatório'}
           </span>
+        ) : chosen.length > 0 && mode !== 'single' ? (
+          <span className="wt-ie__count">
+            {mode === 'remove'
+              ? `${chosen.length} retirado${chosen.length > 1 ? 's' : ''}`
+              : `${chosen.length}/${g.maxSelect}`}
+          </span>
         ) : (
-          chosen.length > 0 &&
-          mode !== 'single' && (
-            <span className="wt-ie__count">
-              {mode === 'remove'
-                ? `${chosen.length} retirado${chosen.length > 1 ? 's' : ''}`
-                : `${chosen.length}/${g.maxSelect}`}
-            </span>
-          )
+          mode !== 'remove' && <span className="wt-ie__opt-tag">Opcional</span>
         )}
       </header>
       <div className="wt-ie__opts">

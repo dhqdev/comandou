@@ -263,6 +263,75 @@
   font-weight: 700;
   padding: 0 4px;
 }
+/* Selo Obrigatório/Opcional de cada grupo, vindo do mínimo no cadastro do grupo. A legenda ocupa
+   a largura toda para o selo ficar à direita, sem sair da borda do fieldset. */
+.picker__group > legend {
+  float: left;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-2);
+  padding: 0 0 var(--cm-space-1);
+}
+.picker__group > legend + * {
+  clear: both;
+}
+.picker__need {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: var(--cm-radius-full);
+  font-size: var(--cm-text-2xs);
+  font-weight: 700;
+  background: transparent;
+  color: var(--cm-text-muted);
+  border: 1px solid var(--cm-border);
+}
+.picker__need[data-need='required'] {
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
+  color: var(--cm-brand-700);
+  border-color: color-mix(in oklab, var(--cm-brand-500) 35%, transparent);
+}
+.picker__need[data-need='done'] {
+  background: var(--cm-success-bg);
+  color: var(--cm-success);
+  border-color: transparent;
+}
+.picker__group[data-late] {
+  border-color: var(--cm-danger);
+  animation: picker-shake 360ms ease both;
+}
+@keyframes picker-shake {
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .picker__group[data-late] {
+    animation: none;
+  }
+}
+.picker__total {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.picker__missing {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.picker__panel .cm-btn[data-blocked] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .picker__opt {
   display: flex;
   align-items: center;
