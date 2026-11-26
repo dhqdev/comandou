@@ -1388,6 +1388,8 @@ input[type='radio'] {
   display: grid;
   gap: var(--cm-space-2);
   z-index: 60;
+  /* A pilha não segura clique: só o fechar e o botão do aviso guiado recebem toque. */
+  pointer-events: none;
 }
 .cm-toast {
   min-width: 260px;

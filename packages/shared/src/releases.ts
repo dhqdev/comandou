@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.254.5',
+    date: '2026-11-26',
+    title: 'Aviso de impressão não trava mais o pedido',
+    summary:
+      'O aviso "Nenhum agente de impressão ativo" que aparecia no pedido aberto não respondia ao toque e parecia preso na tela. Agora fecha no X, leva para Impressão e some sozinho.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Pedido aberto (e outras janelas): os avisos de erro com o que fazer, como "Nenhum agente de impressão ativo", agora respondem ao toque. O X fecha e "Configurar impressão" abre a tela certa; antes o aviso ficava por cima da janela sem responder.',
+      },
+      {
+        tag: 'correção',
+        text: 'Tocar várias vezes em Imprimir cozinha sem impressora mostra um aviso só, que some sozinho em alguns segundos, e a área em volta do aviso não segura mais o clique (Fechar conta e os outros botões seguem funcionando).',
+      },
+    ],
+  },
+  {
     version: '0.254.4',
     date: '2026-11-26',
     title: 'Item voando para a sacola mais bonito, no celular, tablet e notebook',
