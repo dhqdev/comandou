@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.254.2',
+    date: '2026-11-26',
+    title: 'Fotos na Nova venda pelo iPhone e tela que se ajusta ao notebook e ao zoom',
+    summary:
+      'As fotos dos produtos voltam a aparecer na Nova venda no Safari (iPhone e Mac), e a tela se arruma sozinha no notebook e com o zoom do navegador.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Nova venda no iPhone (e no Safari do Mac): os cartões dos produtos apareciam só com o nome e o preço, sem a foto. A caixa da foto ficava com altura zero no Safari; agora a foto aparece em todos os navegadores.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Nova venda no notebook: em tela baixa o cabeçalho fica numa linha, a busca e as categorias ficam lado a lado e a foto fica um pouco mais deitada, para caberem duas fileiras de produtos e ainda os itens do pedido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Nova venda com zoom do navegador: aumentando ou diminuindo o zoom, a tela se reorganiza (mais ou menos produtos por fileira, painel da direita proporcional e, com zoom alto, o mesmo jeito do celular) em vez de cortar ou espremer as fotos.',
+      },
+    ],
+  },
+  {
     version: '0.254.1',
     date: '2026-11-25',
     title: 'Nova venda mais larga, sacola sem repetir e link bonito no WhatsApp',

@@ -100,6 +100,14 @@ esquerda a **grade de produtos fica com 2/3 da altura que sobra e os itens do pe
 um cartão com a foto 4:3 em cima (`.nsale__photo`, 16:10 em notebook baixo) e, embaixo, o nome em
 até duas linhas (15px, semibold, altura fixa de duas linhas para os preços alinharem) e o preço em
 17px negrito tabular; esgotado em cinza. Nada escrito por cima da foto (nem selo de preço).
+A caixa da foto é feita com `height: 0` + `padding-top` em % (75% = 4:3), **nunca `aspect-ratio`**
+dentro do cartão flex: no Safari do iPhone/Mac a largura esticada não entrava na conta e a foto
+ficava com altura 0 (0.254.2). **Tela baixa** (`min-width: 861px` e `max-height: 820px`, que é o
+notebook e também o zoom do navegador, já que tudo é medido em px de CSS): cabeçalho numa linha
+sem a frase, busca e categorias lado a lado (áreas `'search cats'`), foto 16:10 e cartões de
+160px; o painel da direita é `clamp(300px, 26vw, 400px)`; com zoom alto (≤ 860px de largura) vale
+o jeito do celular. Os mínimos das fileiras deixam uma fileira de fotos e a lista visíveis; a
+coluna só rola em zoom extremo.
 
 ## Edição do item no garçom
 

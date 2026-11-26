@@ -16,7 +16,8 @@
 }
 .nsale[open] {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  /* O painel da direita acompanha a tela (e o zoom): nunca menos de 300px nem mais de 400px. */
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 26vw, 400px);
   gap: var(--cm-space-3);
   animation: cm-fade var(--cm-dur) var(--cm-ease) both;
 }
@@ -34,10 +35,30 @@
 .nsale__main {
   display: grid;
   /* Produtos com dois terços da altura que sobra, itens do pedido com um terço: a grade de
-     fotos é sempre maior que a lista de itens. */
-  grid-template-rows: auto auto auto minmax(0, 2fr) minmax(150px, 1fr);
+     fotos é sempre maior que a lista de itens. Os mínimos garantem uma fileira de fotos e a
+     lista visível; se a tela (ou o zoom) não deixa caber, a coluna rola em vez de esmagar. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'head' 'search' 'cats' 'grid' 'items';
+  grid-template-rows: auto auto auto minmax(200px, 2fr) minmax(150px, 1fr);
   gap: var(--cm-space-3);
   padding: var(--cm-space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.nsale__head {
+  grid-area: head;
+}
+.nsale__search {
+  grid-area: search;
+}
+.nsale__cats {
+  grid-area: cats;
+}
+.nsale__grid {
+  grid-area: grid;
+}
+.nsale__items {
+  grid-area: items;
 }
 
 /* Cabeçalho */
@@ -133,6 +154,8 @@
 /* Categorias: uma linha que rola de lado. */
 .nsale__cats {
   display: flex;
+  align-items: center;
+  min-width: 0;
   gap: var(--cm-space-2);
   overflow-x: auto;
   scrollbar-width: none;
@@ -210,11 +233,16 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* Caixa 4:3 pela largura (padding em %), sem aspect-ratio: no Safari do iPhone e do Mac a
+   largura esticada do cartão flex não entrava na conta e a foto ficava com altura 0 (0.254.2). */
 .nsale__photo {
   position: relative;
   display: block;
   flex: none;
-  aspect-ratio: 4 / 3;
+  width: 100%;
+  height: 0;
+  padding-top: 75%;
+  overflow: hidden;
   border-bottom: 1px solid var(--cm-border);
   background: var(--cm-photo-bg);
 }
@@ -238,6 +266,7 @@
 .nsale__info {
   display: grid;
   flex: 1;
+  width: 100%;
   align-content: space-between;
   gap: var(--cm-space-2);
   padding: 10px 12px 12px;
@@ -526,21 +555,78 @@
   border: 1px solid var(--cm-border);
 }
 
-/* Notebook baixo: cartões um pouco menores e foto mais deitada, para caber mais de uma fileira. */
+/* Notebook (e qualquer tela baixa, inclusive com zoom): menos margem, cabeçalho de uma linha,
+   busca e categorias lado a lado e foto um pouco mais deitada, para caber duas fileiras de
+   produtos e ainda ver os itens. Tudo em px de CSS: com zoom a tela "encolhe" e cai aqui. */
 @media (min-width: 861px) and (max-height: 820px) {
+  .nsale {
+    width: min(2400px, calc(100vw - 16px));
+    height: calc(var(--cm-vvh, 100dvh) - 16px);
+  }
+  .nsale[open] {
+    gap: var(--cm-space-2);
+  }
+  .nsale__main {
+    grid-template-columns: minmax(200px, 360px) minmax(0, 1fr);
+    grid-template-areas: 'head head' 'search cats' 'grid grid' 'items items';
+    grid-template-rows: auto auto minmax(140px, 2.4fr) minmax(100px, 1fr);
+    gap: 10px var(--cm-space-3);
+    padding: 14px 16px;
+  }
+  .nsale__icon {
+    width: 34px;
+    height: 34px;
+  }
+  .nsale__title h2 {
+    font-size: var(--cm-text-lg);
+  }
+  .nsale__title p {
+    display: none;
+  }
+  .nsale__cancel {
+    height: 32px;
+  }
+  .nsale__search,
+  .nsale__cat {
+    height: 38px;
+  }
   .nsale__grid,
   .nsale__sk .cm-sk__grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
   }
   .nsale__photo {
-    aspect-ratio: 16 / 10;
+    padding-top: 62.5%; /* 16:10 */
+  }
+  .nsale__info {
+    gap: 6px;
+    padding: 8px 10px 10px;
+  }
+  .nsale__name {
+    font-size: var(--cm-text-sm);
+  }
+  .nsale__price {
+    font-size: var(--cm-text-md);
+  }
+  .nsale__items h3 {
+    padding-top: 10px;
+  }
+  .nsale__row {
+    padding-block: 6px;
+  }
+  .nsale__side-head {
+    padding: var(--cm-space-3) var(--cm-space-4);
+  }
+  .nsale__side-body {
+    gap: var(--cm-space-4);
+    padding: var(--cm-space-3) var(--cm-space-4);
+  }
+  .nsale__foot {
+    padding: var(--cm-space-3) var(--cm-space-4);
   }
 }
 
 @media (max-width: 1100px) {
-  .nsale[open] {
-    grid-template-columns: minmax(0, 1fr) 330px;
-  }
   .nsale__row {
     grid-template-columns: 100px minmax(0, 1fr) 84px 32px;
   }
@@ -573,7 +659,10 @@
   }
   .nsale__main {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'head' 'search' 'cats' 'grid' 'items';
     grid-template-rows: none;
+    overflow: visible;
     padding: var(--cm-space-4) var(--cm-space-4) var(--cm-space-3);
     padding-top: max(var(--cm-space-4), env(safe-area-inset-top));
   }
@@ -611,7 +700,7 @@
     gap: var(--cm-space-2);
   }
   .nsale__grid {
-    max-height: 460px;
+    max-height: min(560px, 62vh);
   }
   .nsale__info {
     gap: 4px;
