@@ -479,11 +479,19 @@ fiado no PDV (o dono pediu para tirar). Tag Fiado laranja `#E8710A`.
 ## Reservas
 
 `pages/ReservationsPage.tsx` (`reservations.css`, prefixo `rv-`), no jeito da Agenda pessoal, mas
-o painel do lado tem **só Nova reserva e o minicalendário** (pedido do David na 0.175). Situação =
-tags-pílula acima da agenda (`rv-tag`: bolinha na cor da situação, contador, escolhida com fundo
-`color-mix` de 12% da cor); Reservas pelo cardápio é um botão `rv-store` na barra. Cartão que mudou
-por tempo real ganha o contorno `is-fresh` (pseudo-elemento, só opacity). Não volte a pôr resumo,
-filtros ou atalhos no painel do lado.
+**sem painel do lado** (0.264.3, pedido do David: "retire esse calendário pequeno de canto"; antes
+era só Nova reserva + minicalendário). A agenda ocupa a largura toda e o topo é a grade `rv-head`:
+linha 1 = Hoje (`ghost`), setas e o período à esquerda; à direita a busca (lupa que abre o campo
+"Pesquisar" no lugar), a pílula `rv-store-group` (Reservas pelo cardápio com bolinha + Copiar link
+dentro), o `Segmented` Dia/Semana/Mês/Lista e **Nova reserva** (o único primário). Linha 2 = as
+situações (`rv-tag`: sem contorno, bolinha + nome + contagem, escolhida com fundo `color-mix` de 15%
+da cor, vazia mais apagada). A barra mede a si mesma (`container: rvmain`): até 1240px o "Pelo
+cardápio" vira ícone, até 900px a Nova reserva vira só o +, o título fica curto (`narrow`) e as
+tags apertam para caber numa linha; buscando até 1100px, o campo usa o lugar do título. O Dia
+mostra os cartões ao lado da grade com a agenda ≥ 881px (`container: rvbody`), não pela tela.
+Cartão que mudou por tempo real ganha o contorno `is-fresh` (pseudo-elemento, só opacity). Não
+volte a pôr painel, minicalendário, resumo ou atalhos ao lado da agenda. No celular segue o topo da
+Agenda (título que abre a folha com busca, calendário e resumo).
 
 ## Super Admin › E-mail
 

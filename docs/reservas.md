@@ -9,16 +9,23 @@ as contas de data de `agenda-utils.ts` e as classes de `agenda.css`; o que é s�
 
 - **Visões** Dia, Semana, Mês e Lista (próximos 60 dias), gravadas no aparelho (`cm-rv-view`).
   No computador a tela abre no Dia; no celular, no Mês com os cartões do dia tocado embaixo.
-- **Dia**: grade de horários (cada reserva do tamanho do tempo na mesa) e, a partir de 1281 px,
-  os cartões do dia ao lado com as ações (Confirmar, Chegou, Concluir, Não veio, Reabrir, mesa,
-  telefone e WhatsApp). Em tela menor, tocar na reserva abre o mesmo cartão numa janela.
-- **Painel do lado**: só Nova reserva e o minicalendário (desde a 0.173).
-- **Tags de situação** acima da agenda (`rv-tags`): Todas (sem Cancelada e Não veio) e uma tag por
-  situação com a contagem do período na tela (cor em `STATUS_COLOR`). Dá para escolher mais de uma;
-  nenhuma escolhida = Todas. No celular ficam embaixo das visões e rolam de lado.
-- **Reservas pelo cardápio**: botão na barra de cima (bolinha verde quando ligadas) que abre as
-  configurações, com o link; ao lado, Copiar link. No celular, na folha aberta pelo título, junto
-  com a busca, o calendário e o resumo do dia.
+- **Dia**: grade de horários (cada reserva do tamanho do tempo na mesa) e, com a agenda a partir
+  de 881 px de largura (contêiner `rvbody`), os cartões do dia ao lado com as ações (Confirmar,
+  Chegou, Concluir, Não veio, Reabrir, mesa, telefone e WhatsApp). Mais estreita, tocar na reserva
+  abre o mesmo cartão numa janela.
+- **Sem painel do lado** (0.264.3, pedido do dono: "retire esse calendário pequeno de canto"): a
+  agenda ocupa a largura toda. O topo (`rv-head`, grade) tem duas linhas: Hoje, setas e o período;
+  à direita a busca, Reservas pelo cardápio, as visões e **Nova reserva** (o único primário). Embaixo,
+  as tags de situação. Tudo mede a própria barra (contêiner `rvmain`): até 1240 px o "Pelo cardápio"
+  vira ícone; até 900 px a Nova reserva vira só o +, o título fica curto e a busca aberta usa o
+  lugar do título (até 1100 px).
+- **Tags de situação** (`rv-tags`): sem contorno, bolinha + nome + contagem do período na tela (cor
+  em `STATUS_COLOR`); a escolhida ganha fundo leve na cor dela e a vazia fica mais apagada. Todas =
+  sem Cancelada e Não veio. Dá para escolher mais de uma; nenhuma escolhida = Todas. No celular
+  ficam embaixo das visões e rolam de lado.
+- **Reservas pelo cardápio**: pílula cinza na barra de cima (`rv-store-group`: bolinha verde quando
+  ligadas, abre as configurações com o link) com o Copiar link dentro. No celular, na folha aberta
+  pelo título, junto com a busca, o calendário e o resumo do dia.
 - **Tempo real**: todo `reservation.changed` recarrega a lista e marca o cartão com um contorno
   laranja por 2,4 s (`is-fresh`). Quem muda reserva fora do `ReservationsService` precisa publicar
   esse aviso depois do COMMIT (ex.: `completeSeatedForTab` devolve os ids; `publishReservations`

@@ -305,7 +305,16 @@ export function ReservationsPage() {
     { value: 'month' as const, label: 'Mês' },
     { value: 'list' as const, label: 'Lista' },
   ];
-  const title = view === 'list' ? 'Próximas reservas' : titleOf(view, cursor, phone);
+  // Barra estreita (tablet deitado, notebook com o menu aberto): título curto.
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const el = root.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([e]) => setNarrow((e?.contentRect.width ?? 1000) < 900));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const title = view === 'list' ? 'Próximas reservas' : titleOf(view, cursor, phone || narrow);
   const storeLink = `${window.location.origin}/pedir/reservar`;
   const openingHour = settings ? Number(settings.opensAt.slice(0, 2)) : 18;
 
@@ -343,18 +352,20 @@ export function ReservationsPage() {
       }
     >
       <span className={`ag-wa__dot ${settings?.enabled ? 'is-on' : ''}`} aria-hidden />
-      <Store size={16} aria-hidden />
       <span className="rv-store__text">Pelo cardápio</span>
+      <Store size={16} aria-hidden className="rv-store__ic" />
     </button>
   );
   const copyButton = settings?.enabled && (
-    <Button
-      variant="ghost"
+    <button
+      type="button"
+      className="rv-store__copy"
       aria-label="Copiar link da reserva"
       title="Copiar link da reserva"
-      icon={<Copy size={17} />}
       onClick={copyLink}
-    />
+    >
+      <Copy size={16} aria-hidden />
+    </button>
   );
 
   // Contagem do período na tela (dia, semana, mês ou os 60 dias da lista).
@@ -382,6 +393,7 @@ export function ReservationsPage() {
             className="rv-tag"
             aria-pressed={on}
             data-warn={(st === 'pending' && n > 0) || undefined}
+            data-empty={(!n && !on) || undefined}
             style={{ ['--tag' as string]: STATUS_COLOR[st] }}
             onClick={() => togglePicked(st)}
           >
@@ -421,107 +433,138 @@ export function ReservationsPage() {
     </p>
   );
 
+  const searchBox =
+    search !== null ? (
+      <span className="rv-search">
+        <Search size={16} aria-hidden className="rv-search__ic" />
+        <input
+          className="cm-input"
+          type="search"
+          aria-label="Buscar reserva por nome, celular, código ou mesa"
+          title="Nome, celular, código ou mesa"
+          placeholder="Pesquisar"
+          autoFocus
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === 'Escape' && setSearch(null)}
+        />
+        <button
+          type="button"
+          className="rv-search__x"
+          aria-label="Fechar a busca"
+          onClick={() => setSearch(null)}
+        >
+          <X size={15} aria-hidden />
+        </button>
+      </span>
+    ) : (
+      <Button
+        variant="ghost"
+        aria-label="Buscar"
+        title="Buscar reserva"
+        icon={<Search size={18} />}
+        onClick={() => setSearch('')}
+      />
+    );
+
   return (
     <div className={`ag rv-cal ${phone ? 'ag--phone' : ''}`} ref={root}>
-      {!phone && (
-        <aside className="ag-side" aria-label="Painel das reservas">
-          <Button
-            size="lg"
-            icon={<Plus size={18} />}
-            onClick={() => create()}
-            className="ag-create"
-          >
-            Nova reserva
-          </Button>
-          {calendar}
-        </aside>
-      )}
-
       <section className="ag-main">
-        <header className="ag-bar">
-          {phone ? (
-            <>
-              <button type="button" className="ag-bar__title" onClick={() => setDialog('side')}>
-                <span>{title}</span>
-              </button>
-              <span className="ag-bar__spacer" />
-              <Button size="sm" variant="secondary" onClick={today}>
-                Hoje
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label="Anterior"
-                icon={<ChevronLeft size={18} />}
-                onClick={() => go(-1)}
-              />
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label="Próximo"
-                icon={<ChevronRight size={18} />}
-                onClick={() => go(1)}
-              />
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label="Filtros e configurações"
-                icon={<Settings2 size={18} />}
-                onClick={() => setDialog('side')}
-              />
-              <Button
-                size="sm"
-                aria-label="Nova reserva"
-                icon={<Plus size={18} />}
-                onClick={() => create()}
-              />
-            </>
-          ) : (
-            <>
-              <Button variant="secondary" onClick={today}>
-                Hoje
-              </Button>
-              <span className="ag-bar__arrows">
-                <Button
-                  variant="ghost"
-                  aria-label="Anterior"
-                  icon={<ChevronLeft size={18} />}
-                  onClick={() => go(-1)}
+        {phone ? (
+          <header className="ag-bar">
+            <button type="button" className="ag-bar__title" onClick={() => setDialog('side')}>
+              <span>{title}</span>
+            </button>
+            <span className="ag-bar__spacer" />
+            <Button size="sm" variant="secondary" onClick={today}>
+              Hoje
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label="Anterior"
+              icon={<ChevronLeft size={18} />}
+              onClick={() => go(-1)}
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label="Próximo"
+              icon={<ChevronRight size={18} />}
+              onClick={() => go(1)}
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label="Filtros e configurações"
+              icon={<Settings2 size={18} />}
+              onClick={() => setDialog('side')}
+            />
+            <Button
+              size="sm"
+              aria-label="Nova reserva"
+              icon={<Plus size={18} />}
+              onClick={() => create()}
+            />
+          </header>
+        ) : (
+          <>
+            {/* Linha 1: o período (Hoje, setas, título) e a visão com a Nova reserva. Linha 2: a
+                situação e as ferramentas (busca, cardápio). Na barra estreita as ferramentas sobem
+                para a linha 1 e as situações ficam com a linha 2 inteira. */}
+            <header className="rv-head" data-search={search !== null || undefined}>
+              <h1 className="page-title cm-sr-only">Reservas</h1>
+              <div className="rv-head__nav">
+                <Button variant="ghost" onClick={today}>
+                  Hoje
+                </Button>
+                <span className="ag-bar__arrows">
+                  <Button
+                    variant="ghost"
+                    aria-label="Anterior"
+                    icon={<ChevronLeft size={18} />}
+                    onClick={() => go(-1)}
+                  />
+                  <Button
+                    variant="ghost"
+                    aria-label="Próximo"
+                    icon={<ChevronRight size={18} />}
+                    onClick={() => go(1)}
+                  />
+                </span>
+                <h2 className="rv-head__title" title={titleOf(view, cursor)}>
+                  {title}
+                </h2>
+              </div>
+              <div className="rv-head__views">
+                <Segmented
+                  label="Visualização"
+                  value={view}
+                  onChange={changeView}
+                  options={views}
                 />
                 <Button
-                  variant="ghost"
-                  aria-label="Próximo"
-                  icon={<ChevronRight size={18} />}
-                  onClick={() => go(1)}
-                />
-              </span>
-              <h1 className="ag-bar__h1">{title}</h1>
-              <span className="ag-bar__spacer" />
-              {storeButton}
-              {copyButton}
-              {search !== null && (
-                <input
-                  className="cm-input ag-search"
-                  type="search"
-                  aria-label="Buscar reserva"
-                  placeholder="Nome, celular, código ou mesa…"
-                  autoFocus
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Escape' && setSearch(null)}
-                />
-              )}
-              <Button
-                variant="ghost"
-                aria-label={search === null ? 'Buscar' : 'Fechar a busca'}
-                icon={search === null ? <Search size={18} /> : <X size={18} />}
-                onClick={() => setSearch(search === null ? '' : null)}
-              />
-              <Segmented label="Visualização" value={view} onChange={changeView} options={views} />
-            </>
-          )}
-        </header>
-        {!phone && tags}
+                  variant="primary"
+                  icon={<Plus size={18} />}
+                  className="rv-head__new"
+                  aria-label="Nova reserva"
+                  title="Nova reserva"
+                  onClick={() => create()}
+                >
+                  <span className="rv-head__new-text">Nova reserva</span>
+                </Button>
+              </div>
+              {tags}
+              <div className="rv-head__tools">
+                {searchBox}
+                <span className="rv-store-group">
+                  {storeButton}
+                  {copyButton}
+                </span>
+              </div>
+            </header>
+          </>
+        )}
         {phone && (
           <>
             <Segmented

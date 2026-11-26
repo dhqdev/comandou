@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.264.3',
+    date: '2026-11-26',
+    title: 'Reservas mais limpa, sem o calendário do canto',
+    summary:
+      'A tela de Reservas ficou mais simples: saiu o calendário pequeno do lado e a agenda usa a largura toda. O topo ficou organizado em duas linhas e funciona bem no notebook e no tablet.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Saiu o painel do lado com o calendário pequeno e o segundo botão Hoje. A Nova reserva foi para a barra de cima, à direita, ao lado de Dia, Semana, Mês e Lista.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Topo em duas linhas: em cima o período (Hoje, setas e o mês ou o dia), a busca, as reservas pelo cardápio e as visões; embaixo, as situações (Aguardando, Confirmada, Chegou…) mais leves, sem contorno.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No Dia, os cartões com as ações aparecem ao lado da grade já no notebook. No tablet a barra encolhe sem cortar nada: a Nova reserva vira só o +, o título fica curto e as situações cabem numa linha.',
+      },
+      {
+        tag: 'correção',
+        text: 'Saiu a barra de rolagem de lado que aparecia embaixo do calendário do canto (também na Agenda pessoal).',
+      },
+    ],
+  },
+  {
     version: '0.264.2',
     date: '2026-11-26',
     title: 'Barras de rolagem com a cor do restaurante',

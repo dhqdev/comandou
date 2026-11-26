@@ -32,6 +32,12 @@
 .ag-side__block .cm-cal {
   width: 100%;
 }
+/* O rodapé do calendário sai 12px para cada lado (feito para a caixa com folga): aqui, sem
+   folga, isso abria uma barra de rolagem de lado no painel. */
+.ag-side .cm-cal__foot {
+  margin-inline: 0;
+  padding-inline: 0;
+}
 .ag-side__head {
   display: flex;
   align-items: center;

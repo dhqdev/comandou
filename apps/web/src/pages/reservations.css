@@ -1,14 +1,74 @@
 /* Reservas no jeito da Agenda (pages/agenda/agenda.css): painel do lado, barra e as visões.
    Aqui só o que é das reservas. Cores sempre dos tokens (seguem a cor da loja e o tema). */
 
-/* ---------------------------------------------------------------- filtros (topo) */
-/* Painel do lado só com Nova reserva e o minicalendário; a situação vira tags numa linha acima
-   da agenda e as reservas pelo cardápio, um botão na barra. */
+/* ---------------------------------------------------------------- topo */
+/* Sem painel do lado (pedido do David, 0.265): a agenda ocupa a largura toda e o topo tem duas
+   linhas. Linha 1 = período (Hoje, setas, título) e, à direita, a visão e a Nova reserva.
+   Linha 2 = situação (tags) e, à direita, busca e reservas pelo cardápio. */
+.ag.rv-cal:not(.ag--phone) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.rv-cal .ag-main {
+  container: rvmain / inline-size;
+  gap: var(--cm-space-2);
+}
+.rv-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    'nav tools views'
+    'tags tags tags';
+  align-items: center;
+  gap: var(--cm-space-2) var(--cm-space-3);
+  min-width: 0;
+  padding-bottom: var(--cm-space-1);
+}
+.rv-head__nav {
+  grid-area: nav;
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  min-width: 0;
+}
+.rv-head__nav > :not(.rv-head__title) {
+  flex: none;
+}
+.rv-head__title {
+  min-width: 0;
+  margin: 0 0 0 var(--cm-space-1);
+  font-size: var(--cm-text-xl);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rv-head__views {
+  grid-area: views;
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+}
+.rv-head__views .cm-seg,
+.rv-head__new {
+  flex: none;
+}
+.rv-head > .rv-tags {
+  grid-area: tags;
+}
+.rv-head__tools {
+  grid-area: tools;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cm-space-1);
+}
+
+/* Situação: tags sem contorno, a escolhida com fundo leve na cor dela. */
 .rv-tags {
   display: flex;
-  flex: none;
-  margin-top: calc(-1 * var(--cm-space-1));
-  gap: 6px;
+  flex: 0 1 auto;
+  gap: 2px;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -20,13 +80,13 @@
 .rv-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   flex: none;
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--cm-border);
+  height: 32px;
+  padding: 0 11px;
+  border: 0;
   border-radius: var(--cm-radius-full);
-  background: var(--cm-surface);
+  background: transparent;
   color: var(--cm-text-muted);
   font: inherit;
   font-size: var(--cm-text-sm);
@@ -36,7 +96,6 @@
   transition:
     transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
     background-color 0.15s ease,
-    border-color 0.15s ease,
     color 0.15s ease;
 }
 .rv-tag:hover {
@@ -48,39 +107,187 @@
 }
 .rv-tag:focus-visible {
   outline: 2px solid var(--cm-brand-500);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 .rv-tag__dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--tag);
 }
 .rv-tag__n {
-  min-width: 18px;
-  padding: 0 5px;
-  border-radius: var(--cm-radius-full);
-  background: color-mix(in oklab, var(--cm-text-muted) 14%, transparent);
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-sm);
   font-weight: 600;
-  line-height: 18px;
-  text-align: center;
   font-variant-numeric: tabular-nums;
 }
+.rv-tag[data-empty] {
+  color: var(--cm-text-subtle);
+}
 .rv-tag[aria-pressed='true'] {
-  border-color: color-mix(in oklab, var(--tag, var(--cm-brand-500)) 55%, var(--cm-border));
-  background: color-mix(in oklab, var(--tag, var(--cm-brand-500)) 12%, var(--cm-surface));
+  background: color-mix(in oklab, var(--tag, var(--cm-brand-500)) 15%, var(--cm-surface));
   color: var(--cm-text);
   font-weight: 600;
 }
 .rv-tag[aria-pressed='true'] .rv-tag__n {
-  background: color-mix(in oklab, var(--tag, var(--cm-brand-500)) 22%, transparent);
-  color: var(--cm-text);
+  color: var(--cm-text-muted);
 }
 .rv-tag[data-warn] .rv-tag__n {
-  background: var(--cm-warning-bg);
   color: var(--cm-warning);
+}
+
+/* Busca: lupa que abre o campo no lugar. */
+.rv-search {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: min(240px, 34cqi);
+}
+.rv-search .cm-input {
+  width: 100%;
+  height: 36px;
+  padding-inline: 32px 30px;
+}
+.rv-search__ic {
+  position: absolute;
+  left: 10px;
+  color: var(--cm-text-subtle);
+  pointer-events: none;
+}
+.rv-search__x {
+  position: absolute;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.rv-search__x:hover {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+}
+/* Sem o "x" nativo do campo de busca (já tem o nosso). */
+.rv-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+/* Reservas pelo cardápio: uma pílula cinza com a situação e o copiar link ao lado. */
+.rv-store-group {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  height: 36px;
+  padding: 2px;
+  border-radius: var(--cm-radius-md);
+  background: color-mix(in oklab, var(--cm-text-muted) 10%, transparent);
+}
+.rv-store,
+.rv-store__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  border: 0;
+  border-radius: calc(var(--cm-radius-md) - 2px);
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    background-color 0.15s ease;
+}
+.rv-store {
+  padding: 0 10px;
+}
+.rv-store__copy {
+  justify-content: center;
+  width: 32px;
+  color: var(--cm-text-muted);
+}
+.rv-store:hover:not(:disabled),
+.rv-store__copy:hover {
+  background: var(--cm-surface);
+  color: var(--cm-text);
+}
+.rv-store:active:not(:disabled),
+.rv-store__copy:active {
+  transform: scale(0.96);
+}
+.rv-store:focus-visible,
+.rv-store__copy:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.rv-store:disabled {
+  cursor: default;
+  color: var(--cm-text-muted);
+}
+.rv-store__ic {
+  display: none;
+  color: var(--cm-text-muted);
+}
+.rv-cal .ag-wa:disabled {
+  cursor: default;
+}
+.rv-cal .ag-wa:disabled:hover {
+  background: inherit;
+}
+
+/* Barra mais estreita (tablet deitado, notebook com o menu aberto): botões só com ícone. */
+@container rvmain (max-width: 1240px) {
+  .rv-store__text {
+    display: none;
+  }
+  .rv-store__ic {
+    display: block;
+  }
+}
+@container rvmain (max-width: 1100px) {
+  /* Buscando: o campo usa o lugar do título. */
+  .rv-head[data-search] .rv-head__title {
+    display: none;
+  }
+}
+@container rvmain (max-width: 900px) {
+  .rv-head > .rv-tags {
+    flex-wrap: wrap;
+    gap: 0;
+  }
+  .rv-tag {
+    gap: 5px;
+    padding-inline: 7px;
+  }
+  .rv-head__new-text {
+    display: none;
+  }
+  .rv-search {
+    width: 180px;
+  }
+  .rv-head__new {
+    padding-inline: 0 !important;
+    width: 38px;
+  }
+  .rv-head__views .cm-seg__item {
+    padding-inline: 10px;
+  }
+}
+
+/* Celular: as tags rolam de lado embaixo das visões. */
+.ag--phone .rv-tag {
+  height: 36px;
+}
+.ag-side--sheet .rv-sum {
+  flex-wrap: wrap;
+  white-space: normal;
 }
 
 .rv-sum {
@@ -106,53 +313,6 @@
 .rv-sum__warn {
   color: var(--cm-warning);
   font-weight: 600;
-}
-
-.rv-store {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  height: 30px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--cm-radius-md);
-  background: color-mix(in oklab, var(--cm-text-muted) 10%, transparent);
-  color: var(--cm-text);
-  font: inherit;
-  font-size: var(--cm-text-sm);
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
-}
-.rv-store:active:not(:disabled) {
-  transform: scale(0.97);
-}
-.rv-store:disabled {
-  cursor: default;
-  color: var(--cm-text-muted);
-}
-.rv-cal .ag-wa:disabled {
-  cursor: default;
-}
-.rv-cal .ag-wa:disabled:hover {
-  background: inherit;
-}
-/* Notebook: o botão das reservas pelo cardápio vira só ícone. */
-@media (max-width: 1280px) {
-  .rv-store__text {
-    display: none;
-  }
-}
-
-/* Celular: as tags rolam de lado embaixo das visões. */
-.ag--phone .rv-tag {
-  height: 36px;
-}
-.ag-side--sheet .rv-sum {
-  flex-wrap: wrap;
-  white-space: normal;
 }
 
 /* ---------------------------------------------------------------- mês */
@@ -583,18 +743,23 @@
 .ag--phone .rv-list .ag-list__day {
   grid-template-columns: minmax(0, 1fr);
 }
-.rv-cal .ag-bar .cm-seg {
-  flex: none;
+/* Agenda estreita: só a grade (tocar na reserva abre o cartão). Mede a própria agenda, não a
+   tela: sem o painel do lado, o notebook já tem espaço para os cartões ao lado do dia. */
+.rv-cal .ag-body {
+  container: rvbody / inline-size;
 }
-.rv-cal .ag-bar__h1 {
-  min-width: 0;
-}
-/* Tela estreita: só a grade (tocar na reserva abre o cartão). */
-@media (max-width: 1280px) {
+@container rvbody (max-width: 880px) {
   .rv-day--lane {
     display: flex;
   }
   .rv-day--lane > .rv-lane {
+    display: none;
+  }
+}
+/* Mês estreito: some o total de pessoas ao lado do número do dia (ficava por cima dele). */
+@container rvbody (max-width: 760px) {
+  .rv-cell__people,
+  .rv-chip__n {
     display: none;
   }
 }
