@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.267.2',
+    date: '2026-11-26',
+    title: 'Aba Operação do Super Admin volta a abrir',
+    summary:
+      'A aba Operação de um restaurante no Super Admin mostrava "Algo deu errado nesta tela". Voltou a abrir com todos os gráficos.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Super Admin: a aba Operação do restaurante quebrava quando o faturamento médio de algum dia da semana dava frações de centavo (ex.: R$ 10,01 dividido por 4 semanas). Os valores agora são arredondados para centavos antes de aparecer.',
+      },
+      {
+        tag: 'correção',
+        text: 'Super Admin: fuso do restaurante vazio ou desconhecido pelo navegador não derruba mais os gráficos da Operação; usa o horário de Brasília.',
+      },
+    ],
+  },
+  {
     version: '0.267.1',
     date: '2026-11-26',
     title: 'Recompensa que já coloca o item e PDV que lembra o Compacto ou Completo',

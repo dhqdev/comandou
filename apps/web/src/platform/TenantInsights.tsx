@@ -9,7 +9,14 @@ import type { Consumption, KeyCount, TeamMember, TenantInsights } from './types'
 import { Columns, Donut, Ranking, SplitBar, type Part } from './charts';
 import { ago, bytes, Dot, Level, Section, Tile } from './ui';
 
-const reais = (n: number | string) => brl(String(n));
+/**
+ * Real a partir de número ou texto. Arredonda para centavos antes: médias (ex.: faturamento médio
+ * por dia da semana) saem com várias casas, e `brl` só aceita até 2 (lançava e derrubava a aba).
+ */
+const reais = (n: number | string) => {
+  const v = Number(n);
+  return brl(Number.isFinite(v) ? (Math.round(v * 100) / 100).toFixed(2) : '0');
+};
 
 const CHANNEL: Record<string, string> = {
   counter: 'Balcão',
@@ -252,7 +259,13 @@ function Loading({ error }: { error: string | null }) {
 /** Os 30 dias (no fuso do restaurante) com pedidos e faturamento, do mais antigo a hoje. */
 function dailyPoints(byDay: { day: string; count: number; revenue: number }[], timeZone: string) {
   const map = new Map(byDay.map((d) => [d.day.slice(0, 10), d]));
-  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone, dateStyle: 'short' });
+  let fmt: Intl.DateTimeFormat;
+  try {
+    fmt = new Intl.DateTimeFormat('en-CA', { timeZone, dateStyle: 'short' });
+  } catch {
+    // Fuso vazio ou desconhecido pelo navegador: usa o de Brasília em vez de quebrar a aba.
+    fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', dateStyle: 'short' });
+  }
   const out: { day: string; count: number; revenue: number }[] = [];
   for (let i = 29; i >= 0; i--) {
     const day = fmt.format(new Date(Date.now() - i * 86_400_000));
