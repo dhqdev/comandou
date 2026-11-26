@@ -441,6 +441,48 @@ function FilterSheet({
 }
 
 /**
+ * Selo da loja no canto de cima (celular): bolinha que pulsa e "Aberta" com o horário embaixo, ou
+ * a lua e "Fechada" com quando abre; aberta, o tempo de entrega vem junto. O texto inteiro fica no `aria-label`.
+ */
+function OpenBadge({
+  open,
+  status,
+  table,
+  eta,
+}: {
+  open: boolean;
+  status: string;
+  table: boolean;
+  eta: string | null;
+}) {
+  const head = open ? 'Aberta' : table ? 'Pausado' : 'Fechada';
+  const rest = open
+    ? status.replace(/^Aberta\s*/, '')
+    : table
+      ? 'chame o garçom'
+      : status.replace(/^Fechada\.?\s*/, '');
+  const when = rest ? rest.charAt(0).toLowerCase() + rest.slice(1) : '';
+  // "até 23h · 35–50 min": o tempo de entrega vem junto do horário.
+  const sub = [when, eta].filter(Boolean).join(' · ');
+  return (
+    <p
+      className="hm-open"
+      data-open={open || undefined}
+      role="status"
+      aria-label={
+        table && !open ? `${status}. Chame o garçom` : eta ? `${status}. Entrega em ${eta}` : status
+      }
+    >
+      {open ? <i className="hm-open__dot" aria-hidden /> : <Moon size={14} aria-hidden />}
+      <span className="hm-open__text" aria-hidden>
+        <b>{head}</b>
+        {sub && <small>{sub}</small>}
+      </span>
+    </p>
+  );
+}
+
+/**
  * Topo do app (todas as telas): a saudação com o nível e os pontos, o sino dos avisos da loja, a
  * loja (logo, nome e endereço, que abrem as informações) e a faixa do horário: "Aberta até 23h" ou
  * "Fechada. Abre hoje às 10h30". A entrega e a retirada ficam na sacola, não no início.
@@ -462,6 +504,9 @@ function AppTop({ onInfo }: { onInfo(): void }) {
   const level = acc && l?.levels?.length ? levelOf(l.levels, acc.earned ?? 0).current : null;
   const status =
     table && !s.isOpen ? 'Pedidos pelo celular pausados' : scheduleText(s.isOpen, s.schedule);
+  // Celular: a situação da loja vira um selo no canto de cima, à direita (pedido do David).
+  const phone = useLayout() === 'phone';
+  const eta = s.isOpen && !table ? `${s.etaMin}–${s.etaMax} min` : null;
   return (
     <section className="hm-top" aria-label="Sua conta e a loja">
       <div className="hm-hello">
@@ -504,6 +549,7 @@ function AppTop({ onInfo }: { onInfo(): void }) {
           )}
         </div>
         <div className="hm-hello__tools">
+          {phone && <OpenBadge open={s.isOpen} status={status} table={!!table} eta={eta} />}
           {!table && live.length > 0 && (
             <Link
               className="hm-iconbtn"
@@ -536,25 +582,27 @@ function AppTop({ onInfo }: { onInfo(): void }) {
                 <HandPlatter size={13} aria-hidden /> Mesa {table.label}
               </>
             ) : (
-              r.address || 'Horários, entrega e retirada'
+              <span className="hm-store__addr">{r.address || 'Horários, entrega e retirada'}</span>
             )}
           </small>
         </span>
         <ChevronRight size={18} aria-hidden className="hm-store__more" />
       </button>
-      <p className="hm-status" data-open={s.isOpen || undefined} role="status">
-        {s.isOpen ? <i className="hm-status__dot" aria-hidden /> : <Moon size={15} aria-hidden />}
-        <span>
-          {status}
-          {s.isOpen && (
-            <span className="hm-status__eta">
-              {' '}
-              · <Clock size={13} aria-hidden /> {s.etaMin}–{s.etaMax} min
-            </span>
-          )}
-          {!s.isOpen && table && <span className="hm-status__eta"> · Chame o garçom</span>}
-        </span>
-      </p>
+      {!phone && (
+        <p className="hm-status" data-open={s.isOpen || undefined} role="status">
+          {s.isOpen ? <i className="hm-status__dot" aria-hidden /> : <Moon size={15} aria-hidden />}
+          <span>
+            {status}
+            {s.isOpen && (
+              <span className="hm-status__eta">
+                {' '}
+                · <Clock size={13} aria-hidden /> {s.etaMin}–{s.etaMax} min
+              </span>
+            )}
+            {!s.isOpen && table && <span className="hm-status__eta"> · Chame o garçom</span>}
+          </span>
+        </p>
+      )}
     </section>
   );
 }
@@ -825,12 +873,14 @@ export function HomeScreen() {
   const nav = useNavigationType();
   const open = useOpenProduct();
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<Filters>(kept.filters);
+  const [picked, setFilters] = useState<Filters>(kept.filters);
+  // Sem busca nem filtro no celular: lá vale o cardápio na ordem da loja.
+  const filters = phone ? NO_FILTERS : picked;
   const [sheet, setSheet] = useState<'info' | 'filter' | null>(null);
   // Pedidos da mesa ficam no bloco da mesa (e saem do celular quando a conta é paga).
   const recent = useMemo(() => recentOrders().filter((o) => !o.tableId), []);
   const r = menu.restaurant;
-  const term = search.trim().toLowerCase();
+  const term = phone ? '' : search.trim().toLowerCase();
   const { bar, under, stuck, past } = useStickySearch(term);
 
   // Começou a buscar: a busca sobe para o topo e os resultados aparecem logo embaixo dela (antes,
@@ -929,41 +979,46 @@ export function HomeScreen() {
         data-stuck={stuck || undefined}
         data-chips={chips || undefined}
         data-chips-on={(chips && past) || undefined}
+        data-bare={phone || undefined}
       >
-        <div className="sf-wrap searchbar__row">
-          <label className="searchbox">
-            <Search size={18} aria-hidden />
-            <input
-              type="search"
-              placeholder={phone ? 'Buscar' : `Buscar em ${r.name}…`}
-              aria-label="Buscar no cardápio"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onFocus={() => {
-                if (phone) document.documentElement.dataset.sfTyping = '';
-              }}
-              onBlur={() => {
-                delete document.documentElement.dataset.sfTyping;
-              }}
-              enterKeyHint="search"
-              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-            />
-            {search && (
-              <button type="button" aria-label="Limpar busca" onClick={() => setSearch('')}>
-                <X size={16} />
-              </button>
-            )}
-          </label>
-          <button
-            type="button"
-            className="filterbtn"
-            aria-label="Filtrar e ordenar"
-            data-on={filtered || undefined}
-            onClick={() => setSheet('filter')}
-          >
-            <SlidersHorizontal size={19} />
-          </button>
-        </div>
+        {/* No celular sai a busca e o filtro (pedido do David): a faixa fica só para as categorias
+            em texto que grudam no topo. */}
+        {!phone && (
+          <div className="sf-wrap searchbar__row">
+            <label className="searchbox">
+              <Search size={18} aria-hidden />
+              <input
+                type="search"
+                placeholder={phone ? 'Buscar' : `Buscar em ${r.name}…`}
+                aria-label="Buscar no cardápio"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onFocus={() => {
+                  if (phone) document.documentElement.dataset.sfTyping = '';
+                }}
+                onBlur={() => {
+                  delete document.documentElement.dataset.sfTyping;
+                }}
+                enterKeyHint="search"
+                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+              />
+              {search && (
+                <button type="button" aria-label="Limpar busca" onClick={() => setSearch('')}>
+                  <X size={16} />
+                </button>
+              )}
+            </label>
+            <button
+              type="button"
+              className="filterbtn"
+              aria-label="Filtrar e ordenar"
+              data-on={filtered || undefined}
+              onClick={() => setSheet('filter')}
+            >
+              <SlidersHorizontal size={19} />
+            </button>
+          </div>
+        )}
         {chips && <CategoryChips sections={wheel} show={past} />}
       </div>
       {/* O banner (ou a capa da loja) vem antes dos grupos, como na vitrine de um app. */}

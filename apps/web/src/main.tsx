@@ -31,6 +31,10 @@ applyTheme();
 // Cardápio do cliente com tema próprio da loja (guardado da última visita): já abre nessa cor.
 const menuTheme = isMenuPath(window.location.pathname) ? storeTheme() : null;
 if (menuTheme) applyTheme(menuTheme);
+// Prévia da Loja online (iframe do celular no painel): sem barra de rolagem, senão o cardápio
+// não chega na borda direita da moldura.
+if (new URLSearchParams(window.location.search).get('previa') === '1')
+  document.documentElement.dataset.previa = '';
 // Abriu uma cópia velha guardada no cache (saiu versão nova)? Limpa os caches e recarrega uma vez.
 void reloadIfStale();
 // Teclado do celular: as folhas que sobem de baixo acompanham a área visível.

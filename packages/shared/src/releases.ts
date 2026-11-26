@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.264.1',
+    date: '2026-11-26',
+    title: 'Topo do cardápio no celular mais bonito',
+    summary:
+      'No celular, o cardápio mostra "Aberta" num selo no canto de cima, à direita, com o horário e o tempo de entrega. O cartão da loja ganhou um contorno na cor da loja e a busca com o filtro saiu do topo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Celular: "Aberta" (ou "Fechada" e quando abre) virou um selo no canto de cima, à direita, com a bolinha que pulsa, o horário e o tempo de entrega. A faixa larga do horário saiu.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cartão da loja com contorno na cor da loja, com um brilho que dá a volta devagar, e a logo com um anel. Endereço comprido termina em "…".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Celular: saíram a busca e o botão de filtro do topo do cardápio. As categorias em texto continuam aparecendo presas no topo ao rolar.',
+      },
+      {
+        tag: 'correção',
+        text: 'O contorno da categoria marcada (fotos dos grupos) não fica mais cortado em cima.',
+      },
+      {
+        tag: 'correção',
+        text: 'Loja online › Prévia: o cardápio agora vai até a borda direita do celular (a barra de rolagem saiu da prévia).',
+      },
+    ],
+  },
+  {
     version: '0.264.0',
     date: '2026-11-26',
     title: 'Fechar caixa: confirmar o valor esperado num toque',

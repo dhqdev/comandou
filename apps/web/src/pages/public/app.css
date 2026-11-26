@@ -1830,3 +1830,167 @@ button.acct-tile {
 .og__chip:disabled:active {
   transform: none;
 }
+
+/* ================================================================ topo do celular (0.264) */
+/* Pedido do David: "Loja aberta" no canto de cima, à direita, num selo discreto; o cartão da loja
+   ganha o contorno que gira devagar na cor da loja (exceção pedida ao "sem gradiente"); e no
+   celular saem a busca e o filtro. */
+.hm-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 184px;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 14px 6px 12px;
+  border: 1px solid color-mix(in oklab, var(--cm-warning) 26%, transparent);
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in oklab, var(--cm-warning-bg) 70%, var(--cm-surface));
+  color: var(--cm-warning);
+  box-shadow: 0 6px 18px -12px color-mix(in oklab, var(--cm-warning) 70%, transparent);
+}
+.hm-open[data-open] {
+  border-color: color-mix(in oklab, var(--cm-success) 28%, transparent);
+  background: color-mix(in oklab, var(--cm-success-bg) 70%, var(--cm-surface));
+  color: var(--cm-success);
+  box-shadow: 0 6px 18px -12px color-mix(in oklab, var(--cm-success) 80%, transparent);
+}
+.hm-open > svg {
+  flex: none;
+}
+.hm-open__dot {
+  position: relative;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 18%, transparent);
+}
+/* Onda que sai da bolinha: cresce e a borda vai a transparente (sem mexer em opacidade). */
+.hm-open__dot::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  animation: hm-open-wave 2.4s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
+}
+@keyframes hm-open-wave {
+  from {
+    transform: scale(1);
+    border-color: currentColor;
+  }
+  to {
+    transform: scale(2.8);
+    border-color: transparent;
+  }
+}
+.hm-open__text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.15;
+}
+.hm-open__text b {
+  font-size: var(--cm-text-sm);
+  font-weight: 750;
+  letter-spacing: var(--cm-tracking-tight);
+}
+.hm-open__text small {
+  overflow: hidden;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-2xs);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-open__dot::after {
+    animation: none;
+    border-color: transparent;
+  }
+}
+
+/* Cartão da loja: contorno com um brilho na cor da loja que dá a volta devagar. */
+@property --hm-spin {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.hm-store {
+  --hm-edge: color-mix(in oklab, var(--cm-brand-500) 75%, transparent);
+  position: relative;
+  min-height: 64px;
+  padding: 10px 12px 10px 10px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--cm-surface), var(--cm-surface)) padding-box,
+    conic-gradient(
+        from var(--hm-spin),
+        var(--hm-edge),
+        var(--cm-border-strong) 18%,
+        var(--cm-border) 42%,
+        color-mix(in oklab, var(--cm-brand-500) 35%, transparent) 60%,
+        var(--cm-border) 78%,
+        var(--hm-edge)
+      )
+      border-box;
+  box-shadow:
+    0 1px 0 color-mix(in oklab, var(--cm-surface) 60%, transparent) inset,
+    0 12px 28px -20px color-mix(in oklab, var(--cm-brand-600) 70%, transparent);
+  animation: hm-spin 7s linear infinite;
+}
+@keyframes hm-spin {
+  to {
+    --hm-spin: 360deg;
+  }
+}
+@media (hover: hover) {
+  .hm-store:hover {
+    border-color: transparent;
+    --hm-edge: var(--cm-brand-500);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-store {
+    animation: none;
+  }
+}
+.hm-store__logo {
+  width: 46px;
+  box-shadow:
+    0 0 0 2px var(--cm-surface),
+    0 0 0 3.5px color-mix(in oklab, var(--cm-brand-500) 45%, transparent);
+}
+
+/* Endereço comprido termina em "…" (texto solto num flex não ganhava as reticências). */
+.hm-store__addr {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Celular sem busca: a faixa que gruda fica só com a folga do relógio e as categorias em texto,
+   que aparecem quando as fotos dos grupos passam do topo. */
+.searchbar[data-bare] {
+  --sb-top: env(safe-area-inset-top, 0px);
+  margin-top: calc(0px - var(--sb-top));
+  padding: var(--sb-top) 0 0;
+}
+.searchbar[data-bare][data-stuck]:not([data-chips-on]) {
+  background: none;
+  box-shadow: none;
+}
+.searchbar[data-bare][data-chips] .cchips {
+  padding-top: 10px;
+}
+
+/* Fotos dos grupos: folga em volta para o anel da categoria marcada (2px + 2px de afastamento)
+   não ser cortado pela faixa que rola de lado. */
+.ctiles__track {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.ctiles {
+  margin-top: 12px;
+}

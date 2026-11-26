@@ -147,6 +147,14 @@ svg {
   outline: none;
   box-shadow: var(--cm-focus);
 }
+/* Prévia do cardápio no painel (Loja online): a moldura é um celular, então sem barra de rolagem. */
+:root[data-previa],
+:root[data-previa] * {
+  scrollbar-width: none;
+}
+:root[data-previa] ::-webkit-scrollbar {
+  display: none;
+}
 /* Barras de rolagem discretas; no celular e no app instalado elas somem. */
 * {
   scrollbar-width: thin;

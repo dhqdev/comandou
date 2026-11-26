@@ -246,7 +246,7 @@
       /* Topo do app: saudação e pontos, o sino, a loja e a faixa do horário. */
       .cm-msk__hero {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 44px;
+        grid-template-columns: minmax(0, 1fr) 116px;
         align-items: center;
         gap: 12px;
         padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
@@ -263,10 +263,11 @@
         width: 38%;
         height: 14px;
       }
+      /* Celular: o selo "Aberta" no canto e nada de busca nem faixa do horário. */
       .cm-msk__info {
-        width: 44px;
+        width: 116px;
         height: 44px;
-        border-radius: 50% !important;
+        border-radius: 999px !important;
       }
       .cm-msk__store {
         grid-column: 1 / -1;
@@ -278,9 +279,9 @@
         height: 40px;
         border-radius: 999px !important;
       }
-      .cm-msk__search {
-        display: flex;
-        gap: 10px;
+      .cm-msk__search,
+      .cm-msk__ride {
+        display: none !important;
       }
       .cm-msk__search i:first-child {
         flex: 1;
@@ -413,6 +414,15 @@
         }
         .cm-msk__info {
           justify-self: end;
+          width: 44px;
+          border-radius: 50% !important;
+        }
+        .cm-msk__search {
+          display: flex !important;
+          gap: 10px;
+        }
+        .cm-msk__ride {
+          display: block !important;
         }
         .cm-msk__hello .cm-msk__name {
           width: 40%;
