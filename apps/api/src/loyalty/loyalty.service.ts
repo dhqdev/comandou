@@ -629,6 +629,18 @@ export class LoyaltyService {
     return this.db.withTenant(ctx, async (tx) => this.pinViewIn(tx, pin));
   }
 
+  /** O mesmo do PIN, achado pelo cliente escolhido na Nova venda (e com o PIN junto). */
+  async byCustomer(ctx: Ctx, customerId: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const c = await one(tx, `SELECT 1 FROM customers WHERE id = $1 AND blocked_at IS NULL`, [
+        customerId,
+      ]);
+      if (!c) throw new NotFoundException('Cliente não encontrado');
+      const { pin } = await this.memberIn(tx, ctx.tenantId, customerId);
+      return { pin, ...(await this.pinViewIn(tx, pin)) };
+    });
+  }
+
   private async pinViewIn(tx: Tx, pin: string) {
     const m = await one<{ customerId: string; name: string; phone: string }>(
       tx,

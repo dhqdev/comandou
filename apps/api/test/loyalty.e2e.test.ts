@@ -283,6 +283,32 @@ describe('Programa de fidelidade', () => {
     await admin.send('patch', '/loyalty', { countStaffOrders: true }).expect(200);
   });
 
+  it('Nova venda: cliente escolhido já traz o PIN e troca a recompensa no pedido', async () => {
+    const view = (await admin.get(`/loyalty/customers/${anaId}/pin`).expect(200)).body;
+    expect(view.pin).toMatch(/^\d{6}$/);
+    expect(view).toMatchObject({ customer: { id: anaId }, balance: 61 });
+    expect((await admin.get(`/loyalty/pin/${view.pin}`).expect(200)).body.customer.id).toBe(anaId);
+    // Garçom não vê o PIN nem usa os pontos; sem cliente não há de quem tirar os pontos.
+    await admin.get(`/loyalty/customers/${anaId}/pin`, 'waiterA').expect(403);
+    const sale = (extra: object, who = 'adminA') =>
+      http
+        .post('/api/v1/orders')
+        .set('Host', HOST_A)
+        .set('Cookie', staff[who]!)
+        .set(CSRF)
+        .set('Idempotency-Key', key())
+        .send({ channel: 'counter', items: [{ productId: fx.prodA, quantity: 1 }], ...extra });
+    await sale({ customerId: anaId, rewardId: discountReward }, 'waiterA').expect(403);
+    await sale({ rewardId: discountReward }).expect(422);
+    const o = await sale({ customerId: anaId, rewardId: discountReward }).expect(201);
+    expect(o.body).toMatchObject({ subtotal: '25.90', discount: '10.00', total: '15.90' });
+    expect((await admin.get(`/loyalty/customers/${anaId}/pin`).expect(200)).body.balance).toBe(11);
+    await admin
+      .send('post', `/orders/${o.body.id}/status`, { to: 'cancelled', reason: 'Teste' })
+      .expect(201);
+    expect((await admin.get(`/loyalty/customers/${anaId}/pin`).expect(200)).body.balance).toBe(61);
+  });
+
   it('Nova venda mostra os pontos de cada item só quando a venda da equipe pontua', async () => {
     const pointsOf = async (who = 'adminA') => {
       const cats = (await admin.get('/menu?channel=counter', who).expect(200)).body as {

@@ -55,6 +55,10 @@ export interface CreateOrderInput {
   customerPhone?: string;
   /** Cliente cadastrado escolhido pela equipe (vale só fora do cardápio online). */
   customerId?: string;
+  /** Nova venda: recompensa dos pontos do cliente escolhido (exige `customerId`). */
+  rewardId?: string;
+  /** Nova venda: cupom da loja usado pelo cliente escolhido (exige `customerId`). */
+  couponCode?: string;
   deliveryAddress?: string;
   notes?: string;
   deliveryFee?: string;
@@ -638,15 +642,38 @@ export class OrdersService {
       !!input.online,
     );
 
+    const online = input.online;
+    // Cliente escolhido no PDV: liga o pedido à ficha dele. Bloqueado ou inexistente (ex.: a fila
+    // offline chegou depois de alguém apagar) só não liga; o nome e o telefone vão no pedido.
+    const staffCustomerId =
+      !online && input.customerId
+        ? ((
+            await one<{ id: string }>(
+              tx,
+              `SELECT id FROM customers WHERE id = $1 AND blocked_at IS NULL`,
+              [input.customerId],
+            )
+          )?.id ?? null)
+        : null;
+    // Pontos e cupons: do cliente com conta no cardápio ou do cliente escolhido na Nova venda.
+    const perkCustomerId = online ? (online.customerId ?? null) : staffCustomerId;
+    const rewardId = online ? online.rewardId : input.rewardId;
+    const couponCode = online ? online.couponCode : input.couponCode;
+    const noCustomer = (what: string) =>
+      new UnprocessableEntityException(
+        online
+          ? `Entre na sua conta para usar ${what}`
+          : `Escolha um cliente cadastrado para usar ${what}`,
+      );
+
     // Fidelidade: o desconto da recompensa vem do programa (não passa pelo limite de desconto da equipe).
     let reward: RedeemQuote | null = null;
-    if (input.online?.rewardId) {
-      if (!input.online.customerId)
-        throw new UnprocessableEntityException('Entre na sua conta para usar os pontos');
+    if (rewardId) {
+      if (!perkCustomerId) throw noCustomer('os pontos');
       reward = await this.loyalty.quoteRedeemIn(
         tx,
-        input.online.customerId,
-        input.online.rewardId,
+        perkCustomerId,
+        rewardId,
         lines.map((l) => ({
           productId: l.p.id,
           unitBaseCents: toCents(l.p.price),
@@ -659,17 +686,16 @@ export class OrdersService {
     // Cupom da loja (aba Cupons do app): um por pedido, com a conta aberta, e não junto com uma
     // recompensa dos pontos. Entrega grátis tira a taxa; os outros descontam dos itens.
     let coupon: CouponQuote | null = null;
-    if (input.online?.couponCode) {
-      if (!input.online.customerId)
-        throw new UnprocessableEntityException('Entre na sua conta para usar o cupom');
+    if (couponCode) {
+      if (!perkCustomerId) throw noCustomer('o cupom');
       if (reward)
         throw new UnprocessableEntityException(
           'Use um cupom ou uma recompensa dos pontos por pedido',
         );
       coupon = await this.coupons.quoteIn(
         tx,
-        input.online.customerId,
-        input.online.couponCode,
+        perkCustomerId,
+        couponCode,
         subtotal,
         input.channel === 'pickup' ? 0 : toCents(input.deliveryFee ?? '0'),
         input.channel,
@@ -706,19 +732,6 @@ export class OrdersService {
     const total = subtotal - discount + surcharge + deliveryFee;
     if (total < 0) throw new UnprocessableEntityException('Desconto maior que o valor do pedido');
 
-    const online = input.online;
-    // Cliente escolhido no PDV: liga o pedido à ficha dele. Bloqueado ou inexistente (ex.: a fila
-    // offline chegou depois de alguém apagar) só não liga; o nome e o telefone vão no pedido.
-    const staffCustomerId =
-      !online && input.customerId
-        ? ((
-            await one<{ id: string }>(
-              tx,
-              `SELECT id FROM customers WHERE id = $1 AND blocked_at IS NULL`,
-              [input.customerId],
-            )
-          )?.id ?? null)
-        : null;
     const number = await nextNumber(tx, ctx.tenantId, 'order');
     // Em análise até pagar: pelo app (PagBank) e pelo Pix com comprovante fora da mesa (o pedido
     // existe antes do Pix: loja fechada ou item esgotado não deixam o cliente pagar à toa).
@@ -764,15 +777,16 @@ export class OrdersService {
       ],
     );
     if (reward)
-      await this.loyalty.recordRedeemIn(
+      await this.loyalty.recordRedeemIn(tx, ctx.tenantId, perkCustomerId!, order!.id, reward);
+    if (coupon)
+      await this.coupons.recordIn(
         tx,
         ctx.tenantId,
-        input.online!.customerId!,
+        perkCustomerId!,
         order!.id,
-        reward,
+        coupon,
+        online ? undefined : ctx.userId,
       );
-    if (coupon)
-      await this.coupons.recordIn(tx, ctx.tenantId, input.online!.customerId!, order!.id, coupon);
     await this.insertLines(tx, ctx, order!.id, lines);
     await this.history(tx, ctx, order!.id, null, status);
     // Baixa de insumos pela ficha técnica (trava os insumos por último). Pedido em análise também

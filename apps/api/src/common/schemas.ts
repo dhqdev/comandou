@@ -72,6 +72,10 @@ export const CreateOrder = z.object({
   customerPhone: z.string().trim().max(30).optional(),
   /** Cliente escolhido no pedido: liga à ficha dele (histórico, nota fiscal). */
   customerId: uuid.optional(),
+  /** Recompensa dos pontos do cliente escolhido (Nova venda). Exige `customerId`. */
+  rewardId: uuid.optional(),
+  /** Cupom da loja usado pelo cliente escolhido (Nova venda). Exige `customerId`. */
+  couponCode: z.string().trim().min(2).max(30).optional(),
   deliveryAddress: z.string().trim().max(300).optional(),
   notes: z.string().trim().max(500).optional(),
   deliveryFee: money.optional(),
