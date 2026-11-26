@@ -1,9 +1,8 @@
-import { Skeleton, useToast } from '../../design-system';
+import { Skeleton } from '../../design-system';
 import { fromCents, levelOf, type LoyaltyLevel } from '@comandou/shared';
-import { Check, ChevronRight, Gift, KeyRound, RefreshCw, UserPlus } from 'lucide-react';
+import { Check, ChevronRight, Gift, KeyRound, UserPlus } from 'lucide-react';
 import { CSSProperties, useState } from 'react';
 import { Link } from 'react-router';
-import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
 import { LoyaltyArt } from './art';
 import { CustomerAvatar } from './avatars';
@@ -80,25 +79,10 @@ function Progress({ l, balance }: { l: LoyaltyOn; balance: number }) {
 
 /**
  * PIN de 6 números que o cliente mostra no balcão: a equipe acha a conta e troca os pontos ou
- * usa o cupom ali mesmo. "Gerar outro" troca o PIN (o de antes deixa de valer).
+ * usa o cupom ali mesmo. O PIN é da conta e o cliente não troca por aqui.
  */
 function PinCard({ pin }: { pin: string }) {
-  const { refreshLoyalty } = useStore();
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
   const [shown, setShown] = useState(true);
-  async function renew() {
-    setBusy(true);
-    try {
-      await api('/store/account/loyalty/pin', { method: 'POST' });
-      await refreshLoyalty();
-      toast('PIN novo pronto. O antigo não vale mais.', 'success');
-    } catch (e) {
-      toast((e as ApiError).message || 'Não deu para trocar o PIN agora', 'danger');
-    } finally {
-      setBusy(false);
-    }
-  }
   return (
     <div className="loy-pin">
       <p className="loy-pin__hint">
@@ -118,10 +102,6 @@ function PinCard({ pin }: { pin: string }) {
             <b key={i}>{shown ? d : '•'}</b>
           ))}
         </span>
-      </button>
-      <button type="button" className="link loy-pin__renew" onClick={renew} disabled={busy}>
-        <RefreshCw size={14} aria-hidden className={busy ? 'loy-spin' : undefined} /> Gerar outro
-        PIN
       </button>
     </div>
   );

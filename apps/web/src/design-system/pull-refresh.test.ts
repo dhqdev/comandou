@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { installPullToRefresh, rubber, setPullRefreshHandler } from './pull-refresh';
+import { installPullToRefresh, pageMovers, rubber, setPullRefreshHandler } from './pull-refresh';
 
 function touch(type: string, target: Element, y: number, x = 100) {
   const e = new Event(type, { bubbles: true, cancelable: true });
@@ -94,6 +94,20 @@ describe('puxar para recarregar', () => {
     touch('touchend', child, 200);
     expect(child.style.transform).toBe('');
     expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it('a página estica sem levar o menu preso embaixo (ele não some ao esticar no fim)', () => {
+    const root = document.createElement('div');
+    root.innerHTML =
+      '<main class="sf"><div class="sf-main"><p>lista</p></div>' +
+      '<nav class="mnav" style="position:fixed;bottom:0"></nav></main><aside>outro</aside>';
+    document.body.appendChild(root);
+    const movers = pageMovers(root);
+    expect(movers.map((m) => m.className || m.tagName)).toEqual(['sf-main', 'ASIDE']);
+    expect(movers.some((m) => m.contains(root.querySelector('.mnav')))).toBe(false);
+    // Sem nada preso na tela, desce tudo junto como antes.
+    root.querySelector('.mnav')!.remove();
+    expect(pageMovers(root)).toEqual([root]);
   });
 
   it('dentro de uma janela não puxa', () => {
