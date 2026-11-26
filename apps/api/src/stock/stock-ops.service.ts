@@ -249,10 +249,12 @@ export class StockOpsService {
             productionId: p!.id,
           });
         }
+        // Feito hoje no dia do restaurante (como a validade): o padrão da coluna (current_date) é
+        // o dia em UTC e, entre 21h e meia-noite, deixava o lote com um dia a menos de validade.
         const lot = await one<{ id: string }>(
           tx,
-          `INSERT INTO stock_lots (tenant_id, stock_item_id, code, quantity, expires_on, origin, production_id, created_by)
-           VALUES ($1,$2,$3,$4,
+          `INSERT INTO stock_lots (tenant_id, stock_item_id, code, quantity, made_on, expires_on, origin, production_id, created_by)
+           VALUES ($1,$2,$3,$4,${TODAY_SQL},
                    CASE WHEN $5 THEN $6::date
                         WHEN $7::int IS NULL THEN NULL ELSE ${TODAY_SQL} + $7::int END,
                    'production',$8,$9) RETURNING id`,

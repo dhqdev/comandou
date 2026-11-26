@@ -38,6 +38,10 @@ export const RELEASES: readonly Release[] = [
         tag: 'melhoria',
         text: 'Link do cardápio no WhatsApp: a prévia mostra a capa da loja num cartão largo (sem capa, a logo) e informa o tamanho da imagem, no lugar da logo quadrada enorme com os cantos brancos. O link de um produto segue com a foto dele. Links já mandados podem levar um tempo para trocar, porque o WhatsApp guarda a prévia.',
       },
+      {
+        tag: 'correção',
+        text: 'Estoque: produção lançada entre 21h e meia-noite gravava o lote como feito no dia seguinte (pelo horário de Londres), ficando com um dia a menos de validade. Agora vale o dia do restaurante, como nas entradas.',
+      },
     ],
   },
   {
