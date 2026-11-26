@@ -53,6 +53,11 @@ export interface MenuProduct {
   soldByWeight?: boolean;
   /** Tara em kg ("0.020") descontada do peso da balança. */
   weightTare?: string;
+  /**
+   * Pontos de fidelidade que o item rende numa venda da equipe (só no `/menu` da equipe). null =
+   * programa desligado, de carimbos, que não conta vendas da equipe, ou item por peso sem número fixo.
+   */
+  points?: number | null;
   optionGroups: MenuGroup[];
 }
 export interface MenuCategory {

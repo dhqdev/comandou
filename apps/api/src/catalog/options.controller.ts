@@ -22,7 +22,7 @@ import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
-import { menuTreeSql } from './menu-sql';
+import { MENU_POINTS, menuTreeSql } from './menu-sql';
 
 const money = z
   .string()
@@ -357,7 +357,9 @@ export class OptionsController {
     @CurrentUser() u: AuthenticatedUser,
   ) {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
-      q(tx, menuTreeSql(`'sectorId', p.sector_id, 'code', p.code,`), [menuKindOf(query.channel)]),
+      q(tx, menuTreeSql(`'sectorId', p.sector_id, 'code', p.code, ${MENU_POINTS}`), [
+        menuKindOf(query.channel),
+      ]),
     );
   }
 }

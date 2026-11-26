@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.257.0',
+    date: '2026-11-26',
+    title: 'Cartões de produto da Nova venda com nome inteiro e pontos',
+    summary:
+      'Na Nova venda do PDV, cada produto mostra a foto, o nome inteiro logo embaixo e o preço no pé do cartão, alinhado com os vizinhos. Com a fidelidade ligada, o cartão mostra quantos pontos o item rende.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Nome do produto sem corte: quebra em quantas linhas precisar e o cartão cresce junto. O preço fica sempre no pé do cartão, na mesma altura em toda a fileira, e não quebra no meio.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pontos de fidelidade em cada produto ("+44 pts"), no número fixo do item ou pelo preço × pontos por real. Só aparece quando o programa é de pontos e conta as vendas da equipe; item por peso sem número fixo não mostra.',
+      },
+    ],
+  },
+  {
     version: '0.256.1',
     date: '2026-11-26',
     title: 'Observação do item maior e mais clara no PDV',
