@@ -377,6 +377,26 @@ export function GroupEditor({
               </option>
             ))}
           </SelectField>
+          <label className="mn-check mn-required cm-form__wide">
+            <input
+              type="checkbox"
+              checked={minN > 0}
+              disabled={!canWrite || free}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setMin(on ? '1' : '0');
+                if (on && !(maxN >= 1)) setMax('1');
+              }}
+            />
+            <span>
+              <strong>Obrigatório</strong>
+              <span className="cm-hint">
+                {' '}
+                Marcado, o PDV, o garçom e o cardápio só deixam adicionar o item com a escolha feita
+                neste grupo. Desmarcado, aparece como Opcional.
+              </span>
+            </span>
+          </label>
           <div className="cm-field mn-minmax">
             <TextField
               label="Mínimo"
@@ -394,7 +414,9 @@ export function GroupEditor({
           </div>
           <p className="cm-hint mn-note">
             {GROUP_KIND[kind].hint}{' '}
-            {minN > 0 ? 'Obrigatório: o pedido só segue com a escolha feita.' : 'Opcional.'}
+            {minN > 0
+              ? `Obrigatório: escolher pelo menos ${minN}.`
+              : 'Opcional: o cliente pode pular.'}
           </p>
           {maxN > 1 && kind !== 'remove' && (
             <label className="mn-check cm-form__wide">

@@ -27,6 +27,7 @@ import {
   User,
   Utensils,
   X,
+  Check as CheckIcon,
 } from 'lucide-react';
 import { ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Alert, Button, TextField, showLiquid, useToast, Skeleton } from '../design-system';
@@ -43,6 +44,7 @@ import { AddressQuick } from './AddressQuick';
 import { CustomerPicker, type OrderCustomer } from './CustomerPicker';
 import { perkQuote, SalePerks, type SalePerk } from './SalePerks';
 import { WeighForm } from './WeighForm';
+import { groupNeed } from '../waiter/item-editor';
 import { addDays, dayKey, joinLocal } from '../pages/agenda/agenda-utils';
 import type { DiningTable, MenuCategory, MenuProduct, Order } from '../lib/types';
 
@@ -935,11 +937,22 @@ export function OptionPicker({
       ]),
     );
   });
+  const ids = Object.values(sel).flat();
   const valid = product.optionGroups.every((g) => {
     const n = sel[g.id]?.length ?? 0;
     return n >= g.minSelect && n <= g.maxSelect;
   });
-  const ids = Object.values(sel).flat();
+  // Grupos obrigatórios (mínimo no cadastro do grupo) que ainda faltam: travam o Adicionar.
+  const missing = product.optionGroups.filter((g) => (sel[g.id]?.length ?? 0) < g.minSelect);
+  const [tried, setTried] = useState(false);
+  const panel = useRef<HTMLDivElement>(null);
+  function confirm() {
+    if (valid) return onConfirm(ids);
+    setTried(true);
+    panel.current
+      ?.querySelector(`[data-group="${missing[0]?.id}"]`)
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
   function toggle(gid: string, oid: string, single: boolean) {
     setSel((s) => {
       const cur = s[gid] ?? [];
@@ -960,20 +973,42 @@ export function OptionPicker({
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div className="picker__panel">
+      <div className="picker__panel" ref={panel}>
         <h3 style={{ margin: 0 }}>{product.name}</h3>
         {product.optionGroups.map((g) => {
           const single = g.minSelect === 1 && g.maxSelect === 1;
+          const need = groupNeed(g, sel[g.id]?.length ?? 0);
           return (
-            <fieldset key={g.id} className="picker__group">
+            <fieldset
+              key={g.id}
+              className="picker__group"
+              data-group={g.id}
+              data-need={need}
+              data-late={(tried && need === 'required') || undefined}
+            >
               <legend>
-                {g.name}{' '}
-                <span className="cm-hint">
-                  {single
-                    ? 'escolha 1'
-                    : g.minSelect > 0
-                      ? `escolha de ${g.minSelect} a ${g.maxSelect}`
-                      : `até ${g.maxSelect}`}
+                <span className="picker__name">
+                  {g.name}{' '}
+                  <span className="cm-hint">
+                    {single
+                      ? 'escolha 1'
+                      : g.minSelect > 0
+                        ? g.minSelect === g.maxSelect
+                          ? `escolha ${g.minSelect}`
+                          : `escolha de ${g.minSelect} a ${g.maxSelect}`
+                        : `até ${g.maxSelect}`}
+                  </span>
+                </span>
+                <span className="picker__need" data-need={need}>
+                  {need === 'done' ? (
+                    <>
+                      <CheckIcon size={12} strokeWidth={3} aria-hidden /> Obrigatório
+                    </>
+                  ) : need === 'required' ? (
+                    'Obrigatório'
+                  ) : (
+                    'Opcional'
+                  )}
                 </span>
               </legend>
               {g.options.map((o) => (
@@ -996,12 +1031,23 @@ export function OptionPicker({
         <div
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
         >
-          <strong>{brl(fromCents(unitCents(product, ids)))}</strong>
+          <span className="picker__total">
+            <strong>{brl(fromCents(unitCents(product, ids)))}</strong>
+            {missing.length > 0 && (
+              <span className="picker__missing" role="status">
+                Escolha {missing.map((g) => g.name).join(', ')}
+              </span>
+            )}
+          </span>
           <div style={{ display: 'flex', gap: 8 }}>
             <Button variant="secondary" onClick={onCancel}>
               Cancelar
             </Button>
-            <Button disabled={!valid} onClick={() => onConfirm(ids)}>
+            <Button
+              aria-disabled={!valid || undefined}
+              data-blocked={!valid || undefined}
+              onClick={confirm}
+            >
               Adicionar
             </Button>
           </div>

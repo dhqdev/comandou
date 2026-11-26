@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.261.1',
+    version: '0.262.1',
     date: '2026-11-26',
     title: 'Fotos do cardápio e do PDV carregando bem mais rápido',
     summary:
@@ -37,6 +37,27 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'Ao abrir um produto, a foto do cartão aparece na hora e a foto grande entra por cima quando chega, sem quadro vazio.',
+      },
+    ],
+  },
+  {
+    version: '0.262.0',
+    date: '2026-11-26',
+    title: 'Obrigatório e Opcional nas escolhas do item',
+    summary:
+      'Cada grupo de complementos agora diz se é Obrigatório ou Opcional na hora de lançar o item, no PDV, no garçom e no cardápio online. Quem decide é o cadastro do grupo, com a nova caixa Obrigatório.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápio › Grupos de complementos: caixa Obrigatório no cadastro do grupo. Marcada, o item só entra no pedido com a escolha feita; desmarcada, o grupo aparece como Opcional. A lista de grupos e os complementos do item mostram a regra ("Obrigatório, escolhe 1" ou "Opcional, até 4").',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: na escolha das opções do item, cada grupo tem o selo Obrigatório ou Opcional (com o ✓ quando já foi escolhido). O Adicionar fica travado enquanto falta um obrigatório; o rodapé diz o que falta e, ao tocar, o grupo pendente pisca em vermelho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio online e app do garçom: grupos sem escolha obrigatória agora aparecem com o selo Opcional, ao lado do Obrigatório que já existia.',
       },
     ],
   },

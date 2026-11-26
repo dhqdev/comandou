@@ -93,12 +93,13 @@ export const UNITS: [string, string][] = [
 export const kindWhere = (k: MenuKind) =>
   MENU_KIND[k].where.toLowerCase().replace('ifood', 'iFood');
 
+/** Regra do grupo no cadastro: diz sempre se é Obrigatório (mínimo > 0) ou Opcional. */
 export const groupRule = (g: { minSelect: number; maxSelect: number }) =>
-  g.minSelect === 1 && g.maxSelect === 1
-    ? 'Escolhe 1'
-    : g.minSelect > 0
-      ? `Escolhe de ${g.minSelect} a ${g.maxSelect}`
-      : `Opcional, até ${g.maxSelect}`;
+  g.minSelect > 0
+    ? g.minSelect === g.maxSelect
+      ? `Obrigatório, escolhe ${g.minSelect}`
+      : `Obrigatório, escolhe de ${g.minSelect} a ${g.maxSelect}`
+    : `Opcional, até ${g.maxSelect}`;
 
 /** Diferença percentual de um preço sobre o base ("+10%"), ou null quando é igual. */
 export function priceDiff(baseCents: number, cents: number) {

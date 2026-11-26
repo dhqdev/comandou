@@ -2001,6 +2001,10 @@ html.sf-root {
   color: var(--cm-success);
   animation: sf-check var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
+.og__tag.is-opt {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--cm-border);
+}
 .og__tag.is-count {
   animation: sf-check var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }

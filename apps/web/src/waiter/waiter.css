@@ -1199,6 +1199,15 @@
     transform: translateX(4px);
   }
 }
+.wt-ie__opt-tag {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--cm-border);
+  color: var(--cm-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
 .wt-ie__count {
   flex: none;
   color: var(--cm-text-muted);
