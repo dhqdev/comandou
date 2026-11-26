@@ -11,7 +11,7 @@ import {
 } from '@comandou/shared';
 import { Minus, Plus, Printer, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, HelpScope, Select, TextField } from '../design-system';
+import { Alert, Button, HelpScope, Select, TextField, useToast } from '../design-system';
 import { useCan } from '../app/auth';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
@@ -66,6 +66,7 @@ export function CloseOrderPanel({
   const canAdjust = useCan('orders:manage');
   const canReceivable = useCan('orders:cancel');
   const { sessions, sessionId, choose } = useOpenSessions(open);
+  const toast = useToast();
 
   /** Pedido mais novo que o próprio painel recebeu do servidor (pagamento ou ajuste aceito). */
   const [fresh, setFresh] = useState<Order | null>(null);
@@ -233,7 +234,7 @@ export function CloseOrderPanel({
     !busy &&
     (nowReady || laterReady || (totals.balance === 0 && canComplete));
 
-  async function finish() {
+  async function finish(print = false) {
     if (!valid) return;
     setBusy(true);
     setError(null);
@@ -301,10 +302,22 @@ export function CloseOrderPanel({
           },
         });
       }
-      // Sem aviso flutuante: ele cobria os botões do rodapé. O próprio painel mostra que fechou.
-      // Fica aberto para imprimir o comprovante já com tudo gravado; "Concluir" sai do painel.
-      setChange(when === 'now' ? plan.change : 0);
+      // Fechar a conta já conclui: sem o clique a mais em "Concluir". O painel some e o aviso
+      // (com o troco) aparece no pedido. "Fechar e imprimir" abre o comprovante, já com tudo
+      // gravado, e o painel fecha junto com ele.
+      const troco = when === 'now' ? plan.change : 0;
+      setChange(troco);
       setClosed(current);
+      toast(
+        when === 'later'
+          ? 'Pedido concluído a receber'
+          : troco > 0
+            ? `Conta fechada. Troco: ${money(troco)}`
+            : 'Conta fechada',
+        'success',
+      );
+      if (print) setPreview(true);
+      else onDone(current);
     } catch (e) {
       setError(
         e instanceof ApiError && e.status === 0
@@ -402,19 +415,15 @@ export function CloseOrderPanel({
               <Button
                 variant="secondary"
                 icon={<Printer size={15} />}
-                disabled={!closed}
-                title={closed ? undefined : 'O comprovante é liberado depois de fechar a conta'}
-                onClick={() => setPreview(true)}
+                disabled={!ready}
+                title="Fecha a conta e abre o comprovante, já com taxa, frete, desconto e pagamentos"
+                onClick={() => void finish(true)}
               >
-                Imprimir
+                Fechar e imprimir
               </Button>
-              {closed ? (
-                <Button onClick={() => onDone(closed)}>Concluir</Button>
-              ) : (
-                <Button loading={busy} disabled={!ready} onClick={finish}>
-                  {when === 'later' ? 'Concluir a receber' : 'Fechar conta'}
-                </Button>
-              )}
+              <Button loading={busy} disabled={!ready} onClick={() => void finish()}>
+                {when === 'later' ? 'Concluir a receber' : 'Fechar conta'}
+              </Button>
             </div>
           </div>
         }
@@ -683,7 +692,11 @@ export function CloseOrderPanel({
       </SidePanel>
       <ReceiptPreview
         target={preview ? { kind: 'order', id: order.id } : null}
-        onClose={() => setPreview(false)}
+        onClose={() => {
+          setPreview(false);
+          // Conta já fechada pelo "Fechar e imprimir": o painel sai junto com o comprovante.
+          if (closed) onDone(closed);
+        }}
       />
     </HelpScope>
   );

@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.262.2',
+    date: '2026-11-26',
+    title: 'Fechar conta já conclui o pedido',
+    summary:
+      'Depois de clicar em "Fechar conta", o painel ainda pedia um clique em "Concluir". Agora fechar a conta já conclui: o painel some e o aviso com o troco aparece na tela.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Sem o botão "Concluir" no fechamento: com tudo pago, "Fechar conta" grava os pagamentos, conclui o pedido e fecha o painel. O troco aparece no aviso verde.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Para sair com o comprovante, use "Fechar e imprimir": fecha a conta e abre o comprovante já com taxa, frete, desconto e pagamentos. Ao fechar o comprovante, o painel fecha junto.',
+      },
+      {
+        tag: 'melhoria',
+        text: '"Concluir a receber" (Posterior) também fecha o painel direto. Entregas continuam indo para o despacho, como antes.',
+      },
+    ],
+  },
+  {
     version: '0.262.1',
     date: '2026-11-26',
     title: 'Fotos do cardápio e do PDV carregando bem mais rápido',
