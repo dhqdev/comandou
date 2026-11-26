@@ -171,6 +171,9 @@ export class OrdersController {
   ) {
     const { fiado, ...input } = b;
     const ctx = ctxOf(t, u, req);
+    // Pontos e cupons do cliente: as mesmas pessoas que usam o PIN no balcão.
+    if ((input.rewardId || input.couponCode) && !roleHas(u.role, 'orders:manage'))
+      throw new ForbiddenException('Usar pontos e cupons do cliente fica com o caixa ou o gerente');
     // Venda fiado: confere tudo ANTES de lançar, para não sobrar pedido sem o fiado.
     if (fiado) {
       if (!roleHas(u.role, 'orders:cancel'))

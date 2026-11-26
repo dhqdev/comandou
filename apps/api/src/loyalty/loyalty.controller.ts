@@ -232,6 +232,21 @@ export class LoyaltyController {
     return this.loyalty.report(ctxOf(t, u), d);
   }
 
+  /**
+   * Nova venda: o cliente escolhido já vem com o PIN (criado na primeira vez), o saldo, o nível e
+   * as recompensas, como se a equipe tivesse digitado o PIN.
+   */
+  @Get('customers/:id/pin')
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @RequirePermission('orders:manage')
+  customerPin(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.loyalty.byCustomer(ctxOf(t, u), id);
+  }
+
   @Get('customers/:id')
   @RequirePermission('customers:read')
   customer(

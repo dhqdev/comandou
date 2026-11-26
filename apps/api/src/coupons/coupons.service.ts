@@ -322,12 +322,28 @@ export class CouponsService {
     };
   }
 
-  async recordIn(tx: Tx, tenantId: string, customerId: string, orderId: string, c: CouponQuote) {
+  /** Grava o uso no pedido; `staffUserId` = usado pela equipe na Nova venda (canal "store"). */
+  async recordIn(
+    tx: Tx,
+    tenantId: string,
+    customerId: string,
+    orderId: string,
+    c: CouponQuote,
+    staffUserId?: string | null,
+  ) {
     await q(
       tx,
-      `INSERT INTO coupon_redemptions (tenant_id, coupon_id, customer_id, order_id, discount)
-       VALUES ($1,$2,$3,$4,$5)`,
-      [tenantId, c.couponId, customerId, orderId, fromCents(c.discountCents)],
+      `INSERT INTO coupon_redemptions (tenant_id, coupon_id, customer_id, order_id, discount, channel, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        tenantId,
+        c.couponId,
+        customerId,
+        orderId,
+        fromCents(c.discountCents),
+        staffUserId === undefined ? 'online' : 'store',
+        staffUserId ?? null,
+      ],
     );
   }
 

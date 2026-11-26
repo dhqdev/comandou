@@ -1,0 +1,197 @@
+/* Nova venda: PIN, saldo, recompensas e cupons do cliente escolhido (SalePerks.tsx). */
+.sperk {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+}
+.sperk__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.sperk__pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 999px;
+  background: var(--cm-surface);
+  color: var(--cm-brand-600);
+}
+.sperk__pin-label {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.sperk__pin-value {
+  color: var(--cm-text);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  font-variant-numeric: tabular-nums;
+}
+.sperk__level {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-brand-700);
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+}
+.sperk__level::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.sperk__balance {
+  margin-left: auto;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.sperk__balance strong {
+  color: var(--cm-text);
+  font-size: var(--cm-text-md);
+}
+.sperk__note {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.sperk__sec {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+}
+.sperk__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  overflow: hidden;
+}
+.sperk__list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+}
+.sperk__list li + li {
+  border-top: 1px solid var(--cm-border);
+}
+.sperk__list li[data-on] {
+  background: var(--cm-brand-50);
+}
+.sperk__list li[data-off] .sperk__item {
+  color: var(--cm-text-muted);
+}
+.sperk__item {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.sperk__item strong {
+  font-size: var(--cm-text-sm);
+  overflow-wrap: anywhere;
+}
+.sperk__item small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs, 12px);
+}
+.sperk__code {
+  padding: 0 5px;
+  border: 1px dashed var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  font-family: inherit;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.sperk__use {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-brand-600);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.1s ease;
+}
+.sperk__use:hover:not(:disabled) {
+  background: var(--cm-surface-sunken);
+}
+.sperk__use:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.sperk__use[aria-pressed='true'] {
+  border-color: var(--cm-brand-500);
+  background: var(--cm-brand-500);
+  color: #fff;
+}
+.sperk__use:disabled {
+  color: var(--cm-text-muted);
+  cursor: not-allowed;
+}
+.sperk__pin-link {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--cm-brand-600);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.sperk__pin-link:hover {
+  text-decoration: underline;
+}
+.sperk__pin-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.sperk__pin-input {
+  width: 9ch;
+  min-width: 0;
+  flex: 1;
+  height: 36px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.sperk__pin-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sperk__use {
+    transition: none;
+  }
+}

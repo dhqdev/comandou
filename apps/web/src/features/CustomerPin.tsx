@@ -6,16 +6,17 @@ import { api, ApiError } from '../lib/api';
 import { brl } from '../lib/money';
 import './customer-pin.css';
 
-interface PinReward {
+export interface PinReward {
   id: string;
   name: string;
   cost: number;
   kind: 'discount' | 'product';
   amount: string | null;
+  productId: string | null;
   productName: string | null;
   productPrice: string | null;
 }
-interface PinView {
+export interface PinView {
   customer: { id: string; name: string; phoneEnd: string };
   enabled: boolean;
   mode: 'points' | 'stamps';
@@ -25,7 +26,7 @@ interface PinView {
   levels: LoyaltyLevel[];
   rewards: PinReward[];
 }
-interface PinCoupon {
+export interface PinCoupon {
   id: string;
   code: string;
   title: string;

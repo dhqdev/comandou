@@ -40,6 +40,7 @@ import { mediaUrl } from '../lib/media';
 import './sale-extras.css';
 import { AddressQuick } from './AddressQuick';
 import { CustomerPicker, type OrderCustomer } from './CustomerPicker';
+import { perkQuote, SalePerks, type SalePerk } from './SalePerks';
 import { WeighForm } from './WeighForm';
 import { addDays, dayKey, joinLocal } from '../pages/agenda/agenda-utils';
 import type { DiningTable, MenuCategory, MenuProduct, Order } from '../lib/types';
@@ -134,7 +135,14 @@ export function NewSaleModal({
   } | null>(null);
   const [channel, setChannel] = useState<OrderChannel>(preset?.channel ?? 'counter');
   const [tableId, setTableId] = useState(preset?.tableId ?? '');
-  const [customer, setCustomer] = useState<OrderCustomer>({ id: null, name: '', phone: '' });
+  const [customer, setCustomerState] = useState<OrderCustomer>({ id: null, name: '', phone: '' });
+  /** Recompensa ou cupom do cliente escolhido usado nesta venda (sai ao trocar de cliente). */
+  const [perk, setPerk] = useState<SalePerk | null>(null);
+  const canPerks = useCan('orders:manage');
+  function setCustomer(c: OrderCustomer) {
+    if (c.id !== customer.id) setPerk(null);
+    setCustomerState(c);
+  }
   const [address, setAddress] = useState('');
   const [deliveryFee, setDeliveryFee] = useState('');
   const [discount, setDiscount] = useState('');
@@ -215,8 +223,18 @@ export function NewSaleModal({
   /** Unidades no pedido (item por peso conta como um). */
   const itemCount = cart.reduce((n, l) => n + (l.product.soldByWeight ? 1 : l.quantity), 0);
   const discountCents = toCents(parseBrlInput(discount) ?? '0');
-  const feeCents = channel === 'delivery' ? toCents(parseBrlInput(deliveryFee) ?? '0') : 0;
-  const total = subtotal - discountCents + feeCents;
+  const typedFeeCents = channel === 'delivery' ? toCents(parseBrlInput(deliveryFee) ?? '0') : 0;
+  const unitByProduct = new Map(cart.map((l) => [l.product.id, toCents(l.product.price)]));
+  const perkInfo = perkQuote(perk, {
+    channel,
+    subtotalCents: subtotal,
+    feeCents: typedFeeCents,
+    unitByProduct,
+  });
+  // Cupom de entrega grátis zera a taxa; recompensa e outros cupons descontam dos itens.
+  const feeCents = perkInfo.freeDelivery ? 0 : typedFeeCents;
+  const perkCents = perkInfo.freeDelivery ? 0 : perkInfo.discountCents;
+  const total = subtotal - discountCents - perkCents + feeCents;
 
   function add(p: MenuProduct, optionIds: string[] = [], kg?: number) {
     const key = `${p.id}:${[...optionIds].sort().join(',')}`;
@@ -250,7 +268,8 @@ export function NewSaleModal({
 
   function reset() {
     setCart([]);
-    setCustomer({ id: null, name: '', phone: '' });
+    setCustomerState({ id: null, name: '', phone: '' });
+    setPerk(null);
     setAddress('');
     setDeliveryFee('');
     setDiscount('');
@@ -263,7 +282,9 @@ export function NewSaleModal({
   const needsTable = channel === 'table' && !preset?.tabId && !tableId;
   const needsAddress = channel === 'delivery' && !address.trim();
   const fiadoProblem = fiado ? fiadoIssue(fiado, customer) : null;
-  const canSubmit = cart.length > 0 && !needsTable && !needsAddress && !fiadoProblem && total >= 0;
+  const perkProblem = perkInfo.problem;
+  const canSubmit =
+    cart.length > 0 && !needsTable && !needsAddress && !fiadoProblem && !perkProblem && total >= 0;
   const freeOrSame = tables.filter((t) => t.active);
 
   async function submit() {
@@ -281,10 +302,14 @@ export function NewSaleModal({
           tabId: preset?.tabId,
           tableId: channel === 'table' && !preset?.tabId ? tableId || undefined : undefined,
           customerId: customer.id ?? undefined,
+          rewardId: perk?.kind === 'reward' ? perk.reward.id : undefined,
+          couponCode: perk?.kind === 'coupon' ? perk.coupon.code : undefined,
           customerName: customer.name.trim() || undefined,
           customerPhone: customer.phone || undefined,
           deliveryAddress: channel === 'delivery' ? address : undefined,
-          deliveryFee: channel === 'delivery' && feeCents ? fromCents(feeCents) : undefined,
+          // A taxa vai como digitada: o servidor tira com o cupom de entrega grátis.
+          deliveryFee:
+            channel === 'delivery' && typedFeeCents ? fromCents(typedFeeCents) : undefined,
           discount: discountCents ? fromCents(discountCents) : undefined,
           notes: notes || undefined,
           fiado: fiado
@@ -622,6 +647,14 @@ export function NewSaleModal({
               <User size={16} aria-hidden /> Cliente
             </span>
             <CustomerPicker value={customer} onChange={setCustomer} />
+            {canPerks && (
+              <SalePerks
+                customer={customer}
+                onCustomer={setCustomer}
+                perk={perk}
+                onPerk={setPerk}
+              />
+            )}
             {!customer.id && (channel === 'delivery' || channel === 'pickup' || customer.phone) && (
               <TextField
                 label="Telefone"
@@ -765,7 +798,7 @@ export function NewSaleModal({
 
         <footer className="nsale__foot">
           <dl className="totals">
-            {(discountCents > 0 || feeCents > 0) && (
+            {(discountCents > 0 || perkInfo.discountCents > 0 || feeCents > 0) && (
               <>
                 <dt>Subtotal</dt>
                 <dd>{brl(fromCents(subtotal))}</dd>
@@ -775,6 +808,20 @@ export function NewSaleModal({
               <>
                 <dt>Desconto</dt>
                 <dd>− {brl(fromCents(discountCents))}</dd>
+              </>
+            )}
+            {perk && perkInfo.discountCents > 0 && (
+              <>
+                <dt>
+                  {perk.kind === 'reward'
+                    ? `Recompensa: ${perk.reward.name}`
+                    : `Cupom ${perk.coupon.code}`}
+                </dt>
+                <dd>
+                  {perkInfo.freeDelivery
+                    ? 'Entrega grátis'
+                    : `− ${brl(fromCents(perkInfo.discountCents))}`}
+                </dd>
               </>
             )}
             {feeCents > 0 && (
@@ -787,13 +834,13 @@ export function NewSaleModal({
             <dd className="totals__grand">{brl(fromCents(Math.max(0, total)))}</dd>
           </dl>
           {error && <Alert tone="danger">{error}</Alert>}
-          {(needsTable || needsAddress || fiadoProblem) && cart.length > 0 && (
+          {(needsTable || needsAddress || fiadoProblem || perkProblem) && cart.length > 0 && (
             <p className="nsale__need">
               {needsTable
                 ? 'Escolha a mesa para enviar.'
                 : needsAddress
                   ? 'Informe o endereço de entrega.'
-                  : fiadoProblem}
+                  : (fiadoProblem ?? perkProblem)}
             </p>
           )}
           <Button size="lg" block loading={busy} disabled={!canSubmit} onClick={submit}>
