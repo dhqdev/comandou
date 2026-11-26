@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.254.4',
+    date: '2026-11-26',
+    title: 'Item voando para a sacola mais bonito, no celular, tablet e notebook',
+    summary:
+      'Ao adicionar um item no cardápio online, a foto vira uma bolinha, voa em arco até a sacola e a sacola recebe com um pulo e um anel de cor.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cardápio online: ao adicionar um item, a foto vira uma bolinha com sombra, dá um pulinho e voa em arco até a sacola que está à vista (pílula embaixo no celular, barra do topo no tablet, sacola ao lado no notebook), encolhendo até caber nela. O tempo do voo acompanha a distância e fica sempre rápido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A sacola recebe o item com um pulo de mola e um anel de cor, e o número de itens aparece com um pulinho. O botão "+" do cartão gira ao adicionar direto.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Adicionando pela tela do item com a foto já rolada para fora da tela, a bolinha sai do botão Adicionar. Muitos toques seguidos não enchem a tela de bolinhas, e quem pede menos movimento no aparelho vê só a sacola atualizar.',
+      },
+    ],
+  },
+  {
     version: '0.254.3',
     date: '2026-11-26',
     title: 'Itens do pedido mais bonitos e alinhados na Nova venda',

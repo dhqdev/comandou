@@ -107,6 +107,126 @@ html.sf-root {
   }
 }
 
+/* ================================================================ adicionar à sacola */
+/* A bolinha que voa (fly-to-cart.ts): camadas fixas, só transform/opacity/clip-path. */
+.fly {
+  position: fixed;
+  z-index: 90;
+  margin: 0;
+  pointer-events: none;
+  contain: layout style;
+  will-change: transform;
+}
+.fly__y,
+.fly__lift {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+.fly__disc,
+.fly__shadow {
+  position: absolute;
+  inset: 0;
+  will-change: transform, opacity;
+}
+.fly__disc {
+  overflow: hidden;
+  background: var(--cm-photo-bg);
+}
+.fly__disc > img,
+.fly__copy {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  object-fit: cover;
+}
+/* Sombra redonda embaixo da bolinha (box-shadow no disco seria cortada pelo recorte). */
+.fly__shadow {
+  margin: auto;
+  aspect-ratio: 1;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 50%;
+  box-shadow:
+    0 10px 24px -6px rgb(0 0 0 / 0.28),
+    0 2px 6px rgb(0 0 0 / 0.12);
+  opacity: 0;
+}
+
+/* A sacola recebe: afunda um pouco com o peso, volta com a mola e solta um anel de cor. */
+[data-cart-target][data-bump] {
+  animation: sf-land 0.42s cubic-bezier(0.2, 0, 0, 1);
+}
+[data-cart-target][data-bump]::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: sf-land-ring 0.5s cubic-bezier(0.2, 0, 0, 1) both;
+}
+[data-cart-target][data-bump] .cartpill__count {
+  animation: sf-count 0.36s var(--cm-spring) both;
+}
+@keyframes sf-land {
+  0% {
+    transform: scale(1);
+  }
+  22% {
+    transform: scale(1.1, 0.84);
+  }
+  52% {
+    transform: scale(0.94, 1.1);
+  }
+  76% {
+    transform: scale(1.03, 0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes sf-land-ring {
+  from {
+    transform: scale(0.85);
+    border-color: currentColor;
+  }
+  to {
+    transform: scale(1.75);
+    border-color: transparent;
+  }
+}
+@keyframes sf-count {
+  0%,
+  20% {
+    transform: scale(0.5);
+  }
+  100% {
+    transform: none;
+  }
+}
+/* Botão "+" do cartão: gira o mais e dá um pulinho ao adicionar direto. */
+.addbtn[data-added] svg {
+  animation: addbtn-spin 0.36s var(--cm-spring) both;
+}
+@keyframes addbtn-spin {
+  from {
+    transform: rotate(-90deg) scale(0.6);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-cart-target][data-bump],
+  [data-cart-target][data-bump]::after,
+  [data-cart-target][data-bump] .cartpill__count,
+  .addbtn[data-added] svg {
+    animation: none;
+  }
+  [data-cart-target][data-bump]::after {
+    display: none;
+  }
+}
+
 /* "Mais informações" e filtros (abrem no Modal do sistema: folha no celular, janela no computador). */
 .sf-info {
   display: grid;
@@ -1018,9 +1138,6 @@ html.sf-root {
   border-radius: 50%;
   background: var(--cm-brand-600);
   color: var(--cm-on-brand);
-}
-.cartpill__icon[data-bump] {
-  animation: sf-pop 0.28s var(--cm-ease-liquid);
 }
 .cartpill__count {
   position: absolute;

@@ -156,8 +156,13 @@ function ProductCard({ p, i = 0, rank }: { p: PublicProduct; i?: number; rank?: 
               aria-label={`Adicionar ${p.name}`}
               onClick={(e) => {
                 e.stopPropagation();
-                if (quickAddable(p)) quick(p, ref.current?.querySelector('.ph') ?? null);
-                else open(p, ref.current);
+                if (!quickAddable(p)) return open(p, ref.current);
+                // O "+" gira (tirar e pôr o atributo reinicia a animação em toques seguidos).
+                const btn = e.currentTarget;
+                delete btn.dataset.added;
+                void btn.offsetWidth;
+                btn.dataset.added = '';
+                quick(p, ref.current?.querySelector('.ph') ?? null);
               }}
             >
               <Plus size={16} />

@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react';
 import { api } from '../../lib/api';
-import { reducedMotion } from './morph';
+import { flyToCart } from './fly-to-cart';
 import { track } from './pixel';
 import {
   AccountState,
@@ -93,73 +93,6 @@ export function visibleCartTarget(doc: Document = document): HTMLElement | null 
     return r.width > 0 && r.bottom > 0 && r.right > 0 && r.top < vh && r.left < vw;
   });
   return onScreen ?? all[0] ?? null;
-}
-
-/**
- * A foto "voa" até o botão da sacola (efeito de adicionar). A cópia da foto é tirada na hora;
- * o destino é medido depois. Saindo da tela do item (`leaving`), espera a volta ao cardápio,
- * porque lá a sacola pode estar em outro lugar (no notebook largo ela fica no alto, à direita).
- */
-function flyToCart(from: HTMLElement, leaving: boolean, onLand: () => void) {
-  if (reducedMotion() || !from.animate) return onLand();
-  const a = from.getBoundingClientRect();
-  const ghost = from.cloneNode(true) as HTMLElement;
-  Object.assign(ghost.style, {
-    position: 'fixed',
-    left: `${a.left}px`,
-    top: `${a.top}px`,
-    width: `${a.width}px`,
-    height: `${a.height}px`,
-    margin: '0',
-    zIndex: '90',
-    pointerEvents: 'none',
-    borderRadius: '16px',
-    overflow: 'hidden',
-    transformOrigin: 'center',
-  });
-  document.body.appendChild(ghost);
-  const fly = () => {
-    const target = visibleCartTarget();
-    if (!target) {
-      ghost.remove();
-      return onLand();
-    }
-    const b = target.getBoundingClientRect();
-    const dx = b.left + b.width / 2 - (a.left + a.width / 2);
-    const dy = b.top + b.height / 2 - (a.top + a.height / 2);
-    // O arco sobe um pouco antes de descer; indo para cima, só segue a curva.
-    const lift = dy < 0 ? 0 : 90;
-    ghost
-      .animate(
-        [
-          { transform: 'translate(0,0) scale(1)', opacity: 1 },
-          {
-            transform: `translate(${dx * 0.45}px, ${dy * 0.45 - lift}px) scale(0.55)`,
-            opacity: 0.95,
-            offset: 0.5,
-          },
-          { transform: `translate(${dx}px, ${dy}px) scale(0.1)`, opacity: 0.3 },
-        ],
-        { duration: leaving ? 380 : 300, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards' },
-      )
-      .finished.catch(() => undefined)
-      .then(() => {
-        ghost.remove();
-        // A sacola pula quando a foto chega nela (antes era um tempo fixo, depois do pouso).
-        onLand();
-      });
-  };
-  if (!leaving) return void window.setTimeout(fly, 40);
-  // Espera o endereço mudar (a tela do item some em ~160 ms) e o cardápio desenhar.
-  const path = window.location.pathname;
-  const t0 = performance.now();
-  const wait = () => {
-    if (window.location.pathname !== path)
-      return void requestAnimationFrame(() => requestAnimationFrame(fly));
-    if (performance.now() - t0 > 600) return fly();
-    requestAnimationFrame(wait);
-  };
-  requestAnimationFrame(wait);
 }
 
 export function StoreProvider({
@@ -319,7 +252,7 @@ export function StoreProvider({
           : [...c, line];
       });
       const land = () => setBump((n) => n + 1);
-      if (from) flyToCart(from, !!leaving, land);
+      if (from) flyToCart(from, !!leaving, visibleCartTarget, land);
       else land();
       track('add_to_cart', {
         productId: line.productId,
