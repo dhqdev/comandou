@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.261.0',
+    version: '0.262.0',
     date: '2026-11-26',
     title: 'Obrigatório e Opcional nas escolhas do item',
     summary:
@@ -37,6 +37,19 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'Cardápio online e app do garçom: grupos sem escolha obrigatória agora aparecem com o selo Opcional, ao lado do Obrigatório que já existia.',
+      },
+    ],
+  },
+  {
+    version: '0.261.0',
+    date: '2026-11-26',
+    title: 'Mesas em quadradinhos na Nova venda do PDV',
+    summary:
+      'Ao escolher o atendimento Mesa na Nova venda, as mesas aparecem em quadradinhos com o nome e se estão livres ou ocupadas, no lugar da lista que abria para baixo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Nova venda › Mesa: cada mesa é um quadradinho; livre fica em verde, ocupada em amarelo com o total da conta, e a escolhida fica destacada em laranja. Funciona nos temas claro e escuro e no celular.',
       },
     ],
   },
