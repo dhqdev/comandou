@@ -3060,3 +3060,19 @@ button.adm-card:hover {
 .adm-ai-menu > .adm-sub {
   margin: 0;
 }
+
+/* Barra da atualização do sistema (Servidor › Versão), que aparece assim que se clica. */
+.adm-update-progress {
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+.adm-update-progress__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  min-width: 0;
+}

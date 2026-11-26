@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../design-system';
-import { UpdatePanel } from './UpdatePanel';
+import { UpdatePanel, updateProgress } from './UpdatePanel';
 import type { ServerService } from './types';
 
 const apiMock = vi.fn();
@@ -59,6 +59,39 @@ describe('Atualizar sistema', () => {
       method: 'POST',
       json: { version: 'v0.11.0' },
     });
+    // O clique fecha a janela na hora e a barra já aparece.
+    expect(screen.queryByText(/migração do banco primeiro/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('progressbar', { name: 'Andamento da atualização' }),
+    ).toBeInTheDocument();
+  });
+
+  it('a barra enche pelos serviços já trocados', () => {
+    const step = (service: string, status: 'ok' | 'running' | 'pending') => ({
+      service,
+      from: 'v0.10.0',
+      to: 'v0.11.0',
+      status,
+    });
+    const p = updateProgress(
+      {
+        id: 'j',
+        version: 'v0.11.0',
+        startedAt: '',
+        status: 'running',
+        steps: [
+          step('comandou_migrate', 'ok'),
+          step('comandou_api', 'running'),
+          step('comandou_web', 'pending'),
+          step('comandou_agent', 'pending'),
+        ],
+      },
+      false,
+    );
+    expect(p?.value).toBe(0.25);
+    expect(p?.note).toBe('1 de 4 · api');
+    expect(updateProgress(null, true)?.value).toBeNull();
+    expect(updateProgress(null, false)).toBeNull();
   });
 
   it('já na última versão: botão desligado e selo "atualizado"', async () => {

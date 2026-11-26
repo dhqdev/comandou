@@ -20,8 +20,8 @@ restaurante com banco próprio fica na versão em que está até alguém atualiz
 3. **Atualizar um restaurante**: o painel grava um trabalho `upgrade` (`tenant_db_jobs`). O
    serviço de backup faz um backup do banco do restaurante (se o backup estiver ligado), aplica
    as migrações da versão principal só nele e grava a versão nova. Em segundos o Traefik passa a
-   mandar o restaurante para o principal; quem estiver com o sistema aberto vê "Nova versão
-   disponível".
+   mandar o restaurante para o principal; quem estiver com o sistema aberto tem a tela
+   atualizada sozinha (faixa no topo, cache limpo, sem botão).
 4. **Agendado**: a cada minuto o principal confere `app_update_at`; na hora, cria o mesmo
    trabalho, sempre para a versão principal daquele momento.
 5. **Limpeza**: a cópia de uma versão sai do ar sozinha quando nenhum restaurante usa mais.

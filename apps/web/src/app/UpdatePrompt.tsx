@@ -1,32 +1,55 @@
-import { RefreshCw, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { Button } from '../design-system';
 import { APP_BUILD, fetchServerBuild } from '../lib/app-version';
-import { freshReload } from '../lib/fresh-reload';
+import { claimReload, freshReload } from '../lib/fresh-reload';
 import { onRealtimeReady } from '../lib/realtime-ready';
 
 const POLL_MS = 60_000;
 /** O deploy reinicia a API antes de o site novo estar no ar: confere de novo depois de reconectar. */
 const AFTER_RECONNECT_S = [0, 20, 60, 180];
+/** Quanto a faixa leva para encher antes de recarregar. */
+export const FILL_MS = 1800;
+/**
+ * Alguém digitando ou com uma janela aberta (Nova venda, cobrança, cadastro): espera fechar, mas
+ * no máximo este tempo.
+ */
+const BUSY_WAIT_MS = 5 * 60_000;
+const BUSY_CHECK_MS = 2000;
+
+/** Janela aberta: recarregar agora perderia uma venda ou um cadastro no meio. */
+const dialogOpen = () => !!document.querySelector('dialog[open]');
+
+/** Tem campo de texto com o foco (não recarrega no meio do que a pessoa está digitando). */
+function typing(): boolean {
+  const el = document.activeElement as HTMLElement | null;
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  if (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true;
+  if (el.tagName !== 'INPUT') return false;
+  const type = (el as HTMLInputElement).type;
+  return !['button', 'checkbox', 'radio', 'submit', 'reset', 'range', 'color', 'file'].includes(
+    type,
+  );
+}
 
 /**
- * Avisa em tempo real que saiu versão nova e deixa a pessoa escolher a hora de atualizar.
+ * Atualiza o app sozinho quando sai versão nova (0.265: sem aviso nem botão "Atualizar").
  * Sinais: reconexão do tempo real (deploy reinicia a API), volta para a aba e uma consulta leve
- * a /version.json a cada minuto. O clique em "Atualizar" limpa os caches do app (service worker e
- * arquivos guardados) e recarrega direto do servidor, então ninguém fica preso na versão velha.
+ * a /version.json a cada minuto. Achou outra build no servidor: espera a pessoa parar de digitar
+ * e fechar a janela aberta (até 5 min),
+ * mostra uma faixa fina no topo enchendo, limpa os caches do app (service worker e arquivos
+ * guardados) e recarrega direto do servidor. Cada build é tentada uma vez por aba (`claimReload`),
+ * então um servidor que ainda entrega a cópia velha não deixa a tela recarregando em loop.
  *
- * Service worker novo esperando, com a tela já na versão do servidor (0.172): não é versão nova
- * para a pessoa, só o service worker que ficou para trás (outra aba ou o app instalado aberto
- * seguravam o antigo). Ele é ativado em silêncio, sem aviso: antes o "Atualizar" aparecia a cada
- * entrada e, clicado, voltava sempre, porque recarregar não troca um service worker em espera.
+ * Service worker novo esperando sem build nova no servidor (0.172): só o service worker ficou
+ * para trás (outra aba ou o app instalado seguravam o antigo). Ele é ativado em silêncio, sem
+ * recarregar a tela.
  */
 export function UpdatePrompt() {
   const [serverBuild, setServerBuild] = useState<string | null>(null);
-  /** Esta tela roda a versão do servidor? `pending` até a primeira resposta (sem piscar o aviso). */
+  /** Esta tela roda a versão do servidor? `pending` até a primeira resposta. */
   const [server, setServer] = useState<'pending' | 'current' | 'unknown'>('pending');
-  const [dismissed, setDismissed] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const {
     needRefresh: [needRefresh],
     updateServiceWorker,
@@ -67,40 +90,44 @@ export function UpdatePrompt() {
     };
   }, []);
 
-  // Mesma versão do servidor e service worker em espera: troca o service worker sem recarregar.
+  // Sem build nova no servidor e service worker em espera: troca o service worker sem recarregar.
   useEffect(() => {
-    if (needRefresh && server === 'current' && !serverBuild) void updateServiceWorker(false);
+    if (needRefresh && server !== 'pending' && !serverBuild) void updateServiceWorker(false);
   }, [needRefresh, server, serverBuild, updateServiceWorker]);
 
-  // Sem saber do servidor (fora do ar, sem internet), o service worker em espera vale como aviso.
-  const key = serverBuild ?? (needRefresh && server === 'unknown' ? 'sw' : null);
-  if (!key || dismissed === key) return null;
+  // Build nova no servidor: espera parar de digitar e começa a faixa.
+  useEffect(() => {
+    if (!serverBuild || updating) return;
+    const since = Date.now();
+    let timer: ReturnType<typeof setTimeout>;
+    const tryStart = () => {
+      if ((typing() || dialogOpen()) && Date.now() - since < BUSY_WAIT_MS) {
+        timer = setTimeout(tryStart, BUSY_CHECK_MS);
+        return;
+      }
+      if (claimReload(serverBuild)) setUpdating(true);
+    };
+    tryStart();
+    return () => clearTimeout(timer);
+  }, [serverBuild, updating]);
 
-  const update = () => {
-    setBusy(true);
-    void freshReload();
-  };
+  // A faixa enche e, no fim, limpa o cache e recarrega.
+  useEffect(() => {
+    if (!updating) return;
+    const t = setTimeout(() => void freshReload(), FILL_MS);
+    return () => clearTimeout(t);
+  }, [updating]);
 
+  if (!updating) return null;
   return (
-    <div className="cm-update" role="status" aria-live="polite">
-      <span className="cm-update__icon" aria-hidden="true">
-        <RefreshCw size={18} />
-      </span>
-      <div className="cm-update__text">
-        <strong>Nova versão disponível</strong>
-        <span>Atualize para usar as novidades.</span>
-      </div>
-      <Button size="sm" loading={busy} onClick={update}>
-        Atualizar
-      </Button>
-      <button
-        type="button"
-        className="cm-update__close"
-        aria-label="Agora não"
-        onClick={() => setDismissed(key)}
-      >
-        <X size={16} />
-      </button>
+    <div
+      className="cm-autoupdate"
+      role="status"
+      aria-live="polite"
+      style={{ ['--cm-autoupdate-ms' as string]: `${FILL_MS}ms` }}
+    >
+      <div className="cm-autoupdate__bar" />
+      <span className="cm-autoupdate__note">Atualizando para a versão nova…</span>
     </div>
   );
 }

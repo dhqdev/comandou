@@ -1,6 +1,6 @@
 import { ArrowUpCircle, Play, RotateCcw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Modal, useToast } from '../design-system';
+import { Alert, Modal, ProgressBar, useToast } from '../design-system';
 import { api } from '../lib/api';
 import { freshReload } from '../lib/fresh-reload';
 import { useLoad } from './OverviewPages';
@@ -55,6 +55,29 @@ const minutes = (ms: number) => {
   const m = Math.floor(ms / 60_000);
   return m < 1 ? 'menos de 1 min' : `${m} min`;
 };
+/**
+ * Barra da atualização do sistema: sem tarefa ainda (o clique acabou de sair), corre sem número;
+ * com tarefa, enche pelos serviços já trocados. Fora de andamento, não aparece.
+ */
+export function updateProgress(job: UpdateJob | null | undefined, starting: boolean) {
+  if (job?.status === 'running') {
+    const total = job.steps.length;
+    const done = job.steps.filter((s) => s.status === 'ok' || s.status === 'skipped').length;
+    const current = job.steps.find((s) => s.status === 'running');
+    return {
+      title: `Atualizando para ${job.version}`,
+      note: current
+        ? `${done} de ${total} · ${shortName(current.service)}`
+        : `${done} de ${total} serviços`,
+      // Um pouco já cheio assim que começa: a barra mostra que andou.
+      value: total ? Math.max(0.04, done / total) : null,
+    };
+  }
+  if (starting)
+    return { title: 'Iniciando a atualização…', note: 'pedindo ao servidor', value: null };
+  return null;
+}
+
 /** "comandou_comandou-api" → "comandou-api" (nome curto para botão). */
 const shortName = (service: string) => service.slice(service.indexOf('_') + 1);
 
@@ -269,15 +292,17 @@ export function UpdatePanel({
     }
   }, [status, upToDate, toast]);
 
+  // O clique fecha a janela na hora e a barra começa já, antes de o servidor responder.
   async function start() {
-    if (!latest) return;
+    if (!latest || busy) return;
+    setOpen(false);
     setBusy(true);
+    wasRunning.current = true;
     try {
       await api('/platform/server/update', { method: 'POST', json: { version: latest } });
-      toast('Atualização iniciada', 'success');
-      setOpen(false);
       reload();
     } catch (e) {
+      wasRunning.current = false;
       toast((e as Error).message, 'danger');
     } finally {
       setBusy(false);
@@ -290,6 +315,7 @@ export function UpdatePanel({
   const failedStep = job?.status === 'failed' ? job.steps.find((s) => s.status === 'failed') : null;
   // Parou antes do fim e ainda falta serviço na versão dela: oferece continuar.
   const canContinue = job?.status === 'failed' && ours.some((s) => TAG_OF(s.image) !== job.version);
+  const progress = updateProgress(job, busy);
   return (
     <Section
       title="Versão"
@@ -297,10 +323,10 @@ export function UpdatePanel({
       actions={
         <button
           className="adm-action adm-action--primary"
-          disabled={!latest || upToDate || running}
+          disabled={!latest || upToDate || running || busy}
           onClick={() => setOpen(true)}
         >
-          <ArrowUpCircle size={14} /> {running ? 'Atualizando…' : 'Atualizar sistema'}
+          <ArrowUpCircle size={14} /> {running || busy ? 'Atualizando…' : 'Atualizar sistema'}
         </button>
       }
     >
@@ -321,6 +347,15 @@ export function UpdatePanel({
         />
       </div>
       <TenantVersions />
+      {progress && (
+        <div className="adm-panel adm-update-progress" role="status" aria-live="polite">
+          <div className="adm-update-progress__head">
+            <strong>{progress.title}</strong>
+            <span className="adm-sub">{progress.note}</span>
+          </div>
+          <ProgressBar value={progress.value} label="Andamento da atualização" />
+        </div>
+      )}
       {job && (
         <div className="adm-panel">
           <div className="adm-panel__head">
@@ -376,7 +411,7 @@ export function UpdatePanel({
         size="lg"
         footer={
           <button className="adm-action adm-action--primary" disabled={busy} onClick={start}>
-            {busy ? 'Iniciando…' : `Atualizar para ${latest}`}
+            Atualizar para {latest}
           </button>
         }
       >
@@ -405,8 +440,8 @@ export function UpdatePanel({
           </li>
           <li>
             Os caches somem junto: a API reinicia sem nada guardado em memória, e cada navegador
-            (painel, garçom, cozinha, cardápio) apaga o cache do app ao abrir ou ao tocar em
-            &quot;Atualizar&quot;, carregando a versão nova direto do servidor.
+            (painel, garçom, cozinha, cardápio) se atualiza sozinho: apaga o cache do app e carrega
+            a versão nova direto do servidor, sem aviso nem botão.
           </li>
           <li>
             Os restaurantes com banco próprio <strong>continuam na versão em que estão</strong>: a

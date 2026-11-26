@@ -1,10 +1,13 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_BUILD } from '../lib/app-version';
-import { UpdatePrompt } from './UpdatePrompt';
+import { FILL_MS, UpdatePrompt } from './UpdatePrompt';
 
 const freshReload = vi.fn(async () => undefined);
-vi.mock('../lib/fresh-reload', () => ({ freshReload: () => freshReload() }));
+vi.mock('../lib/fresh-reload', async (orig) => ({
+  ...(await orig<typeof import('../lib/fresh-reload')>()),
+  freshReload: () => freshReload(),
+}));
 
 const sw = vi.hoisted(() => ({
   waiting: false,
@@ -19,11 +22,14 @@ vi.mock('virtual:pwa-register/react', () => ({
 }));
 
 let serverBuild = APP_BUILD;
+const NOTE = 'Atualizando para a versão nova…';
 
 beforeEach(() => {
   serverBuild = APP_BUILD;
   sw.waiting = false;
   sw.update.mockClear();
+  freshReload.mockClear();
+  sessionStorage.clear();
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => new Response(JSON.stringify({ build: serverBuild }), { status: 200 })),
@@ -31,47 +37,94 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // Sem isso o aviso de um teste continua na página no seguinte.
   cleanup();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  document.body.innerHTML = '';
 });
 
-describe('UpdatePrompt', () => {
-  it('fica escondido enquanto o servidor entrega a mesma versão', async () => {
+describe('UpdatePrompt (atualiza sozinho)', () => {
+  it('não mostra nada enquanto o servidor entrega a mesma versão', async () => {
     render(<UpdatePrompt />);
     await act(async () => undefined);
-    expect(screen.queryByText('Nova versão disponível')).not.toBeInTheDocument();
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(freshReload).not.toHaveBeenCalled();
   });
 
-  it('mostra "Atualizar" quando sai versão nova e some ao dispensar', async () => {
+  it('versão nova: mostra a faixa, sem botão, e no fim limpa o cache e recarrega', async () => {
     vi.useFakeTimers();
     render(<UpdatePrompt />);
     await act(async () => undefined);
-    expect(screen.queryByText('Nova versão disponível')).not.toBeInTheDocument();
 
     serverBuild = 'outra-build';
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
-    expect(screen.getByText('Nova versão disponível')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Atualizar' })).toBeInTheDocument();
+    expect(screen.getByText(NOTE)).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(freshReload).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Atualizar' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(FILL_MS);
+    });
     expect(freshReload).toHaveBeenCalledOnce();
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Agora não' }));
-    expect(screen.queryByText('Nova versão disponível')).not.toBeInTheDocument();
+  it('espera a pessoa parar de digitar', async () => {
+    vi.useFakeTimers();
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+    serverBuild = 'outra-build';
+    render(<UpdatePrompt />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+
+    input.blur();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(screen.getByText(NOTE)).toBeInTheDocument();
+  });
+
+  it('espera a janela aberta fechar (venda no meio)', async () => {
+    vi.useFakeTimers();
+    const dialog = document.createElement('dialog');
+    dialog.setAttribute('open', '');
+    document.body.appendChild(dialog);
+    serverBuild = 'outra-build';
+    render(<UpdatePrompt />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+
+    dialog.remove();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(screen.getByText(NOTE)).toBeInTheDocument();
+  });
+
+  it('a mesma build já tentada nesta aba não recarrega de novo (sem loop)', async () => {
+    sessionStorage.setItem('cm.freshReload', 'outra-build');
+    serverBuild = 'outra-build';
+    render(<UpdatePrompt />);
+    await act(async () => undefined);
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
   });
 
   it('service worker em espera com a tela já na versão do servidor: troca sem aviso', async () => {
     sw.waiting = true;
     render(<UpdatePrompt />);
     await waitFor(() => expect(sw.update).toHaveBeenCalledWith(false));
-    expect(screen.queryByText('Nova versão disponível')).not.toBeInTheDocument();
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
   });
 
-  it('service worker em espera sem resposta do servidor: mostra o aviso', async () => {
+  it('service worker em espera sem resposta do servidor: troca em silêncio, sem aviso', async () => {
     sw.waiting = true;
     vi.stubGlobal(
       'fetch',
@@ -80,8 +133,8 @@ describe('UpdatePrompt', () => {
       }),
     );
     render(<UpdatePrompt />);
-    expect(await screen.findByText('Nova versão disponível')).toBeInTheDocument();
-    expect(sw.update).not.toHaveBeenCalled();
+    await waitFor(() => expect(sw.update).toHaveBeenCalledWith(false));
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
   });
 
   it('ignora resposta inválida (ex.: index.html no lugar do version.json)', async () => {
@@ -91,6 +144,6 @@ describe('UpdatePrompt', () => {
     );
     render(<UpdatePrompt />);
     await act(async () => undefined);
-    expect(screen.queryByText('Nova versão disponível')).not.toBeInTheDocument();
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
   });
 });

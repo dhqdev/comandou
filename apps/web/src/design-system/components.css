@@ -1786,77 +1786,76 @@ input[type='radio'] {
   color: var(--cm-text-muted);
 }
 
-/* =============================================================== Aviso de versão nova
- * Fica por cima de tudo (até de modais) no topo: embaixo ficam a barra do garçom e o carrinho.
- */
-.cm-update {
-  position: fixed;
-  z-index: 1000;
-  top: calc(env(safe-area-inset-top) + var(--cm-space-3));
-  left: 50%;
-  transform: translateX(-50%);
-  width: max-content;
-  max-width: calc(100vw - 2 * var(--cm-space-4));
-  display: flex;
-  align-items: center;
-  gap: var(--cm-space-3);
-  padding: 10px 10px 10px 12px;
-  border-radius: var(--cm-radius-lg);
-  background: var(--cm-surface);
-  color: var(--cm-text);
-  border: 1px solid var(--cm-border-strong);
-  box-shadow: var(--cm-shadow-lg);
-  animation: cm-update-in var(--cm-dur) var(--cm-ease) both;
-}
-.cm-update__icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
+/* =============================================================== Barra de progresso */
+.cm-progress {
+  position: relative;
+  overflow: hidden;
+  height: 6px;
   border-radius: var(--cm-radius-full);
-  background: var(--cm-brand-50);
-  color: var(--cm-brand-700);
-}
-.cm-update__text {
-  display: grid;
-  min-width: 0;
-  line-height: 1.25;
-  font-size: var(--cm-text-sm);
-}
-.cm-update__text span {
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-xs);
-}
-.cm-update .cm-btn {
-  flex: none;
-  min-height: 36px;
-}
-.cm-update__close {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: var(--cm-radius-sm);
-  background: transparent;
-  color: var(--cm-text-subtle);
-  cursor: pointer;
-}
-.cm-update__close:hover {
   background: var(--cm-surface-sunken);
-  color: var(--cm-text);
 }
-@media (max-width: 420px) {
-  .cm-update__text span {
-    display: none;
+.cm-progress > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--cm-brand-500);
+  transition: width 0.4s var(--cm-ease);
+}
+.cm-progress--busy > i {
+  width: 35%;
+  animation: cm-progress-busy 1.2s ease-in-out infinite;
+}
+@keyframes cm-progress-busy {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
   }
 }
-@keyframes cm-update-in {
+
+/* =============================================================== Atualização sozinha
+ * Versão nova: uma faixa fina no topo enche enquanto limpa o cache, e a tela recarrega.
+ * Fica por cima de tudo (até de modais); não tem botão nem fecha.
+ */
+.cm-autoupdate {
+  position: fixed;
+  z-index: 1000;
+  inset: 0 0 auto;
+  pointer-events: none;
+}
+.cm-autoupdate__bar {
+  height: 3px;
+  background: var(--cm-brand-500);
+  transform-origin: left;
+  animation: cm-autoupdate-fill var(--cm-autoupdate-ms, 1800ms) cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.cm-autoupdate__note {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  border: 1px solid var(--cm-border);
+  box-shadow: var(--cm-shadow-md);
+  font-size: var(--cm-text-xs);
+  white-space: nowrap;
+}
+@keyframes cm-autoupdate-fill {
   from {
-    opacity: 0;
-    transform: translate(-50%, -12px);
+    transform: scaleX(0.02);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-autoupdate__bar,
+  .cm-progress--busy > i {
+    animation-duration: 0.01ms;
   }
 }
 

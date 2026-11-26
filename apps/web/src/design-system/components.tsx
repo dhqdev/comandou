@@ -260,6 +260,27 @@ export function Spinner({ label = 'Carregando', inline }: { label?: string; inli
 }
 
 /**
+ * Barra de progresso fina. Com `value` (0 a 1) mostra quanto já foi; sem `value` fica correndo
+ * de um lado para o outro (não dá para saber quanto falta).
+ */
+export function ProgressBar({ value, label }: { value?: number | null; label: string }) {
+  const known = typeof value === 'number' && Number.isFinite(value);
+  const pct = known ? Math.round(Math.min(1, Math.max(0, value)) * 100) : undefined;
+  return (
+    <div
+      className={`cm-progress${known ? '' : ' cm-progress--busy'}`}
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+    >
+      <i style={known ? { width: `${pct}%` } : undefined} />
+    </div>
+  );
+}
+
+/**
  * Foto pequena do produto num item de pedido (sacola, PDV, cozinha, garçom). Sem foto, ou se a
  * foto não carregar, mostra a inicial do nome sobre a cor da loja.
  */

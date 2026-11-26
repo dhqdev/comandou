@@ -1,6 +1,6 @@
 import { CalendarClock, RefreshCw, Rocket } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Alert, Button, Modal, TextField, useToast } from '../design-system';
+import { Alert, Button, Modal, ProgressBar, TextField, useToast } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
@@ -46,7 +46,10 @@ export function TenantVersionCard({ tenantId }: { tenantId: string }) {
   const [scheduling, setScheduling] = useState(false);
   const [when, setWhen] = useState(inAnHour);
 
-  const working = v?.lastUpgrade?.status === 'queued' || v?.lastUpgrade?.status === 'running';
+  /** O clique em Atualizar agora já fecha a janela e mostra a barra, antes de o servidor responder. */
+  const [starting, setStarting] = useState(false);
+  const working =
+    starting || v?.lastUpgrade?.status === 'queued' || v?.lastUpgrade?.status === 'running';
   useEffect(() => {
     if (!working) return;
     const t = setInterval(reload, 2500);
@@ -132,6 +135,16 @@ export function TenantVersionCard({ tenantId }: { tenantId: string }) {
           </>
         )}
       </dl>
+      {working && (
+        <div role="status" aria-live="polite" style={{ display: 'grid', gap: 6 }}>
+          <ProgressBar label="Andamento da atualização" />
+          <span className="adm-card__note">
+            {starting
+              ? 'Iniciando a atualização…'
+              : (v.lastUpgrade?.step ?? 'Na fila, começa em instantes…')}
+          </span>
+        </div>
+      )}
       {v.lastUpgrade?.status === 'failed' && v.lastUpgrade.error && !working && (
         <span className="adm-card__note adm-card__note--bad">{v.lastUpgrade.error}</span>
       )}
@@ -173,12 +186,12 @@ export function TenantVersionCard({ tenantId }: { tenantId: string }) {
               Voltar
             </Button>
             <Button
-              loading={busy}
+              disabled={busy}
               onClick={async () => {
-                if (await send('upgrade')) {
-                  setConfirm(false);
-                  toast('Atualização iniciada', 'success');
-                }
+                setConfirm(false);
+                setStarting(true);
+                await send('upgrade');
+                setStarting(false);
               }}
             >
               Atualizar agora
@@ -189,7 +202,7 @@ export function TenantVersionCard({ tenantId }: { tenantId: string }) {
         <p>
           O restaurante sai da {v.version} e passa para a {v.main}. Primeiro é feito um backup do
           banco dele (se o backup estiver ligado), depois as migrações da versão nova. Leva poucos
-          minutos; quem estiver usando vê o aviso de nova versão e clica em Atualizar.
+          minutos; quem estiver usando tem a tela atualizada sozinha, sem aviso nem botão.
         </p>
         <Alert tone="warning">
           Não dá para voltar para a versão anterior depois de atualizar. Prefira um horário com

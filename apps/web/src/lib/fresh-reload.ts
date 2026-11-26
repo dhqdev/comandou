@@ -47,13 +47,21 @@ export async function freshReload(): Promise<void> {
 export async function reloadIfStale(): Promise<boolean> {
   const build = await fetchServerBuild();
   if (!build || build === APP_BUILD) return false;
+  if (!claimReload(build)) return false;
+  await freshReload();
+  return true;
+}
+
+/**
+ * Marca que esta aba vai trocar para `build`. Falso se já tentou (o servidor seguiu entregando a
+ * cópia velha) ou se não há sessionStorage: sem a marca não dá para garantir que não entra em loop.
+ */
+export function claimReload(build: string): boolean {
   try {
     if (sessionStorage.getItem(TRIED_KEY) === build) return false;
     sessionStorage.setItem(TRIED_KEY, build);
+    return true;
   } catch {
-    // Sem sessionStorage não dá para garantir que não entra em loop: deixa o aviso "Atualizar".
     return false;
   }
-  await freshReload();
-  return true;
 }

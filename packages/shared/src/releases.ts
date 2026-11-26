@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.265.0',
+    date: '2026-11-26',
+    title: 'O sistema se atualiza sozinho, sem aviso',
+    summary:
+      'Saiu o aviso "Nova versão disponível" de todas as telas. Quando sai versão nova, o sistema espera você terminar o que está fazendo, mostra uma faixa fina no topo, limpa o cache e já abre a versão nova.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Sem o aviso nem o botão Atualizar: o painel, o garçom, a cozinha e o cardápio trocam de versão sozinhos e limpam o cache no fim.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A troca espera a pessoa parar de digitar e fechar a janela aberta (como uma Nova venda), para não perder nada no meio.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Super Admin: ao clicar em Atualizar, a janela fecha na hora e uma barra mostra o andamento da atualização, serviço por serviço.',
+      },
+    ],
+  },
+  {
     version: '0.264.3',
     date: '2026-11-26',
     title: 'Reservas mais limpa, sem o calendário do canto',
