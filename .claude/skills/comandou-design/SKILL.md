@@ -98,9 +98,12 @@ cartão de quem é com o nível, "Vou receber" grande em `--cm-brand-700` com a 
 David): a janela ocupa quase a tela toda (`calc(100vw - 24px)`, só uma margem fina). Na coluna da
 esquerda a **grade de produtos fica com 2/3 da altura que sobra e os itens do pedido com 1/3**
 (`minmax(0, 2fr) minmax(150px, 1fr)`): as fotos são sempre maiores que a lista de itens. Produto é
-um cartão com a foto 4:3 em cima (`.nsale__photo`, 16:10 em notebook baixo) e, embaixo, o nome em
-até duas linhas (15px, semibold, altura fixa de duas linhas para os preços alinharem) e o preço em
-17px negrito tabular; esgotado em cinza. Nada escrito por cima da foto (nem selo de preço).
+um cartão com a foto 4:3 em cima (`.nsale__photo`, 16:10 em notebook baixo) e, embaixo, o nome
+**inteiro, sem corte** (15px, semibold, mínimo de duas linhas; quebra quantas precisar e o cartão
+cresce, 0.257) e o pé `nsale__meta` com o preço em 17px negrito tabular (sem quebra) e, à direita,
+a pílula de pontos `nsale__pts` ("+44 pts", presente, marca a 10%/26%), que desce para baixo do
+preço quando não cabe. O pé tem `margin-top: auto`: preços alinhados na fileira. Os pontos vêm do
+`/menu` (`points`, `MENU_POINTS` em `catalog/menu-sql.ts`); esgotado em cinza e sem pontos. Nada escrito por cima da foto (nem selo de preço).
 A caixa da foto é feita com `height: 0` + `padding-top` em % (75% = 4:3), **nunca `aspect-ratio`**
 dentro do cartão flex: no Safari do iPhone/Mac a largura esticada não entrava na conta e a foto
 ficava com altura 0 (0.254.2). **Tela baixa** (`min-width: 861px` e `max-height: 820px`, que é o

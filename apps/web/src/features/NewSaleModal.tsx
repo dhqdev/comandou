@@ -12,6 +12,7 @@ import {
 import {
   Bike,
   Frown,
+  Gift,
   HandCoins,
   Minus,
   Pencil,
@@ -456,7 +457,6 @@ export function NewSaleModal({
                 key={p.id}
                 type="button"
                 className="nsale__tile"
-                title={p.name}
                 disabled={p.soldOut}
                 onClick={() => choose(p)}
               >
@@ -471,12 +471,24 @@ export function NewSaleModal({
                 </span>
                 <span className="nsale__info">
                   <span className="nsale__name">{p.name}</span>
-                  <span className="nsale__price" data-out={p.soldOut || undefined}>
-                    {p.soldOut
-                      ? p.stockOut
-                        ? 'Sem estoque'
-                        : 'Esgotado'
-                      : `${brl(p.price)}${p.soldByWeight ? '/kg' : ''}`}
+                  <span className="nsale__meta">
+                    <span className="nsale__price" data-out={p.soldOut || undefined}>
+                      {p.soldOut
+                        ? p.stockOut
+                          ? 'Sem estoque'
+                          : 'Esgotado'
+                        : `${brl(p.price)}${p.soldByWeight ? '/kg' : ''}`}
+                    </span>
+                    {!p.soldOut && p.points ? (
+                      <span
+                        className="nsale__pts"
+                        title="Pontos de fidelidade que o cliente identificado ganha com este item"
+                      >
+                        <Gift size={12} aria-hidden />
+                        <span className="cm-num">+{p.points.toLocaleString('pt-BR')}</span>
+                        {p.points === 1 ? 'pt' : 'pts'}
+                      </span>
+                    ) : null}
                   </span>
                 </span>
               </button>
