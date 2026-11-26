@@ -137,10 +137,11 @@ export function SideBar({ tabs, dot }: { tabs: MagicTab[]; dot(n: number): React
           data-empty={count === 0 || undefined}
           aria-label={count ? `Sacola: ${count} itens, ${brl(fromCents(subtotal))}` : 'Sacola'}
         >
+          {/* Chaves diferentes entre irmãos (com a mesma, a sacola se repetia na tela). */}
           <span
             className="sf-side__bag"
             data-cart-target
-            key={bump}
+            key={`bag-${bump}`}
             data-bump={bump > 0 || undefined}
           >
             <ShoppingBag size={18} />
@@ -148,7 +149,7 @@ export function SideBar({ tabs, dot }: { tabs: MagicTab[]; dot(n: number): React
           </span>
           <span>{count ? 'Ver sacola' : 'Sacola vazia'}</span>
           {count > 0 && (
-            <strong key={bump} className={bump > 0 ? 'sf-tick' : undefined}>
+            <strong key={`sum-${bump}`} className={bump > 0 ? 'sf-tick' : undefined}>
               {brl(fromCents(subtotal))}
             </strong>
           )}

@@ -8,9 +8,14 @@ import { createHash } from 'node:crypto';
 export interface LinkPreview {
   title: string;
   description: string;
-  /** Endereço absoluto da imagem (logo da loja, capa ou foto do produto). */
+  /** Endereço absoluto da imagem (capa da loja, senão a logo; no produto, a foto dele). */
   image: string | null;
   imageType: string | null;
+  /** Tamanho da imagem em px: o WhatsApp e o Facebook montam o cartão sem esperar a foto. */
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  /** Ícone da aba (favicon, senão a logo). Sem o campo, vale a própria imagem. */
+  icon?: string | null;
   /** Onde a pessoa que abrir esta página deve cair (o cardápio). */
   target: string;
   siteName: string;
@@ -52,6 +57,11 @@ export function linkPreviewHtml(p: LinkPreview): string {
   const t = esc(p.title);
   const d = esc(p.description);
   const img = p.image ? esc(p.image) : null;
+  const icon = p.icon === undefined ? img : p.icon ? esc(p.icon) : null;
+  const w = p.imageWidth && p.imageWidth > 0 ? Math.round(p.imageWidth) : null;
+  const h = p.imageHeight && p.imageHeight > 0 ? Math.round(p.imageHeight) : null;
+  // Foto deitada (a capa) vira o cartão grande; quadrada fica no resumo com a imagem ao lado.
+  const wide = !!(img && w && h && w / h >= 1.5);
   const tags = [
     `<meta property="og:type" content="website" />`,
     `<meta property="og:site_name" content="${esc(p.siteName)}" />`,
@@ -65,13 +75,20 @@ export function linkPreviewHtml(p: LinkPreview): string {
           ...(p.imageType
             ? [`<meta property="og:image:type" content="${esc(p.imageType)}" />`]
             : []),
+          ...(w && h
+            ? [
+                `<meta property="og:image:width" content="${w}" />`,
+                `<meta property="og:image:height" content="${h}" />`,
+              ]
+            : []),
           `<meta property="og:image:alt" content="${t}" />`,
           `<meta name="twitter:image" content="${img}" />`,
-          `<link rel="icon" href="${img}" />`,
-          `<link rel="apple-touch-icon" href="${img}" />`,
         ]
       : []),
-    `<meta name="twitter:card" content="summary" />`,
+    ...(icon
+      ? [`<link rel="icon" href="${icon}" />`, `<link rel="apple-touch-icon" href="${icon}" />`]
+      : []),
+    `<meta name="twitter:card" content="${wide ? 'summary_large_image' : 'summary'}" />`,
     `<meta name="twitter:title" content="${t}" />`,
     `<meta name="twitter:description" content="${d}" />`,
   ];

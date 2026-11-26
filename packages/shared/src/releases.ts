@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.254.1',
+    date: '2026-11-25',
+    title: 'Nova venda mais larga, sacola sem repetir e link bonito no WhatsApp',
+    summary:
+      'A Nova venda ocupa quase a tela toda, com as fotos dos produtos maiores que a lista de itens e o nome e o preço fáceis de ler. No cardápio, a barra da sacola não repete mais o ícone a cada item, e o link da loja mandado no WhatsApp mostra a capa deitada em vez da logo enorme.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Nova venda: a janela usa quase toda a largura da tela e a grade de produtos fica com dois terços da altura, sempre maior que os itens do pedido. Cada produto é um cartão com a foto grande em cima e, embaixo, o nome em até duas linhas e o preço em destaque, sem nada escrito por cima da foto.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cardápio do cliente: ao adicionar itens, a barra Ver sacola (e a sacola do topo e do lado) mostrava o ícone repetido, com números como 1, 2, 2, parecendo itens em dobro. Agora aparece uma sacola só com a quantidade certa. A sacola em si nunca teve itens duplicados.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Link do cardápio no WhatsApp: a prévia mostra a capa da loja num cartão largo (sem capa, a logo) e informa o tamanho da imagem, no lugar da logo quadrada enorme com os cantos brancos. O link de um produto segue com a foto dele. Links já mandados podem levar um tempo para trocar, porque o WhatsApp guarda a prévia.',
+      },
+    ],
+  },
+  {
     version: '0.254.0',
     date: '2026-11-25',
     title: 'Cardápio sem piscar e animações mais certinhas',

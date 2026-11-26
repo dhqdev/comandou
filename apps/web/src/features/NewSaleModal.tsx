@@ -444,7 +444,7 @@ export function NewSaleModal({
 
         <div className="nsale__grid" aria-label="Produtos">
           {menu === null ? (
-            <Skeleton variant="grid" />
+            <Skeleton variant="grid" className="nsale__sk" />
           ) : products.length === 0 ? (
             <p className="nsale__none">Nenhum produto encontrado.</p>
           ) : (
@@ -453,24 +453,29 @@ export function NewSaleModal({
                 key={p.id}
                 type="button"
                 className="nsale__tile"
+                title={p.name}
                 disabled={p.soldOut}
                 onClick={() => choose(p)}
               >
-                {p.imageId ? (
-                  <img src={mediaUrl(p.imageId)!} alt="" loading="lazy" decoding="async" />
-                ) : (
-                  <span className="nsale__initials" aria-hidden>
-                    {initials(p.name)}
-                  </span>
-                )}
-                <span className="nsale__price">
-                  {p.soldOut
-                    ? p.stockOut
-                      ? 'Sem estoque'
-                      : 'Esgotado'
-                    : `${brl(p.price)}${p.soldByWeight ? '/kg' : ''}`}
+                <span className="nsale__photo">
+                  {p.imageId ? (
+                    <img src={mediaUrl(p.imageId)!} alt="" loading="lazy" decoding="async" />
+                  ) : (
+                    <span className="nsale__initials" aria-hidden>
+                      {initials(p.name)}
+                    </span>
+                  )}
                 </span>
-                <span className="nsale__name">{p.name}</span>
+                <span className="nsale__info">
+                  <span className="nsale__name">{p.name}</span>
+                  <span className="nsale__price" data-out={p.soldOut || undefined}>
+                    {p.soldOut
+                      ? p.stockOut
+                        ? 'Sem estoque'
+                        : 'Esgotado'
+                      : `${brl(p.price)}${p.soldByWeight ? '/kg' : ''}`}
+                  </span>
+                </span>
               </button>
             ))
           )}

@@ -215,16 +215,18 @@ function TopBar() {
           ))}
         </nav>
         <Link to="/pedir/sacola" className="sf-appbar__cart" data-empty={count === 0 || undefined}>
+          {/* Chaves diferentes entre irmãos: com a mesma chave o React deixava cópias da
+              sacola na tela a cada item adicionado. */}
           <span
             className="sf-appbar__bag"
             data-cart-target
-            key={bump}
+            key={`bag-${bump}`}
             data-bump={bump > 0 || undefined}
           >
             <ShoppingBag size={18} />
             {count > 0 && <span className="cartpill__count">{count}</span>}
           </span>
-          <span key={bump} className={bump > 0 && count > 0 ? 'sf-tick' : undefined}>
+          <span key={`sum-${bump}`} className={bump > 0 && count > 0 ? 'sf-tick' : undefined}>
             {count > 0 ? brl(fromCents(subtotal)) : 'Sacola'}
           </span>
         </Link>
@@ -249,10 +251,12 @@ function CartPill() {
       tabIndex={hidden ? -1 : 0}
       onClick={() => navigate('/pedir/sacola')}
     >
+      {/* Ícone e total com chaves diferentes: com a mesma chave (irmãos) o React deixava a
+          sacola antiga na tela e a barra mostrava "1 2 2" com dois itens. */}
       <span
         className="cartpill__icon"
         data-cart-target
-        key={bump}
+        key={`bag-${bump}`}
         data-bump={bump > 0 || undefined}
       >
         <ShoppingBag size={18} />
@@ -260,7 +264,7 @@ function CartPill() {
       </span>
       <span className="cartpill__label">Ver sacola</span>
       {/* O total dá um pulinho junto com a sacola quando o item chega. */}
-      <strong key={bump} className={bump > 0 ? 'sf-tick' : undefined}>
+      <strong key={`sum-${bump}`} className={bump > 0 ? 'sf-tick' : undefined}>
         {brl(fromCents(subtotal))}
       </strong>
       <ChevronRight size={18} aria-hidden />

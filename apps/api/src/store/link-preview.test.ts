@@ -45,6 +45,37 @@ describe('prévia do link do cardápio', () => {
     expect(html).not.toMatch(/comandou —|panda|favicon\.svg/i);
   });
 
+  it('capa deitada vira o cartão grande, com o tamanho e o ícone da loja à parte', () => {
+    const html = linkPreviewHtml({
+      title: 'Fumaça Burger',
+      description: 'Hambúrguer na brasa',
+      image: 'https://fumaca.comandou.com/api/v1/media/capa',
+      imageType: 'image/webp',
+      imageWidth: 1600,
+      imageHeight: 700,
+      icon: 'https://fumaca.comandou.com/api/v1/media/logo',
+      target: '/pedir',
+      siteName: 'Fumaça Burger',
+    });
+    expect(html).toContain('<meta property="og:image:width" content="1600" />');
+    expect(html).toContain('<meta property="og:image:height" content="700" />');
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
+    expect(html).toContain('<link rel="icon" href="https://fumaca.comandou.com/api/v1/media/logo"');
+    expect(html).not.toContain('rel="icon" href="https://fumaca.comandou.com/api/v1/media/capa"');
+
+    const square = linkPreviewHtml({
+      title: 'Loja',
+      description: 'Texto',
+      image: 'https://loja.comandou.com/api/v1/media/logo',
+      imageType: 'image/webp',
+      imageWidth: 800,
+      imageHeight: 800,
+      target: '/pedir',
+      siteName: 'Loja',
+    });
+    expect(square).toContain('<meta name="twitter:card" content="summary" />');
+  });
+
   it('sem foto, não inventa imagem', () => {
     const html = linkPreviewHtml({
       title: 'Loja',

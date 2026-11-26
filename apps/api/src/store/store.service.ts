@@ -576,8 +576,10 @@ export class StoreService {
   }
 
   /**
-   * O que o link do cardápio mostra quando é compartilhado: nome, texto e logo da loja (sem logo,
-   * a capa). No link de um produto, o nome, a descrição e a foto dele. `origin` é o endereço da loja
+   * O que o link do cardápio mostra quando é compartilhado: nome, texto e a capa da loja (sem capa,
+   * a logo). A capa é deitada e vira o cartão grande do WhatsApp; a logo quadrada aparecia enorme,
+   * com os cantos brancos (pedido do David, 0.254.1). No link de um produto, o nome, a descrição e a
+   * foto dele. O ícone da aba segue o favicon/logo. `origin` é o endereço da loja
    * (https://aurora.comandou.com): os apps só aceitam imagem com endereço completo.
    */
   linkPreview(tenantId: string, name: string, path: string, origin: string): Promise<LinkPreview> {
@@ -591,12 +593,15 @@ export class StoreService {
             [productId],
           )
         : null;
-      const imageId = product?.imageId ?? s.logoImageId ?? s.coverImageId ?? s.faviconImageId;
+      const imageId = product?.imageId ?? s.coverImageId ?? s.logoImageId ?? s.faviconImageId;
       const media = imageId
-        ? await one<{ content_type: string }>(tx, `SELECT content_type FROM media WHERE id = $1`, [
-            imageId,
-          ])
+        ? await one<{ content_type: string; width: number | null; height: number | null }>(
+            tx,
+            `SELECT content_type, width, height FROM media WHERE id = $1`,
+            [imageId],
+          )
         : null;
+      const iconId = s.faviconImageId ?? s.logoImageId;
       const storeText =
         oneLine(s.about) || oneLine(s.headline) || `Peça pelo cardápio online de ${name}.`;
       return {
@@ -604,6 +609,9 @@ export class StoreService {
         description: product ? oneLine(product.description) || storeText : storeText,
         image: media ? `${origin}${mediaUrl(imageId)}` : null,
         imageType: media?.content_type ?? null,
+        imageWidth: media?.width ?? null,
+        imageHeight: media?.height ?? null,
+        icon: iconId ? `${origin}${mediaUrl(iconId)}` : null,
         target: product ? path : '/pedir',
         siteName: name,
       };

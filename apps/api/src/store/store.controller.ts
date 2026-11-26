@@ -367,8 +367,8 @@ export class StoreController {
 
   /**
    * Prévia do link do cardápio para os robôs do WhatsApp, Instagram, Telegram e afins (o Nginx
-   * manda só eles para cá): HTML com o nome, o texto e a logo da loja. Quem abrir no navegador
-   * volta para o cardápio.
+   * manda só eles para cá): HTML com o nome, o texto e a capa da loja (sem capa, a logo). Quem
+   * abrir no navegador volta para o cardápio.
    */
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
