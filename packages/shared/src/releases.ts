@@ -41,6 +41,10 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'Loja online › Funcionamento › Pedido pela mesa: interruptores "Perfil do cliente na mesa" e "Cupons na mesa" para a loja decidir o que o cliente vê.',
+      },
+    ],
+  },
+  {
     version: '0.257.1',
     date: '2026-11-26',
     title: 'Cardápio no celular: menu de baixo fixo, PIN só da loja e tela A loja mais completa',
