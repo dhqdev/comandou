@@ -92,4 +92,4 @@ Migração `0116_pendencias_da_varredura.sql`.
 22. Pixel do cardápio aceita milhares de eventos por minuto por IP.
 23. Corpos grandes (vídeo, PDF) lidos antes de qualquer conferência, em qualquer rota.
 24. Domínio próprio verificado uma vez vale para sempre; "manter conectado" sem limite final.
-25. `migrate-cli.ts`: falha ao ler `tenant_databases` vira lista vazia (bancos dedicados ficam sem a migração em silêncio). Vai para a revisão do migrador.
+25. ~~`migrate-cli.ts`: falha ao ler `tenant_databases` vira lista vazia (bancos dedicados ficam sem a migração em silêncio).~~ Feito em `c1b8160` (25/11): `registeredDatabases` em `migrate-all.ts` não engole o erro e o migrate sai com código 1; testado em `migrate-all.int.test.ts`.
