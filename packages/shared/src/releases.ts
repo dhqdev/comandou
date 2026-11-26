@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.254.6',
+    date: '2026-11-26',
+    title: 'Pedidos no modo Completo mais bonitos e com mais informação',
+    summary:
+      'No quadro de pedidos do PDV, o modo Completo agora mostra o pedido inteiro, bem alinhado: quem é, o endereço, cada item com complementos e observação, o pagamento e o total.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'PDV, quadro de pedidos no modo Completo: o topo do cartão mostra o tipo (Delivery, Retirada, Balcão ou a mesa), o número, a hora em que foi feito e há quanto tempo, em vermelho quando passa de 30 minutos. Pedido agendado mostra para que horas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV, modo Completo: nome e telefone do cliente e o endereço de entrega em até duas linhas, cada um com o seu ícone, alinhados com o número do pedido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV, modo Completo: os itens vêm um por linha (quantidade, nome e valor), com os complementos e a observação do item logo embaixo do nome; a observação do pedido aparece num quadro âmbar. Pedidos grandes mostram os 6 primeiros e "+ N itens".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV, modo Completo: rodapé com o total em destaque, o próximo passo ao lado, a situação do pagamento com bolinha de cor e a forma escolhida (Pix, Dinheiro…), quanto falta no pago parcial, a taxa de entrega e o troco a levar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: no tablet deitado, com as colunas estreitas, o cartão Completo se ajusta (some o ícone do tipo e o valor de cada item, o total fica no rodapé). A escolha entre Compacto e Completo fica guardada no aparelho.',
+      },
+    ],
+  },
+  {
     version: '0.254.5',
     date: '2026-11-26',
     title: 'Aviso de impressão não trava mais o pedido',

@@ -2,19 +2,25 @@ import { CHANNEL_LABELS, type OrderChannel, type OrderStatus, qtyLabel } from '@
 import {
   ArrowRight,
   Bike,
+  CalendarClock,
   Check,
   ChevronDown,
   ChevronRight,
+  Clock3,
   GripHorizontal,
   ExternalLink,
   Globe,
   HandPlatter,
   Link2,
+  MapPin,
+  MessageSquareText,
+  Pencil,
   Plus,
   ReceiptText,
   Search,
   ShoppingBag,
   Store,
+  UserRound,
   Utensils,
   Volume2,
   VolumeX,
@@ -36,12 +42,18 @@ import { useCan } from '../app/auth';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { PixReceiptChip, PixReceiptModal } from '../features/PixReceipt';
-import { minutesSince, PAYMENT_STATUS_LABEL, time } from '../features/format';
+import {
+  minutesSince,
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_STATUS_LABEL,
+  time,
+} from '../features/format';
 import { ReceiptPreview } from '../features/ReceiptPreview';
 import { SalonTabCard, type SalonCardAction } from '../features/salon/SalonTabCard';
 import { TabModal, type TabIntent } from '../features/salon/TabModal';
 import { sortTables, tableState, type TableState } from '../features/table-state';
 import { api } from '../lib/api';
+import { maskPhone } from '../lib/br-format';
 import { brl, changeToBring } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import {
@@ -61,6 +73,7 @@ import { AppStoreChips } from '../features/channels/StoreState';
 
 type Density = 'compact' | 'full';
 type SalonView = 'tables' | 'tabs';
+const DENSITY_KEY = 'cm.pdv.density';
 
 /** Colunas do quadro, na ordem em que o pedido anda. */
 const COLUMNS: { key: string; statuses: OrderStatus[]; label: string; tone: string }[] = [
@@ -133,16 +146,31 @@ function nextAction(
   return null;
 }
 
-function OrderCard({
-  order,
-  now,
-  density,
-  busy,
-  onOpen,
-  onMove,
-  onServe,
-  onPix,
-}: {
+/** Etiquetas do número do pedido: Online, aplicativo, prazo para aceitar/responder, entregador. */
+function OrderTags({ order }: { order: Order }) {
+  return (
+    <>
+      {order.source === 'online' && <span className="hcard__tag">Online</span>}
+      {order.appChannel && (
+        <ChannelBadge channel={order.appChannel} code={order.externalCode} size="sm" />
+      )}
+      {order.status === 'awaiting' && order.appConfirmBy && (
+        <AcceptDeadline until={order.appConfirmBy} compact />
+      )}
+      {order.appDisputeUntil && (
+        <AcceptDeadline until={order.appDisputeUntil} kind="answer" compact />
+      )}
+      {order.appChannel &&
+        order.channel === 'delivery' &&
+        (appDriverTakes(order) || order.appDriverStatus === 'request_failed') &&
+        !['completed', 'cancelled'].includes(order.status) && (
+          <AppDriverTag channel={order.appChannel} status={order.appDriverStatus} />
+        )}
+    </>
+  );
+}
+
+type CardProps = {
   order: Order;
   now: number;
   density: Density;
@@ -153,11 +181,69 @@ function OrderCard({
   onServe(): void;
   /** Comprovante do Pix: abre a prévia sem abrir o pedido. */
   onPix(): void;
-}) {
+};
+
+/** Recusar (em análise) e o próximo passo do pedido, como botões pequenos. */
+function CardActions({
+  order,
+  busy,
+  onOpen,
+  onMove,
+  onServe,
+  className,
+}: Pick<CardProps, 'order' | 'busy' | 'onOpen' | 'onMove' | 'onServe'> & { className: string }) {
+  const action = nextAction(order);
+  if (!action) return null;
+  return (
+    <span className={className}>
+      {order.status === 'awaiting' && (
+        <button
+          className="hcard__act hcard__act--ghost"
+          aria-label="Recusar"
+          title="Recusar"
+          disabled={busy}
+          onClick={() => onOpen('reject')}
+        >
+          <X size={16} />
+        </button>
+      )}
+      <button
+        className="hcard__act"
+        aria-label={action.label}
+        title={action.label}
+        disabled={busy}
+        onClick={() =>
+          action.serve
+            ? onServe()
+            : action.to
+              ? onMove(action.to)
+              : action.open
+                ? onOpen()
+                : onOpen('dispatch')
+        }
+      >
+        {action.icon}
+      </button>
+    </span>
+  );
+}
+
+/** Telefone para ler: tira o 55 do começo e põe a máscara (11) 98765-4321. */
+function phoneText(raw: string | null) {
+  if (!raw) return null;
+  let d = raw.replace(/\D/g, '');
+  if (d.length >= 12 && d.startsWith('55')) d = d.slice(2);
+  return d.length >= 10 ? maskPhone(d) : raw;
+}
+
+/** Quantos itens o cartão Completo mostra antes do "+ N itens". */
+const FULL_ITEMS = 6;
+
+function OrderCard(props: CardProps) {
+  if (props.density === 'full') return <FullOrderCard {...props} />;
+  const { order, now, busy, onOpen, onMove, onServe, onPix } = props;
   const mins = minutesSince(order.createdAt, now);
   const who = order.tableLabel ? `Mesa ${order.tableLabel}` : order.customerName;
-  const items = order.items.filter((i) => i.status !== 'cancelled');
-  const action = nextAction(order);
   const change = changeToBring(order.changeFor, order.balance);
   return (
     <article
@@ -175,22 +261,7 @@ function OrderCard({
       >
         <span className="hcard__head">
           <strong>#{order.number}</strong>
-          {order.source === 'online' && <span className="hcard__tag">Online</span>}
-          {order.appChannel && (
-            <ChannelBadge channel={order.appChannel} code={order.externalCode} size="sm" />
-          )}
-          {order.status === 'awaiting' && order.appConfirmBy && (
-            <AcceptDeadline until={order.appConfirmBy} compact />
-          )}
-          {order.appDisputeUntil && (
-            <AcceptDeadline until={order.appDisputeUntil} kind="answer" compact />
-          )}
-          {order.appChannel &&
-            order.channel === 'delivery' &&
-            (appDriverTakes(order) || order.appDriverStatus === 'request_failed') &&
-            !['completed', 'cancelled'].includes(order.status) && (
-              <AppDriverTag channel={order.appChannel} status={order.appDriverStatus} />
-            )}
+          <OrderTags order={order} />
         </span>
         <span className="hcard__pills">
           <span className="hcard__pill">{brl(order.total)}</span>
@@ -205,23 +276,6 @@ function OrderCard({
             </span>
           )}
         </span>
-        {density === 'full' && (
-          <>
-            {order.channel === 'delivery' && order.deliveryAddress && (
-              <span className="hcard__line">{order.deliveryAddress}</span>
-            )}
-            <span className="hcard__line">
-              {items
-                .slice(0, 4)
-                .map((i) => `${qtyLabel(i.quantity, i.unit)} ${i.name}`)
-                .join(' · ')}
-              {items.length > 4 && ` · +${items.length - 4}`}
-            </span>
-            <span className={`hcard__pay hcard__pay--${order.paymentStatus}`}>
-              {PAYMENT_STATUS_LABEL[order.paymentStatus]}
-            </span>
-          </>
-        )}
       </button>
       {order.pixStatus && (
         <span className="hcard__pix">
@@ -231,36 +285,163 @@ function OrderCard({
       <span className="hcard__time" title={`Feito às ${time(order.createdAt)}`}>
         {ago(mins)}
       </span>
-      {action && (
-        <span className="hcard__actions">
-          {order.status === 'awaiting' && (
-            <button
-              className="hcard__act hcard__act--ghost"
-              aria-label="Recusar"
-              title="Recusar"
-              disabled={busy}
-              onClick={() => onOpen('reject')}
-            >
-              <X size={16} />
-            </button>
+      <CardActions
+        className="hcard__actions"
+        order={order}
+        busy={busy}
+        onOpen={onOpen}
+        onMove={onMove}
+        onServe={onServe}
+      />
+    </article>
+  );
+}
+
+/**
+ * Cartão "Completo": tudo o que se precisa para montar e despachar o pedido sem abri-lo. Topo
+ * com o tipo, o número e há quanto tempo; quem é (mesa ou cliente e telefone) e o endereço;
+ * os itens um por linha, com complementos e observação embaixo do nome e o valor alinhado à
+ * direita; e o rodapé com o pagamento, o total e o próximo passo.
+ */
+function FullOrderCard({ order, now, busy, onOpen, onMove, onServe, onPix }: CardProps) {
+  const mins = minutesSince(order.createdAt, now);
+  const items = order.items.filter((i) => i.status !== 'cancelled');
+  const shown = items.length > FULL_ITEMS + 1 ? items.slice(0, FULL_ITEMS) : items;
+  const hidden = items.length - shown.length;
+  const change = changeToBring(order.changeFor, order.balance);
+  const phone = order.tableLabel ? null : phoneText(order.customerPhone);
+  const where = order.tableLabel ? `Mesa ${order.tableLabel}` : CHANNEL_LABELS[order.channel];
+  const who = order.customerName;
+  const method =
+    order.paymentHint && order.paymentStatus !== 'paid'
+      ? PAYMENT_METHOD_LABELS[order.paymentHint]
+      : null;
+  const fee = Number(order.deliveryFee);
+  return (
+    <article
+      className="ocard"
+      data-status={order.status}
+      data-late={mins >= 30 && order.status !== 'dispatched' ? '' : undefined}
+    >
+      <button
+        className="ocard__open"
+        onClick={() => onOpen()}
+        aria-label={`Abrir pedido ${order.number}`}
+      />
+      <header className="ocard__head">
+        <span className="ocard__ch" data-ch={order.channel} aria-hidden>
+          {CHANNEL_ICON[order.channel]}
+        </span>
+        <span className="ocard__id">
+          <span className="ocard__title">
+            <strong>#{order.number}</strong>
+            <OrderTags order={order} />
+          </span>
+          <span className="ocard__sub">
+            <span>{where}</span>
+            <span>{time(order.createdAt)}</span>
+            {order.scheduledFor && (
+              <span className="ocard__sched">
+                <CalendarClock size={12} aria-hidden /> para {time(order.scheduledFor)}
+              </span>
+            )}
+          </span>
+        </span>
+        <span className="ocard__time" title={`Feito às ${time(order.createdAt)}`}>
+          <Clock3 size={12} aria-hidden />
+          {ago(mins)}
+        </span>
+      </header>
+
+      {(who || order.deliveryAddress) && (
+        <div className="ocard__facts">
+          {who && (
+            <p className="ocard__fact">
+              <UserRound size={14} aria-hidden />
+              <span className="ocard__who">
+                <strong>{who}</strong>
+                {phone && <span className="ocard__phone">{phone}</span>}
+              </span>
+            </p>
           )}
-          <button
-            className="hcard__act"
-            aria-label={action.label}
-            title={action.label}
-            disabled={busy}
-            onClick={() =>
-              action.serve
-                ? onServe()
-                : action.to
-                  ? onMove(action.to)
-                  : action.open
-                    ? onOpen()
-                    : onOpen('dispatch')
-            }
-          >
-            {action.icon}
-          </button>
+          {order.channel === 'delivery' && order.deliveryAddress && (
+            <p className="ocard__fact ocard__fact--addr" title={order.deliveryAddress}>
+              <MapPin size={14} aria-hidden />
+              <span>{order.deliveryAddress}</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {items.length > 0 && (
+        <ul className="ocard__items" aria-label="Itens">
+          {shown.map((i) => (
+            <li key={i.id} className="ocard__item" data-item={i.status}>
+              <span className="ocard__qty">{qtyLabel(i.quantity, i.unit)}</span>
+              <span className="ocard__name">
+                <span className="ocard__nm">{i.name}</span>
+                {i.options.length > 0 && (
+                  <span className="ocard__opts">{i.options.map((o) => o.name).join(' · ')}</span>
+                )}
+                {i.notes && (
+                  <span className="ocard__inote">
+                    <Pencil size={11} aria-hidden />
+                    {i.notes}
+                  </span>
+                )}
+              </span>
+              <span className="ocard__price">{brl(i.total)}</span>
+            </li>
+          ))}
+          {hidden > 0 && (
+            <li className="ocard__more">
+              + {hidden} {hidden === 1 ? 'item' : 'itens'}
+            </li>
+          )}
+        </ul>
+      )}
+
+      {order.notes && (
+        <p className="ocard__note">
+          <MessageSquareText size={14} aria-hidden />
+          <span>{order.notes}</span>
+        </p>
+      )}
+
+      <footer className="ocard__foot">
+        <span className="ocard__money">
+          <span className="ocard__total">{brl(order.total)}</span>
+          <span className="ocard__pay" data-pay={order.paymentStatus}>
+            <i aria-hidden />
+            <span>{PAYMENT_STATUS_LABEL[order.paymentStatus]}</span>
+            {order.paymentStatus === 'partial' && <span>falta {brl(order.balance)}</span>}
+            {method && <span>{method}</span>}
+          </span>
+          {(change || (order.channel === 'delivery' && fee > 0)) && (
+            <span className="ocard__extra">
+              {order.channel === 'delivery' && fee > 0 && (
+                <span>Entrega {brl(order.deliveryFee)}</span>
+              )}
+              {change && (
+                <span className="ocard__change" title={`Troco para ${brl(order.changeFor!)}`}>
+                  Troco {brl(change)}
+                </span>
+              )}
+            </span>
+          )}
+        </span>
+        <CardActions
+          className="ocard__actions"
+          order={order}
+          busy={busy}
+          onOpen={onOpen}
+          onMove={onMove}
+          onServe={onServe}
+        />
+      </footer>
+      {order.pixStatus && (
+        <span className="ocard__pix">
+          <PixReceiptChip order={order} onOpen={onPix} />
         </span>
       )}
     </article>
@@ -297,7 +478,22 @@ export function PdvPage() {
   /** Prévia do comprovante do Pix (pelo selo do cartão). */
   const [pixId, setPixId] = useState<string | null>(null);
   const seenPix = useRef<Set<string> | null>(null);
-  const [density, setDensity] = useState<Density>('compact');
+  /** Compacto ou Completo: lembrado no aparelho. */
+  const [density, setDensityState] = useState<Density>(() => {
+    try {
+      return localStorage.getItem(DENSITY_KEY) === 'full' ? 'full' : 'compact';
+    } catch {
+      return 'compact';
+    }
+  });
+  const setDensity = useCallback((d: Density) => {
+    setDensityState(d);
+    try {
+      localStorage.setItem(DENSITY_KEY, d);
+    } catch {
+      /* sem armazenamento: vale só nesta visita */
+    }
+  }, []);
   const [salonView, setSalonView] = useState<SalonView>('tables');
   const [salonOpen, setSalonOpen] = useState(true);
   /** Linhas de mesas à vista, escolhidas pelas setas entre o Salão e os Pedidos (null = padrão). */

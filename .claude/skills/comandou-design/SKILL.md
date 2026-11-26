@@ -119,6 +119,20 @@ Unitário e o "2 × R$ X" vai embaixo do total (`nsale__each`, só com quantidad
 480px cada item vira um bloco (nome e lixeira em cima, quantidade e total embaixo, botões de 40px).
 Cada célula tem a classe da coluna (`nsale__c-*`): nunca posicione por `nth-child`.
 
+## Quadro de pedidos do PDV: modo Completo
+
+`FullOrderCard` em `pages/PdvPage.tsx` (classes `ocard*` em `app/home.css`; 0.254.6, pedido do
+David: "mais bonito e com mais informações, bem identadas"). O Compacto continua o `hcard` (não
+mexa nele junto). O Completo é um cartão com partes separadas por linha fina: topo (ícone do tipo,
+número + etiquetas, "Delivery · 10:41" ou "Mesa 12 · 10:41", pílula do tempo, vermelha depois de
+30 min), quem é (nome + telefone) e endereço com ícone solto numa coluna de 34px (o texto alinha
+com o número), itens em grade quantidade | nome (complementos e observação âmbar embaixo) | valor,
+até 6 e "+ N itens", observação do pedido num quadro âmbar suave e o rodapé em grade: total e
+próximo passo na primeira linha, pagamento (bolinha + "A pagar · Pix") e entrega/troco embaixo. O
+botão `ocard__open` cobre o cartão; o que se toca por cima leva `z-index: 1`. Mede a largura da
+coluna (`.board__col` é contêiner): até 270px sai o ícone do tipo e o valor de cada item. A
+escolha Compacto/Completo fica em `cm.pdv.density`.
+
 ## Edição do item no garçom
 
 `waiter/ItemEditor.tsx` (regras puras em `waiter/item-editor.ts`, testadas; classes `wt-ie*` em
