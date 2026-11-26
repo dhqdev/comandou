@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.257.0',
+    date: '2026-11-26',
+    title: 'Nova venda: cliente já vem com o PIN, os pontos e as recompensas',
+    summary:
+      'Ao escolher o cliente na Nova venda, o PDV mostra o PIN do app dele, o saldo, o nível, as recompensas e os cupons, e deixa usar um deles no próprio pedido, em qualquer tipo de atendimento.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Escolheu o cliente na Nova venda (Balcão, Mesa, Delivery, Retirada ou Fiado)? O PIN do app já aparece preenchido, com o saldo de pontos, o nível, as recompensas e os cupons que ele pode usar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Toque em Usar numa recompensa ou cupom e o desconto entra no total do pedido na hora. Os pontos saem quando o pedido é lançado e voltam se ele for cancelado; o cupom volta também. Um por pedido, como no app.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cliente com o app aberto? Em "Cliente com PIN do app" a equipe digita o PIN e o cliente já entra no pedido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Recompensa de produto grátis pede o produto no pedido, e cupom de entrega grátis só vale no Delivery com taxa: o PDV avisa antes de enviar. Usar pontos e cupons fica com o caixa e o gerente.',
+      },
+    ],
+  },
+  {
     version: '0.256.1',
     date: '2026-11-26',
     title: 'Observação do item maior e mais clara no PDV',

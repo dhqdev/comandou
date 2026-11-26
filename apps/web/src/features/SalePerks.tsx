@@ -16,8 +16,7 @@ import './sale-perks.css';
 
 /** Recompensa ou cupom escolhido para a venda (um por pedido, como no cardápio). */
 export type SalePerk =
-  | { kind: 'reward'; reward: PinReward }
-  | { kind: 'coupon'; coupon: PinCoupon };
+  { kind: 'reward'; reward: PinReward } | { kind: 'coupon'; coupon: PinCoupon };
 
 /** O que a Nova venda precisa saber do pedido para calcular o desconto. */
 export interface PerkCart {
