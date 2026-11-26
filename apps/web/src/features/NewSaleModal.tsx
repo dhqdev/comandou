@@ -29,7 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Select, TextField, showLiquid, useToast, Skeleton } from '../design-system';
+import { Alert, Button, TextField, showLiquid, useToast, Skeleton } from '../design-system';
 import { useCan } from '../app/auth';
 import { api, ApiError } from '../lib/api';
 import { useRealtime } from '../lib/realtime';
@@ -287,6 +287,7 @@ export function NewSaleModal({
   const canSubmit =
     cart.length > 0 && !needsTable && !needsAddress && !fiadoProblem && !perkProblem && total >= 0;
   const freeOrSame = tables.filter((t) => t.active);
+  const tablesLabelId = useId();
 
   async function submit() {
     // Trava contra toque duplo: o estado `busy` só chega na próxima renderização.
@@ -752,21 +753,33 @@ export function NewSaleModal({
               </div>
             )}
             {channel === 'table' && !preset?.tabId && (
-              <label className="cm-field">
-                <span className="cm-label">Mesa</span>
-                <Select
-                  className="cm-input"
-                  value={tableId}
-                  onChange={(e) => setTableId(e.target.value)}
-                >
-                  <option value="">Selecione…</option>
-                  {freeOrSame.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      Mesa {t.label} {t.tabId ? `(ocupada · ${brl(t.tabTotal)})` : '(livre)'}
-                    </option>
-                  ))}
-                </Select>
-              </label>
+              <div className="nsale__tables-wrap">
+                <span className="nsale__label" id={tablesLabelId}>
+                  Mesa
+                </span>
+                {freeOrSame.length === 0 ? (
+                  <p className="cm-hint">Nenhuma mesa cadastrada. Crie as mesas no Salão.</p>
+                ) : (
+                  <div className="nsale__tables" role="radiogroup" aria-labelledby={tablesLabelId}>
+                    {freeOrSame.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={tableId === t.id}
+                        aria-label={`Mesa ${t.label} ${t.tabId ? 'ocupada' : 'livre'}`}
+                        className="nsale__tbl"
+                        data-busy={t.tabId ? 'true' : undefined}
+                        onClick={() => setTableId(t.id)}
+                      >
+                        <span className="nsale__tbl-name">{t.label}</span>
+                        <span className="nsale__tbl-state">{t.tabId ? 'Ocupada' : 'Livre'}</span>
+                        {t.tabId && <span className="nsale__tbl-total">{brl(t.tabTotal)}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             {channel === 'delivery' && (
               <>
