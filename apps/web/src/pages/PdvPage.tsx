@@ -56,6 +56,7 @@ import { TabModal, type TabIntent } from '../features/salon/TabModal';
 import { sortTables, tableState, type TableState } from '../features/table-state';
 import { api } from '../lib/api';
 import { maskPhone } from '../lib/br-format';
+import { useUserPref } from '../lib/user-prefs';
 import { brl, changeToBring } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import {
@@ -75,7 +76,9 @@ import { AppStoreChips } from '../features/channels/StoreState';
 
 type Density = 'compact' | 'full';
 type SalonView = 'tables' | 'tabs';
+/** Chave antiga do navegador: a escolha de quem já tinha passa para a conta. */
 const DENSITY_KEY = 'cm.pdv.density';
+const DENSITIES = ['compact', 'full'] as const;
 
 /** Colunas do quadro, na ordem em que o pedido anda. */
 const COLUMNS: { key: string; statuses: OrderStatus[]; label: string; tone: string }[] = [
@@ -481,22 +484,13 @@ export function PdvPage() {
   /** Prévia do comprovante do Pix (pelo selo do cartão). */
   const [pixId, setPixId] = useState<string | null>(null);
   const seenPix = useRef<Set<string> | null>(null);
-  /** Compacto ou Completo: lembrado no aparelho. */
-  const [density, setDensityState] = useState<Density>(() => {
-    try {
-      return localStorage.getItem(DENSITY_KEY) === 'full' ? 'full' : 'compact';
-    } catch {
-      return 'compact';
-    }
-  });
-  const setDensity = useCallback((d: Density) => {
-    setDensityState(d);
-    try {
-      localStorage.setItem(DENSITY_KEY, d);
-    } catch {
-      /* sem armazenamento: vale só nesta visita */
-    }
-  }, []);
+  /** Compacto ou Completo: salvo na conta da pessoa (vale em qualquer aparelho, 0.267.1). */
+  const [density, setDensity] = useUserPref<Density>(
+    'pdv.density',
+    DENSITIES,
+    'compact',
+    DENSITY_KEY,
+  );
   const [salonView, setSalonView] = useState<SalonView>('tables');
   const [salonOpen, setSalonOpen] = useState(true);
   /** Linhas de mesas à vista, escolhidas pelas setas entre o Salão e os Pedidos (null = padrão). */

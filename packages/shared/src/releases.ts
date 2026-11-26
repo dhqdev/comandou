@@ -22,9 +22,9 @@ export const RELEASES: readonly Release[] = [
   {
     version: '0.267.1',
     date: '2026-11-26',
-    title: 'Nova venda: a recompensa de produto grátis já coloca o item no pedido',
+    title: 'Recompensa que já coloca o item e PDV que lembra o Compacto ou Completo',
     summary:
-      'Escolhido o cliente, tocar em Usar numa recompensa de produto grátis já coloca o produto no pedido, marcado como "1 grátis pela recompensa". Tirar a recompensa tira o item que ela pôs.',
+      'Escolhido o cliente, tocar em Usar numa recompensa de produto grátis já coloca o produto no pedido, marcado como "1 grátis pela recompensa". E a escolha entre Compacto e Completo nos pedidos do PDV fica salva na conta de cada pessoa, em qualquer computador.',
     notes: [
       {
         tag: 'melhoria',
@@ -33,6 +33,10 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'Tirar a recompensa, trocar por outra ou trocar de cliente tira o item que ela colocou. Sem o produto no pedido, o aviso embaixo do total ganhou o botão "Colocar no pedido". Produto esgotado ou fora do cardápio do atendimento avisa na hora.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: Compacto ou Completo nos cartões de pedidos fica salvo na conta de cada pessoa do restaurante. Vale em qualquer computador ou navegador em que ela entrar, sem escolher de novo; quem já tinha escolhido neste navegador não perde a escolha.',
       },
       {
         tag: 'correção',

@@ -6,6 +6,7 @@ import {
   Get,
   NotFoundException,
   Patch,
+  UnprocessableEntityException,
   Req,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -26,6 +27,18 @@ import { PlatformDb, platformAudit } from '../platform/platform-db.service';
 import { TenantProfileBody } from '../platform/platform.schemas';
 import { saveProfile } from '../platform/tenant-profile';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
+
+/**
+ * Preferências de tela da pessoa neste restaurante (ex.: `pdv.density` = compact|full): só
+ * escolhas curtas, mescladas às que já estão salvas. `null` apaga a chave.
+ */
+export const UiPrefsBody = z
+  .record(
+    z.string().regex(/^[a-z][a-z0-9.-]{0,39}$/, 'nome de preferência inválido'),
+    z.union([z.string().max(40), z.boolean(), z.number().finite(), z.null()]),
+  )
+  .refine((o) => Object.keys(o).length <= 20, 'preferências demais de uma vez');
+const MAX_UI_PREFS = 40;
 
 /** Meus dados: nome e e-mail de entrada. Trocar o e-mail pede a senha atual. */
 export const OwnAccountBody = z.object({
@@ -88,6 +101,47 @@ export class StaffAccountController {
       me: { name: u.name, email: isPinOnlyEmail(u.email) ? null : u.email },
       restaurant: u.role === 'owner' ? await this.readRestaurant(t.id) : null,
     };
+  }
+
+  /** Preferências de tela da pessoa neste restaurante (valem em qualquer aparelho). */
+  @Get('prefs')
+  async prefs(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    const row = await this.db.withTenant(ctxOf(t, u), (tx) =>
+      one<{ p: Record<string, unknown> }>(
+        tx,
+        `SELECT ui_prefs AS p FROM memberships WHERE user_id = $1`,
+        [u.id],
+      ),
+    );
+    return { prefs: row?.p ?? {} };
+  }
+
+  @Patch('prefs')
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  async savePrefs(
+    @Body(new ZodPipe(UiPrefsBody)) b: z.infer<typeof UiPrefsBody>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    const set = Object.fromEntries(Object.entries(b).filter(([, v]) => v !== null));
+    const drop = Object.keys(b).filter((k) => b[k] === null);
+    const row = await this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const cur = await one<{ p: Record<string, unknown> }>(
+        tx,
+        `SELECT ui_prefs AS p FROM memberships WHERE user_id = $1 FOR UPDATE`,
+        [u.id],
+      );
+      const next = { ...(cur?.p ?? {}), ...set };
+      for (const k of drop) delete next[k];
+      if (Object.keys(next).length > MAX_UI_PREFS)
+        throw new UnprocessableEntityException('Preferências demais salvas');
+      return one<{ p: Record<string, unknown> }>(
+        tx,
+        `UPDATE memberships SET ui_prefs = $2::jsonb WHERE user_id = $1 RETURNING ui_prefs AS p`,
+        [u.id, JSON.stringify(next)],
+      );
+    });
+    return { prefs: row?.p ?? {} };
   }
 
   @Patch('me')

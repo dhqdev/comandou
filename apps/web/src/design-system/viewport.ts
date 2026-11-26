@@ -166,6 +166,8 @@ export function trackViewport(): () => void {
     root.style.setProperty('--cm-fixgap', `${fix}px`);
   };
   const schedule = () => {
+    // Timer atrasado depois que a página (ou o teste) já fechou: não há mais quadro para pedir.
+    if (typeof requestAnimationFrame !== 'function') return;
     if (!raf) raf = requestAnimationFrame(update);
   };
   /** Toque no campo de uma conversa: encolhe já, antes de o iPhone empurrar a tela. */

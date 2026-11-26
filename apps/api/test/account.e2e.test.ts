@@ -192,3 +192,30 @@ describe('Conta › Meus dados', () => {
     expect(admin!.name).toBe('Thiago Ferraz');
   });
 });
+
+describe('Preferências de tela (Compacto/Completo do PDV)', () => {
+  it('guarda por pessoa e por restaurante, mescla e apaga com null', async () => {
+    expect((await get('waiterA', '/account/prefs')).body.prefs).toEqual({});
+    const saved = await patch('waiterA', '/account/prefs', { 'pdv.density': 'full' });
+    expect(saved.status).toBe(200);
+    expect(saved.body.prefs).toEqual({ 'pdv.density': 'full' });
+    await patch('waiterA', '/account/prefs', { 'pdv.other': true });
+    expect((await get('waiterA', '/account/prefs')).body.prefs).toEqual({
+      'pdv.density': 'full',
+      'pdv.other': true,
+    });
+    // Outra pessoa e outro restaurante não veem a escolha.
+    expect((await get('adminA', '/account/prefs')).body.prefs).toEqual({});
+    expect((await get('adminB', '/account/prefs')).body.prefs).toEqual({});
+    await patch('waiterA', '/account/prefs', { 'pdv.other': null });
+    expect((await get('waiterA', '/account/prefs')).body.prefs).toEqual({ 'pdv.density': 'full' });
+  });
+
+  it('recusa nome ou valor fora do formato', async () => {
+    expect((await patch('waiterA', '/account/prefs', { 'Bad Key': 'x' })).status).toBe(400);
+    expect((await patch('waiterA', '/account/prefs', { 'pdv.x': 'a'.repeat(41) })).status).toBe(
+      400,
+    );
+    expect((await patch('waiterA', '/account/prefs', { 'pdv.x': { a: 1 } })).status).toBe(400);
+  });
+});
