@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { trackViewport } from './viewport';
+import { trackViewport as track } from './viewport';
+
+let stops: Array<() => void> = [];
+const trackViewport = () => stops.push(track());
 
 type Listener = () => void;
 
@@ -29,6 +32,8 @@ const css = (name: string) => root.style.getPropertyValue(name);
 
 describe('trackViewport', () => {
   afterEach(() => {
+    stops.forEach((stop) => stop());
+    stops = [];
     root.className = '';
     root.removeAttribute('style');
     document.body.innerHTML = '';
@@ -112,10 +117,10 @@ describe('trackViewport', () => {
     panel.append(input);
     document.body.append(panel);
     input.focus();
-    // Primeira vez: 40% da tela para o teclado, sem esperar o iPhone.
+    // Primeira vez: 45% da tela para o teclado, sem esperar o iPhone.
     expect(root.classList.contains('cm-kb-open')).toBe(true);
-    expect(css('--cm-kb')).toBe('400px');
-    expect(css('--cm-vvh')).toBe('600px');
+    expect(css('--cm-kb')).toBe('450px');
+    expect(css('--cm-vvh')).toBe('550px');
     expect(css('--cm-vvtop')).toBe('0px');
     // O teclado de verdade chegou: vale o tamanho dele e ele fica guardado para a próxima vez.
     vv.height = 640;
@@ -157,5 +162,55 @@ describe('trackViewport', () => {
     document.body.append(panel);
     input.focus();
     expect(root.classList.contains('cm-kb-open')).toBe(false);
+  });
+
+  it('a previsão segura enquanto o teclado demora a subir, sem voltar para a tela toda', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+    try {
+      vi.spyOn(root, 'clientHeight', 'get').mockReturnValue(1000);
+      localStorage.setItem('cm-kb-h', '330');
+      phone();
+      const vv = fakeViewport(1000, 0);
+      trackViewport();
+      const chat = document.createElement('div');
+      chat.className = 'sfchat';
+      const input = document.createElement('textarea');
+      chat.append(input);
+      document.body.append(chat);
+      input.focus();
+      expect(css('--cm-vvh')).toBe('670px');
+      // A primeira abertura do teclado no iPhone passa de um segundo.
+      vi.advanceTimersByTime(1500);
+      vv.fire();
+      expect(root.classList.contains('cm-kb-open')).toBe(true);
+      expect(css('--cm-vvh')).toBe('670px');
+      vv.height = 670;
+      vv.fire();
+      expect(css('--cm-vvh')).toBe('670px');
+      expect(css('--cm-kb')).toBe('330px');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Android que encolhe a página com o teclado também conta como teclado aberto', () => {
+    const height = vi.spyOn(root, 'clientHeight', 'get').mockReturnValue(800);
+    phone();
+    const vv = fakeViewport(800, 0);
+    trackViewport();
+    const chat = document.createElement('div');
+    chat.className = 'sfchat';
+    const input = document.createElement('textarea');
+    chat.append(input);
+    document.body.append(chat);
+    input.focus();
+    // O layout encolheu junto com a área visível (interactive-widget=resizes-content).
+    height.mockReturnValue(480);
+    vv.height = 480;
+    vv.fire();
+    expect(root.classList.contains('cm-kb-open')).toBe(true);
+    expect(css('--cm-vvh')).toBe('480px');
+    expect(css('--cm-kb')).toBe('0px');
+    expect(localStorage.getItem('cm-kb-h')).toBe('320');
   });
 });

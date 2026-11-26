@@ -349,10 +349,21 @@ export function ChatScreen() {
   }, [r.name]);
 
   // A página por trás da conversa não rola enquanto ela está aberta (chat.css).
+  // No Android, o teclado encolhe a página em vez de cobrir e deslizar a tela: a conversa,
+  // presa embaixo, sobe junto com o teclado sem o Chrome empurrar tudo para cima e voltar
+  // (viewport.ts). O iPhone ignora essa opção e usa o teclado previsto.
   useLayoutEffect(() => {
     const root = document.documentElement;
     root.classList.add('sf-chat-open');
-    return () => root.classList.remove('sf-chat-open');
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    const before = meta?.content;
+    if (meta && before && !before.includes('interactive-widget')) {
+      meta.content = `${before}, interactive-widget=resizes-content`;
+    }
+    return () => {
+      root.classList.remove('sf-chat-open');
+      if (meta && before !== undefined) meta.content = before;
+    };
   }, []);
 
   const clearOrder = () => {

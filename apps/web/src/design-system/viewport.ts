@@ -24,9 +24,18 @@
  * de subir. Até lá a conversa (presa à tela) era empurrada para cima, com o topo cortado, e só
  * então voltava para o lugar ("quebra para cima e depois arruma"). Ao tocar no campo de mensagem
  * de uma conversa no celular, já encolhemos a conversa para o tamanho que o teclado vai deixar
- * (o último medido neste aparelho, ou 40% da tela na primeira vez). Com o campo já acima do
- * teclado, o iPhone não precisa empurrar nada; quando o tamanho de verdade chega, ele vale.
- * Se o teclado não abrir (teclado físico), a previsão se desfaz sozinha.
+ * (o último medido neste aparelho, ou 45% da tela na primeira vez: o teclado do iPhone com a
+ * barra de sugestões e a de "Concluído" passa de 40%, e prever menos fazia o iPhone empurrar a
+ * tela do mesmo jeito). Com o campo já acima do teclado, o iPhone não precisa empurrar nada;
+ * quando o tamanho de verdade chega, ele vale. A previsão segura até o teclado chegar (a
+ * primeira abertura do teclado no iPhone pode passar de um segundo): antes ela se desfazia em
+ * 0,9 s, a conversa voltava a ocupar a tela toda e o teclado chegava empurrando tudo para cima.
+ * Se o teclado não abrir (teclado físico), ela se desfaz depois de PREDICT_MS.
+ *
+ * Android: na conversa do cardápio o Chrome passa a encolher a página com o teclado
+ * (interactive-widget=resizes-content, ChatScreen) em vez de deslizar a parte visível. Aí a
+ * altura "de layout" também encolhe, e o teclado é medido contra a maior altura já vista nesta
+ * largura de tela.
  */
 const EDITABLE = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
 
@@ -44,8 +53,12 @@ function typing() {
  *  conversas do Super Admin). */
 const CHAT = '.tc-panel, .sfchat, .adm-support, .scx';
 const KB_KEY = 'cm-kb-h';
-/** Quanto tempo a previsão espera o teclado de verdade aparecer. */
-const PREDICT_MS = 900;
+/** Quanto tempo a previsão espera o teclado de verdade aparecer (teclado físico: não aparece). */
+const PREDICT_MS = 2500;
+/** Primeira vez neste aparelho: parte da tela que o teclado deve ocupar. */
+const FIRST_GUESS = 0.45;
+/** A altura de layout encolheu mais que isso: foi o teclado (Android), não a barra do navegador. */
+const LAYOUT_KB = 150;
 
 function savedKeyboard() {
   try {
@@ -84,17 +97,30 @@ function fixedProbe() {
   return el;
 }
 
-export function trackViewport() {
+export function trackViewport(): () => void {
   const vv = window.visualViewport;
-  if (!vv) return;
+  if (!vv) return () => {};
   const root = document.documentElement;
   const probe = fixedProbe();
+  const stop = new AbortController();
   let raf = 0;
   // Teclado previsto (altura) e até quando ele vale sem o de verdade aparecer.
   let predicted = 0;
   let predictUntil = 0;
   let predictTimer = 0;
   let known = savedKeyboard();
+  // Maior altura de layout vista nesta largura (tela sem teclado).
+  let full = 0;
+  let fullWidth = 0;
+  /** Altura da tela sem teclado: a de layout, ou a maior vista se o teclado encolheu o layout. */
+  const baseHeight = (layout: number) => {
+    const w = root.clientWidth || window.innerWidth;
+    if (w !== fullWidth) {
+      fullWidth = w;
+      full = layout;
+    } else if (layout > full) full = layout;
+    return full - layout > LAYOUT_KB && typing() ? full : layout;
+  };
   const apply = (vvh: number, top: number, kb: number, open: boolean) => {
     root.style.setProperty('--cm-vvh', `${Math.round(vvh)}px`);
     root.style.setProperty('--cm-vvtop', `${Math.round(open ? top : 0)}px`);
@@ -105,12 +131,14 @@ export function trackViewport() {
     raf = 0;
     // Altura da tela "de layout" (não muda com o teclado no iPhone; no Android ela já encolhe).
     const layout = root.clientHeight || window.innerHeight;
+    const base = baseHeight(layout);
     const top = Math.max(0, vv.offsetTop);
     const covered = Math.max(0, layout - vv.height - top);
-    const open = layout - vv.height > 80 && typing();
+    const open = base - vv.height > 80 && typing();
     if (open) {
       predicted = 0;
-      const kb = Math.round(layout - vv.height);
+      window.clearTimeout(predictTimer);
+      const kb = Math.round(base - vv.height);
       if (Math.abs(kb - known) > 4) {
         known = kb;
         try {
@@ -121,7 +149,7 @@ export function trackViewport() {
       }
     } else if (predicted && typing() && performance.now() < predictUntil) {
       // O teclado ainda está subindo: segura a previsão até o tamanho de verdade chegar.
-      apply(layout - predicted, 0, predicted, true);
+      apply(base - predicted, 0, predicted, true);
       root.style.setProperty('--cm-fixgap', '0px');
       return;
     } else {
@@ -146,26 +174,39 @@ export function trackViewport() {
     if (!el?.closest?.(CHAT) || !typing() || !phone()) return;
     if (root.classList.contains('cm-kb-open')) return;
     const layout = root.clientHeight || window.innerHeight;
-    // Com a tela já encolhida (Android), o teclado não cobre nada: nada a prever.
-    if (layout - vv.height > 80) return;
-    predicted = Math.min(known || Math.round(layout * 0.4), Math.round(layout * 0.6));
+    const base = baseHeight(layout);
+    // Teclado já aberto (só mudou de campo): nada a prever.
+    if (base - vv.height > 80) return;
+    predicted = Math.min(known || Math.round(base * FIRST_GUESS), Math.round(base * 0.6));
     predictUntil = performance.now() + PREDICT_MS;
-    apply(layout - predicted, 0, predicted, true);
+    apply(base - predicted, 0, predicted, true);
     window.clearTimeout(predictTimer);
     predictTimer = window.setTimeout(schedule, PREDICT_MS + 20);
   };
   // O tamanho e o deslize da área visível valem na hora, sem esperar o próximo quadro: cada
   // quadro de atraso mostrava a conversa fora do lugar enquanto o teclado subia.
-  vv.addEventListener('resize', update);
-  vv.addEventListener('scroll', update);
+  const on = { signal: stop.signal };
+  vv.addEventListener('resize', update, on);
+  vv.addEventListener('scroll', update, on);
   // O defeito do iOS 26 aparece ao rolar a página, sem mudar o tamanho da área visível.
-  window.addEventListener('scroll', schedule, { passive: true });
-  window.addEventListener('resize', schedule);
+  window.addEventListener('scroll', schedule, { passive: true, signal: stop.signal });
+  window.addEventListener('resize', schedule, on);
   // O teclado pode abrir/fechar sem mudar o tamanho na hora (troca de campo, botão OK do iPhone).
-  document.addEventListener('focusin', (e) => {
-    predict(e);
-    schedule();
-  });
-  document.addEventListener('focusout', () => setTimeout(schedule, 50));
+  document.addEventListener(
+    'focusin',
+    (e) => {
+      predict(e);
+      schedule();
+    },
+    on,
+  );
+  document.addEventListener('focusout', () => setTimeout(schedule, 50), on);
   update();
+  /** Para de acompanhar (testes). */
+  return () => {
+    stop.abort();
+    window.clearTimeout(predictTimer);
+    cancelAnimationFrame(raf);
+    probe.remove();
+  };
 }

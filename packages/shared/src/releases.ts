@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.262.3',
+    date: '2026-11-26',
+    title: 'Conversa do cardápio sem pular com o teclado',
+    summary:
+      'No celular, ao tocar no campo de mensagem da conversa com a loja, a tela subia de uma vez e depois voltava. Agora a conversa já fica do tamanho certo antes de o teclado subir e fica parada.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'iPhone: a conversa espera o teclado chegar, mesmo quando ele demora (a primeira vez que o teclado abre passa de um segundo). Antes ela voltava a ocupar a tela toda no meio do caminho e o teclado chegava empurrando tudo para cima.',
+      },
+      {
+        tag: 'correção',
+        text: 'iPhone: na primeira vez no aparelho, a conversa já reserva o espaço do teclado com a barra de sugestões, sem ficar curta e sem a tela ser empurrada.',
+      },
+      {
+        tag: 'correção',
+        text: 'Android: com a conversa aberta, o teclado encolhe a página em vez de cobrir e deslizar a tela, e a conversa sobe junto com ele.',
+      },
+    ],
+  },
+  {
     version: '0.262.2',
     date: '2026-11-26',
     title: 'Fechar conta já conclui o pedido',
