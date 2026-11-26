@@ -330,72 +330,128 @@ function HoursTable({ hours }: { hours: HourSlot[] }) {
   );
 }
 
+/** Horários de hoje ("11h às 15h, 18h às 23h"), ou null sem horário cadastrado. */
+function todayHours(hours: HourSlot[]) {
+  if (!hours.length) return null;
+  const today = new Date().getDay();
+  const slots = hours
+    .filter((h) => h.day === today)
+    .sort((a, b) => a.open.localeCompare(b.open))
+    .map((h) => (h.open === h.close ? '24 horas' : `${hhmm(h.open)} às ${hhmm(h.close)}`));
+  return slots.length ? slots.join(', ') : 'Fechada hoje';
+}
+
+/** Botão redondo das ações rápidas (como chegar, WhatsApp, Instagram, compartilhar). */
+function QuickAction({
+  href,
+  onClick,
+  icon,
+  label,
+}: {
+  href?: string;
+  onClick?(): void;
+  icon: ReactNode;
+  label: string;
+}) {
+  const inner = (
+    <>
+      <span className="app-quick__ic">{icon}</span>
+      <span className="app-quick__label">{label}</span>
+    </>
+  );
+  return href ? (
+    <a className="app-quick__btn" href={href} target="_blank" rel="noopener noreferrer">
+      {inner}
+    </a>
+  ) : (
+    <button type="button" className="app-quick__btn" onClick={onClick}>
+      {inner}
+    </button>
+  );
+}
+
 /**
- * Conta › A loja: endereço com o mapa, horário da semana, entrega e retirada e o contato. Cada
+ * Conta › A loja: capa com a logo e a situação, ações rápidas (como chegar, WhatsApp, Instagram,
+ * compartilhar), como pedir, formas de pagamento, endereço, horário da semana e contato. Cada
  * restaurante tem o próprio app, então "escolher a loja" é conhecer esta.
  */
 export function StoresScreen() {
   const { menu } = useStore();
   const { info, failed } = useAppInfo();
+  const toast = useToast();
   const r = menu.restaurant;
   const s = menu.store;
   const map = info ? mapLink(info, r.name) : null;
   const wa = waLink(info?.whatsapp ?? r.whatsapp);
+  const address = info?.address ?? r.address;
+  const about = info?.about ?? r.about;
+  const today = info ? todayHours(info.hours) : null;
+  const { app, at, later } = payWays(menu);
+  const link = `${window.location.origin}/pedir`;
+  async function share() {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: r.name, url: link });
+        return;
+      }
+      await navigator.clipboard.writeText(link);
+      toast('Link da loja copiado', 'success');
+    } catch (e) {
+      if ((e as DOMException)?.name !== 'AbortError')
+        toast('Não deu para compartilhar agora', 'danger');
+    }
+  }
+  async function copyAddress() {
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(address);
+      toast('Endereço copiado', 'success');
+    } catch {
+      toast('Não deu para copiar agora', 'danger');
+    }
+  }
   return (
     <div className="sf-wrap sf-page app-page">
       <ScreenHeader title="A loja" back="/pedir/conta" />
-      <section className="app-store">
-        <StoreMark src={r.logoUrl} size={64} className="app-store__logo" />
-        <div className="app-store__text">
-          <h2>{r.name}</h2>
-          <p className={`status ${s.isOpen ? 'is-open' : 'is-closed'}`}>
-            {scheduleText(s.isOpen, s.schedule)}
-          </p>
-        </div>
-      </section>
-      {failed && <LoadFailed />}
-      {(info?.address ?? r.address) && (
-        <section className="app-sec">
-          <h2 className="app-sec__title">Endereço</h2>
-          <div className="app-card app-addr">
-            <MapPin size={20} aria-hidden className="app-addr__ic" />
-            <p className="cm-selectable">{info?.address ?? r.address}</p>
-            {map && (
-              <a className="app-btn" href={map} target="_blank" rel="noopener noreferrer">
-                <Navigation size={16} aria-hidden /> Abrir no mapa
-              </a>
+      <section className="app-store" data-cover={r.coverUrl ? true : undefined}>
+        {r.coverUrl && (
+          <Photo src={r.coverUrl} alt="" ratio="16 / 7" className="app-store__cover" />
+        )}
+        <div className="app-store__head">
+          <StoreMark src={r.logoUrl} size={68} className="app-store__logo" />
+          <div className="app-store__text">
+            <h2>{r.name}</h2>
+            <p className={`status ${s.isOpen ? 'is-open' : 'is-closed'}`}>
+              {scheduleText(s.isOpen, s.schedule)}
+            </p>
+            {today && (
+              <p className="app-store__today">
+                <Clock size={14} aria-hidden /> Hoje: {today}
+              </p>
             )}
           </div>
-        </section>
-      )}
-      <section className="app-sec">
-        <h2 className="app-sec__title">Horário</h2>
-        {!info ? (
-          !failed && <Skeleton variant="list" />
-        ) : info.hours.length ? (
-          <div className="app-card">
-            <HoursTable hours={info.hours} />
-          </div>
-        ) : (
-          <p className="form-hint">
-            A loja abre e fecha pelo botão do caixa: a faixa do início mostra se está aberta agora.
-          </p>
+        </div>
+        {menu.appearance.headline && (
+          <p className="app-store__headline">{menu.appearance.headline}</p>
         )}
+        {about && <p className="app-store__about cm-selectable">{about}</p>}
       </section>
+      <nav className="app-quick" aria-label="Ações da loja">
+        {map && <QuickAction href={map} icon={<Navigation />} label="Como chegar" />}
+        {wa && <QuickAction href={wa} icon={<MessageCircle />} label="WhatsApp" />}
+        {info?.instagram && (
+          <QuickAction
+            href={`https://instagram.com/${encodeURIComponent(info.instagram)}`}
+            icon={<Instagram />}
+            label="Instagram"
+          />
+        )}
+        <QuickAction onClick={share} icon={<Share2 />} label="Compartilhar" />
+      </nav>
+      {failed && <LoadFailed />}
       <section className="app-sec">
-        <h2 className="app-sec__title">Pedidos</h2>
+        <h2 className="app-sec__title">Como pedir</h2>
         <ul className="app-list">
-          <li className="app-row">
-            <span className="app-row__ic">
-              <Clock />
-            </span>
-            <span className="app-row__text">
-              <strong>Tempo de preparo e entrega</strong>
-              <small>
-                {s.etaMin}–{s.etaMax} min
-              </small>
-            </span>
-          </li>
           {s.acceptsDelivery && (
             <li className="app-row">
               <span className="app-row__ic">
@@ -407,8 +463,8 @@ export function StoresScreen() {
                   {s.deliveryZones
                     ? 'Taxa conforme o bairro'
                     : toCents(s.deliveryFee)
-                      ? brl(s.deliveryFee)
-                      : 'Grátis'}
+                      ? `Taxa de ${brl(s.deliveryFee)}`
+                      : 'Entrega grátis'}
                   {toCents(s.minOrder) > 0 && ` · Pedido mínimo ${brl(s.minOrder)}`}
                 </small>
               </span>
@@ -421,34 +477,89 @@ export function StoresScreen() {
               </span>
               <span className="app-row__text">
                 <strong>Retirada</strong>
-                <small>Busque no balcão quando ficar pronto</small>
+                <small>Peça pelo app e busque no balcão quando ficar pronto</small>
               </span>
             </li>
           )}
+          {s.tables && (
+            <li className="app-row">
+              <span className="app-row__ic">
+                <QrCode />
+              </span>
+              <span className="app-row__text">
+                <strong>Na mesa</strong>
+                <small>No restaurante, leia o QR Code da mesa e peça pelo celular</small>
+              </span>
+            </li>
+          )}
+          <li className="app-row">
+            <span className="app-row__ic">
+              <Clock />
+            </span>
+            <span className="app-row__text">
+              <strong>Tempo de preparo{s.acceptsDelivery ? ' e entrega' : ''}</strong>
+              <small>
+                {s.etaMin}–{s.etaMax} min
+              </small>
+            </span>
+          </li>
         </ul>
       </section>
-      {(wa || info?.instagram) && (
+      <section className="app-sec">
+        <h2 className="app-sec__title">Formas de pagamento</h2>
+        <Link to="/pedir/conta/pagamento" className="app-card app-pays">
+          <span className="app-pays__list">
+            {app.map((w) => (
+              <span key={w.title} className="app-chip" data-app>
+                {w.icon}
+                {w.title}
+              </span>
+            ))}
+            {later.map((o) => (
+              <span key={o.value} className="app-chip">
+                {PAY_ICON[o.value]}
+                {o.label}
+              </span>
+            ))}
+          </span>
+          <small className="app-pays__hint">
+            {app.length ? `Pague pelo app agora, ou ${at}` : `Pague ${at}`}
+          </small>
+        </Link>
+      </section>
+      {address && (
         <section className="app-sec">
-          <h2 className="app-sec__title">Contato</h2>
-          <div className="app-actions">
-            {wa && (
-              <a className="app-btn" href={wa} target="_blank" rel="noopener noreferrer">
-                <MessageCircle size={16} aria-hidden /> WhatsApp
-              </a>
-            )}
-            {info?.instagram && (
-              <a
-                className="app-btn"
-                href={`https://instagram.com/${encodeURIComponent(info.instagram)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Instagram size={16} aria-hidden /> @{info.instagram}
-              </a>
-            )}
+          <h2 className="app-sec__title">Endereço</h2>
+          <div className="app-card app-addr">
+            <MapPin size={20} aria-hidden className="app-addr__ic" />
+            <p className="cm-selectable">{address}</p>
+            <div className="app-actions">
+              {map && (
+                <a className="app-btn" href={map} target="_blank" rel="noopener noreferrer">
+                  <Navigation size={16} aria-hidden /> Abrir no mapa
+                </a>
+              )}
+              <button type="button" className="app-btn" onClick={copyAddress}>
+                <Copy size={16} aria-hidden /> Copiar
+              </button>
+            </div>
           </div>
         </section>
       )}
+      <section className="app-sec">
+        <h2 className="app-sec__title">Horário de funcionamento</h2>
+        {!info ? (
+          !failed && <Skeleton variant="list" />
+        ) : info.hours.length ? (
+          <div className="app-card">
+            <HoursTable hours={info.hours} />
+          </div>
+        ) : (
+          <p className="form-hint">
+            A loja abre e fecha pelo caixa: a faixa do início mostra se está aberta agora.
+          </p>
+        )}
+      </section>
     </div>
   );
 }

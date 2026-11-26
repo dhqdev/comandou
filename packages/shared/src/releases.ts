@@ -45,6 +45,27 @@ export const RELEASES: readonly Release[] = [
     ],
   },
   {
+    version: '0.257.1',
+    date: '2026-11-26',
+    title: 'Cardápio no celular: menu de baixo fixo, PIN só da loja e tela A loja mais completa',
+    summary:
+      'No app do cliente, o menu de baixo não some mais ao rolar até o fim, o PIN deixa de ser trocado pelo próprio cliente e a tela A loja mostra tudo o que o cliente precisa saber.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Cardápio no celular: ao rolar até o fim da página e puxar mais um pouco, o menu de baixo sumia e só voltava ao soltar o dedo. Agora ele fica fixo o tempo todo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pontos do cliente: o botão "Gerar outro PIN" saiu do cardápio. O PIN continua aparecendo para mostrar no balcão, mas o cliente não troca mais por conta própria.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Conta › A loja: capa com a logo, situação e o horário de hoje, a frase e o texto da loja, botões rápidos (Como chegar, WhatsApp, Instagram e Compartilhar), como pedir (entrega com taxa e mínimo, retirada, na mesa pelo QR Code e tempo), formas de pagamento aceitas, endereço com Copiar e o horário da semana.',
+      },
+    ],
+  },
+  {
     version: '0.257.0',
     date: '2026-11-26',
     title: 'Cartões de produto da Nova venda com nome inteiro e pontos',

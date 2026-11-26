@@ -103,8 +103,7 @@ const PUBLIC_TENANT_ROUTES = [
   'GET /api/v1/store/account/reservations',
   'GET /api/v1/store/account/reservations/:id',
   'POST /api/v1/store/account/reservations/:id/cancel',
-  // App do cliente (0.256): trocar o PIN e usar o convite de um amigo, só a conta do cookie.
-  'POST /api/v1/store/account/loyalty/pin',
+  // App do cliente (0.256): usar o convite de um amigo, só a conta do cookie.
   'POST /api/v1/store/account/referral',
   'DELETE /api/v1/store/account/photo',
   'GET /api/v1/store/account/photo',
