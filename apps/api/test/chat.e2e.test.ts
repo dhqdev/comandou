@@ -739,6 +739,29 @@ describe('Assistente de IA', () => {
     const h = (await pget(`/ai/tenants/${fx.tenantA}/history`).expect(200)).body;
     expect(h.grants).toHaveLength(2);
     expect(h.usage.every((x: { tenantId: string }) => x.tenantId === fx.tenantA)).toBe(true);
+    // Pizza do restaurante (Tokens de IA): as partes somam o mesmo que o limite do mês desconta.
+    const [month] = await ownerQuery<{ n: number }>(
+      `SELECT coalesce(sum(prompt_tokens + completion_tokens), 0)::int AS n FROM ai_usage
+        WHERE tenant_id = $1
+          AND created_at >= date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo')
+                            AT TIME ZONE 'America/Sao_Paulo'`,
+      [fx.tenantA],
+    );
+    const use = (await pget(`/ai/tenants/${fx.tenantA}/usage`).expect(200)).body;
+    expect(use.period).toBe('month');
+    expect(use.total.tokens).toBe(month!.n);
+    expect(use.parts.reduce((n: number, p: { tokens: number }) => n + p.tokens, 0)).toBe(month!.n);
+    expect(use.parts.find((p: { key: string }) => p.key === 'chat')).toMatchObject({
+      label: 'Chat com a IA',
+    });
+    expect(use.quota).toMatchObject({ usedMonth: month!.n, limit: 1000 });
+    expect(a.parts.find((p: { key: string }) => p.key === 'chat')).toBeTruthy();
+    expect((await pget(`/ai/tenants/${fx.tenantA}/usage?period=x`).expect(200)).body.period).toBe(
+      'month',
+    );
+    expect((await pget(`/ai/tenants/${fx.tenantA}/usage?period=all`).expect(200)).body.period).toBe(
+      'all',
+    );
     const audit = await ownerQuery<{ action: string }>(
       `SELECT action FROM platform_audit_log WHERE action LIKE 'platform.ai_tokens_%'`,
     );

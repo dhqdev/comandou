@@ -926,7 +926,8 @@ details.adm-fieldset[open] > summary::before {
   }
 }
 
-/* IA (OpenRouter) */
+/* IA (OpenRouter) · aba Tokens de IA (refeita na 0.265.3: cartões por restaurante e a pizza das
+   partes no painel do lado). */
 .adm-ai-hero {
   display: flex;
   align-items: center;
@@ -950,32 +951,417 @@ details.adm-fieldset[open] > summary::before {
 .adm-ai-chart .adm-spark {
   height: 72px;
 }
+.adm-ai-chart .adm-row__meta {
+  white-space: normal;
+}
 .adm-ai-chart__axis {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
   color: var(--a-subtle);
 }
-.adm-ai-row {
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: 0;
-  border-bottom: 1px solid var(--a-line);
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-.adm-ai-row:hover {
-  background: var(--a-hover, rgba(127, 127, 127, 0.06));
-}
-.adm-ai-row .adm-row__side small,
 .adm-ai-off {
   color: var(--a-subtle);
   font-weight: 400;
 }
-.adm-ai-edit .adm-row__main {
+
+/* Cores das partes (faixa do cartão, pizza e legenda): fixas por parte, na ordem de AI_PARTS
+   (apps/api/src/platform/ai-parts.ts), conferidas com o validador de paleta (CVD e contraste) no
+   claro (#fff) e no escuro (#283141). São cores de dado, como as dos entregadores. */
+:is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch) {
+  --part: var(--cm-gray-400);
+}
+:is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='whatsapp'] {
+  --part: #00b894;
+}
+:is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='chat'] {
+  --part: #257de0;
+}
+:is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='print'] {
+  --part: #f2a600;
+}
+:is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='photos'] {
+  --part: #ee7fac;
+}
+:is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='model3d'] {
+  --part: #6a4ce2;
+}
+:is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='setup'] {
+  --part: #f47230;
+}
+:root[data-theme='dark']
+  :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='whatsapp'] {
+  --part: #00a888;
+}
+:root[data-theme='dark']
+  :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='chat'] {
+  --part: #338ced;
+}
+:root[data-theme='dark']
+  :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='print'] {
+  --part: #d28e05;
+}
+:root[data-theme='dark']
+  :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='photos'] {
+  --part: #e24d8b;
+}
+:root[data-theme='dark']
+  :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='model3d'] {
+  --part: #9887ef;
+}
+:root[data-theme='dark']
+  :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='setup'] {
+  --part: #e76624;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme])
+    :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='whatsapp'] {
+    --part: #00a888;
+  }
+  :root:not([data-theme])
+    :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='chat'] {
+    --part: #338ced;
+  }
+  :root:not([data-theme])
+    :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='print'] {
+    --part: #d28e05;
+  }
+  :root:not([data-theme])
+    :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='photos'] {
+    --part: #e24d8b;
+  }
+  :root:not([data-theme])
+    :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='model3d'] {
+    --part: #9887ef;
+  }
+  :root:not([data-theme])
+    :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='setup'] {
+    --part: #e76624;
+  }
+}
+
+/* Um cartão por restaurante: uso do mês contra o limite e a faixa das partes. */
+.adm-ai-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+  gap: 12px;
+}
+.adm-ai-card {
+  display: grid;
   gap: 10px;
+  align-content: start;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-lg);
+  background: var(--a-panel);
+  color: var(--a-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    border-color var(--cm-dur);
+}
+.adm-ai-card:hover {
+  border-color: var(--a-line-strong);
+}
+.adm-ai-card:active {
+  transform: scale(0.98);
+  transition-duration: 80ms;
+}
+.adm-ai-card:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.adm-ai-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.adm-ai-card__name {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.adm-ai-card__name strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adm-ai-card__name small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--a-subtle);
+  font-size: 12px;
+}
+.adm-ai-card__cost {
+  display: grid;
+  justify-items: end;
+  flex: none;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.adm-ai-card__cost small {
+  color: var(--a-subtle);
+  font-size: 11px;
+  font-weight: 400;
+}
+.adm-ai-card__use {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--a-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.adm-ai-card__use b {
+  color: var(--a-text);
+  font-weight: 700;
+}
+.adm-ai-card__top {
+  overflow: hidden;
+  color: var(--a-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adm-ai-card__top b {
+  color: var(--a-text);
+  font-weight: 600;
+}
+/* Faixa das partes: cada parte um bloco, 2px de fundo entre eles. */
+.adm-ai-split {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+}
+.adm-ai-split i {
+  display: block;
+  flex-basis: 0;
+  min-width: 3px;
+  border-radius: 3px;
+  background: var(--part);
+}
+
+/* Painel do restaurante: a pizza e a tabela das partes, o limite, os dias e os ajustes. */
+.adm-ai-detail {
+  container: aidetail / inline-size;
+  display: grid;
+  gap: 18px;
+}
+.adm-ai-detail__bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.adm-ai-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-lg);
+}
+.adm-ai-kpis > div {
+  min-width: 0;
+  padding: 10px 14px;
+}
+.adm-ai-kpis > div + div {
+  border-left: 1px solid var(--a-line);
+}
+.adm-ai-kpis dt {
+  color: var(--a-subtle);
+  font-size: 12px;
+}
+.adm-ai-kpis dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+@container aidetail (max-width: 560px) {
+  .adm-ai-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .adm-ai-kpis > div:nth-child(3) {
+    border-left: 0;
+  }
+  .adm-ai-kpis > div:nth-child(n + 3) {
+    border-top: 1px solid var(--a-line);
+  }
+}
+.adm-ai-share {
+  display: grid;
+  gap: 18px;
+  align-items: center;
+}
+@container aidetail (min-width: 640px) {
+  .adm-ai-share {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+}
+.adm-ai-pie {
+  position: relative;
+  width: min(220px, 100%);
+  margin: 0 auto;
+}
+.adm-ai-pie svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform: rotate(-90deg);
+}
+.adm-ai-pie__slice {
+  fill: none;
+  stroke: var(--part);
+  stroke-width: 30;
+  cursor: pointer;
+}
+.adm-ai-pie__slice[data-dim] {
+  opacity: 0.3;
+}
+.adm-ai-pie__mid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 2px;
+  padding: 0 52px;
+  text-align: center;
+  pointer-events: none;
+}
+.adm-ai-pie__mid strong {
+  font-size: 20px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.adm-ai-pie__mid small {
+  color: var(--a-muted);
+  font-size: 12px;
+  line-height: 1.25;
+}
+.adm-ai-parts {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.adm-ai-parts th,
+.adm-ai-parts td {
+  padding: 7px 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+.adm-ai-parts th:first-child {
+  text-align: left;
+  white-space: normal;
+}
+.adm-ai-parts thead th {
+  color: var(--a-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--a-line);
+}
+.adm-ai-parts__part > * {
+  border-top: 1px solid var(--a-line);
+}
+.adm-ai-parts__part th {
+  font-weight: 600;
+}
+.adm-ai-parts__src > * {
+  padding-top: 2px;
+  color: var(--a-muted);
+  font-size: 12px;
+}
+.adm-ai-parts__src th {
+  padding-left: 26px;
+  font-weight: 400;
+}
+.adm-ai-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 3px;
+  background: var(--part);
+  vertical-align: -1px;
+}
+@container aidetail (max-width: 460px) {
+  .adm-ai-parts th:nth-child(5),
+  .adm-ai-parts td:nth-child(5) {
+    display: none;
+  }
+}
+.adm-ai-limit {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-lg);
+}
+.adm-ai-limit__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-variant-numeric: tabular-nums;
+}
+.adm-ai-limit .adm-sub {
+  white-space: normal;
+}
+.adm-ai-days {
+  display: grid;
+  gap: 6px;
+}
+.adm-ai-days .adm-spark {
+  height: 64px;
+}
+.adm-ai-models ul {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.adm-ai-models li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+}
+.adm-ai-models li span {
+  color: var(--a-muted);
+  font-variant-numeric: tabular-nums;
+}
+.adm-ai-detail__setup {
+  display: grid;
+  gap: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--a-line);
+}
+@container aidetail (min-width: 760px) {
+  .adm-ai-detail__setup {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  }
+}
+.adm-ai-detail__setup .adm-ai-grant {
+  padding-top: 0;
+  border-top: 0;
+}
+.adm-ai-limitform {
+  display: grid;
+  gap: 10px;
+  align-content: start;
 }
 .adm-ai-inline {
   display: flex;
@@ -1008,10 +1394,6 @@ details.adm-fieldset[open] > summary::before {
 .adm-ai-search {
   margin-bottom: 10px;
   max-width: 360px;
-}
-.adm-ai-row .adm-row__meta,
-.adm-ai-chart .adm-row__meta {
-  white-space: normal;
 }
 .adm-ai-keys {
   display: grid;
@@ -1068,10 +1450,6 @@ details.adm-fieldset[open] > summary::before {
   .adm-ai-key__stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
-.adm-ai-edit {
-  flex-direction: column;
-  align-items: stretch;
 }
 .adm-ai-grant {
   display: grid;

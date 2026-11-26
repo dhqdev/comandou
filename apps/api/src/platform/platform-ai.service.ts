@@ -12,6 +12,7 @@ import {
   openKey,
   recordSystemUsage,
 } from './ai-keys';
+import { groupParts, type SourceUse } from './ai-parts';
 import type { Actor } from './platform.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 
@@ -119,6 +120,21 @@ const SOURCE_LABEL: Record<string, string> = {
   photo_clean: 'Foto do item com fundo limpo',
   photo_create: 'Foto do item criada pela IA',
   menu_model: 'Item em 3D pela foto',
+  print_template: 'Modelo de impressão',
+};
+
+/** Período do detalhe de um restaurante na aba Tokens. */
+export const AiPeriod = z.enum(['month', 'last', 'all']).catch('month');
+export type AiPeriod = z.infer<typeof AiPeriod>;
+
+/** Começo e fim (SQL) de cada período, no relógio de Brasília. */
+const PERIOD_SQL: Record<AiPeriod, { from: string; to: string }> = {
+  month: { from: MONTH_START, to: 'now()' },
+  last: {
+    from: `(${MONTH_START}) - interval '1 month'`,
+    to: MONTH_START,
+  },
+  all: { from: `'-infinity'::timestamptz`, to: 'now()' },
 };
 
 /**
@@ -232,29 +248,30 @@ export class PlatformAiService {
     const models = this.modelsCache?.value ?? [];
     const accountOf = (kind: KeyKind) =>
       this.account(r, fresh, kind).catch((e: Error) => ({ error: e.message }) as Account);
-    const [account, ownerAccount, tenants, month, system, days, log, grants] = await Promise.all([
-      accountOf('clients'),
-      accountOf('owner'),
-      this.db.query<{
-        id: string;
-        name: string;
-        slug: string;
-        status: string;
-        enabled: boolean | null;
-        override: number | null;
-        bonus: number;
-        tokens: number;
-        prompt: number;
-        completion: number;
-        bonusUsed: number;
-        cost: string;
-        calls: number;
-        users: number;
-        lastAt: Date | null;
-        totalTokens: number;
-        granted: number;
-      }>(
-        `SELECT t.id, t.name, t.slug, t.status, s.enabled, s.monthly_tokens AS override,
+    const [account, ownerAccount, tenants, month, system, days, log, grants, parts] =
+      await Promise.all([
+        accountOf('clients'),
+        accountOf('owner'),
+        this.db.query<{
+          id: string;
+          name: string;
+          slug: string;
+          status: string;
+          enabled: boolean | null;
+          override: number | null;
+          bonus: number;
+          tokens: number;
+          prompt: number;
+          completion: number;
+          bonusUsed: number;
+          cost: string;
+          calls: number;
+          users: number;
+          lastAt: Date | null;
+          totalTokens: number;
+          granted: number;
+        }>(
+          `SELECT t.id, t.name, t.slug, t.status, s.enabled, s.monthly_tokens AS override,
                   coalesce(s.bonus_tokens, 0)::float8 AS bonus,
                   coalesce(m.tokens, 0)::float8 AS tokens, coalesce(m.prompt, 0)::float8 AS prompt,
                   coalesce(m.completion, 0)::float8 AS completion,
@@ -279,27 +296,27 @@ export class PlatformAiService {
                  FROM platform_ai_token_grants GROUP BY tenant_id) g ON g.tenant_id = t.id
             WHERE t.status <> 'deleting'
             ORDER BY coalesce(m.tokens, 0) DESC, t.name`,
-      ),
-      this.db.query<{ tokens: number; cost: string; calls: number }>(
-        `SELECT coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
+        ),
+        this.db.query<{ tokens: number; cost: string; calls: number }>(
+          `SELECT coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
                   coalesce(sum(cost_usd), 0) AS cost, count(*)::int AS calls
              FROM ai_usage WHERE created_at >= ${MONTH_START}`,
-      ),
-      this.db.query<{
-        source: string;
-        key: string;
-        tokens: number;
-        cost: string;
-        calls: number;
-      }>(
-        `SELECT source, coalesce(key_kind, 'owner') AS key,
+        ),
+        this.db.query<{
+          source: string;
+          key: string;
+          tokens: number;
+          cost: string;
+          calls: number;
+        }>(
+          `SELECT source, coalesce(key_kind, 'owner') AS key,
                   coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
                   coalesce(sum(cost_usd), 0) AS cost, count(*)::int AS calls
              FROM platform_ai_usage WHERE created_at >= ${MONTH_START}
             GROUP BY 1, 2 ORDER BY 3 DESC`,
-      ),
-      this.db.query<{ day: string; tokens: number; cost: string; system: number }>(
-        `SELECT to_char(d, 'YYYY-MM-DD') AS day,
+        ),
+        this.db.query<{ day: string; tokens: number; cost: string; system: number }>(
+          `SELECT to_char(d, 'YYYY-MM-DD') AS day,
                   coalesce((SELECT sum(u.prompt_tokens + u.completion_tokens) FROM ai_usage u
                              WHERE (u.created_at AT TIME ZONE 'America/Sao_Paulo')::date = d), 0)::float8 AS tokens,
                   coalesce((SELECT sum(u.cost_usd) FROM ai_usage u
@@ -309,27 +326,47 @@ export class PlatformAiService {
              FROM generate_series((now() AT TIME ZONE 'America/Sao_Paulo')::date - 29,
                                   (now() AT TIME ZONE 'America/Sao_Paulo')::date, '1 day') d
             ORDER BY d`,
-      ),
-      this.usageLog(),
-      this.db.query<{
-        id: string;
-        tenantId: string;
-        tenantName: string;
-        delta: number;
-        balanceAfter: number;
-        note: string | null;
-        adminName: string | null;
-        at: Date;
-      }>(
-        `SELECT g.id::text, g.tenant_id AS "tenantId", t.name AS "tenantName",
+        ),
+        this.usageLog(),
+        this.db.query<{
+          id: string;
+          tenantId: string;
+          tenantName: string;
+          delta: number;
+          balanceAfter: number;
+          note: string | null;
+          adminName: string | null;
+          at: Date;
+        }>(
+          `SELECT g.id::text, g.tenant_id AS "tenantId", t.name AS "tenantName",
                   g.delta::float8 AS delta, g.balance_after::float8 AS "balanceAfter", g.note,
                   a.name AS "adminName", g.created_at AS at
              FROM platform_ai_token_grants g
              JOIN tenants t ON t.id = g.tenant_id
              LEFT JOIN platform_admins a ON a.id = g.admin_id
             ORDER BY g.created_at DESC, g.id DESC LIMIT 30`,
-      ),
-    ]);
+        ),
+        // Uso do mês de cada restaurante por fonte: vira as partes do cartão (IA do WhatsApp...).
+        this.db.query<{
+          tenantId: string;
+          source: string;
+          tokens: number;
+          cost: string;
+          calls: number;
+        }>(
+          `SELECT tenant_id AS "tenantId", source,
+                  sum(prompt_tokens + completion_tokens)::float8 AS tokens,
+                  sum(cost_usd) AS cost, count(*)::int AS calls
+             FROM ai_usage WHERE created_at >= ${MONTH_START}
+            GROUP BY 1, 2`,
+        ),
+      ]);
+    const partsOf = new Map<string, SourceUse[]>();
+    for (const x of parts) {
+      const list = partsOf.get(x.tenantId) ?? [];
+      list.push({ source: x.source, tokens: x.tokens, costUsd: Number(x.cost), calls: x.calls });
+      partsOf.set(x.tenantId, list);
+    }
     const price = models.find((m) => m.id === r.model) ?? null;
     // Quanto o sistema gastou de cada chave (a esteira cai na dos restaurantes sem a sua).
     const byKey = { owner: 0, clients: 0, site: 0, typed: 0 } as Record<string, number>;
@@ -421,10 +458,121 @@ export class PlatformAiService {
           percent: limit > 0 ? Math.round((t.tokens / limit) * 1000) / 10 : null,
           lastAt: t.lastAt,
           totalTokens: t.totalTokens,
+          /** Uso do mês por parte (IA do WhatsApp, chat, modelo de impressão, fotos...). */
+          parts: groupParts(partsOf.get(t.id) ?? []).map((p) => ({
+            key: p.key,
+            label: p.label,
+            tokens: p.tokens,
+            costUsd: p.costUsd,
+            calls: p.calls,
+            percent: p.percent,
+          })),
         };
       }),
       log,
       grants,
+    };
+  }
+
+  /**
+   * Detalhe de um restaurante na aba Tokens: quanto cada parte gastou no período (a pizza), os
+   * modelos, o uso por dia dos últimos 30 dias e o limite. Tudo sai de `ai_usage`, a mesma tabela
+   * que o limite do mês soma (app_ai_record_usage): o que aparece aqui é o que foi descontado.
+   */
+  async tenantUsage(tenantId: string, period: AiPeriod) {
+    const r = await this.row();
+    const range = PERIOD_SQL[period];
+    const [tenant, sources, models, days, month] = await Promise.all([
+      this.db.query<{
+        name: string;
+        slug: string;
+        enabled: boolean | null;
+        override: number | null;
+        bonus: number;
+      }>(
+        `SELECT t.name, t.slug, s.enabled, s.monthly_tokens AS override,
+                coalesce(s.bonus_tokens, 0)::float8 AS bonus
+           FROM tenants t LEFT JOIN tenant_ai_settings s ON s.tenant_id = t.id
+          WHERE t.id = $1`,
+        [tenantId],
+      ),
+      this.db.query<{ source: string; tokens: number; cost: string; calls: number; bonus: number }>(
+        `SELECT source, sum(prompt_tokens + completion_tokens)::float8 AS tokens,
+                sum(cost_usd) AS cost, count(*)::int AS calls, sum(bonus_tokens)::float8 AS bonus
+           FROM ai_usage
+          WHERE tenant_id = $1 AND created_at >= ${range.from} AND created_at < ${range.to}
+          GROUP BY 1`,
+        [tenantId],
+      ),
+      this.db.query<{ model: string; tokens: number; cost: string; calls: number }>(
+        `SELECT model, sum(prompt_tokens + completion_tokens)::float8 AS tokens,
+                sum(cost_usd) AS cost, count(*)::int AS calls
+           FROM ai_usage
+          WHERE tenant_id = $1 AND created_at >= ${range.from} AND created_at < ${range.to}
+          GROUP BY 1 ORDER BY 2 DESC LIMIT 6`,
+        [tenantId],
+      ),
+      this.db.query<{ day: string; tokens: number; cost: string }>(
+        `SELECT to_char(d, 'YYYY-MM-DD') AS day,
+                coalesce(sum(u.prompt_tokens + u.completion_tokens), 0)::float8 AS tokens,
+                coalesce(sum(u.cost_usd), 0) AS cost
+           FROM generate_series((now() AT TIME ZONE 'America/Sao_Paulo')::date - 29,
+                                (now() AT TIME ZONE 'America/Sao_Paulo')::date, '1 day') d
+           LEFT JOIN ai_usage u
+             ON u.tenant_id = $1 AND (u.created_at AT TIME ZONE 'America/Sao_Paulo')::date = d
+          GROUP BY d ORDER BY d`,
+        [tenantId],
+      ),
+      this.db.query<{ tokens: number; users: number; lastAt: Date | null }>(
+        `SELECT coalesce(sum(prompt_tokens + completion_tokens) FILTER (WHERE created_at >= ${MONTH_START}), 0)::float8 AS tokens,
+                count(DISTINCT user_id) FILTER (WHERE created_at >= ${MONTH_START})::int AS users,
+                max(created_at) AS "lastAt"
+           FROM ai_usage WHERE tenant_id = $1`,
+        [tenantId],
+      ),
+    ]);
+    const t = tenant[0];
+    if (!t) throw new UnprocessableEntityException('Restaurante não encontrado');
+    const rows: SourceUse[] = sources.map((x) => ({
+      source: x.source,
+      tokens: x.tokens,
+      costUsd: Number(x.cost),
+      calls: x.calls,
+    }));
+    const parts = groupParts(rows);
+    const limit = t.override ?? r.default_monthly_tokens;
+    const used = month[0]!.tokens;
+    return {
+      tenantId,
+      name: t.name,
+      slug: t.slug,
+      period,
+      total: {
+        tokens: rows.reduce((n, x) => n + x.tokens, 0),
+        costUsd: Math.round(rows.reduce((n, x) => n + x.costUsd, 0) * 1e6) / 1e6,
+        calls: rows.reduce((n, x) => n + x.calls, 0),
+        /** Quanto do período saiu dos tokens extras (o resto, do limite do mês). */
+        bonusTokens: sources.reduce((n, x) => n + Number(x.bonus ?? 0), 0),
+      },
+      parts,
+      models: models.map((m) => ({
+        model: m.model,
+        tokens: m.tokens,
+        costUsd: Number(m.cost),
+        calls: m.calls,
+      })),
+      days: days.map((d) => ({ day: d.day, tokens: d.tokens, costUsd: Number(d.cost) })),
+      quota: {
+        enabled: t.enabled ?? true,
+        limit,
+        override: t.override,
+        usedMonth: used,
+        bonus: t.bonus,
+        available: limit > 0 ? Math.max(0, limit - used) + t.bonus : null,
+        percent: limit > 0 ? Math.round((used / limit) * 1000) / 10 : null,
+        users: month[0]!.users,
+        lastAt: month[0]!.lastAt,
+      },
     };
   }
 

@@ -32,6 +32,26 @@ export class OpenRouterError extends Error {
 const num = (v: unknown) =>
   v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 
+/**
+ * Tokens de uma imagem quando o OpenRouter não manda os tokens dela. A API de imagens às vezes
+ * devolve só `usage.cost` (ou nada), e com 0 token a foto saía de graça para o restaurante: o
+ * limite do mês é contado em tokens. Aí a imagem conta pelo custo, no preço por token das imagens
+ * que vêm com os tokens (gpt-image-1: 4.175 tokens por US$ 0,04, exemplo da documentação do
+ * OpenRouter), e sem custo nenhum conta como uma imagem dessas (0.265.3).
+ */
+export const IMAGE_TOKENS_PER_USD = 4175 / 0.04;
+export const IMAGE_FALLBACK_TOKENS = 4175;
+
+export function imageUsage(u: Record<string, unknown> | undefined): Usage {
+  const promptTokens = num(u?.prompt_tokens ?? u?.input_tokens) ?? 0;
+  let completionTokens = num(u?.completion_tokens ?? u?.output_tokens) ?? 0;
+  const costUsd = num(u?.cost) ?? 0;
+  if (promptTokens + completionTokens <= 0)
+    completionTokens =
+      costUsd > 0 ? Math.ceil(costUsd * IMAGE_TOKENS_PER_USD) : IMAGE_FALLBACK_TOKENS;
+  return { promptTokens, completionTokens, costUsd };
+}
+
 function friendly(status: number, body: string): string {
   if (status === 401) return 'A chave do OpenRouter foi recusada';
   if (status === 402) return 'Sem saldo no OpenRouter';
@@ -241,15 +261,7 @@ export class OpenRouterClient {
     const url = j.choices?.[0]?.message?.images?.[0]?.image_url?.url ?? '';
     const m = url.match(/^data:(image\/[a-z+]+);base64,(.+)$/);
     if (!m) throw new OpenRouterError('A IA não devolveu a imagem');
-    return {
-      mime: m[1]!,
-      bytes: Buffer.from(m[2]!, 'base64'),
-      usage: {
-        promptTokens: num(j.usage?.prompt_tokens) ?? 0,
-        completionTokens: num(j.usage?.completion_tokens) ?? 0,
-        costUsd: num(j.usage?.cost) ?? 0,
-      },
-    };
+    return { mime: m[1]!, bytes: Buffer.from(m[2]!, 'base64'), usage: imageUsage(j.usage) };
   }
 
   /**
@@ -299,15 +311,7 @@ export class OpenRouterClient {
       b64 = m[2]!;
     }
     if (!b64) throw new OpenRouterError('A IA não devolveu a imagem');
-    return {
-      mime,
-      bytes: Buffer.from(b64, 'base64'),
-      usage: {
-        promptTokens: num(j.usage?.prompt_tokens ?? j.usage?.input_tokens) ?? 0,
-        completionTokens: num(j.usage?.completion_tokens ?? j.usage?.output_tokens) ?? 0,
-        costUsd: num(j.usage?.cost) ?? 0,
-      },
-    };
+    return { mime, bytes: Buffer.from(b64, 'base64'), usage: imageUsage(j.usage) };
   }
 
   private async get(path: string): Promise<Record<string, unknown>> {

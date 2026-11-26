@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.266.0',
+    date: '2026-11-26',
+    title: 'Tokens de IA: um cartão por restaurante e a pizza de onde a IA é usada',
+    summary:
+      'A tela Tokens de IA do Super Admin ficou mais simples: o saldo do OpenRouter, o gasto do mês e um cartão por restaurante. Tocando no cartão, uma pizza mostra quanto cada parte do restaurante gastou (WhatsApp, chat, modelo de impressão, fotos…). Imagem gerada pela IA agora sempre desconta do restaurante.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › Tokens de IA: cada restaurante virou um cartão com o uso do mês contra o limite, o custo e a parte que mais usa. Ao tocar, abre o detalhe com a pizza das partes (IA do WhatsApp, chat com a IA, modelo de impressão, fotos dos itens, 3D dos itens, cardápio e página), por tokens ou por custo, neste mês, no mês passado ou desde sempre, com a tabela de cada parte, os últimos 30 dias, os modelos usados e os ajustes de limite e tokens extras.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tokens de IA mais simples: as chaves e o modelo do assistente foram para a aba Chaves e assistente, e saíram o extrato de chamadas, o gráfico geral e o panda do topo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Fotos feitas ou refeitas pela IA (fundo limpo, foto criada) podiam não descontar nada do limite do restaurante: em alguns modelos o OpenRouter manda só o custo da imagem, sem tokens, e o limite é contado em tokens. Agora a imagem conta pelo custo, e sem nenhuma informação conta como uma imagem padrão.',
+      },
+      {
+        tag: 'correção',
+        text: 'O uso da IA do modelo de impressão aparecia com o nome técnico (print_template) no Super Admin; agora aparece como Modelo de impressão.',
+      },
+    ],
+  },
+  {
     version: '0.265.2',
     date: '2026-11-26',
     title: 'Topo do cardápio só com o Olá e código de senha que se copia no próprio e-mail',

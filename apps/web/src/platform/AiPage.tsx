@@ -1,10 +1,23 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { KeyInUse } from './credentials/KeyInUse';
 import { Gift, KeyRound, MinusCircle, RefreshCw } from 'lucide-react';
-import { Alert, Button, Card, LivePanda, TextField, useToast, Skeleton } from '../design-system';
+import { Alert, Button, Card, Segmented, TextField, useToast, Skeleton } from '../design-system';
+import { SidePanel } from '../features/SidePanel';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
-import { ago, Dot, Level, levelFor, PageHead, Section, Sparkline, Tabs, Tag, Tile } from './ui';
+import {
+  ago,
+  Dot,
+  Level,
+  levelFor,
+  Monogram,
+  PageHead,
+  Section,
+  Sparkline,
+  Tabs,
+  Tag,
+  Tile,
+} from './ui';
 
 export interface ModelInfo {
   id: string;
@@ -49,6 +62,45 @@ export interface TenantUse {
   percent: number | null;
   lastAt: string | null;
   totalTokens: number;
+  /** Uso do mês por parte do restaurante (IA do WhatsApp, chat, modelo de impressão...). */
+  parts: PartUse[];
+}
+
+/** Uma parte do restaurante que gasta IA (a fatia da pizza). */
+export interface PartUse {
+  key: string;
+  label: string;
+  tokens: number;
+  costUsd: number;
+  calls: number;
+  /** Parte do total do período, em tokens. */
+  percent: number;
+  sources?: { source: string; label: string; tokens: number; costUsd: number; calls: number }[];
+}
+
+export type AiPeriod = 'month' | 'last' | 'all';
+
+/** GET /platform/ai/tenants/:id/usage: o detalhe que abre ao tocar no cartão. */
+export interface TenantUsage {
+  tenantId: string;
+  name: string;
+  slug: string;
+  period: AiPeriod;
+  total: { tokens: number; costUsd: number; calls: number; bonusTokens: number };
+  parts: PartUse[];
+  models: { model: string; tokens: number; costUsd: number; calls: number }[];
+  days: { day: string; tokens: number; costUsd: number }[];
+  quota: {
+    enabled: boolean;
+    limit: number;
+    override: number | null;
+    usedMonth: number;
+    bonus: number;
+    available: number | null;
+    percent: number | null;
+    users: number;
+    lastAt: string | null;
+  };
 }
 
 export type KeyKind = 'owner' | 'clients';
@@ -143,12 +195,15 @@ const perM = (m: ModelInfo) =>
     : `US$ ${m.promptPerM.toFixed(2)} entrada · US$ ${m.completionPerM.toFixed(2)} saída por 1 mi`;
 
 /**
- * Tokens: saldo e uso das duas chaves do OpenRouter (a sua e a dos restaurantes), limite do mês
- * por restaurante, tokens extras que só o Super Admin doa ou retira e o extrato de uso. As chaves
- * em si se cadastram em Super Admin › Credenciais.
+ * Tokens de IA (refeita na 0.265.3, pedido do David: "uma tela mais simples"). Aba Uso: o saldo do
+ * OpenRouter, o gasto do mês e um cartão por restaurante; tocar no cartão abre o detalhe com a
+ * pizza de quanto cada parte do restaurante gastou (IA do WhatsApp, chat, modelo de impressão,
+ * fotos...), o limite e os tokens extras. Aba Chaves e assistente: as chaves do OpenRouter e o
+ * modelo. Sem o extrato de chamadas na tela (a API ainda o devolve, para o histórico).
  */
 export function AiPage() {
   const [fresh, setFresh] = useState(0);
+  const [tab, setTab] = useState<'use' | 'setup'>('use');
   const data = useLoad<AiOverview>(`/platform/ai${fresh ? `?fresh=${fresh}` : ''}`);
   const o = data.data;
   if (data.error) return <Alert tone="danger">{data.error}</Alert>;
@@ -165,17 +220,41 @@ export function AiPage() {
               : 'Assistente desligado'}
           </span>
         }
+        actions={
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setFresh(Date.now())}
+            icon={<RefreshCw size={14} />}
+          >
+            Atualizar saldo
+          </Button>
+        }
       />
-      <StatusSection o={o} onRefresh={() => setFresh(Date.now())} />
-      <KeysSection o={o} />
-      <TenantsSection o={o} onChanged={data.reload} />
-      <UsageSection o={o} />
-      <SettingsSection o={o} onSaved={(n) => data.setData(n)} />
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        items={[
+          ['use', 'Uso dos restaurantes'],
+          ['setup', 'Chaves e assistente'],
+        ]}
+      />
+      {tab === 'use' ? (
+        <>
+          <StatusSection o={o} />
+          <TenantsSection o={o} onChanged={data.reload} />
+        </>
+      ) : (
+        <>
+          <KeysSection o={o} />
+          <SettingsSection o={o} onSaved={(n) => data.setData(n)} />
+        </>
+      )}
     </>
   );
 }
 
-function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
+function StatusSection({ o }: { o: AiOverview }) {
   const a = o.account;
   const b = o.balance;
   const s = o.settings;
@@ -191,29 +270,12 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
     (t) => t.percent !== null && t.percent >= 80 && t.percent < 100,
   );
   return (
-    <Section
-      title="Saldo e uso"
-      actions={
-        <Button variant="ghost" size="sm" onClick={onRefresh} icon={<RefreshCw size={14} />}>
-          Atualizar saldo
-        </Button>
-      }
-    >
-      <div className="adm-ai-hero">
-        <LivePanda size={64} mood={!s.enabled ? 'sleep' : low ? 'sad' : 'happy'} />
-        <div>
-          <strong>
-            {!s.hasApiKey
-              ? 'Coloque a chave do OpenRouter para ligar o assistente'
-              : !s.enabled
-                ? 'Assistente desligado para todos os restaurantes'
-                : `${s.assistantName} está ajudando as equipes`}
-          </strong>
-          <span className="adm-sub">
-            {s.modelPrice ? perM(s.modelPrice) : 'Preço do modelo aparece ao carregar a lista'}
-          </span>
-        </div>
-      </div>
+    <Section title="Saldo e gasto do mês">
+      {!s.hasApiKey && (
+        <Alert tone="info">
+          Coloque a chave do OpenRouter em Credenciais para ligar o assistente.
+        </Alert>
+      )}
       {!s.keyConfigured && (
         <Alert tone="danger">
           A API está sem INTEGRATIONS_KEY: não dá para guardar a chave do OpenRouter com segurança.
@@ -266,7 +328,7 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
         <Tile
           label="Gasto dos restaurantes"
           value={usd(o.month.costUsd, 2)}
-          sub={`${compact(o.month.tokens)} tokens · ${int(o.month.calls)} pergunta(s) este mês`}
+          sub={`${compact(o.month.tokens)} tokens · ${int(o.month.calls)} uso(s) da IA este mês`}
         />
         <Tile
           label="Seu uso (sistema)"
@@ -278,20 +340,6 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
           value={compact(o.tenants.reduce((n, t) => n + t.bonus, 0))}
           sub={`sobrando em ${o.tenants.filter((t) => t.bonus > 0).length} restaurante(s)`}
         />
-      </div>
-      <div className="adm-panel adm-ai-chart">
-        <div className="adm-row__meta">
-          Tokens por dia (restaurantes + sistema) · últimos 30 dias
-        </div>
-        <Sparkline
-          values={o.days.map((d) => d.tokens + d.system)}
-          color="var(--a-accent)"
-          label="Tokens por dia nos últimos 30 dias"
-        />
-        <div className="adm-ai-chart__axis">
-          <span>{o.days[0]?.day.slice(5).split('-').reverse().join('/')}</span>
-          <span>hoje</span>
-        </div>
       </div>
     </Section>
   );
@@ -305,93 +353,386 @@ function tenantLevel(t: TenantUse): Level {
 }
 
 function TenantsSection({ o, onChanged }: { o: AiOverview; onChanged(): void }) {
-  const [editing, setEditing] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const term = q.trim().toLowerCase();
   const list = term
     ? o.tenants.filter((t) => t.name.toLowerCase().includes(term) || t.slug.includes(term))
     : o.tenants;
+  const current = o.tenants.find((t) => t.id === openId) ?? null;
   return (
     <Section
-      title="Consumo por restaurante"
-      sub={`limite padrão ${o.settings.defaultMonthlyTokens ? `${compact(o.settings.defaultMonthlyTokens)} tokens/mês` : 'sem limite'}`}
+      title="Restaurantes"
+      sub={`uso deste mês · limite padrão ${o.settings.defaultMonthlyTokens ? `${compact(o.settings.defaultMonthlyTokens)} tokens/mês` : 'sem limite'} · toque para ver por parte`}
     >
       {o.tenants.length > 6 && (
         <TextField
-          label="Buscar restaurante"
+          label="Pesquisar"
+          aria-label="Pesquisar restaurante"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           wrapClass="adm-ai-search"
         />
       )}
-      <div className="adm-panel">
-        <div className="adm-rows">
-          {list.map((t) =>
-            editing === t.id ? (
-              <TenantEditor
-                key={t.id}
-                t={t}
-                defaultLimit={o.settings.defaultMonthlyTokens}
-                onClose={(changed) => {
-                  setEditing(null);
-                  if (changed) onChanged();
-                }}
-              />
-            ) : (
-              <button
-                key={t.id}
-                type="button"
-                className="adm-row adm-row--bar adm-ai-row"
-                onClick={() => setEditing(t.id)}
-                title="Ajustar limite e doar tokens"
-              >
-                <Dot level={!t.enabled ? 'off' : tenantLevel(t)} />
-                <span className="adm-row__main">
-                  <span className="adm-row__title">
-                    {t.name}
-                    {!t.enabled && <small className="adm-ai-off"> · IA desligada</small>}
-                    {t.override !== null && t.enabled && (
-                      <small className="adm-ai-off"> · limite próprio</small>
-                    )}
-                  </span>
-                  <span className="adm-bar" aria-hidden>
-                    <i
-                      style={{
-                        width: `${t.limit > 0 ? Math.min(Math.max(t.percent ?? 0, t.tokens ? 1.5 : 0), 100) : t.tokens ? 100 : 0}%`,
-                      }}
-                      data-level={tenantLevel(t)}
-                    />
-                  </span>
-                  <span className="adm-row__meta">
-                    {compact(t.tokens)} de {t.limit > 0 ? compact(t.limit) : '∞'} tokens
-                    {t.percent !== null ? ` (${t.percent.toLocaleString('pt-BR')}%)` : ''}
-                    {t.bonus > 0 ? ` · +${compact(t.bonus)} extras` : ''} · {t.users} pessoa(s) ·{' '}
-                    {t.calls} pergunta(s)
-                  </span>
-                </span>
-                <span className="adm-row__side">
-                  {usd(t.costUsd, 4)}
-                  <br />
-                  <small>{t.lastAt ? `usou ${ago(t.lastAt)}` : 'nunca usou'}</small>
-                </span>
-              </button>
-            ),
-          )}
-          {list.length === 0 && <div className="adm-empty">Nenhum restaurante.</div>}
+      {list.length === 0 ? (
+        <div className="adm-panel">
+          <div className="adm-empty">Nenhum restaurante.</div>
         </div>
-      </div>
+      ) : (
+        <div className="adm-ai-cards">
+          {list.map((t) => (
+            <TenantCard key={t.id} t={t} onOpen={() => setOpenId(t.id)} />
+          ))}
+        </div>
+      )}
+      <SidePanel
+        open={!!current}
+        size="xl"
+        title={current?.name ?? 'Restaurante'}
+        onClose={() => setOpenId(null)}
+        className="adm-ai-panel"
+      >
+        {current && (
+          <TenantDetail
+            key={current.id}
+            t={current}
+            defaultLimit={o.settings.defaultMonthlyTokens}
+            onChanged={onChanged}
+          />
+        )}
+      </SidePanel>
     </Section>
   );
 }
 
-function TenantEditor({
+/** Cartão de um restaurante: uso do mês contra o limite e a faixa das partes. */
+function TenantCard({ t, onOpen }: { t: TenantUse; onOpen(): void }) {
+  const level = !t.enabled ? 'off' : tenantLevel(t);
+  const top = [...t.parts].sort((a, b) => b.tokens - a.tokens)[0];
+  return (
+    <button type="button" className="adm-ai-card" onClick={onOpen}>
+      <span className="adm-ai-card__head">
+        <Monogram name={t.name} size={36} />
+        <span className="adm-ai-card__name">
+          <strong>{t.name}</strong>
+          <small>
+            <Dot level={level} /> {t.lastAt ? `usou ${ago(t.lastAt)}` : 'nunca usou'}
+            {!t.enabled && ' · IA desligada'}
+          </small>
+        </span>
+        <span className="adm-ai-card__cost">
+          {usd(t.costUsd, 2)}
+          <small>no mês</small>
+        </span>
+      </span>
+      <span className="adm-ai-card__use">
+        <span>
+          <b>{compact(t.tokens)}</b> de {t.limit > 0 ? compact(t.limit) : '∞'} tokens
+          {t.bonus > 0 ? ` · +${compact(t.bonus)} extras` : ''}
+        </span>
+        {t.percent !== null && <span>{t.percent.toLocaleString('pt-BR')}%</span>}
+      </span>
+      <span className="adm-bar" aria-hidden>
+        <i
+          style={{
+            width: `${t.limit > 0 ? Math.min(Math.max(t.percent ?? 0, t.tokens ? 1.5 : 0), 100) : t.tokens ? 100 : 0}%`,
+          }}
+          data-level={tenantLevel(t)}
+        />
+      </span>
+      {t.parts.length > 0 ? (
+        <>
+          <PartsBar parts={t.parts} />
+          <span className="adm-ai-card__top">
+            Mais usado: <b>{top!.label}</b> ({top!.percent.toLocaleString('pt-BR')}%)
+          </span>
+        </>
+      ) : (
+        <span className="adm-ai-card__top">Sem uso de IA este mês</span>
+      )}
+    </button>
+  );
+}
+
+/** Faixa fina com as partes lado a lado (sem texto: o cartão diz a principal). */
+function PartsBar({ parts }: { parts: PartUse[] }) {
+  const total = parts.reduce((n, p) => n + p.tokens, 0);
+  if (total <= 0) return null;
+  return (
+    <span className="adm-ai-split" aria-hidden>
+      {parts
+        .filter((p) => p.tokens > 0)
+        .map((p) => (
+          <i key={p.key} data-part={p.key} style={{ flexGrow: p.tokens }} />
+        ))}
+    </span>
+  );
+}
+
+const PERIODS: { value: AiPeriod; label: string }[] = [
+  { value: 'month', label: 'Este mês' },
+  { value: 'last', label: 'Mês passado' },
+  { value: 'all', label: 'Desde sempre' },
+];
+
+/**
+ * Detalhe de um restaurante (abre ao tocar no cartão): a pizza das partes, a tabela com os
+ * números de cada uma (e das fontes dentro dela), os últimos 30 dias, os modelos, o limite do mês
+ * e os tokens extras. Os números saem de `ai_usage`, a mesma soma que o limite do mês desconta.
+ */
+function TenantDetail({
   t,
   defaultLimit,
-  onClose,
+  onChanged,
 }: {
   t: TenantUse;
   defaultLimit: number;
-  onClose(changed: boolean): void;
+  onChanged(): void;
+}) {
+  const [period, setPeriod] = useState<AiPeriod>('month');
+  const [measure, setMeasure] = useState<'tokens' | 'cost'>('tokens');
+  const [stamp, setStamp] = useState(0);
+  const d = useLoad<TenantUsage>(
+    `/platform/ai/tenants/${t.id}/usage?period=${period}${stamp ? `&v=${stamp}` : ''}`,
+  );
+  const u = d.data;
+  const changed = () => {
+    setStamp(Date.now());
+    onChanged();
+  };
+  const q = u?.quota;
+  return (
+    <div className="adm-ai-detail">
+      <div className="adm-ai-detail__bar">
+        <Segmented label="Período" value={period} onChange={setPeriod} options={PERIODS} />
+        <Segmented
+          label="Medir por"
+          value={measure}
+          onChange={setMeasure}
+          options={[
+            { value: 'tokens', label: 'Tokens' },
+            { value: 'cost', label: 'Custo (US$)' },
+          ]}
+        />
+      </div>
+      {d.error && <Alert tone="danger">{d.error}</Alert>}
+      {!u ? (
+        !d.error && <Skeleton variant="detail" />
+      ) : (
+        <>
+          <dl className="adm-ai-kpis">
+            <div>
+              <dt>Tokens descontados</dt>
+              <dd>{int(u.total.tokens)}</dd>
+            </div>
+            <div>
+              <dt>Custo no OpenRouter</dt>
+              <dd>{usd(u.total.costUsd, 4)}</dd>
+            </div>
+            <div>
+              <dt>Usos da IA</dt>
+              <dd>{int(u.total.calls)}</dd>
+            </div>
+            <div>
+              <dt>Dos tokens extras</dt>
+              <dd>{int(u.total.bonusTokens)}</dd>
+            </div>
+          </dl>
+          {u.parts.length === 0 ? (
+            <div className="adm-empty">Nenhum uso de IA neste período.</div>
+          ) : (
+            <div className="adm-ai-share">
+              <AiPie parts={u.parts} measure={measure} />
+              <PartsTable parts={u.parts} measure={measure} />
+            </div>
+          )}
+          {q && (
+            <div className="adm-ai-limit">
+              <div className="adm-ai-limit__head">
+                <strong>Limite deste mês</strong>
+                <span>
+                  {int(q.usedMonth)} de {q.limit > 0 ? `${int(q.limit)} tokens` : 'sem limite'}
+                  {q.percent !== null ? ` (${q.percent.toLocaleString('pt-BR')}%)` : ''}
+                </span>
+              </div>
+              {q.limit > 0 && (
+                <span className="adm-bar" aria-hidden>
+                  <i
+                    style={{ width: `${Math.min(q.percent ?? 0, 100)}%` }}
+                    data-level={tenantLevel(t)}
+                  />
+                </span>
+              )}
+              <span className="adm-sub">
+                {q.available === null
+                  ? 'Sem limite: tudo o que usar sai da chave dos restaurantes.'
+                  : `Sobram ${int(q.available)} tokens${q.bonus > 0 ? ` (${int(q.bonus)} são extras)` : ''}. Toda parte da tabela acima desconta deste mesmo limite.`}
+                {` ${q.users} pessoa(s) usaram este mês.`}
+              </span>
+            </div>
+          )}
+          <div className="adm-ai-days">
+            <div className="adm-row__meta">Tokens por dia · últimos 30 dias</div>
+            <Sparkline
+              values={u.days.map((x) => x.tokens)}
+              color="var(--a-accent)"
+              label="Tokens por dia nos últimos 30 dias"
+            />
+            <div className="adm-ai-chart__axis">
+              <span>{u.days[0]?.day.slice(5).split('-').reverse().join('/')}</span>
+              <span>hoje</span>
+            </div>
+          </div>
+          {u.models.length > 0 && (
+            <div className="adm-ai-models">
+              <div className="adm-row__meta">Modelos usados no período</div>
+              <ul>
+                {u.models.map((m) => (
+                  <li key={m.model}>
+                    <code>{m.model}</code>
+                    <span>
+                      {compact(m.tokens)} tokens · {usd(m.costUsd, 4)} · {int(m.calls)} uso(s)
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+      <div className="adm-ai-detail__setup">
+        <LimitForm t={t} defaultLimit={defaultLimit} onSaved={changed} />
+        <GrantBox t={t} onDone={changed} />
+      </div>
+    </div>
+  );
+}
+
+const pieValue = (p: PartUse, m: 'tokens' | 'cost') => (m === 'tokens' ? p.tokens : p.costUsd);
+
+/**
+ * Pizza (rosca) das partes, pedida pelo David. Cada parte tem a sua cor fixa (`data-part`, em
+ * admin.css), na ordem fixa das partes, com 2px de fundo entre as fatias; o total vai no meio e a
+ * tabela ao lado repete nome e número de cada parte (a cor nunca é a única pista).
+ */
+function AiPie({ parts, measure }: { parts: PartUse[]; measure: 'tokens' | 'cost' }) {
+  const [hover, setHover] = useState<string | null>(null);
+  const total = parts.reduce((n, p) => n + pieValue(p, measure), 0);
+  const r = 70;
+  const c = 2 * Math.PI * r;
+  const gap = parts.filter((p) => pieValue(p, measure) > 0).length > 1 ? 2 : 0;
+  let acc = 0;
+  const slices = parts
+    .filter((p) => pieValue(p, measure) > 0)
+    .map((p) => {
+      const len = (pieValue(p, measure) / total) * c;
+      const out = { p, len, start: acc };
+      acc += len;
+      return out;
+    });
+  const shown = hover ? parts.find((p) => p.key === hover) : null;
+  const summary = parts.map((p) => `${p.label} ${p.percent.toLocaleString('pt-BR')}%`).join(', ');
+  return (
+    <figure className="adm-ai-pie">
+      <svg viewBox="0 0 180 180" role="img" aria-label={`Uso por parte: ${summary}`}>
+        {total > 0 &&
+          slices.map(({ p, len, start }) => (
+            <circle
+              key={p.key}
+              className="adm-ai-pie__slice"
+              data-part={p.key}
+              data-dim={hover && hover !== p.key ? '' : undefined}
+              cx="90"
+              cy="90"
+              r={r}
+              strokeDasharray={`${Math.max(len - gap, 0.5)} ${c}`}
+              strokeDashoffset={-start}
+              onMouseEnter={() => setHover(p.key)}
+              onMouseLeave={() => setHover(null)}
+            >
+              <title>
+                {p.label}: {measure === 'tokens' ? `${int(p.tokens)} tokens` : usd(p.costUsd, 4)}
+              </title>
+            </circle>
+          ))}
+      </svg>
+      <figcaption className="adm-ai-pie__mid" aria-hidden>
+        <strong>
+          {shown
+            ? measure === 'tokens'
+              ? compact(shown.tokens)
+              : usd(shown.costUsd, 2)
+            : measure === 'tokens'
+              ? compact(total)
+              : usd(total, 2)}
+        </strong>
+        <small>{shown ? shown.label : measure === 'tokens' ? 'tokens' : 'no total'}</small>
+      </figcaption>
+    </figure>
+  );
+}
+
+/** Tabela ao lado da pizza: cada parte com a cor, a %, os tokens, o custo e as fontes dela. */
+function PartsTable({ parts, measure }: { parts: PartUse[]; measure: 'tokens' | 'cost' }) {
+  const total = parts.reduce((n, p) => n + pieValue(p, measure), 0);
+  const pct = (v: number) =>
+    total > 0 ? `${(Math.round((v / total) * 1000) / 10).toLocaleString('pt-BR')}%` : '0%';
+  return (
+    <table className="adm-ai-parts">
+      <thead>
+        <tr>
+          <th>Parte</th>
+          <th>%</th>
+          <th>Tokens</th>
+          <th>Custo</th>
+          <th>Usos</th>
+        </tr>
+      </thead>
+      <tbody>
+        {parts.map((p) => (
+          <PartRows key={p.key} p={p} pct={pct(pieValue(p, measure))} />
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function PartRows({ p, pct }: { p: PartUse; pct: string }) {
+  const many = (p.sources?.length ?? 0) > 1;
+  return (
+    <>
+      <tr className="adm-ai-parts__part">
+        <th scope="row">
+          <i className="adm-ai-swatch" data-part={p.key} aria-hidden /> {p.label}
+        </th>
+        <td>{pct}</td>
+        <td>{int(p.tokens)}</td>
+        <td>{usd(p.costUsd, 4)}</td>
+        <td>{int(p.calls)}</td>
+      </tr>
+      {many &&
+        p.sources!.map((x) => (
+          <tr key={x.source} className="adm-ai-parts__src">
+            <th scope="row">{x.label}</th>
+            <td />
+            <td>{int(x.tokens)}</td>
+            <td>{usd(x.costUsd, 4)}</td>
+            <td>{int(x.calls)}</td>
+          </tr>
+        ))}
+    </>
+  );
+}
+
+/** Limite do mês do restaurante e o interruptor da IA dele. */
+function LimitForm({
+  t,
+  defaultLimit,
+  onSaved,
+}: {
+  t: TenantUse;
+  defaultLimit: number;
+  onSaved(): void;
 }) {
   const toast = useToast();
   const [enabled, setEnabled] = useState(t.enabled);
@@ -414,7 +755,7 @@ function TenantEditor({
         },
       });
       toast(`IA de ${t.name} atualizada`, 'success');
-      onClose(true);
+      onSaved();
     } catch (err) {
       toast((err as Error).message, 'danger');
     } finally {
@@ -422,59 +763,46 @@ function TenantEditor({
     }
   }
   return (
-    <div className="adm-row adm-ai-edit">
-      <form className="adm-row__main" onSubmit={save}>
-        <span className="adm-row__main">
-          <span className="adm-row__title">{t.name}</span>
-          <label className="adm-ai-inline">
+    <form className="adm-ai-limitform" onSubmit={save}>
+      <strong>Limite do mês</strong>
+      <label className="adm-ai-inline">
+        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        Assistente ligado neste restaurante
+      </label>
+      <div className="adm-ai-modes" role="radiogroup" aria-label="Limite do mês">
+        {(
+          [
+            ['default', `Padrão (${defaultLimit ? compact(defaultLimit) : 'sem limite'})`],
+            ['custom', 'Limite próprio'],
+            ['none', 'Sem limite'],
+          ] as const
+        ).map(([k, label]) => (
+          <label key={k} className={`adm-ai-mode ${mode === k ? 'is-on' : ''}`}>
             <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(e) => setEnabled(e.target.checked)}
+              type="radio"
+              name={`mode-${t.id}`}
+              checked={mode === k}
+              onChange={() => setMode(k)}
             />
-            Assistente ligado neste restaurante
+            {label}
           </label>
-          <div className="adm-ai-modes" role="radiogroup" aria-label="Limite do mês">
-            {(
-              [
-                ['default', `Padrão (${defaultLimit ? compact(defaultLimit) : 'sem limite'})`],
-                ['custom', 'Limite próprio'],
-                ['none', 'Sem limite'],
-              ] as const
-            ).map(([k, label]) => (
-              <label key={k} className={`adm-ai-mode ${mode === k ? 'is-on' : ''}`}>
-                <input
-                  type="radio"
-                  name={`mode-${t.id}`}
-                  checked={mode === k}
-                  onChange={() => setMode(k)}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-          {mode === 'custom' && (
-            <TextField
-              label="Tokens por mês"
-              inputMode="numeric"
-              value={value}
-              onChange={(e) => setValue(e.target.value.replace(/\D/g, ''))}
-              hint={value ? `${int(Number(value))} tokens` : undefined}
-              autoFocus
-            />
-          )}
-          <div className="adm-form-actions">
-            <Button type="button" variant="ghost" size="sm" onClick={() => onClose(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" size="sm" loading={busy}>
-              Salvar
-            </Button>
-          </div>
-        </span>
-      </form>
-      <GrantBox t={t} onDone={() => onClose(true)} />
-    </div>
+        ))}
+      </div>
+      {mode === 'custom' && (
+        <TextField
+          label="Tokens por mês"
+          inputMode="numeric"
+          value={value}
+          onChange={(e) => setValue(e.target.value.replace(/\D/g, ''))}
+          hint={value ? `${int(Number(value))} tokens` : undefined}
+        />
+      )}
+      <div className="adm-form-actions">
+        <Button type="submit" size="sm" variant="secondary" loading={busy}>
+          Salvar limite
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -681,85 +1009,6 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
         />
       </div>
     </Card>
-  );
-}
-
-/** Com qual chave saiu cada chamada do extrato. */
-const VIA: Record<string, string> = {
-  owner: 'sua chave',
-  clients: 'chave dos restaurantes',
-  site: 'antiga chave dos sites',
-  typed: 'chave digitada no teste',
-};
-
-function UsageSection({ o }: { o: AiOverview }) {
-  const [tab, setTab] = useState<'all' | KeyKind | 'grants'>('all');
-  const list = tab === 'all' ? o.log : o.log.filter((x) => x.key === tab);
-  return (
-    <Section title="Extrato de uso" sub="as últimas chamadas e doações">
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        items={[
-          ['all', 'Tudo'],
-          ['clients', 'Restaurantes'],
-          ['owner', 'Sistema'],
-          ['grants', 'Doações'],
-        ]}
-      />
-      <div className="adm-panel">
-        <div className="adm-rows">
-          {tab === 'grants'
-            ? o.grants.map((g) => (
-                <div key={g.id} className="adm-row">
-                  <Dot level={g.delta > 0 ? 'ok' : 'warn'} />
-                  <span className="adm-row__main">
-                    <span className="adm-row__title">
-                      {g.tenantName} · {g.delta > 0 ? 'doação' : 'retirada'}
-                    </span>
-                    <span className="adm-row__meta">
-                      {g.note || 'sem motivo'} · {g.adminName ?? 'Super Admin'} · saldo{' '}
-                      {int(g.balanceAfter)}
-                    </span>
-                  </span>
-                  <span className="adm-row__side">
-                    {g.delta > 0 ? '+' : '−'}
-                    {int(Math.abs(g.delta))}
-                    <br />
-                    <small>{ago(g.at)}</small>
-                  </span>
-                </div>
-              ))
-            : list.map((x) => (
-                <div key={x.id} className="adm-row">
-                  <Dot level={x.key === 'owner' ? 'info' : x.bonus > 0 ? 'warn' : 'ok'} />
-                  <span className="adm-row__main">
-                    <span className="adm-row__title">
-                      {x.key === 'owner' ? `Sistema · ${x.sourceLabel}` : x.tenantName}
-                      {x.key === 'clients' && (
-                        <small className="adm-ai-off"> · {x.sourceLabel}</small>
-                      )}
-                      {x.ref && <small className="adm-ai-off"> · {x.ref}</small>}
-                    </span>
-                    <span className="adm-row__meta">
-                      {int(x.tokens)} tokens
-                      {x.bonus > 0 ? ` (${int(x.bonus)} dos extras)` : ''} · {x.model} ·{' '}
-                      {VIA[x.via] ?? 'sua chave'}
-                    </span>
-                  </span>
-                  <span className="adm-row__side">
-                    {usd(x.costUsd, 4)}
-                    <br />
-                    <small>{ago(x.at)}</small>
-                  </span>
-                </div>
-              ))}
-          {(tab === 'grants' ? o.grants.length : list.length) === 0 && (
-            <div className="adm-empty">Nada por aqui ainda.</div>
-          )}
-        </div>
-      </div>
-    </Section>
   );
 }
 

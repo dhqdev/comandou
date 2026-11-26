@@ -556,6 +556,23 @@ anexado) e os detalhes `tk-facts`. Até 900 px vira uma coluna (`display: conten
 situação, Falar no chat, o que contou, histórico, detalhes; até 600 px as etapas ficam só nas
 barrinhas. O painel Super Admin segue com o `EventLine` de `TicketParts.tsx` na aba Notas.
 
+## Super Admin › Tokens de IA (0.266.0)
+
+`platform/AiPage.tsx` (classes `adm-ai-*` em `admin.css`), pedido do David: "tela mais simples".
+Duas abas: **Uso dos restaurantes** (os quatro `Tile` do saldo e do gasto e a grade de cartões
+`adm-ai-card`: monograma, nome, bolinha e "usou há…", custo do mês à direita, "X de Y tokens" com
+a barra do limite e, embaixo, a faixa fina das partes `adm-ai-split` com "Mais usado: …") e
+**Chaves e assistente** (as chaves e o formulário do modelo). Tocar no cartão abre a `SidePanel`
+xl com período (Este mês / Mês passado / Desde sempre) e "Medir por" Tokens/Custo em `Segmented`,
+os números num quadro só (`adm-ai-kpis`, linha fina entre eles), a **pizza** (`AiPie`, rosca em
+SVG com 2px de fundo entre as fatias e o total no meio) ao lado da tabela das partes
+(`adm-ai-parts`: quadradinho da cor, %, tokens, custo e usos; as fontes da parte embaixo, em
+cinza), o limite do mês, os 30 dias e os modelos; no pé, o limite e os tokens extras. **Exceção à
+regra "só tokens":** as cores das partes são cores de dado fixas por parte (na ordem de
+`AI_PARTS`, nunca pelo tamanho), conferidas com o validador de paleta no claro e no escuro, com
+valores próprios do escuro; a tabela sempre mostra nome e número (a cor nunca é a única pista).
+Parte nova ganha cor nova nos dois blocos de `admin.css`. Sem extrato de chamadas na tela.
+
 ## Super Admin › Credenciais
 
 `platform/credentials/` (`credentials.css`, prefixo `adm-cred`): resumo em `Tile`s, **Como

@@ -45,13 +45,19 @@ Quem já tem um arquivo 3D ainda envia `.glb` e `.usdz` em "Já tem o arquivo 3D
 
 ## Super Admin e custos
 
-Super Admin › Tokens › Assistente › **Fotos e 3D do cardápio**: liga e desliga cada função e
-escolhe os dois modelos (`platform_ai_settings.photo_ai_enabled`, `model3d_ai_enabled`,
-`vision_model`, `image_model`; migração 0121; o restaurante lê por `app_ai_config()`). Tudo
-desconta dos tokens do restaurante, como o resto da IA, e aparece no extrato com as fontes
-**Melhorar a foto do item** (`photo_tune`), **Foto do item com fundo limpo** (`photo_clean`) e
-**Item em 3D pela foto** (`menu_model`). Com o 3D com IA desligado (ou sem tokens), o restaurante
-ainda monta escolhendo a forma, sem IA.
+Super Admin › Tokens de IA › Chaves e assistente › **Fotos e 3D do cardápio**: liga e desliga
+cada função e escolhe os dois modelos (`platform_ai_settings.photo_ai_enabled`,
+`model3d_ai_enabled`, `vision_model`, `image_model`; migração 0121; o restaurante lê por
+`app_ai_config()`). Tudo desconta dos tokens do restaurante, como o resto da IA, e aparece no
+cartão do restaurante (aba Uso dos restaurantes) nas partes **Fotos dos itens** (`photo_tune`,
+`photo_clean`, `photo_create`, `menu_photo`) e **3D dos itens** (`menu_model`). Com o 3D com IA
+desligado (ou sem tokens), o restaurante ainda monta escolhendo a forma, sem IA.
+
+**Imagem sem tokens na resposta (0.266.0):** a API de imagens do OpenRouter às vezes devolve só
+`usage.cost` (ou nada). Como o limite do mês é contado em tokens, a foto saía de graça.
+`imageUsage` (`chat/openrouter.ts`) conta essa imagem pelo custo, no preço por token das imagens
+que vêm com tokens (4.175 tokens por US$ 0,04, o exemplo do gpt-image-1 na documentação do
+OpenRouter); sem custo nenhum, conta 4.175 tokens.
 
 ## Mudar o jeito da IA
 

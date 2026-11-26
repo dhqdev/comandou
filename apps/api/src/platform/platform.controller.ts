@@ -64,6 +64,7 @@ import {
 import { Actor, PlatformService } from './platform.service';
 import { PlatformBackupService } from './platform-backup.service';
 import {
+  AiPeriod,
   AiSettingsBody,
   AiTestBody,
   PlatformAiService,
@@ -951,6 +952,12 @@ export class PlatformAiController {
   @Get('tenants/:id/history')
   tenantHistory(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.ai.tenantHistory(id);
+  }
+
+  /** Quanto cada parte do restaurante gastou (pizza da aba Tokens): month, last ou all. */
+  @Get('tenants/:id/usage')
+  tenantUsage(@Param('id', new ParseUUIDPipe()) id: string, @Query('period') period?: string) {
+    return this.ai.tenantUsage(id, AiPeriod.parse(period));
   }
 
   @Post('tenants/:id/tokens')
