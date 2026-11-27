@@ -2,12 +2,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * Os textos que guiam a IA das fotos e do 3D dos itens ficam em .md, em apps/api/assets/ai, para
+ * Os textos que guiam a IA das fotos dos itens ficam em .md, em apps/api/assets/ai, para
  * quem cuida do cardápio ajustar o jeito da IA sem mexer no código. Lidos uma vez e guardados.
  */
 export const AI_PROMPTS_DIR = join(__dirname, '..', '..', 'assets', 'ai');
 
-export type PromptFile = 'melhorar-foto' | 'item-3d' | 'criar-foto';
+export type PromptFile = 'melhorar-foto' | 'criar-foto';
 
 const cache = new Map<PromptFile, string>();
 

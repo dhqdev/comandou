@@ -4,7 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
  * Cabeçalhos de toda resposta da API (OWASP REST Security, ASVS 14.3 e 3.4):
  *
  * - `Cache-Control: no-store`: resposta traz dado pessoal (clientes, caixa, financeiro) e não pode
- *   ficar no cache do navegador nem de proxy. Rota que pode ser guardada (fotos, modelos 3D) põe o
+ *   ficar no cache do navegador nem de proxy. Rota que pode ser guardada (fotos, vídeos) põe o
  *   seu e substitui este.
  * - `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`: se alguém conseguir
  *   abrir uma resposta da API como página (JSON com HTML dentro, um erro), nada roda nela nem dá

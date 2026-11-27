@@ -6,7 +6,7 @@ import { FUMACA } from './fumaca';
 /**
  * Restaurante de demonstração (roda no serviço migrate, depois das migrações).
  *   COMANDOU_DEMO=true        cria uma vez (padrão da stack; não duplica nem sobrescreve os dados;
- *                             só troca fotos/logo de versões antigas e grava os modelos 3D)
+ *                             só troca fotos/logo de versões antigas)
  *   COMANDOU_DEMO=reset       apaga e cria de novo a cada subida (datas sempre de hoje)
  *   COMANDOU_DEMO=false       desligado
  *   COMANDOU_DEMO_SLUG        endereço da Fumaça Burger (padrão: fumaca → fumaca.<domínio>)

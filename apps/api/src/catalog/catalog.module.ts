@@ -4,7 +4,6 @@ import { FamiliesController } from './families.controller';
 import { ItemAiController } from './item-ai.controller';
 import { ItemAiService } from './item-ai.service';
 import { MenusController } from './menus.controller';
-import { ProductModelsController } from './models.controller';
 import { OptionsController } from './options.controller';
 import { ProductExtrasController } from './product-extras.controller';
 
@@ -14,7 +13,6 @@ import { ProductExtrasController } from './product-extras.controller';
     OptionsController,
     MenusController,
     FamiliesController,
-    ProductModelsController,
     ProductExtrasController,
     ItemAiController,
   ],

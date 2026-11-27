@@ -154,17 +154,6 @@ export const MODULES: Module[] = [
   },
 ];
 
-/**
- * Pratos do "Prato em 3D": foto de verdade com mapa de profundidade (public/site/3d/<key>.webp,
- * <key>-depth.webp e a miniatura <key>-sm.webp, gerados por tools/site-images/build.py).
- */
-export const DISHES: { key: string; name: string; price: string }[] = [
-  { key: 'classico', name: 'Clássico', price: '34,90' },
-  { key: 'combo', name: 'Combo Fumaça', price: '62,90' },
-  { key: 'batata', name: 'Batata frita', price: '22,90' },
-  { key: 'chopp', name: 'Chopp pilsen', price: '14,90' },
-];
-
 /** O que troca no título do topo ("Seu restaurante no ar em minutos."), com o Shuffle. */
 export const HERO_WORDS = [
   'Seu restaurante',

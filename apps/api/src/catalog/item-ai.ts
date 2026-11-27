@@ -1,9 +1,16 @@
 /**
- * Leitura do que a IA devolve para as fotos e o 3D dos itens (funções puras, testadas em
+ * Leitura do que a IA devolve para as fotos dos itens (funções puras, testadas em
  * item-ai.test.ts). Tudo o que vem do modelo passa por aqui antes de chegar ao navegador: números
  * presos em faixas seguras, textos curtos, nada de campo a mais.
  */
-import type { Box } from './dish3d';
+
+/** Recorte na foto, de 0 a 1 em cada lado. */
+export interface Box {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
 
 export interface PhotoAdjust {
   /** -0.3 a 0.3 (0 = não mexe). */
@@ -84,6 +91,3 @@ export function readTips(raw: Record<string, unknown> | null): PhotoTips {
     cleanWorth: r.cleanWorth === true,
   };
 }
-
-/** A foto não é de comida: o modelo devolve kind "none" (ou nada que dê para usar). */
-export const notFood = (raw: Record<string, unknown> | null) => !raw || raw.kind === 'none';

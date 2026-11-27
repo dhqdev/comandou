@@ -132,7 +132,6 @@ const PUBLIC_TENANT_ROUTES = [
   'GET /api/v1/store/locate',
   'GET /api/v1/store/loyalty',
   'GET /api/v1/store/manifest',
-  'GET /api/v1/store/models/:id/:file',
   'POST /api/v1/store/orders',
   'GET /api/v1/store/orders/:token',
   'POST /api/v1/store/orders/:token/cancel',

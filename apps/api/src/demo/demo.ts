@@ -235,8 +235,7 @@ async function fill(
 }
 
 /**
- * Demonstração já no ar: troca fotos e logo de versões antigas e grava os modelos 3D de exemplo
- * (refresh.ts). Uma falha aqui só fica no log: a demonstração continua como estava.
+ * Demonstração já no ar: troca fotos e logo de versões antigas (refresh.ts). Uma falha aqui só fica no log: a demonstração continua como estava.
  */
 async function refreshAssets(
   o: DemoOptions,
@@ -246,10 +245,9 @@ async function refreshAssets(
   try {
     const url = t.dbName ? databaseUrl(o.ownerUrl, t.dbName, t.server) : o.ownerUrl;
     const r = await withClient(url, (c) => tx(c, () => refreshDemoAssets(c, t.id, catalog)));
-    if (r.photos || r.models)
-      o.log(`demonstração: ${r.photos} foto(s) e ${r.models} modelo(s) 3D atualizados`);
+    if (r.photos) o.log(`demonstração: ${r.photos} foto(s) atualizada(s)`);
   } catch (e) {
-    o.log(`demonstração: fotos e modelos 3D não atualizados (${(e as Error).message})`);
+    o.log(`demonstração: fotos não atualizadas (${(e as Error).message})`);
   }
 }
 

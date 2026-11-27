@@ -49,11 +49,6 @@ export interface DemoProduct {
   description: string;
   price: string;
   image: string;
-  /**
-   * Modelo 3D de exemplo (nome do arquivo em <imagesDir>/models, sem extensão): <nome>.glb e,
-   * se existir, <nome>.usdz para o iPhone.
-   */
-  model?: string;
   groups?: string[];
   featured?: boolean;
   badge?: string;

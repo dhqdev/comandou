@@ -8,8 +8,7 @@
  *
  * Fotos profissionais do Unsplash (licença Unsplash, uso comercial livre; autores em
  * db/demo/fumaca/credits.json)
- * e logo própria, em db/demo/fumaca (refazer com tools/demo-images/fumaca/build.py). Quatro itens
- * trazem modelo 3D de exemplo (db/demo/fumaca/models, feitos com tools/demo-images/fumaca/models).
+ * e logo própria, em db/demo/fumaca (refazer com tools/demo-images/fumaca/build.py).
  */
 import { join } from 'node:path';
 import { DEFAULT_COURIER_PAY_RULE } from '@comandou/shared';
@@ -28,7 +27,6 @@ const PRODUCTS: DemoProduct[] = [
       'Blend de 160 g na brasa, cheddar inglês, bacon crocante, cebola crispy e barbecue defumado da casa no brioche.',
     price: '44.90',
     image: 'burger-fumaca',
-    model: 'fumaca',
     groups: ['ponto', 'extras', 'molhos'],
     featured: true,
     badge: 'Mais pedido',
@@ -265,7 +263,6 @@ const PRODUCTS: DemoProduct[] = [
     description: 'Batata palito sequinha com sal e páprica defumada. Acompanha maionese da casa.',
     price: '22.90',
     image: 'porcao-batata',
-    model: 'batata',
     groups: ['tamanho'],
     weight: 12,
     recipe: { batata: 0.25, oleo: 0.03, maionese: 0.02 },
@@ -343,7 +340,6 @@ const PRODUCTS: DemoProduct[] = [
     description: 'Sorvete de creme batido com chocolate belga. 400 ml.',
     price: '22.90',
     image: 'shake-chocolate',
-    model: 'shake-chocolate',
     weight: 7,
     recipe: { sorvete: 0.25, leite: 0.12, chocolate: 0.03, copo: 1 },
     ncm: '21050010',
@@ -467,7 +463,6 @@ const PRODUCTS: DemoProduct[] = [
     description: 'Brownie quentinho, bola de sorvete de creme e calda de chocolate.',
     price: '26.90',
     image: 'sobremesa-brownie-sorvete',
-    model: 'brownie-sorvete',
     weight: 5,
     recipe: { brownie: 1, sorvete: 0.08, chocolate: 0.02 },
     ncm: '19059090',

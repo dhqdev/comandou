@@ -255,12 +255,11 @@ exceções, só no site:
   elementos 3D")**: muito espaço, linha fina no lugar de cartão (módulos numa grade de linhas
   `st-mods`, passos com números ligados por uma linha, perguntas e preço com linha fina), título
   grande e escuro com a segunda parte em cinza (`.st-h1__soft`, `--cm-gray-400`) e laranja só no
-  botão principal e no passo 1. O 3D tem três lugares e só esses: o **palco do topo** (`Stage`,
+  botão principal e no passo 1. O 3D tem dois lugares e só esses: o **palco do topo** (`Stage`,
   celular da loja e os cartões "Pedidos agora", vendas do dia e "Pix aprovado" em camadas com
   `translateZ`, girando de leve com o mouse por `useTilt`; no celular só o celular e o Pix, este
-  em cima da capa), a **moldura das telas do sistema**, que chega deitada (`rotateX` pelo `--p`),
-  e o **Prato em 3D** (0.253: foto de verdade com mapa de profundidade, `Dish3D.tsx` +
-  `depth-photo.ts`, WebGL puro; o `model-viewer` e os `.glb` saíram do site). Nada de three.js
+  em cima da capa) e a **moldura das telas do sistema**, que chega deitada (`rotateX` pelo `--p`).
+  O **Prato em 3D** saiu na 0.272 junto com o 3D dos itens do cardápio. Nada de three.js
   nem biblioteca nova para 3D. Cartão flutuante do palco balança com a propriedade `translate` (a
   `transform` é a camada 3D).
 - **Celular do topo = cardápio de dar fome (0.253, pedido do dono)**: a loja de exemplo é a Fumaça
@@ -279,9 +278,8 @@ exceções, só no site:
   **exemplos que se escrevem** no campo do site vazio e a **pílula que desliza** em Site/Maps/
   Descrever. Continuam fora: faíscas no clique, botão que segue o mouse, holofote no cartão
   inteiro, borda com luz, frase que acende palavra por palavra e faixa que passa sozinha.
-- **Um estúdio escuro, só no Prato em 3D**: as fotos têm fundo preto, então o painel `.st-3d` é
-  quase preto (`#050505`) e a foto some nas bordas (máscara radial). É exceção de direção de arte
-  (o site segue claro, sem tema escuro); não leve fundo escuro para outras seções.
+- **Sem fundo escuro no site**: o estúdio escuro do Prato em 3D saiu na 0.272; o site segue
+  claro, sem tema escuro.
 - **Janela de criar o restaurante** (`CreateFlow.tsx`): `<dialog>` próprio em tela cheia (no
   computador, painel grande com a loja nascendo à esquerda; no celular, os dados primeiro e o
   rodapé preso). Os rótulos "Nome do restaurante", "Seu nome", "E-mail", o botão "Criar e abrir",

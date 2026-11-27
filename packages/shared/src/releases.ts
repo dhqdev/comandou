@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.272.0',
+    date: '2026-11-27',
+    title: 'Item em 3D sai por enquanto',
+    summary:
+      'O 3D dos itens do cardápio foi retirado por enquanto: o cartão "Item em 3D" do cadastro do item, o "Ver em 3D" e o "Ver na sua mesa" do cardápio online e o interruptor do 3D no Super Admin. Fotos e "Melhorar a foto" continuam iguais.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cadastro do item sem o cartão "Item em 3D" e cardápio online sem o botão do prato em 3D.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Super Admin › Tokens de IA sem o interruptor "3D pela foto com IA" e sem a parte "3D dos itens" no uso; o que já foi gasto com o 3D aparece em "Outros".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A demonstração e o site deixam de mostrar pratos em 3D. Os modelos já salvos ficam guardados, só não aparecem.',
+      },
+    ],
+  },
+  {
     version: '0.271.1',
     date: '2026-11-27',
     title: 'Item em 3D com o formato do lanche',

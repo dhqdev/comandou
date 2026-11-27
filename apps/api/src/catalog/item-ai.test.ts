@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { imageSize } from '../common/image-size';
 import { aiPrompt, cleanPrompt, createPrompt, photoPrompts } from './ai-prompts';
-import { jsonOf, notFood, readCrop, readTips } from './item-ai';
+import { jsonOf, readCrop, readTips } from './item-ai';
 
 describe('Melhorar a foto do item', () => {
   it('o retoque da IA é sempre leve: números presos nas faixas e textos curtos', () => {
@@ -64,15 +64,6 @@ describe('Melhorar a foto do item', () => {
     expect(p).not.toContain('# Criar');
     expect(p).toMatch(/sem texto/i);
     expect(createPrompt(aiPrompt('criar-foto'), 'Suco', '')).toContain('sem descrição');
-  });
-
-  it('o .md do 3D pede a forma com os tipos que o servidor monta', () => {
-    const md = aiPrompt('item-3d');
-    for (const k of ['plate', 'bowl', 'glass', 'cup', 'stack', 'diameterCm', '"none"'])
-      expect(md).toContain(k);
-    expect(notFood({ kind: 'none' })).toBe(true);
-    expect(notFood(null)).toBe(true);
-    expect(notFood({ kind: 'plate' })).toBe(false);
   });
 });
 

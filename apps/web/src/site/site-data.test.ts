@@ -4,14 +4,7 @@ import { join } from 'node:path';
 import { DEMO_CATEGORIES, DEMO_FEATURED, DEMO_GROUPS, DEMO_ITEMS } from './demo-data';
 import { SECOND_LEVEL_SUFFIX, siteCandidate } from './host';
 import { shuffleOffsets } from './Shuffle';
-import {
-  DISHES,
-  looksLikeUrl,
-  parseItems,
-  SAMPLE_ITEMS,
-  SAMPLE_STORE,
-  slugPreview,
-} from './site-data';
+import { looksLikeUrl, parseItems, SAMPLE_ITEMS, SAMPLE_STORE, slugPreview } from './site-data';
 
 const pub = (p: string) => join(__dirname, '../../public', p);
 
@@ -75,12 +68,9 @@ describe('site público', () => {
     expect(shuffleOffsets(3, 'sequence', 350, 30)).toEqual([0, 30, 60]);
   });
 
-  it('fotos do celular do topo, do prato em 3D e da lanchonete de demonstração existem', () => {
+  it('fotos do celular do topo e da lanchonete de demonstração existem', () => {
     for (const p of [SAMPLE_STORE.logo, SAMPLE_STORE.cover, ...SAMPLE_ITEMS.map((i) => i.photo!)])
       expect(existsSync(pub(p)), p).toBe(true);
-    for (const d of DISHES)
-      for (const end of ['', '-sm', '-depth'])
-        expect(existsSync(pub(`site/3d/${d.key}${end}.webp`)), d.key + end).toBe(true);
     for (const i of DEMO_ITEMS) {
       expect(existsSync(pub(`site/food/${i.img}.webp`)), i.img).toBe(true);
       expect(existsSync(pub(`site/food/${i.img}-sm.webp`)), i.img).toBe(true);

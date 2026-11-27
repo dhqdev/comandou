@@ -366,7 +366,7 @@ export const CREDENTIALS: CredDef[] = [
     title: 'OpenRouter · chave dos restaurantes',
     group: 'painel',
     purpose:
-      'Só o uso dos restaurantes: o assistente do chat e do WhatsApp, fotos e 3D dos itens, a importação do cardápio, a busca no Google Maps e o site montado pela IA no comandou.com. O gasto aparece em Tokens de IA › Uso dos restaurantes.',
+      'Só o uso dos restaurantes: o assistente do chat e do WhatsApp, fotos dos itens, a importação do cardápio, a busca no Google Maps e o site montado pela IA no comandou.com. O gasto aparece em Tokens de IA › Uso dos restaurantes.',
     fields: [
       {
         name: 'Colar a chave',

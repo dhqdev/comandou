@@ -18,7 +18,6 @@ import {
 import { useCan } from '../../app/auth';
 import { CheckField, fmtQty, parseQtyInput, SelectField, Tabs } from '../../features/forms';
 import { ImagePicker } from '../../features/ImagePicker';
-import { Item3DCard } from '../../features/Item3DCard';
 import { PhotoTuneButton } from '../../features/PhotoTune';
 import { ItemPhotosCard, ItemReviewsCard } from '../../features/ItemShowcaseCards';
 import { fmtFactor, fmtPct } from '../../features/pricing';
@@ -929,14 +928,6 @@ export function ItemEditor() {
               </div>
             </Card>
             {!isNew && <ItemPhotosCard productId={id} canWrite={canWrite} />}
-            {!isNew && (
-              <Item3DCard
-                productId={id}
-                canWrite={canWrite}
-                imageId={form.imageId ?? null}
-                itemName={form.name}
-              />
-            )}
             {!isNew && <ItemReviewsCard productId={id} canWrite={canWrite} />}
           </>
         ) : tab === 'complementos' ? (

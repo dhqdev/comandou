@@ -11,7 +11,6 @@ import {
   Menu,
   MessageCircle,
   Monitor,
-  MousePointer2,
   Package,
   PiggyBank,
   Printer,
@@ -46,7 +45,6 @@ import { lazyPage } from '../lib/lazy-page';
 import { brl } from '../lib/money';
 import { contactHref, INCLUDED_IN_ALL, type PublicPlan } from '../pages/pricing-data';
 import { Builder, FIRST_LOOK } from './Builder';
-import { Dish3D } from './Dish3D';
 import { RollIn, RollingValue, SiteLink, useSitePath } from './fx';
 import { loadSiteConfig, type SiteConfig } from './host';
 import {
@@ -86,8 +84,8 @@ const DemoStore = lazyPage(
 
 /**
  * Site público do Comandou (comandou.com). Minimalista, com movimento de propósito: os títulos
- * com o Shuffle do React Bits, o celular do topo com o cardápio de uma lanchonete de verdade, o
- * prato em 3D feito da própria foto e a lanchonete de demonstração (/demo) para testar na hora.
+ * com o Shuffle do React Bits, o celular do topo com o cardápio de uma lanchonete de verdade e a
+ * lanchonete de demonstração (/demo) para testar na hora.
  * Tudo com os tokens do sistema; com "reduzir movimento" ligado, a página fica parada.
  */
 export function SiteApp() {
@@ -604,7 +602,6 @@ function DemoInvite() {
 /** Links do menu (e do rodapé). */
 const NAV: [string, string][] = [
   ['#sistema', 'O sistema'],
-  ['#prato-3d', 'Prato em 3D'],
   ['/demo', 'Demonstração'],
   ['#preco', 'Preço'],
   ['#perguntas', 'Perguntas'],
@@ -821,32 +818,6 @@ function Landing() {
           <Modules />
         </section>
 
-        <section className="st-sec st-sec--3d" id="prato-3d">
-          <div className="st-3d">
-            <div className="st-3d__text st-reveal">
-              <h2>
-                <Shuffle text="O prato salta da tela." />
-              </h2>
-              <p>
-                Com a foto do item, o Comandou monta o prato em 3D. O cliente gira antes de pedir e,
-                no celular, “Ver na sua mesa” coloca o prato na mesa pela câmera, do tamanho real.
-              </p>
-              <ul className="st-3d__facts">
-                <li>
-                  <MousePointer2 size={16} aria-hidden /> Mexa o mouse ou arraste o prato ao lado
-                </li>
-                <li>
-                  <Check size={16} aria-hidden /> iPhone e Android, sem instalar nada
-                </li>
-                <li>
-                  <Sparkles size={16} aria-hidden /> A IA monta o 3D pela foto do item
-                </li>
-              </ul>
-            </div>
-            <Dish3D />
-          </div>
-        </section>
-
         <section className="st-sec" id="demo">
           <DemoInvite />
         </section>
@@ -973,7 +944,6 @@ function Landing() {
           <nav className="st-foot__col" aria-label="Produto">
             <h3>Produto</h3>
             <a href="#sistema">O sistema</a>
-            <a href="#prato-3d">Prato em 3D</a>
             <a href="#aplicativos">Aplicativos</a>
             <SiteLink to="/demo">Lanchonete de demonstração</SiteLink>
           </nav>

@@ -15,7 +15,6 @@ import { brl } from '../../lib/money';
 import type { MenuGroup } from '../../lib/types';
 import { SearchArt } from './art';
 import { useStore } from './context';
-import { Model3DButton } from './Model3D';
 import { reducedMotion, takeMorph } from './morph';
 import { ProductGallery } from './ProductGallery';
 import { ProductReviews, RatingChip } from './ProductReviews';
@@ -343,7 +342,6 @@ export function ProductScreen() {
           <RatingChip average={p.rating.average} count={p.rating.count} />
         )}
         {p.description && <p className="pdp__desc">{p.description}</p>}
-        {p.model && <Model3DButton model={p.model} name={p.name} poster={p.imageUrl} />}
         {p.soldByWeight && (
           <p className="pdp__weight">
             <Scale size={16} aria-hidden />

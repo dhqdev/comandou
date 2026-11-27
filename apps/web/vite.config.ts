@@ -75,9 +75,8 @@ export default defineConfig({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        // O visualizador 3D e o descompactador de malhas só baixam quando alguém abre um modelo.
         // O panda dos e-mails (email/) é para o cliente de e-mail, não para o app.
-        globIgnores: ['**/model-viewer*.js', 'vendor/**', 'email/**'],
+        globIgnores: ['email/**'],
         navigateFallback: '/index.html',
         // A prévia da Loja online (/pedir?previa=1) vem sempre do servidor, que permite a moldura.
         navigateFallbackDenylist: [/^\/api\//, /[?&]previa=1(&|$)/],
