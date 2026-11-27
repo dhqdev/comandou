@@ -677,6 +677,37 @@ const zones: DeliveryZone[] = [
   },
 ];
 
+/** Preços e margens do exemplo (Estoque › Fichas técnicas › Preços). */
+function pricing(): PricingData {
+  return {
+    settings: {
+      taxPercent: '6.00',
+      feePercent: '3.50',
+      fixedPercent: '18.00',
+      targetMargin: '15.00',
+    },
+    products: products.map((p) => {
+      const cat = categories.find((c) => c.id === p.categoryId);
+      const sold = 20 + Math.floor(rand() * 260);
+      return {
+        id: p.id,
+        name: p.name,
+        categoryName: cat?.name ?? '',
+        price: p.price,
+        active: p.active,
+        cost: Number(p.cost).toFixed(4),
+        hasRecipe: true,
+        missingCost: false,
+        targetMargin: null,
+        sold30: String(sold),
+        revenue30: money(sold * toCents(p.price)),
+      };
+    }),
+    options: [],
+    summary: { revenue30: '84213.70', cogs30: '27980.10', losses30: '412.30' },
+  };
+}
+
 export function registerBack() {
   // Item do cardápio: IA das fotos fica para o teste grátis; fotos extras e avaliações do exemplo.
   on('GET', '/catalog-ai', () => ({
@@ -930,37 +961,7 @@ export function registerBack() {
     options: [],
   }));
   on('GET', '/stock/item-recipes', () => []);
-  on(
-    'GET',
-    '/stock/pricing',
-    (): PricingData => ({
-      settings: {
-        taxPercent: '6.00',
-        feePercent: '3.50',
-        fixedPercent: '18.00',
-        targetMargin: '15.00',
-      },
-      products: products.map((p) => {
-        const cat = categories.find((c) => c.id === p.categoryId);
-        const sold = 20 + Math.floor(rand() * 260);
-        return {
-          id: p.id,
-          name: p.name,
-          categoryName: cat?.name ?? '',
-          price: p.price,
-          active: p.active,
-          cost: Number(p.cost).toFixed(4),
-          hasRecipe: true,
-          missingCost: false,
-          targetMargin: null,
-          sold30: String(sold),
-          revenue30: money(sold * toCents(p.price)),
-        };
-      }),
-      options: [],
-      summary: { revenue30: '84213.70', cogs30: '27980.10', losses30: '412.30' },
-    }),
-  );
+  on('GET', '/stock/pricing', () => pricing());
 
   // ------------------------------------------------------------------------ entregas
   on('GET', '/deliveries', ({ query }) => {

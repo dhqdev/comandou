@@ -93,6 +93,8 @@ const WEIGHT: Record<string, number> = {
   sundae: 2,
   'sundae-morango': 1,
 };
+/** Itens mostrados no relatório do cardápio online. */
+const featured = products.slice(0, 12);
 const totalWeight = products.reduce((t, p) => t + (WEIGHT[p.key] ?? 1), 0);
 
 interface DayStat {
@@ -111,6 +113,21 @@ interface DayStat {
 
 const cache = new Map<string, DayStat>();
 
+const noChannels = (): DayStat['byChannel'] => ({
+  counter: { orders: 0, revenue: 0 },
+  table: { orders: 0, revenue: 0 },
+  delivery: { orders: 0, revenue: 0 },
+  pickup: { orders: 0, revenue: 0 },
+});
+const noMethods = (): Record<PaymentMethod, number> => ({
+  pix: 0,
+  credit: 0,
+  debit: 0,
+  cash: 0,
+  voucher: 0,
+  other: 0,
+});
+
 function liveToday(day: string): DayStat {
   const list = orders.filter(
     (o) => o.createdAt.slice(0, 10) <= day && new Date(o.createdAt) >= parseDay(day),
@@ -124,14 +141,9 @@ function liveToday(day: string): DayStat {
     cost: 0,
     deliveryFees: 0,
     discounts: 0,
-    byChannel: {
-      counter: { orders: 0, revenue: 0 },
-      table: { orders: 0, revenue: 0 },
-      delivery: { orders: 0, revenue: 0 },
-      pickup: { orders: 0, revenue: 0 },
-    },
+    byChannel: noChannels(),
     byHour: Array(24).fill(0),
-    byMethod: { pix: 0, credit: 0, debit: 0, cash: 0, voucher: 0, other: 0 },
+    byMethod: noMethods(),
     products: new Map(),
   };
   for (const o of live) {
@@ -174,14 +186,9 @@ export function dayStat(day: string): DayStat {
     cost: 0,
     deliveryFees: 0,
     discounts: Math.round(orderCount * ticket * 0.012),
-    byChannel: {
-      counter: { orders: 0, revenue: 0 },
-      table: { orders: 0, revenue: 0 },
-      delivery: { orders: 0, revenue: 0 },
-      pickup: { orders: 0, revenue: 0 },
-    },
+    byChannel: noChannels(),
     byHour: Array(24).fill(0),
-    byMethod: { pix: 0, credit: 0, debit: 0, cash: 0, voucher: 0, other: 0 },
+    byMethod: noMethods(),
     products: new Map(),
   };
   CHANNELS.forEach((c, i) => {
@@ -221,17 +228,9 @@ function sumRange(from: string, to: string) {
     cost: 0,
     deliveryFees: 0,
     discounts: 0,
-    byChannel: {
-      counter: { orders: 0, revenue: 0 },
-      table: { orders: 0, revenue: 0 },
-      delivery: { orders: 0, revenue: 0 },
-      pickup: { orders: 0, revenue: 0 },
-    } as DayStat['byChannel'],
+    byChannel: noChannels(),
     byHour: Array(24).fill(0) as number[],
-    byMethod: { pix: 0, credit: 0, debit: 0, cash: 0, voucher: 0, other: 0 } as Record<
-      PaymentMethod,
-      number
-    >,
+    byMethod: noMethods(),
     products: new Map<string, number>(),
     list,
   };
@@ -979,19 +978,17 @@ export function registerReports() {
         hour,
         visits: hour < 10 ? 0 : Math.round((tot / 14) * (hour >= 18 && hour <= 21 ? 1.8 : 0.7)),
       })),
-      products: products
-        .slice(0, 12)
-        .map((pr) => ({
-          productId: pr.id,
-          name: pr.name,
-          category: null,
-          views: 300 + Math.round(noise(pr.key) * 900),
-          viewSessions: 240,
-          adds: 60 + Math.round(noise(pr.key, 2) * 200),
-          addSessions: 50,
-          favorites: Math.round(noise(pr.key, 3) * 40),
-          sold: '0',
-        })),
+      products: featured.map((pr) => ({
+        productId: pr.id,
+        name: pr.name,
+        category: null,
+        views: 300 + Math.round(noise(pr.key) * 900),
+        viewSessions: 240,
+        adds: 60 + Math.round(noise(pr.key, 2) * 200),
+        addSessions: 50,
+        favorites: Math.round(noise(pr.key, 3) * 40),
+        sold: '0',
+      })),
       searches: [
         { term: 'batata', count: 42, noResults: 0 },
         { term: 'combo', count: 31, noResults: 0 },
