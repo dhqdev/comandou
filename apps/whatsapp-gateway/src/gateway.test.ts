@@ -397,6 +397,33 @@ describe('sessões e API interna', () => {
     m2.close();
   });
 
+  it('sem INBOUND_URL: avisa na situação e no log (uma vez) que a mensagem não vai para a API', async () => {
+    const logs: string[] = [];
+    const list: FakeSocket[] = [];
+    const m3 = new SessionManager(
+      mkdtempSync(join(tmpdir(), 'wa-')),
+      key,
+      () => {
+        const s = new FakeSocket();
+        list.push(s);
+        return s;
+      },
+      (m) => logs.push(m),
+    );
+    const t8 = randomUUID();
+    await m3.start(t8);
+    list[0].emit({ connection: 'open' });
+    expect(m3.status(t8)).toMatchObject({ status: 'connected', inboundOff: true });
+    const oi = (id: string) => ({
+      key: { remoteJid: '5511987654321@s.whatsapp.net', id },
+      message: { conversation: 'oi' },
+    });
+    list[0].emitUpsert([oi('N1'), oi('N2')]);
+    expect(logs.filter((l) => l.includes('INBOUND_URL'))).toHaveLength(1);
+    expect(m3.status(t8).lastInboundAt).toBeUndefined();
+    m3.close();
+  });
+
   it('logout durante a espera da reconexão cancela a reconexão', async () => {
     const t6 = randomUUID();
     await call(`/v1/sessions/${t6}/start`, 'POST');
@@ -663,6 +690,7 @@ describe('religação e recursos do Baileys', () => {
     ]);
     expect(inbound.map((m) => m.text)).toEqual(['oi']);
     const st = mgr.status(t);
+    expect(st.inboundOff).toBeUndefined(); // este manager repassa para a API
     expect(st.unreadable).toBeUndefined();
     expect(Date.parse(st.lastInboundAt!)).toBeGreaterThan(Date.now() - 5000);
     await mgr.logout(t);

@@ -1412,6 +1412,8 @@ export interface WhatsAppSession {
   lastInboundAt?: string;
   /** mensagens de cliente seguidas que chegaram sem abrir neste aparelho */
   unreadable?: number;
+  /** o servidor não repassa as mensagens recebidas (falta INBOUND_URL no serviço do WhatsApp) */
+  inboundOff?: boolean;
 }
 export interface OutboxMessage {
   id: string;

@@ -214,9 +214,35 @@ export class AiAgentService implements OnModuleInit {
     return r ?? { ...AGENT_DEFAULTS };
   }
 
+  /**
+   * WhatsApp do restaurante para a tela da IA: conectado e se as mensagens dos clientes chegam
+   * aqui (gateway sem INBOUND_URL descarta tudo e a IA nunca responde). null = sem gateway ou
+   * sem resposta dele em 3 s (a tela não mostra nada).
+   */
+  private async whatsappState(tenantId: string) {
+    if (!this.gateway.configured) return null;
+    let t: NodeJS.Timeout | undefined;
+    try {
+      const s = await Promise.race([
+        this.gateway.session(tenantId),
+        new Promise<never>((_, rej) => {
+          t = setTimeout(() => rej(new Error('timeout')), 3000);
+        }),
+      ]);
+      return { connected: s.status === 'connected', inboundOff: s.inboundOff === true };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
   /** Tudo o que a tela do gerente precisa: configuração, situação da IA e uso do mês. */
   async overview(ctx: Ctx) {
-    const settings = await this.db.withTenant(ctx, (tx) => this.settingsIn(tx));
+    const [settings, whatsapp] = await Promise.all([
+      this.db.withTenant(ctx, (tx) => this.settingsIn(tx)),
+      this.whatsappState(ctx.tenantId),
+    ]);
     const { c, used } = await this.platform(ctx);
     const reason =
       !c.enabled || !this.env.INTEGRATIONS_KEY
@@ -231,6 +257,7 @@ export class AiAgentService implements OnModuleInit {
       defaultName: c.assistant_name,
       available: reason === null,
       reason,
+      whatsapp,
       usage: {
         used,
         limit: c.monthly_tokens,

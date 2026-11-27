@@ -39,6 +39,8 @@ interface Session {
   phone?: string;
   error?: string;
   reconnecting?: boolean;
+  /** gateway sem INBOUND_URL: nada do que chega no número vem para cá (nem para a IA) */
+  inboundOff?: boolean;
 }
 
 interface Chat {
@@ -584,6 +586,16 @@ export function WhatsAppAdminPage() {
         </div>
       ) : (
         !connected && <ConnectPanel s={s} acting={acting} onConnect={() => void call('connect')} />
+      )}
+      {connected && s?.inboundOff && (
+        <Alert tone="danger">
+          O serviço do WhatsApp está sem a variável <code>INBOUND_URL</code>: as mensagens que
+          chegam (aqui e nos restaurantes, inclusive para a IA) são descartadas. Ponha no serviço{' '}
+          <code>
+            INBOUND_URL=http://&lt;serviço da api&gt;:3000/api/v1/internal/whatsapp/inbound
+          </code>{' '}
+          e atualize o serviço.
+        </Alert>
       )}
       {(connected || hasChats) && (
         <div className="adm-support">

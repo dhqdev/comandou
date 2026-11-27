@@ -15,6 +15,8 @@ export interface GatewaySession {
   lastInboundAt?: string;
   /** mensagens de cliente seguidas que chegaram sem abrir neste aparelho */
   unreadable?: number;
+  /** o gateway está sem INBOUND_URL: as mensagens dos clientes não chegam à API (nem à IA) */
+  inboundOff?: boolean;
 }
 
 /**

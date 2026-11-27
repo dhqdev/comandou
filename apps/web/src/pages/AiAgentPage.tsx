@@ -57,6 +57,8 @@ interface Overview {
   defaultName: string;
   available: boolean;
   reason: 'platform' | 'tenant' | 'limit' | null;
+  /** null: sem serviço de WhatsApp ou sem resposta dele agora */
+  whatsapp: { connected: boolean; inboundOff: boolean } | null;
   usage: { used: number; limit: number; percent: number | null };
 }
 
@@ -241,7 +243,7 @@ export function AiAgentPage() {
         }
       >
         <div className="ai-steps">
-          <Step n={1}>
+          <Step n={1} done={o.whatsapp?.connected}>
             Conecte o WhatsApp da loja em <Link to="/whatsapp?foco=secao-qr">WhatsApp</Link>.
           </Step>
           <Step n={2} done={!dirty}>
@@ -254,6 +256,13 @@ export function AiAgentPage() {
         </div>
         {o.reason && (
           <Alert tone={o.reason === 'platform' ? 'info' : 'warning'}>{REASON[o.reason]}</Alert>
+        )}
+        {o.whatsapp?.connected && o.whatsapp.inboundOff && (
+          <Alert tone="danger">
+            O WhatsApp está conectado, mas as mensagens dos clientes não estão chegando ao Comandou,
+            então a IA não tem o que responder. Falta um ajuste no servidor; fale com o suporte do
+            Comandou.
+          </Alert>
         )}
         <div className="ai-switch-row">
           <Button

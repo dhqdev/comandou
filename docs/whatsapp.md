@@ -16,6 +16,21 @@ cliente no WhatsApp ──► gateway (1 socket por restaurante) ──► API (
   conexões do mesmo número e o WhatsApp derrubaria uma com o código 440).
 - As credenciais ficam cifradas em `comandou_wadata` (uma pasta por restaurante).
 
+### Duas coisas que a stack do gateway precisa ter
+
+Quem monta a stack à mão (Portainer, outro nome de serviço) precisa repetir do
+`infrastructure/swarm/comandou-stack.yml`:
+
+1. **`INBOUND_URL`** apontando para a API na mesma rede, por exemplo
+   `http://api:3000/api/v1/internal/whatsapp/inbound` (troque `api` pelo nome do serviço da API).
+   Sem ela o gateway conecta e envia, mas **descarta toda mensagem que os clientes mandam**: a IA
+   nunca responde e o Super Admin › WhatsApp não recebe nada. Desde a 0.278.2 isso aparece no log
+   ao subir, uma vez por restaurante quando chega mensagem, e em vermelho nas telas WhatsApp,
+   Assistente de IA e Super Admin › WhatsApp (`inboundOff` na situação da sessão).
+2. **Volume com nome em `/data`** (`comandou_wadata:/data`). Sem ele cada atualização do serviço
+   cria um volume vazio e todas as sessões caem: o log mostra o gateway subindo sem a linha
+   "N sessões salvas reabertas" e cada restaurante precisa ler o QR Code de novo.
+
 ## Como aparece no celular
 
 Em **Aparelhos conectados** o Comandou aparece como **Mac OS**, um computador, igual ao WhatsApp

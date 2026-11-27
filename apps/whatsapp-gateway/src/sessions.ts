@@ -258,6 +258,8 @@ export type Target = { to: string } | { jid: string };
  */
 export class SessionManager {
   private readonly sessions = new Map<string, Session>();
+  /** Restaurantes já avisados no log de que a mensagem recebida não tem para onde ir. */
+  private readonly warnedNoInbound = new Set<string>();
   private closed = false;
   private readonly t: Timings;
   private readonly heartbeat: NodeJS.Timeout;
@@ -319,6 +321,8 @@ export class SessionManager {
         ? { lastActivityAt: new Date(s.lastRecvAt).toISOString() }
         : {}),
       ...(s?.lastInboundAt ? { lastInboundAt: new Date(s.lastInboundAt).toISOString() } : {}),
+      // Sem INBOUND_URL as mensagens dos clientes não vão para a API (a IA nunca responde).
+      ...(this.opts.onInbound ? {} : { inboundOff: true }),
       ...(s?.unreadable ? { unreadable: s.unreadable } : {}),
     };
   }
@@ -438,7 +442,7 @@ export class SessionManager {
     sock.ev.on('messages.upsert', ({ messages, type }) => {
       if (!current()) return;
       s.lastRecvAt = Date.now();
-      if (type !== 'notify' || !this.opts.onInbound) return;
+      if (type !== 'notify') return;
       for (const raw of messages) {
         const why = unreadableReason(raw);
         if (why) {
@@ -450,6 +454,15 @@ export class SessionManager {
         }
         const msg = parseInbound(tenantId, raw);
         if (!msg) continue;
+        if (!this.opts.onInbound) {
+          if (!this.warnedNoInbound.has(tenantId)) {
+            this.warnedNoInbound.add(tenantId);
+            this.log(
+              `restaurante ${tenantId}: mensagem de cliente recebida e descartada: INBOUND_URL não está configurada (a IA não fica sabendo)`,
+            );
+          }
+          continue;
+        }
         s.lastInboundAt = Date.now();
         s.unreadable = 0;
         try {

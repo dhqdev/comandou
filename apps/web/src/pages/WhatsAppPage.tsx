@@ -320,6 +320,13 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
               )}
             </div>
           )}
+          {session?.status === 'connected' && session.inboundOff && (
+            <Alert tone="danger">
+              Os avisos de pedido saem, mas as mensagens que os clientes mandam não estão chegando
+              ao Comandou: o atendimento da IA não responde. Falta um ajuste no servidor; fale com o
+              suporte do Comandou.
+            </Alert>
+          )}
           {session?.status === 'connected' && !!session.unreadable && (
             <Alert tone="warning">
               {session.unreadable === 1

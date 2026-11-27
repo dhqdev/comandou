@@ -59,6 +59,11 @@ function versionRejected() {
 // Mensagens que os clientes mandam vão para a API (o atendimento por IA responde por lá).
 // Ex.: http://api:3000/api/v1/internal/whatsapp/inbound. Sem a variável, não repassa nada.
 const inboundUrl = process.env.INBOUND_URL?.trim() || undefined;
+if (!inboundUrl)
+  logger.warn(
+    'INBOUND_URL não configurada: as mensagens que os clientes mandam NÃO vão para a API e a IA não responde. ' +
+      'Defina, por exemplo, INBOUND_URL=http://api:3000/api/v1/internal/whatsapp/inbound (nome do serviço da API na stack).',
+  );
 const forwardConcurrency = Number(process.env.INBOUND_CONCURRENCY ?? 64);
 const forwarder = inboundUrl
   ? new InboundForwarder(inboundUrl, token, (msg) => logger.warn(msg), {

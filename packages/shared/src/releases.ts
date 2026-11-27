@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.278.2',
+    date: '2026-11-27',
+    title: 'Aviso quando as mensagens do WhatsApp não chegam',
+    summary:
+      'Se o servidor estiver conectando o WhatsApp mas sem repassar ao Comandou as mensagens que os clientes mandam, as telas WhatsApp e Assistente de IA agora avisam em vermelho, em vez de a IA ficar calada sem explicação.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Telas WhatsApp, Assistente de IA e Super Admin › WhatsApp avisam quando o serviço do WhatsApp não está repassando as mensagens recebidas (falta um ajuste no servidor), e o registro do serviço diz o que falta.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No Assistente de IA, o passo "Conecte o WhatsApp da loja" fica marcado quando o WhatsApp está conectado.',
+      },
+    ],
+  },
+  {
     version: '0.278.1',
     date: '2026-11-27',
     title: 'WhatsApp aparece como Mac OS no celular',
