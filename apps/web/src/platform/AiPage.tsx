@@ -127,7 +127,7 @@ export interface TenantUsage {
 
 export type KeyKind = 'owner' | 'clients';
 
-/** Saldo do topo: créditos da conta (chave de gerenciamento) ou o que sobra no limite da chave. */
+/** Saldo do topo: o que sobra no limite da chave (ou os créditos da conta, se a chave os traz). */
 export interface Balance {
   totalUsd: number | null;
   usedUsd: number | null;
@@ -345,9 +345,7 @@ function StatusSection({ o }: { o: AiOverview }) {
               ? `de ${usd(b.totalUsd)} em créditos`
               : b.from
                 ? `limite de ${usd(b.totalUsd)} na ${b.from === 'owner' ? 'chave do sistema' : 'chave dos restaurantes'}`
-                : s.hasAdminKey
-                  ? 'sem resposta do OpenRouter'
-                  : 'cadastre a chave de gerenciamento em Credenciais'
+                : 'ponha um limite de gasto na chave dos restaurantes no OpenRouter'
           }
           meter={balancePct}
         />

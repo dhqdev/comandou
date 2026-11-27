@@ -78,7 +78,7 @@ export const TokenGrantBody = z.object({
 export const AiTestBody = z.object({
   apiKey: z.string().trim().max(300).optional(),
   /** Qual chave salva testar quando apiKey vem vazio. */
-  key: z.enum(['owner', 'clients', 'admin']).default('clients'),
+  key: z.enum(['owner', 'clients']).default('clients'),
   model: AiSettingsBody.shape.model,
 });
 
@@ -201,38 +201,18 @@ export class PlatformAiService {
   }
 
   private accounts: Partial<Record<KeyKind, { at: number; value: Account }>> = {};
-  private creditsCache: { at: number; value: Credits } | null = null;
 
   /**
-   * Saldo da conta no OpenRouter. Com a chave de gerenciamento: créditos comprados menos os
-   * gastos (o saldo de verdade). Sem ela, o que sobra no limite da chave dos restaurantes (ou
-   * da sua); sem limite nas chaves, não dá para saber.
+   * Saldo no OpenRouter, pela própria chave: o que sobra no limite da chave dos restaurantes (ou
+   * da sua). Se a chave for de gerenciamento, ela já traz os créditos da conta. A chave de
+   * gerenciamento separada saiu na 0.274.1 (pedido do David: o saldo já aparece com a chave).
    */
   private async balance(
-    r: Row,
-    fresh: boolean,
+    _r: Row,
+    _fresh: boolean,
     account: Account | null,
     ownerAccount: Account | null,
   ): Promise<Credits> {
-    const key = this.adminKey(r);
-    if (key) {
-      const hit = this.creditsCache;
-      if (!fresh && hit && Date.now() - hit.at < 60_000) return hit.value;
-      try {
-        const c = await new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key).credits();
-        const value: Credits = { ...c, from: 'conta', error: null };
-        this.creditsCache = { at: Date.now(), value };
-        return value;
-      } catch (e) {
-        return {
-          totalUsd: null,
-          usedUsd: null,
-          remainingUsd: null,
-          from: null,
-          error: `Chave de gerenciamento: ${(e as Error).message}`,
-        };
-      }
-    }
     // Uma chave comum que por acaso é de gerenciamento já traz os créditos.
     const acc =
       account?.totalUsd != null ? account : ownerAccount?.totalUsd != null ? ownerAccount : null;
@@ -805,7 +785,6 @@ export class PlatformAiService {
     if (b.clearAdminKey) adminEnc = null;
     if (b.adminApiKey)
       adminEnc = seal(this.env.INTEGRATIONS_KEY!, b.adminApiKey, ADMIN_KEY_CONTEXT);
-    if (b.adminApiKey || b.clearAdminKey) this.creditsCache = null;
     if (b.enabled && !enc)
       throw new UnprocessableEntityException('Informe a chave do OpenRouter dos restaurantes');
     await this.db.tx(async (c) => {
@@ -974,23 +953,16 @@ export class PlatformAiService {
    * uma chave salva entra no extrato do sistema.
    */
   /**
-   * Confere uma chave salva sem gastar nada: a comum lê os dados dela (/key) e a de
-   * gerenciamento lê o saldo da conta (/credits). Usado em Credenciais › Conferir todas.
+   * Confere uma chave salva sem gastar nada: lê os dados dela (/key). Usado em Credenciais ›
+   * Conferir todas.
    */
-  async checkKey(kind: KeyKind | 'admin'): Promise<{ ok: boolean; detail: string }> {
+  async checkKey(kind: KeyKind): Promise<{ ok: boolean; detail: string }> {
     const r = await this.row();
-    const key = kind === 'admin' ? this.adminKey(r) : this.key(r, kind);
+    const key = this.key(r, kind);
     if (!key) return { ok: false, detail: 'A chave salva não abre: cole de novo' };
     const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key);
     const usd = (v: number) => `US$ ${v.toFixed(2).replace('.', ',')}`;
     try {
-      if (kind === 'admin') {
-        const c = await client.credits();
-        return {
-          ok: true,
-          detail: c.remainingUsd == null ? 'saldo lido' : `saldo da conta ${usd(c.remainingUsd)}`,
-        };
-      }
       const k = await client.keyInfo();
       return {
         ok: true,
@@ -1010,19 +982,10 @@ export class PlatformAiService {
 
   async test(b: z.infer<typeof AiTestBody>, a?: Actor) {
     const r = await this.row();
-    const key = b.apiKey || (b.key === 'admin' ? this.adminKey(r) : this.key(r, b.key));
+    const key = b.apiKey || this.key(r, b.key);
     if (!key) throw new UnprocessableEntityException('Informe a chave do OpenRouter');
     const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key);
     const started = Date.now();
-    // A chave de gerenciamento não conversa com a IA: o teste é ler o saldo da conta.
-    if (b.key === 'admin') {
-      try {
-        const credits = await client.credits();
-        return { ok: true, ms: Date.now() - started, credits };
-      } catch (e) {
-        return { ok: false, error: (e as Error).message, ms: Date.now() - started };
-      }
-    }
     try {
       const out = await client.stream(
         b.model,

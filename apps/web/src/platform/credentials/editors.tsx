@@ -206,14 +206,15 @@ const aiBody = (s: AiOverview['settings']) => ({
 });
 
 /**
- * Uma das chaves do OpenRouter guardadas em Super Admin › Tokens: a dos restaurantes, a sua e a
- * de gerenciamento (só lê o saldo da conta).
+ * Uma das chaves do OpenRouter guardadas em Super Admin › Tokens: a dos restaurantes e a do
+ * sistema (esteira). O saldo vem da própria chave (limite de gasto), sem chave de gerenciamento
+ * desde a 0.274.1.
  */
 export function OpenRouterEditor({
   kind,
   onSaved,
 }: {
-  kind: 'owner' | 'clients' | 'admin';
+  kind: 'owner' | 'clients';
   onSaved(): void;
 }) {
   const load = useLoad<AiOverview>('/platform/ai');
@@ -238,17 +239,16 @@ function OpenRouterForm({
   o,
   onSaved,
 }: {
-  kind: 'owner' | 'clients' | 'admin';
+  kind: 'owner' | 'clients';
   o: AiOverview;
   onSaved(n: AiOverview): void;
 }) {
   const s = o.settings;
   const owner = kind === 'owner';
-  const admin = kind === 'admin';
-  const has = admin ? s.hasAdminKey : owner ? s.hasOwnerKey : s.hasApiKey;
-  const readable = admin ? s.adminKeyReadable : owner ? s.ownerKeyReadable : s.keyReadable;
-  const acc = admin ? null : owner ? o.ownerAccount : o.account;
-  const accError = admin ? o.balance.error : acc?.error;
+  const has = owner ? s.hasOwnerKey : s.hasApiKey;
+  const readable = owner ? s.ownerKeyReadable : s.keyReadable;
+  const acc = owner ? o.ownerAccount : o.account;
+  const accError = acc?.error;
   const [value, setValue] = useState('');
   const [test, setTest] = useState<AiTest | null>(null);
   const { busy, error, run } = useBusy();
@@ -275,11 +275,7 @@ function OpenRouterForm({
       className="adm-cred__form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (value)
-          void save(
-            admin ? { adminApiKey: value } : owner ? { ownerApiKey: value } : { apiKey: value },
-            'save',
-          );
+        if (value) void save(owner ? { ownerApiKey: value } : { apiKey: value }, 'save');
       }}
     >
       <NoKey show={!s.keyConfigured} />
@@ -289,12 +285,6 @@ function OpenRouterForm({
         </Alert>
       )}
       {accError && has && <Alert tone="warning">{accError}</Alert>}
-      {admin && has && o.balance.from === 'conta' && (
-        <Result ok>
-          Saldo da conta: {money(o.balance.remainingUsd)} de {money(o.balance.totalUsd)} em
-          créditos.
-        </Result>
-      )}
       <div className="adm-backup-grid">
         <TextField
           label={has ? 'Trocar a chave' : 'Colar a chave'}
@@ -316,12 +306,12 @@ function OpenRouterForm({
       )}
       {error && <Alert tone="danger">{error}</Alert>}
       <Actions>
-        {(owner || admin) && has && (
+        {owner && has && (
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => save(admin ? { clearAdminKey: true } : { clearOwnerKey: true }, 'clear')}
+            onClick={() => save({ clearOwnerKey: true }, 'clear')}
             loading={busy === 'clear'}
             disabled={!!busy}
           >

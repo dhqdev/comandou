@@ -26,7 +26,6 @@ import {
   Smartphone,
   Sparkles,
   UserCog,
-  Wallet,
 } from 'lucide-react';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -107,7 +106,6 @@ const ICONS: Record<string, LucideIcon> = {
   channel_od_apps: Boxes,
   openrouter_clients: Sparkles,
   openrouter_owner: Bot,
-  openrouter_admin: Wallet,
   resend: Mail,
   asaas: Landmark,
   pagbank: CreditCard,
@@ -337,8 +335,6 @@ export function CredentialsPage() {
         return <OpenRouterEditor kind="clients" onSaved={reload} />;
       case 'openrouter_owner':
         return <OpenRouterEditor kind="owner" onSaved={reload} />;
-      case 'openrouter_admin':
-        return <OpenRouterEditor kind="admin" onSaved={reload} />;
       case 'resend':
         return <ResendEditor onSaved={reload} />;
       case 'asaas':
@@ -566,7 +562,6 @@ export function CredentialsPage() {
                 {jump('backblaze', 'Backblaze B2')}
                 {jump('pagbank', 'PagBank')}
                 {jump('openrouter_owner', 'Chave do sistema no OpenRouter')}
-                {jump('openrouter_admin', 'Saldo do OpenRouter')}
                 {jump('github_pipeline', 'GitHub da esteira')}
                 {jump('channel_ifood', 'iFood')}
               </div>

@@ -15,7 +15,7 @@ import {
   ChannelCredentials,
   type ChannelCredentialInput,
 } from '../integrations/channels/channel-credentials.service';
-import { ADMIN_KEY_CONTEXT, CLIENT_KEY_CONTEXT, OWNER_KEY_CONTEXT } from './ai-keys';
+import { CLIENT_KEY_CONTEXT, OWNER_KEY_CONTEXT } from './ai-keys';
 import type { Actor } from './platform.service';
 import { PlatformAiService } from './platform-ai.service';
 import { PlatformBackupService } from './platform-backup.service';
@@ -200,7 +200,6 @@ export class PlatformCredentialsService {
       },
       { id: 'openrouter_clients', required: true, ...this.key(ai?.clients, CLIENT_KEY_CONTEXT) },
       { id: 'openrouter_owner', required: false, ...this.key(ai?.owner, OWNER_KEY_CONTEXT) },
-      { id: 'openrouter_admin', required: false, ...this.key(ai?.admin, ADMIN_KEY_CONTEXT) },
       { id: 'resend', required: true, ...this.key(mail?.key, MAIL_SECRET.resend) },
       {
         id: 'asaas',
@@ -308,7 +307,6 @@ export class PlatformCredentialsService {
         }),
         run('openrouter_clients', () => this.ai.checkKey('clients')),
         run('openrouter_owner', () => this.ai.checkKey('owner')),
-        run('openrouter_admin', () => this.ai.checkKey('admin')),
         run('resend', () => this.checkResend()),
         run('asaas', async () => {
           const r = await this.billing.test(a);

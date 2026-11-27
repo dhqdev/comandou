@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.274.1',
+    date: '2026-11-27',
+    title: 'Sem a chave de gerenciamento do OpenRouter',
+    summary:
+      'Super Admin › Credenciais não pede mais a "chave de gerenciamento (saldo)" do OpenRouter: o saldo em Tokens de IA sai da própria chave cadastrada (o que sobra no limite de gasto dela).',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Credenciais sem o cartão "OpenRouter · chave de gerenciamento (saldo)". Ficam a chave dos restaurantes e a do sistema (esteira); o Conferir todas e o quadro Saldo no OpenRouter usam essas duas.',
+      },
+    ],
+  },
+  {
     version: '0.274.0',
     date: '2026-11-27',
     title: 'IA da impressão rápida, com skills e prévia na hora',

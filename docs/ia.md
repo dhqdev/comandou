@@ -161,4 +161,4 @@ Super Admin › Credenciais ([credenciais.md](credenciais.md)):
 - **OpenRouter · chave do sistema (esteira)**: a esteira de chamados e os testes do painel. Sem
   ela, o sistema usa a dos restaurantes, e Chamados e Tokens de IA avisam com o link que abre o
   cartão com o campo piscando. Cada uso grava qual chave pagou (`platform_ai_usage.key_kind`).
-- **OpenRouter · chave de gerenciamento**: só lê o saldo da conta.
+- **Saldo**: sai da própria chave (o que sobra no limite de gasto dela; se a chave for de gerenciamento, os créditos da conta). A chave de gerenciamento separada saiu na 0.274.1.

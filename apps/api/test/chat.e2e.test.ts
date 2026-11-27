@@ -982,7 +982,7 @@ describe('Assistente de IA', () => {
     expect(cfg!.import_model).toBe('google/gemini-2.5-flash');
   });
 
-  it('chave de gerenciamento mostra o saldo de verdade da conta no OpenRouter', async () => {
+  it('saldo vem da própria chave: sem a chave de gerenciamento separada (0.274.1)', async () => {
     const base = {
       enabled: true,
       model: 'google/gemini-2.5-flash-lite',
@@ -990,33 +990,15 @@ describe('Assistente de IA', () => {
       defaultMonthlyTokens: 1000,
       lowBalanceUsd: 2,
     };
-    const t = (
-      await psend('post', '/ai/test', { apiKey: 'sk-or-gerencia', key: 'admin', model: 'x/y' })
-    ).body;
-    expect(t).toMatchObject({ ok: true, credits: { totalUsd: 20, remainingUsd: 15.75 } });
-    let o = (
+    // Uma chave de gerenciamento que ficou salva de antes não muda mais o saldo do topo.
+    const o = (
       await psend('put', '/ai/settings', { ...base, adminApiKey: 'sk-or-gerencia' }).expect(200)
     ).body;
-    expect(o.settings).toMatchObject({ hasAdminKey: true, adminKeyReadable: true });
-    expect(o.balance).toMatchObject({
-      from: 'conta',
-      totalUsd: 20,
-      usedUsd: 4.25,
-      remainingUsd: 15.75,
-    });
-    expect(JSON.stringify(o)).not.toContain('sk-or-gerencia');
-    const [row] = await ownerQuery<{ k: Buffer }>(
-      `SELECT admin_api_key_enc AS k FROM platform_ai_settings`,
-    );
-    expect(row.k.toString()).not.toContain('sk-or-gerencia');
-    const cred = (await pget('/credentials').expect(200)).body;
-    expect(cred.items.find((i: { id: string }) => i.id === 'openrouter_admin')).toMatchObject({
-      configured: true,
-      last4: 'ncia',
-    });
-    o = (await psend('put', '/ai/settings', { ...base, clearAdminKey: true }).expect(200)).body;
-    expect(o.settings.hasAdminKey).toBe(false);
     expect(o.balance.from).toBe('clients');
+    expect(JSON.stringify(o)).not.toContain('sk-or-gerencia');
+    const cred = (await pget('/credentials').expect(200)).body;
+    expect(cred.items.find((i: { id: string }) => i.id === 'openrouter_admin')).toBeUndefined();
+    await psend('put', '/ai/settings', { ...base, clearAdminKey: true }).expect(200);
   });
 
   it('apaga a própria conversa', async () => {
