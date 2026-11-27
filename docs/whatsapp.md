@@ -109,6 +109,53 @@ respostas, religação espalhada), mas **não manda campanhas em massa**. Para d
 nunca falou com o restaurante, o Comandou não oferece saída: a integração com a API oficial da
 Meta saiu da tela na 0.222.1 e não será feita (o código antigo segue na API, sem uso).
 
+## Atendimento por menu e pedido pelo WhatsApp (0.279)
+
+Pedido do David: "o cliente faz toda a trajetória de compra pela IA, estilo call center, começando
+por um menu com os números; ela tem que perguntar se o cliente já tem cadastro ou se deseja fazer
+um; não quero que ela mande ele para o cardápio". Ligado em **Assistente de IA › Atendimento por
+menu** (`ai_agent_settings.menu_mode`, padrão ligado; migração 0132).
+
+- **Quem anda pelas telas é o servidor, sem IA** (`apps/api/src/chat/wa-flow.ts` = textos,
+  formatação e leitura das respostas; `wa-flow-engine.ts` = as telas; `wa-order.service.ts` =
+  banco). O estado fica em `ai_customer_chats.flow` (2 horas parado recomeça). `menu`/`oi` volta
+  ao começo de qualquer tela, `sacola` mostra a sacola, `cancelar` esvazia.
+- **Menu principal** (o que o dono ligou): Fazer um pedido, Acompanhar meu pedido, Ver o cardápio
+  (arquivos do cardápio ou a lista em texto), Reservar uma mesa (conversa com a IA), Horários e
+  endereço, Falar com uma pessoa (passa para a equipe).
+- **Pedido**: cadastro (achado pelo número da conversa, DDD + 8 últimos; sem cadastro: cadastrar
+  só com o nome por `CustomersService.staffCreate`, telefone já confirmado, ou pedir sem cadastro),
+  entrega ou retirada, endereço (salvos ou novo "Rua, número, bairro", achado no mapa pelo
+  `GeocoderService` e cobrado pela área de `ZonesService.quoteIn`; fora da área oferece retirar),
+  categorias, itens, quantidade, complementos (obrigatórios sempre), observação, sacola com
+  sugestão de bebida/sobremesa, pedido mínimo, pagamento (formas do dono, sempre na entrega ou
+  retirada), troco e conferência. Confirmado, o pedido entra por `StoreService.placeOrder` (as
+  mesmas regras do cardápio online) com `whatsapp: true` (sem Pix com comprovante nem cartão pelo
+  app) e a nota "Pedido feito pelo WhatsApp".
+- **Pedido escrito** ("2 smash e 1 coca sem gelo"): primeiro o leitor sem IA (`readOrderText`, casa
+  cada pedaço com um item só, com folga); não entendeu e o dono deixou (`understand_text`), a IA
+  devolve só códigos curtos (`ORDER_PARSE_PROMPT`, `readOrderJson`, 300 tokens de resposta).
+- **Perguntas livres** (`free_chat`) vão para a IA com só as últimas 6 mensagens (cortadas em 500
+  caracteres) e a frase "Mande `menu`…" no fim. Sem IA (desligada ou sem cota) o menu segue
+  funcionando, sem perguntas livres, pedido escrito pela IA nem reserva.
+- **Formatação do WhatsApp** em todas as mensagens: *negrito*, _itálico_, ~riscado~,
+  ```monoespaçado```, `código`, listas, citação "> " e opções 1️⃣ 2️⃣ 3️⃣ (`num`). O prompt da IA
+  ensina o mesmo (`WHATSAPP_FORMAT` em `ai-agent-prompt.ts`).
+- **Modelo**: `platform_ai_settings.whatsapp_model` (Super Admin › Tokens de IA, só o Super Admin
+  troca; padrão `google/gemini-2.5-flash-lite`), devolvido por `app_ai_config()` e usado por
+  `waModel()`.
+- **Ritmo**: no menu, até 25 mensagens por minuto e 200 por hora do mesmo número (sem menu, 8 e 60).
+- **Cardápio online**: com o atendimento ligado e o menu fazendo pedidos, o início do cardápio
+  mostra "Pedir pelo WhatsApp" (`restaurant.waOrder`, o número conectado guardado em
+  `ai_agent_settings.wa_phone` quando a tela WhatsApp lê a sessão, senão o WhatsApp da loja).
+- **Tela WhatsApp**: número conectado num cartão com **Reiniciar conexão** (`POST
+  /messaging/session/restart` → gateway `/v1/sessions/:id/restart`: derruba o socket e reabre com
+  as credenciais salvas, sem QR), Reconectar (sessão salva que caiu), Trocar número e Desconectar;
+  mensagens com filtros por situação, aviso e telefone/pedido (`GET /messaging/messages?status=&event=&q=`
+  e `GET /messaging/messages/summary`).
+- Testes: `src/chat/wa-flow.test.ts` (telas com dependências falsas) e o bloco "pedido pelo menu
+  numerado" de `test/chat.e2e.test.ts` (pedido gravado de verdade, sem chamar a IA).
+
 ## IA que atende no WhatsApp
 
 O gerente liga em **Assistente de IA** (menu) (`apps/web/src/pages/AiAgentPage.tsx`); o

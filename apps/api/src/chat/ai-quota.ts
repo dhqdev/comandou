@@ -24,6 +24,8 @@ export interface AiConfig {
   image_model: string;
   /** Modelo que lê o cardápio (PDF, foto, link, texto) e acha o restaurante no Google. */
   import_model: string;
+  /** Modelo do atendimento no WhatsApp (só o Super Admin troca, em Tokens de IA). */
+  whatsapp_model: string;
 }
 
 export interface AiQuota {

@@ -13,8 +13,10 @@ test('site: descreve os itens e cria o restaurante de teste', async ({ page, bas
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Seu restaurante no ar');
   await expectNoHorizontalScroll(page, ['/']);
 
-  await page.getByRole('tab', { name: /descrever/i }).click();
-  await page.getByLabel('Descreva o que você vende').fill('Pastel de carne 12\nCaldo de cana 8,50');
+  // Campo único da criação (0.279): texto, links e arquivos juntos.
+  await page
+    .getByLabel('Conte sobre o seu restaurante')
+    .fill('Pastel de carne 12\nCaldo de cana 8,50');
   // O celular do topo mostra os itens digitados, com o preço.
   await expect(page.locator('.st-phone')).toContainText('Pastel de carne');
   await expect(page.locator('.st-phone')).toContainText('R$ 8,50');
@@ -24,6 +26,9 @@ test('site: descreve os itens e cria o restaurante de teste', async ({ page, bas
   await page.getByLabel('Nome do restaurante').fill(`Pastelaria E2E ${id}`);
   await page.getByLabel('Seu nome').fill('Dona E2E');
   await page.getByLabel('E-mail').fill(`e2e-${id}@site.test`);
+  await page.getByLabel('CNPJ ou CPF').fill('11222333000181');
+  await expect(page.getByLabel('Razão social')).toBeVisible();
+  await page.getByLabel('Razão social').fill('Pastelaria E2E Ltda');
   await page.screenshot({ path: `test-results/screens/${info.project.name}-site-cadastro.png` });
   await page.getByRole('button', { name: 'Criar e abrir' }).click();
 

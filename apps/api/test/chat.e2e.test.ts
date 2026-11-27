@@ -1194,6 +1194,8 @@ describe('IA que atende o cliente (configurada pelo gerente)', () => {
     await psend('put', `/ai/tenants/${fx.tenantA}`, { enabled: true, monthlyTokens: 0 }).expect(
       200,
     );
+    // Estes testes são da conversa livre com a IA; o menu numerado tem o bloco próprio abaixo.
+    await send('adminA', 'put', '/ai-agent', { menuMode: false }).expect(200);
   });
 
   it('só gerente e dono abrem a configuração', async () => {
@@ -1525,5 +1527,107 @@ describe('IA que atende o cliente (configurada pelo gerente)', () => {
       expect.objectContaining({ typingMs: expect.any(Number) }),
     );
     vi.restoreAllMocks();
+  });
+});
+
+describe('WhatsApp: pedido pelo menu numerado (atendimento estilo call center)', () => {
+  const phone = '5511955554444';
+  const msg = (text: string) => ({ tenantId: fx.tenantA, from: phone, text, pushName: 'Bia' });
+
+  beforeAll(async () => {
+    await psend('put', `/ai/tenants/${fx.tenantA}`, { enabled: true, monthlyTokens: 0 }).expect(
+      200,
+    );
+    await send('adminA', 'put', '/ai-agent', {
+      whatsappEnabled: true,
+      menuMode: true,
+      takeOrders: true,
+      itemNotes: true,
+      suggestItems: false,
+      payMethods: ['pix', 'cash'],
+    }).expect(200);
+  });
+
+  it('do "oi" ao pedido gravado sem gastar a IA, com cadastro e retirada', async () => {
+    const agent = app.get(AiAgentService);
+    const calls = orCalls.filter((c) => c.path === '/chat/completions').length;
+    const say = async (t: string) => (await agent.handle(msg(t)))!.text;
+
+    const home = await say('oi');
+    expect(home).toContain('Olá, *Bia*!');
+    expect(home).toContain('1️⃣ 🛵 Fazer um pedido');
+    expect(home).toContain('2️⃣ 📦 Acompanhar meu pedido');
+    expect(await say('1')).toContain('Não achei cadastro com este número');
+    expect(await say('1')).toContain('Qual é o seu nome?');
+    const mode = await say('bia souza');
+    expect(mode).toContain('Cadastro feito, *Bia*');
+    expect(mode).toContain('Como você prefere receber?');
+    const cats = await say('2');
+    expect(cats).toContain('Escolha uma categoria');
+    const items = await say('1');
+    expect(items).toContain('X-Burguer A — *R$ 25,90*');
+    expect(await say('1')).toContain('Quantos você quer?');
+    expect(await say('2')).toContain('Alguma observação');
+    const cart = await say('sem cebola');
+    expect(cart).toContain('✅ Adicionei *2× X-Burguer A*');
+    expect(cart).toContain('R$ 51,80');
+    expect(await say('2')).toContain('Como vai pagar?');
+    const review = await say('1');
+    expect(review).toContain('Confira seu pedido');
+    expect(review).toContain('*Total: R$ 51,80*');
+    expect(review).toContain('Retirada na loja');
+    const done = await say('1');
+    expect(done).toMatch(/\*Pedido #\d+ recebido!\*/);
+    // O menu anda sem chamar a IA.
+    expect(orCalls.filter((c) => c.path === '/chat/completions').length).toBe(calls);
+
+    const [o] = await ownerQuery<{
+      channel: string;
+      customer_name: string;
+      payment_hint: string;
+      total: string;
+      notes: string;
+      customer_id: string | null;
+    }>(
+      `SELECT channel, customer_name, payment_hint, total::text, notes, customer_id FROM orders
+        WHERE tenant_id = $1 AND customer_phone = '11955554444' ORDER BY created_at DESC LIMIT 1`,
+      [fx.tenantA],
+    );
+    expect(o).toMatchObject({
+      channel: 'pickup',
+      customer_name: 'Bia Souza',
+      payment_hint: 'pix',
+      total: '51.80',
+    });
+    expect(o!.notes).toContain('WhatsApp');
+    expect(o!.customer_id).toBeTruthy();
+    const [item] = await ownerQuery<{ quantity: number; notes: string }>(
+      `SELECT quantity::int AS quantity, notes FROM order_items WHERE tenant_id = $1 AND product_id = $2
+        ORDER BY created_at DESC LIMIT 1`,
+      [fx.tenantA, fx.prodA],
+    );
+    expect(item).toMatchObject({ quantity: 2, notes: 'sem cebola' });
+
+    // Acompanhar: a situação do pedido deste número, em palavras.
+    await say('menu');
+    expect(await say('2')).toContain('Seus pedidos');
+    // Na mesma conversa, o próximo pedido já sabe quem é; recomeçando, o cadastro é achado pelo
+    // número.
+    await say('menu');
+    expect(await say('1')).toContain('Como você prefere receber?');
+    await say('cancelar');
+    expect(await say('1')).toContain('Achei seu cadastro: *Bia Souza*');
+  });
+
+  it('pedido escrito vai direto para a sacola', async () => {
+    const agent = app.get(AiAgentService);
+    const other = { tenantId: fx.tenantA, from: '5511933332222', pushName: 'Caio' };
+    const r = await agent.handle({ ...other, text: 'quero 3 x-burguer a' });
+    expect(r!.text).toContain('Não achei cadastro');
+    expect((await agent.handle({ ...other, text: '2' }))!.text).toContain('Qual nome coloco');
+    const next = (await agent.handle({ ...other, text: 'Caio' }))!.text;
+    expect(next).toContain('Como você prefere receber?');
+    const cart = (await agent.handle({ ...other, text: '2' }))!.text;
+    expect(cart).toContain('3× X-Burguer A');
   });
 });

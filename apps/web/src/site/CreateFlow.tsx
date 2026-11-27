@@ -4,6 +4,7 @@ import {
   Check,
   ChefHat,
   Copy,
+  FileSignature,
   Lock,
   Monitor,
   ShoppingBag,
@@ -27,8 +28,35 @@ export interface TrialForm {
   name: string;
   email: string;
   phone: string;
+  /** CNPJ ou CPF (com a máscara): vai para o cadastro e para o contrato. */
+  document: string;
+  /** Razão social (só com CNPJ). */
+  legalName: string;
   /** Campo escondido contra robôs. */
   company: string;
+}
+
+/** Contrato do teste depois de pronto: o link de assinatura (ou por que ainda não saiu). */
+export interface ContractState {
+  url: string | null;
+  signed: boolean;
+  reason: string | null;
+  loading: boolean;
+}
+
+/** "12345678000190" → "12.345.678/0001-90"; "12345678901" → "123.456.789-01". */
+export function maskDocument(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 14);
+  if (d.length <= 11)
+    return d
+      .replace(/^(\d{3})(\d)/, '$1.$2')
+      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d{1,2})$/, '.$1-$2');
+  return d
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
 }
 
 export interface Created {
@@ -81,6 +109,9 @@ function problems(f: TrialForm) {
     restaurant: f.restaurant.trim().length >= 2 ? null : 'Escreva o nome do restaurante.',
     name: f.name.trim().length >= 2 ? null : 'Escreva o seu nome.',
     email: EMAIL.test(f.email.trim()) ? null : 'Confira o e-mail: falta alguma parte.',
+    document: [0, 11, 14].includes(f.document.replace(/\D/g, '').length)
+      ? null
+      : 'CPF tem 11 números e CNPJ tem 14.',
   };
 }
 
@@ -128,6 +159,8 @@ export function CreateFlow({
   look,
   trialDays,
   menu,
+  contract,
+  onContract,
 }: {
   open: boolean;
   /** `force`: o navegador já fechou a janela (Esc duas vezes); fecha mesmo criando. */
@@ -148,6 +181,9 @@ export function CreateFlow({
   trialDays: number;
   /** Campo "Seu cardápio" (só com o site com IA ligado). */
   menu: Omit<Parameters<typeof MenuField>[0], 'disabled'> | null;
+  /** Contrato do teste (gerado quando o restaurante fica pronto). */
+  contract?: ContractState | null;
+  onContract?: () => void;
 }) {
   const { ref, mounted } = useDialog(open);
   const titleId = useId();
@@ -193,7 +229,7 @@ export function CreateFlow({
     phase === 'ready' ? MODS.length : phase === 'build' ? Math.min(MODS.length, step + 1) : 0;
 
   const issues = problems(form);
-  const valid = !issues.restaurant && !issues.name && !issues.email;
+  const valid = !issues.restaurant && !issues.name && !issues.email && !issues.document;
   const show = (k: keyof typeof issues) => (tried ? (issues[k] ?? undefined) : undefined);
 
   // Abriu no computador: o cursor já vai para o primeiro campo vazio.
@@ -392,6 +428,26 @@ export function CreateFlow({
                       value={form.phone}
                       onChange={(e) => onForm({ ...form, phone: maskPhone(e.target.value) })}
                     />
+                    <TextField
+                      label="CNPJ ou CPF"
+                      name="document"
+                      inputMode="numeric"
+                      maxLength={18}
+                      hint="Para o contrato do teste, que você assina pelo celular."
+                      value={form.document}
+                      error={show('document')}
+                      onChange={(e) => onForm({ ...form, document: maskDocument(e.target.value) })}
+                    />
+                    {form.document.replace(/\D/g, '').length === 14 && (
+                      <TextField
+                        label="Razão social"
+                        name="legalName"
+                        autoComplete="organization"
+                        maxLength={160}
+                        value={form.legalName}
+                        onChange={(e) => onForm({ ...form, legalName: e.target.value })}
+                      />
+                    )}
                     {/* Campo que gente não vê nem preenche; robô preenche e o cadastro é recusado. */}
                     <input
                       className="st-hp"
@@ -482,6 +538,46 @@ export function CreateFlow({
                       <dd className="st-cred__pass">{created.password}</dd>
                     </div>
                   </dl>
+                  {contract && (
+                    <div className="st-contract" data-signed={contract.signed || undefined}>
+                      <FileSignature size={22} aria-hidden className="st-contract__ic" />
+                      <div className="st-contract__text">
+                        <strong>
+                          {contract.signed
+                            ? 'Contrato assinado'
+                            : contract.url
+                              ? 'Seu contrato está pronto'
+                              : contract.loading
+                                ? 'Gerando o contrato'
+                                : 'Contrato do teste'}
+                        </strong>
+                        <span>
+                          {contract.signed
+                            ? 'Recebemos a sua assinatura. A via final chega por e-mail.'
+                            : contract.url
+                              ? 'Leia e assine pelo celular ou computador. Leva um minuto.'
+                              : contract.loading
+                                ? 'Gerando o contrato…'
+                                : (contract.reason ?? 'O contrato chega por e-mail.')}
+                        </span>
+                      </div>
+                      {contract.url && !contract.signed && (
+                        <a
+                          className="cm-btn cm-btn--secondary st-press"
+                          href={contract.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Assinar contrato
+                        </a>
+                      )}
+                      {!contract.url && !contract.signed && !contract.loading && onContract && (
+                        <Button variant="ghost" size="sm" onClick={onContract}>
+                          Tentar de novo
+                        </Button>
+                      )}
+                    </div>
+                  )}
                   <div className="st-create__foot">
                     <Button
                       variant="secondary"

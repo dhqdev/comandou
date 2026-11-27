@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { WhatsAppModule } from '../messaging/whatsapp.module';
+import { OperationsModule } from '../orders/operations.module';
 import { ReservationsService } from '../reservations/reservations.service';
 import { AiAgentController } from './ai-agent.controller';
 import { AiAgentService } from './ai-agent.service';
@@ -13,11 +14,19 @@ import { ChatService } from './chat.service';
  */
 import { MenuImportController } from './menu-import.controller';
 import { MenuImportService } from './menu-import.service';
+import { WaOrderService } from './wa-order.service';
 
 @Module({
-  imports: [WhatsAppModule],
+  imports: [WhatsAppModule, OperationsModule],
   controllers: [ChatController, AiAgentController, MenuImportController],
-  providers: [ChatService, AiService, AiAgentService, MenuImportService, ReservationsService],
+  providers: [
+    ChatService,
+    AiService,
+    AiAgentService,
+    MenuImportService,
+    ReservationsService,
+    WaOrderService,
+  ],
   exports: [ChatService, AiAgentService],
 })
 export class ChatModule {}

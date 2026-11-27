@@ -191,6 +191,14 @@ export const externalImage = (url: string) =>
 
 /** Baixa a foto de outro site (pelo Comandou) como arquivo, para reduzir e guardar. */
 export async function fetchExternal(url: string, name = 'foto'): Promise<File> {
+  // Logo e capa anexados no campo único do site (0.279) chegam como a própria imagem.
+  const inline = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(url);
+  if (inline) {
+    const bin = atob(inline[2]!);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new File([bytes], name, { type: inline[1] });
+  }
   const res = await fetch(externalImage(url), {
     credentials: 'same-origin',
     headers: { 'X-Comandou-Request': '1' },

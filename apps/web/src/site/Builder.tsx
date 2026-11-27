@@ -1,30 +1,40 @@
-import { ArrowRight, Check, Globe, MapPin, PencilLine, Sparkles } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import {
+  ArrowRight,
+  Check,
+  FileText,
+  Globe,
+  Instagram,
+  Link2,
+  MapPin,
+  Paperclip,
+  Send,
+  Sparkles,
+  X,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type RefObject } from 'react';
 import { Button, Spinner, type PandaMood } from '../design-system';
 import { shrinkImage } from '../lib/media';
-import { CreateFlow, type Created, type CreateState, type TrialForm } from './CreateFlow';
+import {
+  CreateFlow,
+  type ContractState,
+  type Created,
+  type CreateState,
+  type TrialForm,
+} from './CreateFlow';
 import type { SiteConfig } from './host';
 import type { SiteMenu } from './MenuField';
 import { calmMotion } from './motion';
 import type { Look } from './PhoneMock';
-import { looksLikeUrl, parseItems, SAMPLE_ITEMS, SAMPLE_STORE } from './site-data';
+import { parseItems, SAMPLE_ITEMS, SAMPLE_STORE } from './site-data';
 
 /**
- * "Crie o seu restaurante": a pessoa cola o site, o link do Google Maps ou descreve os itens;
- * o celular ao lado já mostra a loja com o nome, a cor e os itens dela. Depois informa nome e
- * e-mail (CreateFlow.tsx), o restaurante é criado e ela entra direto nele, já logada.
+ * "Crie o seu restaurante" (0.279, pedido do David: "uma barra de texto para eu enviar o que eu
+ * quiser sobre o restaurante, seja texto, imagem, link"): um campo só, como uma conversa. A
+ * pessoa escreve, cola links (site, Google Maps, iFood), anexa fotos e PDF (logo, cardápio,
+ * fachada, cartão do CNPJ) e a IA vai montando a loja no celular ao lado: nome, logo, endereço,
+ * cardápio com os preços, estoque sugerido e o CNPJ/CPF. Depois o cadastro (CreateFlow.tsx), o
+ * restaurante nasce já logado e o contrato fica pronto para assinar.
  */
-export type Mode = 'site' | 'maps' | 'text';
-
-export interface Preview {
-  kind: 'site' | 'maps';
-  name: string | null;
-  host: string;
-  description?: string | null;
-  icon?: string | null;
-  image?: string | null;
-  color?: string | null;
-}
 
 /** O site que a IA montou (o rascunho inteiro fica no servidor até o cadastro). */
 interface AiSite {
@@ -48,17 +58,49 @@ interface AiSite {
   }[];
 }
 
+/** Resposta de cada parte do campo único (texto ou arquivo). */
+interface Composed {
+  claim: string;
+  kind: string | null;
+  site: AiSite;
+  menu: SiteMenu;
+  legal: { document: string | null; legalName: string | null };
+  store: {
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    cep: string | null;
+    whatsapp: string | null;
+    hours: number;
+  };
+  parts: number;
+  files: string[];
+}
+
 type AiState =
   | { at: 'idle' }
-  | { at: 'building' }
-  | { at: 'done'; claim: string; site: AiSite; value: string }
-  | { at: 'failed'; message: string | null };
+  | { at: 'working'; label: string; prev: Composed | null }
+  | { at: 'done'; r: Composed }
+  | { at: 'failed'; message: string | null; prev: Composed | null };
 
-/** Cardápio enviado na janela de criar (foto ou PDF), lido pela IA página a página. */
-type MenuState =
-  | { at: 'idle' }
-  | { at: 'reading'; file: string; prev: { claim: string; menu: SiteMenu; pages: number } | null }
-  | { at: 'done'; claim: string; menu: SiteMenu; pages: number };
+/** Arquivo anexado ao campo único. */
+interface Attach {
+  id: string;
+  file: File;
+  pdf: boolean;
+  preview: string | null;
+  state: 'wait' | 'reading' | 'done' | 'failed';
+  kind?: string | null;
+  error?: string;
+}
+
+const KIND_LABEL: Record<string, string> = {
+  logo: 'Logo',
+  menu: 'Cardápio',
+  cover: 'Capa',
+  document: 'Documento',
+  other: 'Lido',
+};
 
 const brl = (p: string | null) => (p ? p.replace('.', ',') : undefined);
 
@@ -74,23 +116,12 @@ export const FIRST_LOOK: Look = {
   chips: SAMPLE_STORE.chips,
 };
 
-const MODES: {
-  key: Mode;
-  label: string;
-  short: string;
-  icon: typeof Globe;
-}[] = [
-  { key: 'site', label: 'Tenho site', short: 'Site', icon: Globe },
-  { key: 'maps', label: 'Google Maps', short: 'Maps', icon: MapPin },
-  { key: 'text', label: 'Vou descrever', short: 'Descrever', icon: PencilLine },
-];
-
-/** Exemplos que o campo do site escreve sozinho enquanto está vazio. */
-const SITE_EXAMPLES = [
-  'seurestaurante.com.br',
-  'pizzariadobairro.com.br',
-  'lanchonetedaesquina.com',
-  'hamburgueriacentral.com.br',
+/** Exemplos que o campo escreve sozinho enquanto está vazio. */
+const EXAMPLES = [
+  'Cole o site, o link do Google Maps ou do iFood…',
+  'Escreva o cardápio: X-Burger 28,90 · Batata 18,00',
+  'Anexe a foto do cardápio e o logo pelo clipe',
+  'Mande o CNPJ, o endereço e o horário da loja',
 ];
 
 /**
@@ -98,7 +129,7 @@ const SITE_EXAMPLES = [
  * biblioteca e direto no atributo, sem redesenhar a tela a cada letra).
  */
 function useTypedPlaceholder(
-  ref: RefObject<HTMLInputElement | null>,
+  ref: RefObject<HTMLTextAreaElement | null>,
   phrases: string[],
   active: boolean,
 ) {
@@ -131,7 +162,7 @@ function useTypedPlaceholder(
         }
       }
       el.placeholder = full.slice(0, chars);
-      t = window.setTimeout(tick, erasing ? 28 : 55 + Math.random() * 45);
+      t = window.setTimeout(tick, erasing ? 22 : 40 + Math.random() * 35);
     };
     el.placeholder = phrases[0] ?? '';
     t = window.setTimeout(() => {
@@ -147,7 +178,7 @@ function useTypedPlaceholder(
 }
 
 const STORE_KEY = 'cm:trial';
-/** Esta visita ao site: junta os "Refazer" e o cardápio enviado ao restaurante criado no fim. */
+/** Esta visita ao site: junta as partes e o cardápio enviado ao restaurante criado no fim. */
 const SESSION_KEY = 'cm:site-session';
 const ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
@@ -165,19 +196,47 @@ function siteSession(): string {
   }
 }
 
-/** Cardápio tem letra miúda: a foto vai com até 2400 px e no máximo 3 MB (o limite da API). */
-const MENU_MAX = 3 * 1024 * 1024;
-async function menuBody(file: File): Promise<{ body: Blob; type: string }> {
-  const pdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-  if (pdf) {
-    if (file.size > MENU_MAX)
+/** Foto ou PDF até 3 MB (o limite da API). Logo em PNG pequeno vai como está (transparência). */
+const FILE_MAX = 3 * 1024 * 1024;
+const MAX_FILES = 8;
+const isPdf = (f: File) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+async function fileBody(file: File): Promise<{ body: Blob; type: string }> {
+  if (isPdf(file)) {
+    if (file.size > FILE_MAX)
       throw new Error('O PDF tem mais de 3 MB. Mande as páginas como fotos ou um PDF menor.');
     return { body: file, type: 'application/pdf' };
   }
-  let img = await shrinkImage(file, 2400);
-  if (img.blob.size > MENU_MAX) img = await shrinkImage(file);
+  if (file.type === 'image/png' && file.size <= 500 * 1024)
+    return { body: file, type: 'image/png' };
+  let img = await shrinkImage(file, 2000);
+  if (img.blob.size > FILE_MAX) img = await shrinkImage(file);
   return { body: img.blob, type: img.blob.type };
 }
+
+/** Links escritos no campo (para mostrar o que a IA vai abrir). */
+const LINK_RE =
+  /\b((?:https?:\/\/|www\.)[^\s<>"']+|[a-z0-9][a-z0-9-]{1,62}\.(?:com\.br|com|net\.br|net|app|site|menu|food|delivery)(?:\/[^\s<>"']*)?)/gi;
+function linksOf(text: string): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(LINK_RE)) {
+    const u = m[1]!.replace(/[),.;!?]+$/, '');
+    if (!out.includes(u)) out.push(u);
+  }
+  return out.slice(0, 3);
+}
+const linkIcon = (u: string) =>
+  /maps\.app\.goo\.gl|google\.[a-z.]+\/maps|goo\.gl\/maps/i.test(u)
+    ? MapPin
+    : /instagram\.com/i.test(u)
+      ? Instagram
+      : /ifood|aiqfome|99food|rappi/i.test(u)
+        ? Link2
+        : Globe;
+const shortLink = (u: string) =>
+  u
+    .replace(/^https?:\/\/(www\.)?/i, '')
+    .replace(/\/$/, '')
+    .slice(0, 34);
 
 const HEADERS = {
   'Content-Type': 'application/json',
@@ -210,7 +269,22 @@ async function answer<T>(r: Response): Promise<T> {
   return data as T;
 }
 
-const EMPTY_FORM: TrialForm = { restaurant: '', name: '', email: '', phone: '', company: '' };
+const EMPTY_FORM: TrialForm = {
+  restaurant: '',
+  name: '',
+  email: '',
+  phone: '',
+  document: '',
+  legalName: '',
+  company: '',
+};
+
+const docMask = (d: string | null) => {
+  const v = (d ?? '').replace(/\D/g, '');
+  if (v.length === 14) return v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  if (v.length === 11) return v.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+  return v;
+};
 
 export function Builder({
   config,
@@ -221,14 +295,16 @@ export function Builder({
   onLook: (l: Look) => void;
   onMood: (m: PandaMood) => void;
 }) {
-  const [mode, setMode] = useState<Mode>('site');
-  const [link, setLink] = useState('');
-  const [maps, setMaps] = useState('');
   const [text, setText] = useState('');
-  const [preview, setPreview] = useState<Preview | null>(null);
-  const [looking, setLooking] = useState(false);
+  const [sent, setSent] = useState('');
+  const [files, setFiles] = useState<Attach[]>([]);
+  const [drag, setDrag] = useState(false);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<TrialForm>(EMPTY_FORM);
+  const [place, setPlace] = useState<{ city: string | null; state: string | null }>({
+    city: null,
+    state: null,
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Created | null>(null);
@@ -237,17 +313,16 @@ export function Builder({
   const [reachable, setReachable] = useState(false);
   const [ai, setAi] = useState<AiState>({ at: 'idle' });
   const [session] = useState(siteSession);
-  const [menu, setMenu] = useState<MenuState>({ at: 'idle' });
-  const [menuError, setMenuError] = useState<string | null>(null);
-  /** Estoque sugerido para os itens do site montado pela IA (sem cardápio enviado). */
+  const [contract, setContract] = useState<ContractState | null>(null);
+  /** Cardápio com o estoque sugerido (o que a IA montou do campo único). */
   const [siteMenu, setSiteMenu] = useState<{ claim: string; menu: SiteMenu } | null>(null);
   const [stocking, setStocking] = useState(0);
   const stockAsked = useRef(new Set<string>());
   const named = useRef(false);
-  const field = useRef<HTMLInputElement>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
 
-  const value = mode === 'site' ? link : mode === 'maps' ? maps : text;
-  useTypedPlaceholder(field, SITE_EXAMPLES, mode === 'site' && !link);
+  useTypedPlaceholder(field, EXAMPLES, !text && !files.length);
 
   // Voltou para a página (ou recarregou) com o restaurante recém-criado: mostra o login de novo.
   useEffect(() => {
@@ -261,75 +336,39 @@ export function Builder({
     }
   }, []);
 
-  // Prévia do site ou do lugar (sem IA): nome, ícone, cor e capa, meio segundo depois de digitar.
-  useEffect(() => {
-    if (mode === 'text') return;
-    const url = value.trim();
-    setPreview(null);
-    if (!looksLikeUrl(url)) {
-      setLooking(false);
-      return;
-    }
-    setLooking(true);
-    onMood('thinking');
-    let alive = true;
-    const t = window.setTimeout(() => {
-      post<Preview>('preview', { url })
-        .then((p) => {
-          if (!alive) return;
-          setPreview(p);
-          onMood(p.name ? 'joy' : 'happy');
-        })
-        .catch(() => alive && onMood('idle'))
-        .finally(() => alive && setLooking(false));
-    }, 550);
-    return () => {
-      alive = false;
-      window.clearTimeout(t);
-    };
+  // Solta as prévias das fotos quando saem do campo.
+  useEffect(
+    () => () => files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, mode]);
+    [],
+  );
 
-  const typedItems = useMemo(() => (mode === 'text' ? parseItems(text) : []), [mode, text]);
+  // Links não viram itens no celular (só as linhas com o preço).
+  const typedItems = useMemo(() => parseItems(text.replace(LINK_RE, '')), [text]);
+  const links = useMemo(() => linksOf(text), [text]);
+  const result = ai.at === 'done' ? ai.r : ai.at === 'idle' ? null : ai.prev;
 
-  // Mudou o link ou o texto: o site da IA era de outra coisa.
+  // O celular acompanha: a loja de exemplo até a pessoa mexer; depois os itens que ela escreve e
+  // a loja que a IA monta (nome, cor, logo, capa e cardápio).
   useEffect(() => {
-    setAi((cur) =>
-      (cur.at === 'done' && cur.value !== value.trim()) || cur.at === 'failed'
-        ? { at: 'idle' }
-        : cur,
-    );
-  }, [value]);
-
-  // O celular acompanha: a loja de exemplo até a pessoa mexer; depois o nome, a cor e a capa do
-  // site dela, os itens que ela está digitando ou o site inteiro que a IA montou.
-  useEffect(() => {
-    const sent = menu.at === 'done' ? menu.menu : menu.at === 'reading' ? menu.prev?.menu : null;
-    const menuItems =
-      sent?.categories.flatMap((c) =>
-        c.items.map((i) => ({
-          name: i.name,
-          desc: i.description ?? undefined,
-          price: brl(i.price),
-        })),
-      ) ?? [];
-    const typed = typedItems.length > 0 || menuItems.length > 0;
-    const touched = typed || !!preview || !!form.restaurant.trim() || ai.at !== 'idle';
+    const typed = typedItems.length > 0;
+    const touched = typed || !!form.restaurant.trim() || ai.at !== 'idle' || files.length > 0;
     if (!touched) {
       onLook(FIRST_LOOK);
       return;
     }
+    const localLogo = files.find((f) => f.kind === 'logo')?.preview ?? null;
     const base: Look = {
-      name: form.restaurant.trim() || preview?.name || 'Seu restaurante',
-      color: preview?.color ?? null,
-      icon: preview?.icon ?? null,
-      cover: preview?.image ?? null,
-      items: menuItems.length ? menuItems : typed ? typedItems : SAMPLE_ITEMS,
+      name: form.restaurant.trim() || 'Seu restaurante',
+      color: null,
+      icon: localLogo,
+      cover: null,
+      items: typed ? typedItems : SAMPLE_ITEMS,
       typed,
-      building: ai.at === 'building',
+      building: ai.at === 'working',
     };
-    if (ai.at === 'done') {
-      const s = ai.site;
+    if (result) {
+      const s = result.site;
       const items = s.categories.flatMap((c) =>
         c.items.map((i) => ({
           name: i.name,
@@ -341,58 +380,152 @@ export function Builder({
       onLook({
         ...base,
         name: form.restaurant.trim() || s.name || base.name,
-        color: s.brandColor ?? base.color,
-        icon: s.logoUrl ?? base.icon,
-        cover: s.coverUrl ?? base.cover,
-        items: menuItems.length ? menuItems : items.length ? items : base.items,
-        typed: menuItems.length > 0 || (items.length > 0 && !items.some((i) => i.photo)),
+        color: s.brandColor,
+        icon: s.logoUrl ?? localLogo,
+        cover: s.coverUrl ?? files.find((f) => f.kind === 'cover')?.preview ?? null,
+        items: items.length ? items : base.items,
+        typed: items.length > 0 && !items.some((i) => i.photo),
         tagline: s.tagline,
         chips: s.categories.map((c) => c.name).slice(0, 4),
-        ai: true,
+        ai: ai.at === 'done',
       });
       return;
     }
     onLook(base);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview, typedItems, form.restaurant, ai, menu]);
+  }, [typedItems, form.restaurant, ai, files]);
 
-  useEffect(() => {
-    if (preview?.name && !named.current) setForm((f) => ({ ...f, restaurant: preview.name! }));
-  }, [preview]);
+  /** O que a IA achou entra no cadastro (a pessoa confere na janela de criar). */
+  const fill = (r: Composed) => {
+    setForm((f) => ({
+      ...f,
+      restaurant: !named.current && r.site.name ? r.site.name : f.restaurant,
+      document: f.document || docMask(r.legal.document),
+      legalName: f.legalName || r.legal.legalName || '',
+      phone: f.phone || (r.store.whatsapp ? maskPhone(r.store.whatsapp) : ''),
+    }));
+    setPlace({ city: r.store.city, state: r.store.state });
+    setSiteMenu({ claim: r.claim, menu: r.menu });
+  };
+
+  const addFiles = (list: FileList | File[]) => {
+    const picked = Array.from(list).filter((f) => isPdf(f) || f.type.startsWith('image/'));
+    if (!picked.length) return;
+    setFiles((cur) => {
+      const room = Math.max(0, MAX_FILES - cur.length);
+      return [
+        ...cur,
+        ...picked.slice(0, room).map((file) => ({
+          id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
+          file,
+          pdf: isPdf(file),
+          preview: isPdf(file) ? null : URL.createObjectURL(file),
+          state: 'wait' as const,
+        })),
+      ];
+    });
+    onMood('happy');
+  };
+
+  const removeFile = (id: string) =>
+    setFiles((cur) => {
+      const f = cur.find((x) => x.id === id);
+      if (f?.preview) URL.revokeObjectURL(f.preview);
+      return cur.filter((x) => x.id !== id);
+    });
+
+  const pending = files.filter((f) => f.state === 'wait' || f.state === 'failed');
+  const newText = text.trim() && text.trim() !== sent ? text.trim() : '';
+  const hasNew = !!newText || pending.length > 0;
+
+  /** Manda o que é novo (texto e arquivos), um de cada vez, e soma no rascunho. */
+  const compose = async () => {
+    let claim = result?.claim;
+    let last: Composed | null = result;
+    let failed: string | null = null;
+    onMood('thinking');
+    showPhone();
+    if (newText) {
+      setAi({
+        at: 'working',
+        label: links.length ? 'Abrindo os links e lendo o texto' : 'Lendo o que você escreveu',
+        prev: last,
+      });
+      try {
+        last = await post<Composed>('compose', {
+          text: newText,
+          session,
+          ...(claim ? { claim } : {}),
+        });
+        claim = last.claim;
+        setSent(newText);
+        fill(last);
+      } catch (e) {
+        failed = (e as Error).message;
+      }
+    }
+    for (const [n, a] of pending.entries()) {
+      setFiles((cur) => cur.map((x) => (x.id === a.id ? { ...x, state: 'reading' } : x)));
+      setAi({
+        at: 'working',
+        label:
+          pending.length > 1
+            ? `Lendo os arquivos (${n + 1} de ${pending.length})`
+            : `Lendo ${a.pdf ? 'o PDF' : 'a foto'}`,
+        prev: last,
+      });
+      try {
+        const { body, type } = await fileBody(a.file);
+        const q = new URLSearchParams({ sessao: session, nome: a.file.name.slice(0, 100) });
+        if (claim) q.set('rascunho', claim);
+        last = await answer<Composed>(
+          await fetch(`/api/v1/public/site/compose/file?${q}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': type,
+              Accept: 'application/json',
+              'X-Comandou-Request': '1',
+            },
+            body,
+          }),
+        );
+        claim = last.claim;
+        fill(last);
+        const kind = last.kind;
+        setFiles((cur) => cur.map((x) => (x.id === a.id ? { ...x, state: 'done', kind } : x)));
+      } catch (e) {
+        const msg = e instanceof TypeError ? 'Sem conexão agora' : (e as Error).message;
+        failed = msg;
+        setFiles((cur) =>
+          cur.map((x) => (x.id === a.id ? { ...x, state: 'failed', error: msg } : x)),
+        );
+      }
+    }
+    if (last) {
+      setAi(failed ? { at: 'failed', message: failed, prev: last } : { at: 'done', r: last });
+      onMood('joy');
+      if (last.menu.stockPending && !stockAsked.current.has(`${last.claim}:${last.menu.items}`)) {
+        stockAsked.current.add(`${last.claim}:${last.menu.items}`);
+        void suggestStock(last.claim);
+      }
+    } else {
+      // Sem IA agora (limite, fora do ar): segue o cadastro de sempre.
+      setAi({ at: 'failed', message: failed, prev: null });
+      onMood('idle');
+      if (failed && /criou alguns|Muitas tentativas/.test(failed)) return;
+      setOpen(true);
+    }
+  };
 
   const start = () => {
     setError(null);
-    const src = source();
-    // Com a IA ligada, o primeiro clique monta o site no celular; o segundo cria o restaurante.
-    if (
-      config?.ai &&
-      src.kind !== 'none' &&
-      ai.at !== 'done' &&
-      ai.at !== 'building' &&
-      ai.at !== 'failed'
-    ) {
-      void build(src as { kind: 'site' | 'maps' | 'text'; value: string });
+    // Com a IA ligada: o que é novo vai para a IA; sem nada novo, abre o cadastro.
+    if (config?.ai && hasNew && ai.at !== 'working') {
+      void compose();
       return;
     }
+    if (ai.at === 'working') return;
     setOpen(true);
-  };
-
-  const build = async (src: { kind: 'site' | 'maps' | 'text'; value: string }) => {
-    setAi({ at: 'building' });
-    onMood('thinking');
-    showPhone();
-    try {
-      const r = await post<{ claim: string; site: AiSite }>('ai', { ...src, session });
-      setAi({ at: 'done', claim: r.claim, site: r.site, value: src.value });
-      if (r.site.name && !named.current) setForm((f) => ({ ...f, restaurant: r.site.name! }));
-      onMood('joy');
-    } catch (e) {
-      // Sem IA agora (limite, fora do ar): segue o cadastro de sempre.
-      const msg = (e as Error).message;
-      setAi({ at: 'failed', message: /criou alguns sites/.test(msg) ? msg : null });
-      onMood('idle');
-      setOpen(true);
-    }
   };
 
   /** No celular, o aparelho fica embaixo do formulário: rola até ele para ver a IA montando. */
@@ -408,20 +541,16 @@ export function Builder({
    * Estoque sugerido pela IA para os itens que ainda não têm (uma vez por item; outra sugestão
    * do mesmo rascunho em andamento devolve `busy` e tenta de novo daqui a pouco).
    */
-  const suggestStock = async (claim: string, target: 'menu' | 'site', tries = 0) => {
+  const suggestStock = async (claim: string, tries = 0) => {
     setStocking((n) => n + 1);
     try {
       const r = await post<{ busy: boolean; menu: SiteMenu }>('stock', { claim });
-      // Resposta de uma sugestão anterior não volta com menos itens do que já está na tela.
-      if (target === 'menu')
-        setMenu((cur) =>
-          cur.at === 'done' && cur.claim === claim && r.menu.items >= cur.menu.items
-            ? { ...cur, menu: r.menu }
-            : cur,
-        );
-      else setSiteMenu({ claim, menu: r.menu });
-      if (r.busy && tries < 8)
-        window.setTimeout(() => void suggestStock(claim, target, tries + 1), 2500);
+      setSiteMenu((cur) =>
+        !cur || cur.claim !== claim || r.menu.items >= cur.menu.items
+          ? { claim, menu: r.menu }
+          : cur,
+      );
+      if (r.busy && tries < 8) window.setTimeout(() => void suggestStock(claim, tries + 1), 2500);
     } catch {
       /* sem a sugestão agora: os itens entram e o estoque fica para os primeiros passos */
     } finally {
@@ -429,71 +558,43 @@ export function Builder({
     }
   };
 
-  const readMenu = async (file: File) => {
-    const prev =
-      menu.at === 'done' ? { claim: menu.claim, menu: menu.menu, pages: menu.pages } : null;
-    setMenuError(null);
-    setMenu({ at: 'reading', file: file.name, prev });
-    try {
-      const { body, type } = await menuBody(file);
-      const q = new URLSearchParams({ sessao: session });
-      if (prev) q.set('rascunho', prev.claim);
-      const r = await answer<{ claim: string; menu: SiteMenu }>(
-        await fetch(`/api/v1/public/site/menu?${q}`, {
-          method: 'POST',
-          headers: { 'Content-Type': type, Accept: 'application/json', 'X-Comandou-Request': '1' },
-          body,
-        }),
-      );
-      setMenu({ at: 'done', claim: r.claim, menu: r.menu, pages: (prev?.pages ?? 0) + 1 });
-      if (r.menu.stockPending) void suggestStock(r.claim, 'menu');
-    } catch (e) {
-      setMenu(prev ? { at: 'done', ...prev } : { at: 'idle' });
-      setMenuError(
-        e instanceof TypeError
-          ? 'Sem conexão agora. Confira a internet e mande de novo.'
-          : (e as Error).message,
-      );
-    }
-  };
-
-  // Abriu a janela com o site montado pela IA e sem cardápio enviado: sugere o estoque dos itens.
-  useEffect(() => {
-    if (!open || ai.at !== 'done' || menu.at !== 'idle' || !ai.site.items) return;
-    if (stockAsked.current.has(ai.claim)) return;
-    stockAsked.current.add(ai.claim);
-    void suggestStock(ai.claim, 'site');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, ai, menu.at]);
-
+  /** Sem IA: de onde vem o cardápio, pelo que a pessoa escreveu (link, Maps ou os itens). */
   const source = () => {
-    const v = value.trim();
-    if (mode === 'text')
-      return v.length >= 10 ? { kind: 'text', value: v } : { kind: 'none', value: '' };
-    if (!looksLikeUrl(v)) return { kind: 'none', value: '' };
-    return { kind: preview?.kind === 'maps' || mode === 'maps' ? 'maps' : 'site', value: v };
+    const v = text.trim();
+    if (result) return { kind: 'compose', value: v.slice(0, 6000) };
+    const link = links[0];
+    if (link) {
+      const url = /^https?:\/\//i.test(link) ? link : `https://${link}`;
+      return { kind: linkIcon(link) === MapPin ? 'maps' : 'site', value: url };
+    }
+    if (v.length >= 10) return { kind: 'text', value: v.slice(0, 6000) };
+    return { kind: 'none', value: '' };
   };
 
   const submit = async () => {
-    if (menu.at === 'reading') return;
     setBusy(true);
     setError(null);
     onMood('thinking');
     try {
+      const doc = form.document.replace(/\D/g, '');
       const c = await post<Created>('trials', {
         restaurant: form.restaurant.trim(),
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone || null,
+        document: doc || null,
+        legalName: doc.length === 14 ? form.legalName.trim() || null : null,
+        city: place.city,
+        state: place.state,
         source: source(),
-        ...(ai.at === 'done' ? { aiSite: ai.claim } : {}),
-        ...(menu.at === 'done' ? { aiMenu: menu.claim } : {}),
+        ...(result ? { aiSite: result.claim } : {}),
         session,
         company: form.company,
       });
       setState('creating');
       setTick(0);
       setReachable(false);
+      setContract(null);
       setCreated(c);
       try {
         sessionStorage.setItem(STORE_KEY, JSON.stringify(c));
@@ -557,6 +658,25 @@ export function Builder({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [created]);
 
+  // Pronto: o contrato do teste é gerado e o link de assinatura aparece na tela.
+  const loadContract = async () => {
+    if (!created) return;
+    setContract((c) => ({ url: c?.url ?? null, signed: false, reason: null, loading: true }));
+    try {
+      const r = await post<{ url: string | null; signed: boolean; reason: string | null }>(
+        `trials/${created.token}/contract`,
+        {},
+      );
+      setContract({ ...r, loading: false });
+    } catch (e) {
+      setContract({ url: null, signed: false, reason: (e as Error).message, loading: false });
+    }
+  };
+  useEffect(() => {
+    if (created && state === 'ready' && !contract) void loadContract();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [created, state]);
+
   useEffect(() => {
     if (!created || state !== 'ready' || reachable) return;
     let alive = true;
@@ -591,154 +711,215 @@ export function Builder({
     setCreated(null);
     setState('creating');
     setError(null);
+    setContract(null);
   };
 
   const closed = config && !config.signup;
-  // Cor, ícone e capa da loja nova: do site que a IA montou, senão da prévia do site dela.
-  const made = ai.at === 'done' ? ai.site : null;
+  const made = result?.site ?? null;
   const brand = {
-    color: made?.brandColor ?? preview?.color ?? null,
-    icon: made?.logoUrl ?? preview?.icon ?? null,
-    cover: made?.coverUrl ?? preview?.image ?? null,
+    color: made?.brandColor ?? null,
+    icon: made?.logoUrl ?? files.find((f) => f.kind === 'logo')?.preview ?? null,
+    cover: made?.coverUrl ?? null,
   };
-  const modeIndex = MODES.findIndex((m) => m.key === mode);
-  const Icon = MODES[modeIndex]!.icon;
+  const working = ai.at === 'working';
+  const found = result
+    ? [
+        result.site.items > 0 &&
+          `${result.site.items} ${result.site.items === 1 ? 'item' : 'itens'}${result.site.suggested ? ' de sugestão' : ''}`,
+        (result.site.logoUrl || result.files.includes('logo')) && 'logo',
+        result.store.address && 'endereço',
+        result.legal.document && (result.legal.document.length === 14 ? 'CNPJ' : 'CPF'),
+        result.store.hours > 0 && 'horário',
+      ].filter((x): x is string => !!x)
+    : [];
+
+  const onDrop = (e: DragEvent) => {
+    e.preventDefault();
+    setDrag(false);
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  };
 
   return (
     <>
       <div className="st-build" id="criar">
-        <div
-          className="st-seg"
-          role="tablist"
-          aria-label="De onde vem o seu cardápio"
-          style={{ '--seg-i': modeIndex } as CSSProperties}
-        >
-          <span className="st-seg__glider" aria-hidden />
-          {MODES.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              role="tab"
-              aria-selected={mode === m.key}
-              className={`st-seg__btn ${mode === m.key ? 'is-on' : ''}`}
-              onClick={() => {
-                setMode(m.key);
-                onMood('idle');
-              }}
-            >
-              <m.icon size={15} aria-hidden />
-              <span className="st-seg__full">{m.label}</span>
-              <span className="st-seg__short">{m.short}</span>
-            </button>
-          ))}
-        </div>
         <form
-          className={`st-build__form ${mode === 'text' ? 'is-text' : ''}`}
+          className="st-compose"
+          data-drag={drag || undefined}
+          data-busy={working || undefined}
           onSubmit={(e) => {
             e.preventDefault();
             start();
           }}
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes('Files')) return;
+            e.preventDefault();
+            setDrag(true);
+          }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={onDrop}
         >
-          {mode === 'text' ? (
-            <textarea
-              className="st-input st-input--area"
-              aria-label="Descreva o que você vende"
-              rows={4}
-              maxLength={6000}
-              placeholder={
-                'X-Burger 28,90\nX-Salada 32,00\nBatata frita 18,00\nRefrigerante lata 7,00'
+          <textarea
+            ref={field}
+            className="st-compose__text"
+            aria-label="Conte sobre o seu restaurante"
+            rows={3}
+            maxLength={6000}
+            placeholder={EXAMPLES[0]}
+            value={text}
+            disabled={!!closed}
+            onChange={(e) => setText(e.target.value)}
+            onPaste={(e) => {
+              if (e.clipboardData.files.length) {
+                e.preventDefault();
+                addFiles(e.clipboardData.files);
               }
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-          ) : (
-            <div className="st-input-wrap" key={mode}>
-              <Icon className="st-input-wrap__ic" size={18} aria-hidden />
-              <input
-                ref={field}
-                className="st-input"
-                aria-label={mode === 'site' ? 'Endereço do seu site' : 'Link do Google Maps'}
-                inputMode="url"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                maxLength={2000}
-                placeholder={mode === 'site' ? SITE_EXAMPLES[0] : 'Cole o link do Google Maps'}
-                value={value}
-                onChange={(e) => (mode === 'site' ? setLink : setMaps)(e.target.value)}
-              />
-              {looking && <Spinner inline label="Procurando" />}
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                start();
+              }
+            }}
+          />
+          {(files.length > 0 || links.length > 0) && (
+            <div className="st-compose__chips" aria-label="O que vai junto">
+              {links.map((l) => {
+                const Ic = linkIcon(l);
+                return (
+                  <span key={l} className="st-chip">
+                    <Ic size={14} aria-hidden />
+                    {shortLink(l)}
+                  </span>
+                );
+              })}
+              {files.map((f) => (
+                <span
+                  key={f.id}
+                  className="st-att"
+                  data-state={f.state}
+                  title={f.error ?? f.file.name}
+                >
+                  {f.preview ? (
+                    <img src={f.preview} alt="" />
+                  ) : (
+                    <span className="st-att__pdf">
+                      <FileText size={18} aria-hidden />
+                    </span>
+                  )}
+                  <span className="st-att__label">
+                    {f.state === 'reading'
+                      ? 'Lendo…'
+                      : f.state === 'done'
+                        ? KIND_LABEL[f.kind ?? 'other']
+                        : f.state === 'failed'
+                          ? 'Não li'
+                          : f.pdf
+                            ? 'PDF'
+                            : 'Foto'}
+                  </span>
+                  {f.state === 'reading' ? (
+                    <span className="st-att__spin">
+                      <Spinner inline label="Lendo" />
+                    </span>
+                  ) : f.state === 'done' ? (
+                    <Check size={13} className="st-att__ok" aria-hidden />
+                  ) : (
+                    <button
+                      type="button"
+                      className="st-att__x"
+                      aria-label={`Tirar ${f.file.name}`}
+                      onClick={() => removeFile(f.id)}
+                    >
+                      <X size={12} aria-hidden />
+                    </button>
+                  )}
+                </span>
+              ))}
             </div>
           )}
-          <Button
-            type="submit"
-            size="lg"
-            className="st-build__go st-press"
-            disabled={!!closed}
-            loading={ai.at === 'building'}
-          >
-            {ai.at === 'building'
-              ? 'Montando'
-              : ai.at === 'done'
-                ? 'Gostei, criar'
-                : config?.ai && value.trim()
-                  ? 'Criar com IA'
-                  : 'Criar meu restaurante'}
-            {ai.at !== 'building' &&
-              (config?.ai && value.trim() && ai.at !== 'done' ? (
-                <Sparkles size={17} aria-hidden />
-              ) : (
-                <ArrowRight size={18} aria-hidden className="st-arrow__i" />
-              ))}
-          </Button>
+          <div className="st-compose__bar">
+            <input
+              ref={picker}
+              type="file"
+              hidden
+              multiple
+              accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
+              onChange={(e) => {
+                if (e.target.files) addFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            <button
+              type="button"
+              className="st-compose__attach"
+              aria-label="Anexar foto ou PDF"
+              title="Anexar foto ou PDF (logo, cardápio, fachada, cartão do CNPJ)"
+              disabled={!!closed || files.length >= MAX_FILES || !config?.ai}
+              onClick={() => picker.current?.click()}
+            >
+              <Paperclip size={18} aria-hidden />
+            </button>
+            <span className="st-compose__hint">
+              {config?.ai
+                ? 'Texto, links, fotos e PDF. Tudo junto ou aos poucos.'
+                : 'Cole o link do site ou escreva os itens com o preço.'}
+            </span>
+            <Button
+              type="submit"
+              size="lg"
+              className="st-build__go st-press"
+              disabled={!!closed}
+              loading={working}
+            >
+              {working
+                ? 'Lendo'
+                : config?.ai && hasNew
+                  ? result
+                    ? 'Mandar'
+                    : 'Criar com IA'
+                  : result
+                    ? 'Gostei, criar'
+                    : 'Criar meu restaurante'}
+              {!working &&
+                (config?.ai && hasNew ? (
+                  result ? (
+                    <Send size={16} aria-hidden />
+                  ) : (
+                    <Sparkles size={17} aria-hidden />
+                  )
+                ) : (
+                  <ArrowRight size={18} aria-hidden className="st-arrow__i" />
+                ))}
+            </Button>
+          </div>
+          {drag && <div className="st-compose__drop">Solte aqui as fotos ou o PDF</div>}
         </form>
         <div className="st-build__under" aria-live="polite">
-          {ai.at === 'building' ? (
+          {ai.at === 'working' ? (
             <span className="st-found st-found--ai">
-              <Sparkles size={15} aria-hidden /> A IA está montando o seu site
+              <Sparkles size={15} aria-hidden /> {ai.label}
             </span>
-          ) : ai.at === 'done' ? (
+          ) : result ? (
             <span className="st-found st-found--ai">
               <Sparkles size={15} aria-hidden />
-              Site pronto, com {ai.site.items} {ai.site.items === 1 ? 'item' : 'itens'}
-              {ai.site.suggested ? ' de sugestão' : ''}.
-              <button
-                type="button"
-                className="st-link"
-                onClick={() => {
-                  const v = source();
-                  if (v.kind !== 'none')
-                    void build(v as { kind: 'site' | 'maps' | 'text'; value: string });
-                }}
-              >
-                Refazer
-              </button>
+              {ai.at === 'failed' && ai.message ? `${ai.message} ` : ''}
+              Montei {result.site.name ? <strong>{result.site.name}</strong> : 'a sua loja'}
+              {found.length ? ` com ${found.join(', ')}` : ''}. Mande mais coisas ou crie.
             </span>
           ) : ai.at === 'failed' && ai.message ? (
             <span>{ai.message}</span>
-          ) : preview?.name ? (
-            <span className="st-found">
-              {preview.icon ? (
-                <img src={preview.icon} alt="" width={18} height={18} />
-              ) : (
-                <Check size={15} aria-hidden />
-              )}
-              Achei <strong>{preview.name}</strong>
-              <span className="st-found__host">{preview.host}</span>
-            </span>
           ) : closed ? (
             <span>O cadastro pelo site está fechado no momento. Fale com a gente.</span>
-          ) : mode === 'text' ? (
-            <span>Um item por linha, com o preço no fim.</span>
-          ) : mode === 'maps' ? (
-            <span>No Maps, toque em Compartilhar e copie o link.</span>
           ) : (
-            <span>Sem site? Use “Vou descrever” e escreva os itens.</span>
+            <span>
+              Ex.: o site ou o Instagram, o link do Google Maps, a foto do cardápio, o logo e o
+              CNPJ.
+            </span>
           )}
         </div>
       </div>
 
-      {ai.at === 'done' && !open && (
+      {result && ai.at !== 'working' && !open && (
         <div className="st-sticky">
           <Button size="lg" className="st-press" onClick={() => setOpen(true)}>
             Gostei, criar meu restaurante
@@ -766,36 +947,38 @@ export function Builder({
         onRetry={retry}
         look={brand}
         trialDays={config?.trialDays ?? 0}
+        contract={contract}
+        onContract={() => void loadContract()}
         menu={
-          config?.ai
+          config?.ai && siteMenu && result && siteMenu.claim === result.claim
             ? {
-                reading: menu.at === 'reading' ? menu.file : null,
-                menu:
-                  menu.at === 'done'
-                    ? menu.menu
-                    : menu.at === 'reading'
-                      ? (menu.prev?.menu ?? null)
-                      : ai.at === 'done' && siteMenu?.claim === ai.claim
-                        ? siteMenu.menu
-                        : null,
-                fromSite: menu.at === 'idle' && ai.at === 'done',
-                pages:
-                  menu.at === 'done'
-                    ? menu.pages
-                    : menu.at === 'reading'
-                      ? (menu.prev?.pages ?? 0)
-                      : 0,
+                reading: null,
+                menu: siteMenu.menu,
+                fromSite: true,
+                pages: 0,
                 stocking: stocking > 0,
-                error: menuError,
-                onFile: (f) => void readMenu(f),
-                onClear: () => {
-                  setMenu({ at: 'idle' });
-                  setMenuError(null);
+                error: null,
+                onFile: (f) => {
+                  setOpen(false);
+                  addFiles([f]);
                 },
+                onClear: () => setSiteMenu(null),
               }
             : null
         }
       />
     </>
   );
+}
+
+/** "11987654321" → "(11) 98765-4321". */
+function maskPhone(v: string) {
+  const d = v
+    .replace(/\D/g, '')
+    .replace(/^55(?=\d{10,11}$)/, '')
+    .slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }

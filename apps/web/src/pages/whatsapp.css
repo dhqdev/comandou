@@ -1,0 +1,300 @@
+/* Tela WhatsApp: número conectado, avisos de pedido e mensagens (0.279). */
+
+.wa-conn {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.wa-device {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cm-space-4);
+  padding: var(--cm-space-4);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg, 14px);
+}
+.wa-device__icon {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
+}
+.wa-device__dot {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--cm-surface);
+  background: var(--cm-border-strong);
+}
+.wa-device[data-tone='on'] .wa-device__dot {
+  background: var(--cm-success);
+}
+.wa-device[data-tone='wait'] .wa-device__dot {
+  background: var(--cm-warning);
+}
+.wa-device__info {
+  flex: 1 1 260px;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.wa-device__phone {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.wa-device__status {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.wa-device[data-tone='on'] .wa-device__status {
+  color: var(--cm-success);
+  font-weight: 600;
+}
+.wa-device__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 6px 0 0;
+}
+.wa-device__facts div {
+  display: grid;
+}
+.wa-device__facts dt {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+.wa-device__facts dd {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+}
+.wa-device__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wa-conn__note {
+  margin: 0;
+}
+.wa-qr {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cm-space-5, 20px);
+  padding: var(--cm-space-4);
+  border: 1px dashed var(--cm-border-strong);
+  border-radius: var(--cm-radius-lg, 14px);
+}
+.wa-qr__code {
+  padding: 10px;
+  border-radius: 12px;
+  background: #fff;
+  line-height: 0;
+}
+.wa-qr__steps {
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 8px;
+  font-size: var(--cm-text-sm);
+  max-width: 360px;
+}
+
+/* Avisos: liga-desliga geral no topo, um bloco por aviso com a prévia do texto. */
+.wa-master {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.wa-lead {
+  margin: 0 0 var(--cm-space-3);
+}
+.wa-notices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+}
+.wa-notices[data-off] .wa-notice {
+  opacity: 0.6;
+}
+.wa-notice {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg, 14px);
+}
+.wa-notice[data-on] {
+  border-color: color-mix(in oklab, var(--cm-success) 35%, var(--cm-border));
+}
+.wa-notice__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wa-notice__title {
+  flex: 1;
+  display: grid;
+  min-width: 0;
+}
+.wa-notice__title strong {
+  font-size: var(--cm-text-sm);
+}
+.wa-notice__title small {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+.wa-notice__bubble {
+  padding: 8px 10px;
+  border-radius: 10px 10px 10px 3px;
+  background: color-mix(in oklab, var(--cm-success) 7%, var(--cm-surface-muted));
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.wa-notices__save {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.wa-notices__save > span {
+  margin-right: auto;
+  font-weight: 600;
+  font-size: var(--cm-text-sm);
+}
+
+/* Mensagens recentes: filtros e a lista. */
+.wa-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.wa-filters > .cm-field {
+  flex: 1 1 200px;
+}
+.wa-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--cm-space-3);
+}
+.wa-chip {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 999px;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.wa-chip:active {
+  transform: scale(0.97);
+}
+.wa-chip[aria-pressed='true'] {
+  border-color: var(--cm-brand-500);
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
+  color: var(--cm-brand-700);
+  font-weight: 600;
+}
+.wa-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.wa-msgs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.wa-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 2px;
+}
+.wa-msg + .wa-msg {
+  border-top: 1px solid var(--cm-border);
+}
+.wa-msg__icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--cm-text-muted);
+}
+.wa-msg[data-status='sent'] .wa-msg__icon {
+  color: var(--cm-success);
+}
+.wa-msg[data-status='failed'] .wa-msg__icon {
+  color: var(--cm-danger);
+}
+.wa-msg__main {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.wa-msg__main strong {
+  font-size: var(--cm-text-sm);
+}
+.wa-msg__order {
+  font-weight: 400;
+  color: var(--cm-text-muted);
+}
+.wa-msg__meta {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.wa-msg__error {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-danger);
+}
+.wa-msg__side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+@media (max-width: 560px) {
+  .wa-msg {
+    flex-wrap: wrap;
+  }
+  .wa-msg__side {
+    margin-left: 30px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wa-chip {
+    transition: none;
+  }
+}
+
+/* Campo de busca só com "Pesquisar" dentro: o rótulo fica só para o leitor de tela. */
+.wa-search > .cm-label,
+.wa-search .cm-label-row {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

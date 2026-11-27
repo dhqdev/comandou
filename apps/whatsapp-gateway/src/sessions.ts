@@ -716,6 +716,31 @@ export class SessionManager {
     }
   }
 
+  /**
+   * Reinicia a conexão sem desconectar o aparelho (botão "Reiniciar conexão" da tela WhatsApp):
+   * derruba o socket e abre de novo na hora com as credenciais salvas. Sessão que não está na
+   * memória (ou caiu) e tem credenciais em disco reabre como na subida do serviço; sem
+   * credenciais não gera QR Code sozinha.
+   */
+  async restart(tenantId: string) {
+    const s = this.sessions.get(tenantId);
+    if (!s || !s.registered) {
+      if (!s || s.status === 'disconnected' || s.status === 'logged_out')
+        return this.start(tenantId, true);
+      return this.status(tenantId);
+    }
+    if (s.timer) clearTimeout(s.timer);
+    s.timer = undefined;
+    const gen = ++s.gen;
+    this.dropSocket(s);
+    s.status = 'connecting';
+    s.error = undefined;
+    s.retries = 0;
+    this.wake(s);
+    void this.reconnect(tenantId, s, gen);
+    return this.status(tenantId);
+  }
+
   async logout(tenantId: string) {
     const s = this.sessions.get(tenantId);
     const sock = s?.sock;

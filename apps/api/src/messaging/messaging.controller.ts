@@ -97,15 +97,55 @@ export class MessagingController {
     return this.messaging.disconnect(ctxOf(t, u, req));
   }
 
+  @Post('session/restart')
+  @HttpCode(200)
+  @RequirePermission('messaging:manage')
+  restart(
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.messaging.restart(ctxOf(t, u, req));
+  }
+
   @Get('messages')
   @RequirePermission('messaging:manage')
   list(
-    @Query(new ZodPipe(z.object({ limit: z.coerce.number().int().min(1).max(200).default(50) })))
-    f: { limit: number },
+    @Query(
+      new ZodPipe(
+        z.object({
+          limit: z.coerce.number().int().min(1).max(200).default(50),
+          status: z.enum(['queued', 'sent', 'failed']).optional(),
+          event: z
+            .enum([
+              'order.accepted',
+              'order.ready',
+              'order.dispatched',
+              'order.delivered',
+              'order.cancelled',
+              'test',
+            ])
+            .optional(),
+          q: z.string().trim().max(30).optional(),
+        }),
+      ),
+    )
+    f: {
+      limit: number;
+      status?: 'queued' | 'sent' | 'failed';
+      event?: string;
+      q?: string;
+    },
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
   ) {
-    return this.messaging.list(ctxOf(t, u), f.limit);
+    return this.messaging.list(ctxOf(t, u), f.limit, f);
+  }
+
+  @Get('messages/summary')
+  @RequirePermission('messaging:manage')
+  summary(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.messaging.summary(ctxOf(t, u));
   }
 
   @Post('test')

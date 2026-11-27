@@ -16,6 +16,7 @@ import {
   Tags,
   Calculator,
   Globe,
+  WandSparkles,
   Mail,
   Wallet,
 } from 'lucide-react';
@@ -75,6 +76,10 @@ const TenantDetailPage = lazyPage(
 const NewTenantPage = lazyPage(
   () => import('./NewTenant'),
   (m) => m.NewTenantPage,
+);
+const CreationsPage = lazyPage(
+  () => import('./CreationsPage'),
+  (m) => m.CreationsPage,
 );
 const SupportPage = lazyPage(
   () => import('./SupportPage'),
@@ -375,6 +380,7 @@ const NAV: {
   { to: '/whatsapp', label: 'WhatsApp', icon: MessageCircle, section: 'Clientes' },
   { to: '/chamados', label: 'Chamados', icon: KanbanSquare, section: 'Clientes' },
   { to: '/site', label: 'Site', icon: Globe, section: 'Vendas' },
+  { to: '/criacoes', label: 'Criações', icon: WandSparkles, section: 'Vendas' },
   { to: '/planos', label: 'Preço', icon: Tags, section: 'Vendas' },
   { to: '/orcamento', label: 'Orçamento', icon: Calculator, section: 'Vendas' },
   { to: '/cobranca', label: 'Cobrança', icon: Wallet, section: 'Financeiro' },
@@ -672,6 +678,7 @@ function Gate() {
         <Route path="planos" element={<PlansPage />} />
         <Route path="orcamento" element={<QuotePage />} />
         <Route path="site/*" element={<SiteArea />} />
+        <Route path="criacoes" element={<CreationsPage />} />
         {/* Sites com IA virou uma aba do Site. */}
         <Route path="sites-ia" element={<Navigate to="/site/ia" replace />} />
         <Route path="cobranca" element={<BillingPage />} />

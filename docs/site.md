@@ -90,6 +90,51 @@ junto de pedidos de exemplo do iFood, da mesa e do balcão. Aceitar, pronto e de
 sozinhos (alguns segundos cada) ou no toque. Tudo roda no navegador: nada vai para a API, nada é
 cobrado e recarregar a página zera. O botão "Criar a minha loja" volta para o cartão de criar.
 
+## Campo único da criação (0.279)
+
+Pedido do David: "ao invés de colocar uma coisa de cada vez, uma barra de texto para eu enviar o
+que eu quiser sobre o restaurante, seja texto, imagem, link". O cartão do topo (`Builder.tsx`) é um
+campo só, como o de uma conversa: texto (cresce), links reconhecidos em pílulas, fotos e PDF pelo
+clipe, colando (Ctrl+V) ou arrastando. Cada envio manda só o que é novo:
+
+- texto e links → `POST /public/site/compose` (`SiteAiService.compose`): abre até 3 links pela
+  mesma leitura do site (Maps vira pesquisa na internet; Instagram e iFood que não abrem também),
+  e a IA (modelo do Site com IA) lê pelo `COMPOSE_PROMPT` (`site-ai.ts`);
+- cada arquivo → `POST /public/site/compose/file?rascunho=&sessao=&nome=` (até 3 MB, tipo pela
+  assinatura; modelo "ler o cardápio"): a IA diz o que é (`logo`, `menu`, `cover`, `document`).
+  Logo e capa (até 600 KB) ficam no rascunho como a própria imagem (`data:`) e viram logo, ícone e
+  capa nos primeiros passos (`fetchExternal` aceita `data:`).
+
+As partes somam num rascunho `site_ai_generations.source_kind = 'compose'` (`mergeCompose`: loja
+que faltava, itens novos, sugestão sai quando chega cardápio de verdade) com o CNPJ/CPF (dígitos
+conferidos) e a razão social em `draft.legal`. O celular mostra a loja; o estoque sugerido vem do
+`/public/site/stock` de sempre. Sem IA, o texto segue o caminho antigo (link do site/Maps ou itens
+escritos). Gasto por etapa: `conversa` e `anexo` em `CREATION_STEPS`.
+
+### Contrato na criação
+
+A janela de criar pede **CNPJ ou CPF** (e a razão social com CNPJ), já preenchidos pela IA; vão
+para `tenant_profiles` no cadastro. Quando o restaurante fica pronto, a tela chama `POST
+/public/site/trials/:token/contract` (só com o token da criação, 2 horas): `SiteService.contract`
+gera o contrato pelo mesmo `ContractsService.create` do painel (ator "Site", sem administrador),
+guarda em `trial_signups.contract_id` (erro em `contract_error`) e devolve um link novo de
+assinatura (`/assinar/<token>` do painel). A tela final mostra **Assinar contrato**; quando o
+cliente assina, a contratada recebe o aviso de sempre (e-mail e Status). Sem os dados da contratada
+(Contrato › Configurar), o contrato não sai e a aba Criações mostra o motivo.
+
+### Super Admin › Criações
+
+`platform/CreationsPage.tsx` (`GET /platform/site/creations`, `GET
+/platform/site/creations/session/:session`): números do mês (começaram, viraram restaurante,
+contratos assinados, gasto de IA), a lista de cada restaurante criado pelo site (o que mandou,
+itens, CNPJ/CPF, contrato, custo) e das visitas que não terminaram, com o passo a passo de cada
+uma (a aba Criação do restaurante, `TenantCreation.tsx`, dentro da janela).
+
+### Sistema de exemplo em tela cheia
+
+O botão **Expandir** da moldura (e "Abrir em tela cheia") abre o `/experimente` grande num
+`<dialog>` por cima do site também no computador (antes só abria outra aba), para mexer nos dados.
+
 ## Janela de criar o restaurante
 
 Ao continuar no cartão do topo, a janela abre em tela cheia (no computador, um painel grande): à

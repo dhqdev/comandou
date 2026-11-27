@@ -178,9 +178,9 @@ export const FOCUS_TARGETS: readonly FocusTarget[] = [
     perms: ['settings:manage'],
   },
   {
-    id: 'secao-ia-pode',
+    id: 'secao-ia-menu',
     path: '/assistente-ia',
-    title: 'O que a IA do WhatsApp pode fazer',
+    title: 'Atendimento por menu do WhatsApp (pedido pela conversa, o que a IA pode fazer)',
     perms: ['settings:manage'],
   },
   {

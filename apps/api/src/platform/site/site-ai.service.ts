@@ -24,7 +24,12 @@ import type { Actor } from '../platform.service';
 import { creationKey, recordCreation } from './creation-ai';
 import {
   applyStock,
+  COMPOSE_PROMPT,
   draftItems,
+  linksIn,
+  mergeCompose,
+  publicCompose,
+  readComposeDraft,
   MENU_MAX_PAGES,
   mergeMenuDrafts,
   placeForModel,
@@ -429,6 +434,249 @@ export class SiteAiService {
       generationId: g.id,
     }).catch(() => undefined);
     return { busy: false, menu: publicMenu(draft) };
+  }
+
+  // ------------------------------------------------------------------ campo único (0.279)
+
+  /**
+   * Uma mensagem do campo único da criação: o texto do dono e os links que ele colou (site,
+   * Google Maps, cardápio digital). A IA lê só a parte nova e o servidor junta no rascunho
+   * (`rascunho` = o token da criação já começada). Rascunho novo conta no limite por visitante.
+   */
+  async compose(b: { text: string; claim?: string; session?: string }, ip: string | undefined) {
+    const r = await this.open();
+    const current = b.claim ? await this.composeRow(b.claim) : null;
+    if (!current) await this.perIp(r, ip);
+    const text = b.text.trim().slice(0, 6000);
+    const parts: string[] = [`O dono escreveu:\n${text}`];
+    let images: string[] = [];
+    let web = false;
+    for (const url of linksIn(text)) {
+      try {
+        const got = await this.input({ kind: 'site', value: url });
+        parts.push(`Link ${url}:\n${got.text.slice(0, 20_000)}`);
+        // As imagens de cada página continuam numeradas na ordem ([img N] do texto).
+        images = images.concat(got.images);
+        web ||= !!got.web;
+      } catch {
+        parts.push(`Link ${url}: não abriu (pode ser Instagram ou iFood); use se souber do lugar.`);
+        web = true;
+      }
+    }
+    const key = (await this.key())!;
+    const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key.key);
+    let result;
+    try {
+      result = await client.complete(
+        r.model,
+        [
+          { role: 'system', content: COMPOSE_PROMPT },
+          { role: 'user', content: parts.join('\n\n').slice(0, 60_000) },
+        ],
+        {
+          json: true,
+          maxTokens: r.max_tokens_per_site,
+          signal: AbortSignal.timeout(90_000),
+          ...(web ? { web: 5 } : {}),
+        },
+      );
+    } catch (e) {
+      this.logger.warn(`campo único do site falhou: ${(e as Error).message.slice(0, 300)}`);
+      throw new ServiceUnavailableException(
+        e instanceof OpenRouterError
+          ? 'A IA não respondeu agora. Tente de novo em instantes.'
+          : 'Não deu para falar com a IA agora',
+      );
+    }
+    const { draft } = readComposeDraft(result.text, images);
+    return this.composeSave(current, draft, {
+      ref: text.slice(0, 2000),
+      ip,
+      model: result.model,
+      usage: result.usage,
+      key: key.kind,
+      step: 'conversa',
+      claim: b.claim,
+      session: b.session,
+    });
+  }
+
+  /**
+   * Um arquivo do campo único (foto ou PDF, até 3 MB): a IA diz o que é (logo, cardápio, capa,
+   * documento) e tira o que tiver. Logo e capa ficam no rascunho (a imagem em si) e viram o logo,
+   * o ícone e a capa da loja nos primeiros passos.
+   */
+  async composeFile(
+    file: Buffer,
+    mime: string,
+    ip: string | undefined,
+    opts: { claim?: string; session?: string; name?: string } = {},
+  ) {
+    if (!MENU_FILE_TYPES.has(mime) || file.length === 0 || file.length > MENU_FILE_MAX)
+      throw new UnprocessableEntityException(
+        'Envie uma foto (JPG, PNG, WebP) ou um PDF de até 3 MB',
+      );
+    const isPdf = mime === 'application/pdf';
+    if (isPdf ? file.toString('latin1', 0, 5) !== '%PDF-' : sniff(file) !== mime)
+      throw new UnprocessableEntityException(
+        'Envie uma foto (JPG, PNG, WebP) ou um PDF de até 3 MB',
+      );
+    const r = await this.open();
+    const current = opts.claim ? await this.composeRow(opts.claim) : null;
+    if (!current) await this.perIp(r, ip);
+    if ((current?.draft.files?.length ?? 0) >= 12)
+      throw new UnprocessableEntityException(
+        'Até 12 arquivos por aqui. O resto você manda nos primeiros passos.',
+      );
+    const key = (await this.key())!;
+    const { read } = await this.models();
+    const data = `data:${mime};base64,${file.toString('base64')}`;
+    const attachment: ContentPart = isPdf
+      ? { type: 'file', file: { filename: 'arquivo.pdf', file_data: data } }
+      : { type: 'image_url', image_url: { url: data } };
+    const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key.key);
+    let result;
+    try {
+      result = await client.complete(
+        read,
+        [
+          { role: 'system', content: COMPOSE_PROMPT },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `O dono anexou um arquivo${opts.name ? ` ("${opts.name.replace(/["\n]/g, ' ').slice(0, 80)}")` : ''}. Diga o que é e tire o que tiver dele.`,
+              },
+              attachment,
+            ],
+          },
+        ],
+        { json: true, maxTokens: 16_000, signal: AbortSignal.timeout(150_000) },
+      );
+    } catch (e) {
+      this.logger.warn(`arquivo do site falhou: ${(e as Error).message.slice(0, 300)}`);
+      throw new ServiceUnavailableException(
+        e instanceof OpenRouterError
+          ? 'A IA não respondeu agora. Tente de novo em instantes.'
+          : 'Não deu para falar com a IA agora',
+      );
+    }
+    const { draft, file: kind } = readComposeDraft(result.text);
+    // A imagem do logo ou da capa vai junto no rascunho (até 600 KB; foto maior fica de fora).
+    const keep = !isPdf && file.length <= 600 * 1024;
+    const store = {
+      ...draft.store,
+      logoUrl: kind === 'logo' && keep ? data : null,
+      coverUrl: kind === 'cover' && keep ? data : null,
+      logoBox: null,
+      faviconUrl: null,
+    };
+    return this.composeSave(
+      current,
+      { ...draft, store, files: [kind ?? 'other'], pages: kind === 'menu' ? 1 : 0 },
+      {
+        ref: isPdf ? 'PDF' : 'Foto',
+        ip,
+        model: result.model,
+        usage: result.usage,
+        key: key.kind,
+        step: 'anexo',
+        claim: opts.claim,
+        session: opts.session,
+        kind,
+      },
+    );
+  }
+
+  /** Rascunho do campo único ainda sem dono (até 3 horas). */
+  private async composeRow(claim: string) {
+    const [g] = await this.db.query<{ id: string; draft: SiteDraft }>(
+      `SELECT id, draft FROM site_ai_generations
+        WHERE claim_hash = $1 AND source_kind = 'compose' AND status = 'ok' AND tenant_id IS NULL
+          AND created_at > now() - make_interval(hours => $2)`,
+      [hash(claim), CLAIM_HOURS],
+    );
+    if (!g) throw new UnprocessableEntityException('Comece de novo: esse rascunho venceu');
+    return g;
+  }
+
+  /** Grava a parte nova (rascunho novo ou somado ao que já existe) e devolve para a tela. */
+  private async composeSave(
+    current: { id: string; draft: SiteDraft } | null,
+    part: SiteDraft,
+    o: {
+      ref: string;
+      ip: string | undefined;
+      model: string;
+      usage: { promptTokens: number; completionTokens: number; costUsd: number };
+      key: KeyKind;
+      step: 'conversa' | 'anexo';
+      claim?: string;
+      session?: string;
+      kind?: string | null;
+    },
+  ) {
+    const u = o.usage;
+    const claim = o.claim ?? randomBytes(24).toString('base64url');
+    const first: SiteDraft = { ...part, parts: 1, files: part.files ?? [] };
+    const id = await this.db.tx(async (c) => {
+      if (current) {
+        // Outra parte pode ter chegado enquanto a IA lia: junta no que está gravado agora.
+        const { rows } = await c.query<{ draft: SiteDraft }>(
+          `SELECT draft FROM site_ai_generations WHERE id = $1 FOR UPDATE`,
+          [current.id],
+        );
+        const merged = mergeCompose(rows[0]?.draft ?? current.draft, first);
+        await c.query(
+          `UPDATE site_ai_generations
+              SET draft = $2, items = $3, prompt_tokens = prompt_tokens + $4,
+                  completion_tokens = completion_tokens + $5, cost_usd = cost_usd + $6
+            WHERE id = $1`,
+          [
+            current.id,
+            JSON.stringify(merged),
+            draftItems(merged),
+            u.promptTokens,
+            u.completionTokens,
+            u.costUsd,
+          ],
+        );
+        return current.id;
+      }
+      const { rows } = await c.query<{ id: string }>(
+        `INSERT INTO site_ai_generations (source_kind, source_value, from_panel, ip, model, prompt_tokens,
+                                          completion_tokens, cost_usd, status, error, draft, items,
+                                          claim_hash, session)
+         VALUES ('compose', $1, false, $2, $3, $4, $5, $6, 'ok', NULL, $7, $8, $9, $10) RETURNING id`,
+        [
+          o.ref,
+          o.ip ?? null,
+          o.model,
+          u.promptTokens,
+          u.completionTokens,
+          u.costUsd,
+          JSON.stringify(first),
+          draftItems(first),
+          hash(claim),
+          o.session ?? null,
+        ],
+      );
+      return rows[0]!.id;
+    });
+    await recordCreation(this.db, {
+      step: o.step,
+      ref: o.kind ? `${o.ref} (${o.kind})` : o.ref.slice(0, 60),
+      model: o.model,
+      usage: u,
+      key: o.key,
+      generationId: id,
+    }).catch(() => undefined);
+    const [g] = await this.db.query<{ draft: SiteDraft }>(
+      `SELECT draft FROM site_ai_generations WHERE id = $1`,
+      [id],
+    );
+    return { claim, kind: o.kind ?? null, ...publicCompose(g!.draft) };
   }
 
   // ------------------------------------------------------------------ gerar

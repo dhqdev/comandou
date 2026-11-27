@@ -14,7 +14,7 @@ import {
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const ROUTE = new RegExp(
-  `^/v1/sessions/(${UUID})(?:/(start|logout|messages|document|typing|read|react|presence))?$`,
+  `^/v1/sessions/(${UUID})(?:/(start|logout|restart|messages|document|typing|read|react|presence))?$`,
   'i',
 );
 /** Conversa individual: número (@s.whatsapp.net) ou número escondido (@lid). */
@@ -98,6 +98,8 @@ export function createGatewayServer(
       return send(res, 200, await sessions.start(tenantId));
     if (req.method === 'POST' && action === 'logout')
       return send(res, 200, await sessions.logout(tenantId));
+    if (req.method === 'POST' && action === 'restart')
+      return send(res, 200, await sessions.restart(tenantId));
     if (req.method !== 'POST' || !action) return send(res, 405, { error: 'método não permitido' });
     const body = await readJson(req, action === 'document' ? DOC_BODY_MAX : BODY_MAX);
     try {

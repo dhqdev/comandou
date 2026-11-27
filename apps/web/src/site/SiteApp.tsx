@@ -11,6 +11,7 @@ import {
   Menu,
   MessageCircle,
   Monitor,
+  Maximize2,
   MousePointerClick,
   Package,
   PiggyBank,
@@ -473,6 +474,16 @@ function Tour() {
             <i aria-hidden />
             <span>fumaca.comandou.com</span>
             <em className="st-tour__note">Exemplo: clique à vontade, nada fica salvo</em>
+            <button
+              type="button"
+              className="st-tour__expand"
+              onClick={() => setFull(true)}
+              aria-label={`Expandir o sistema de exemplo em tela cheia: ${t.label}`}
+              title="Expandir em tela cheia"
+            >
+              <Maximize2 size={14} aria-hidden />
+              Expandir
+            </button>
           </div>
           <div className="st-tour__view" ref={view} data-ready={sandbox.ready || undefined}>
             <img
@@ -515,24 +526,27 @@ function Tour() {
         <span>
           {t.text}{' '}
           {!narrow && (
-            <a href={src} target="_blank" rel="noreferrer" className="st-tour__open">
+            <button type="button" className="st-tour__open" onClick={() => setFull(true)}>
               Abrir em tela cheia
-            </a>
+            </button>
           )}
         </span>
       </div>
-      {narrow && (
+      {
         <dialog
           ref={sheet}
           className="st-tour__sheet"
           aria-label="Sistema Comandou de exemplo"
           onClose={() => {
             setFull(false);
-            sandbox.reset();
+            if (narrow) sandbox.reset();
           }}
         >
           <div className="st-tour__sheet-bar">
-            <span>Exemplo: nada fica salvo</span>
+            <span>
+              <strong>Sistema de exemplo</strong> · mexa à vontade nos pedidos, mesas, caixa e
+              cardápio. Nada fica salvo.
+            </span>
             <button
               type="button"
               className="cm-btn cm-btn--secondary"
@@ -542,9 +556,15 @@ function Tour() {
               Fechar
             </button>
           </div>
-          {full && <iframe ref={sandbox.frame} src={src} title="Sistema Comandou de exemplo" />}
+          {full &&
+            (narrow ? (
+              <iframe ref={sandbox.frame} src={src} title="Sistema Comandou de exemplo" />
+            ) : (
+              // No computador a moldura de cima segue com o exemplo dela; este é outro, grande.
+              <iframe src={src} title="Sistema Comandou de exemplo em tela cheia" />
+            ))}
         </dialog>
-      )}
+      }
     </div>
   );
 }
@@ -826,10 +846,11 @@ function Landing() {
               Cardápio online, PDV, salão, cozinha, caixa e os pedidos do iFood num sistema só.{' '}
               {config?.ai ? (
                 <span className="st-lead__ai">
-                  <Sparkles size={16} aria-hidden /> Cole o seu link e a IA monta a loja.
+                  <Sparkles size={16} aria-hidden /> Mande o que tiver (link, cardápio, logo, CNPJ)
+                  e a IA monta a loja.
                 </span>
               ) : (
-                'Cole o seu link e o Comandou monta o resto.'
+                'Mande o seu link ou os itens com o preço e o Comandou monta o resto.'
               )}
             </p>
             <Builder config={config} onLook={setLook} onMood={react} />

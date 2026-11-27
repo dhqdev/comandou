@@ -25,7 +25,13 @@ import { clientIp } from '../../common/throttle-tracker';
 import { ZodPipe } from '../../common/zod.pipe';
 import { PlatformHostGuard, PlatformSessionGuard } from '../platform-auth';
 import type { Actor } from '../platform.service';
-import { PreviewBody, SiteSettingsBody, TestEmailBody, TrialBody } from './site.schemas';
+import {
+  ComposeBody,
+  PreviewBody,
+  SiteSettingsBody,
+  TestEmailBody,
+  TrialBody,
+} from './site.schemas';
 import { SiteService } from './site.service';
 import {
   MENU_FILE_TYPES,
@@ -122,6 +128,41 @@ export class PublicSiteController {
     return this.ai.suggestStock(b.claim);
   }
 
+  /**
+   * Campo único da criação (0.279): o texto e os links que a pessoa mandou. `claim`: o token do
+   * rascunho já começado (a parte nova soma nele).
+   */
+  @Post('compose')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 600_000, limit: 12 } })
+  compose(@Body(new ZodPipe(ComposeBody)) b: z.infer<typeof ComposeBody>, @Req() req: Request) {
+    return this.ai.compose(b, clientIp(req) || undefined);
+  }
+
+  /** Um arquivo do campo único (foto ou PDF, até 3 MB): logo, cardápio, capa ou documento. */
+  @Post('compose/file')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 600_000, limit: 20 } })
+  composeFile(
+    @Body() body: unknown,
+    @Headers('content-type') type: string | undefined,
+    @Query('rascunho') claim: string | undefined,
+    @Query('sessao') session: string | undefined,
+    @Query('nome') name: string | undefined,
+    @Req() req: Request,
+  ) {
+    const mime = (type ?? '').split(';')[0]!.trim().toLowerCase();
+    if (!MENU_FILE_TYPES.has(mime) || !Buffer.isBuffer(body))
+      throw new UnprocessableEntityException('Envie uma foto (JPG, PNG, WebP) ou um PDF');
+    if (claim !== undefined && !/^[A-Za-z0-9_-]{32}$/.test(claim))
+      throw new UnprocessableEntityException('Rascunho inválido');
+    return this.ai.composeFile(body, mime, clientIp(req) || undefined, {
+      claim,
+      session: SiteSession.safeParse(session).success ? session : undefined,
+      name: typeof name === 'string' ? name.slice(0, 120) : undefined,
+    });
+  }
+
   /** Cada IP tenta no máximo 6 cadastros por hora (além do limite por dia do painel). */
   @Post('trials')
   @Throttle({ default: { ttl: 3_600_000, limit: 6 } })
@@ -136,6 +177,19 @@ export class PublicSiteController {
     if (!/^[A-Za-z0-9_-]{43}$/.test(token))
       throw new UnprocessableEntityException('Token inválido');
     return this.svc.status(token);
+  }
+
+  /**
+   * Contrato do restaurante recém-criado: gera (uma vez) e devolve um link novo de assinatura.
+   * Só quem tem o token da criação (o mesmo da tela) e nas primeiras 2 horas.
+   */
+  @Post('trials/:token/contract')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 600_000, limit: 6 } })
+  contract(@Param('token') token: string, @Req() req: Request) {
+    if (!/^[A-Za-z0-9_-]{43}$/.test(token))
+      throw new UnprocessableEntityException('Token inválido');
+    return this.svc.contract(token, clientIp(req) || undefined);
   }
 }
 
@@ -175,6 +229,19 @@ export class PlatformSiteController {
   @Get('creation/:tenantId')
   creation(@Param('tenantId', new ParseUUIDPipe()) tenantId: string) {
     return this.svc.creation(tenantId);
+  }
+
+  /** Aba Criações: cada criação pelo site (virou restaurante ou não), gasto de IA e contrato. */
+  @Get('creations')
+  creations() {
+    return this.svc.creations();
+  }
+
+  @Get('creations/session/:session')
+  creationSession(@Param('session') session: string) {
+    if (!/^[A-Za-z0-9_-]{16,64}$/.test(session))
+      throw new UnprocessableEntityException('Sessão inválida');
+    return this.svc.creationSession(session);
   }
 
   @Get('email-preview')

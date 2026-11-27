@@ -182,6 +182,18 @@ cookie, CSRF, corpo gigante e Host estranho.
   começo (`%PDF-` ou a assinatura da imagem), até 3 MB e 8 páginas, limite por IP e tokens do
   dia/mês do site com IA; o estoque só com o token do rascunho e uma vez por item (trava
   `stockAt` contra clique duplo pagar duas vezes).
+- Campo único da criação (0.279, `POST /public/site/compose` e `/compose/file`): mesmo limite por
+  IP e tokens do site com IA; links só pelo `safeFetch` (via `SiteAiService.input`), arquivo
+  conferido pela assinatura (3 MB, 12 por rascunho), somar parte só com o token do rascunho
+  `compose` sem dono (3 horas). Logo/capa guardados como `data:image/...` no rascunho; o navegador
+  só aceita `data:image/(png|jpeg|webp)` no `fetchExternal`.
+- Contrato da criação (`POST /public/site/trials/:token/contract`): só com o token da criação nas
+  primeiras 2 horas, 6 por 10 min; cada chamada troca o link (o anterior para de valer), e a
+  criação é travada por `pg_advisory_lock` (duas abas não geram dois contratos).
+- Pedido pelo WhatsApp (menu): o telefone é sempre o da conversa (cadastro, endereços salvos e
+  pedidos de outro número nunca aparecem); o pedido passa pelo `StoreService.placeOrder` com
+  `whatsapp: true` (sem Pix com comprovante nem cartão pelo app) e o ritmo do menu é 25/min e
+  200/h por número.
 
 ### Dependência (A03 Cadeia de suprimentos)
 - Versão fixa ou `^` com lockfile; `pnpm audit --prod --audit-level high` no CI.

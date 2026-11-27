@@ -102,6 +102,10 @@ export class GatewayClient {
   async logout(tenantId: string) {
     return (await this.call<GatewaySession>(tenantId, 'POST', '/logout')).body;
   }
+  /** Reinicia a conexão sem desconectar o aparelho (credenciais salvas continuam). */
+  async restart(tenantId: string) {
+    return (await this.call<GatewaySession>(tenantId, 'POST', '/restart')).body;
+  }
   /**
    * 409 = WhatsApp do restaurante desconectado (tentar de novo mais tarde). Se a conexão estiver
    * religando, o gateway espera ela voltar (alguns segundos) antes de responder.

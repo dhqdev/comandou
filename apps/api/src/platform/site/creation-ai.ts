@@ -21,6 +21,8 @@ export const FIRST_STEPS_DAYS = 7;
 
 /** Etapas da criação, na ordem em que acontecem, com o nome que a aba mostra. */
 export const CREATION_STEPS = [
+  { key: 'conversa', label: 'Ler o texto e os links', where: 'site' },
+  { key: 'anexo', label: 'Ler fotos e PDFs anexados', where: 'site' },
   { key: 'site', label: 'Montar o site', where: 'site' },
   { key: 'cardapio', label: 'Ler o cardápio enviado', where: 'site' },
   { key: 'estoque', label: 'Sugerir o estoque', where: 'site' },

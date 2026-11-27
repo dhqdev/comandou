@@ -30,6 +30,17 @@ export interface SiteDraft {
   suggested: boolean;
   /** Cardápio enviado no site: quantas páginas (fotos ou PDFs) já foram lidas. */
   pages?: number;
+  /** Campo único da criação (0.279): CNPJ/CPF e razão social que a IA achou no que veio. */
+  legal?: DraftLegal;
+  /** Quantas mensagens e arquivos já entraram neste rascunho, e o que cada arquivo era. */
+  parts?: number;
+  files?: string[];
+}
+
+/** Dados da empresa para o cadastro e o contrato (só o que estava escrito). */
+export interface DraftLegal {
+  document: string | null;
+  legalName: string | null;
 }
 
 export const SITE_PROMPT = `Você cria a loja online (cardápio digital) de um restaurante brasileiro a partir do que se sabe dele: a página do site, o nome e o endereço que vieram do Google Maps, ou o que o dono escreveu. As imagens da página aparecem no texto como [img N].
@@ -245,4 +256,155 @@ export function publicMenu(d: SiteDraft) {
       })),
     })),
   };
+}
+
+// ------------------------------------------------------------------ campo único (0.279)
+
+/**
+ * Pedido do David (0.279): no site, uma barra só para mandar tudo sobre o restaurante (texto,
+ * links, fotos, PDF) e a IA vai montando a loja: logo, nome, endereço de entrega, cardápio com os
+ * preços, CNPJ/CPF. Cada mensagem ou arquivo é lido uma vez e somado ao rascunho.
+ */
+export const COMPOSE_PROMPT = `${SITE_PROMPT}
+
+Agora a loja chega aos poucos: o dono manda o que tiver (texto, links já abertos aqui como páginas, fotos e PDFs, um de cada vez). Leia SÓ a parte nova abaixo; o sistema junta com o que já se sabe.
+No "store", além dos campos acima, inclua:
+"document":"CNPJ (14 números) ou CPF (11 números) do restaurante, só se estiver escrito, senão null",
+"legalName":"razão social, só se estiver escrita, senão null",
+"cep":"CEP só com números ou null"
+E, na raiz do JSON, "file": o que é o arquivo anexado ("logo" = só a marca; "menu" = cardápio; "cover" = foto da fachada, do salão ou de um prato para a capa; "document" = cartão do CNPJ, contrato ou nota; "other"), ou null sem arquivo.
+- Endereço para entrega: rua, número e bairro em "address"; cidade e UF separadas.
+- Nunca invente CNPJ, CPF, razão social, telefone ou endereço.
+- Se a parte nova é só um logo, uma foto de capa, um documento ou um texto sem itens, responda "categories": [] e "suggested": false (não sugira itens).`;
+
+/** Dígitos do CNPJ conferidos. */
+export function isCnpj(v: string): boolean {
+  if (!/^\d{14}$/.test(v) || /^(\d)\1{13}$/.test(v)) return false;
+  const dv = (len: number) => {
+    const w =
+      len === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += Number(v[i]) * w[i]!;
+    const r = sum % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return dv(12) === Number(v[12]) && dv(13) === Number(v[13]);
+}
+
+/** Dígitos do CPF conferidos. */
+export function isCpfDigits(v: string): boolean {
+  if (!/^\d{11}$/.test(v) || /^(\d)\1{10}$/.test(v)) return false;
+  const dv = (len: number) => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += Number(v[i]) * (len + 1 - i);
+    const r = (sum * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  return dv(9) === Number(v[9]) && dv(10) === Number(v[10]);
+}
+
+/** CNPJ ou CPF válido (só números) ou null. */
+export function legalDocument(v: unknown): string | null {
+  const d = typeof v === 'string' ? v.replace(/\D/g, '') : '';
+  return isCnpj(d) || isCpfDigits(d) ? d : null;
+}
+
+/** Lê a resposta de uma parte do campo único: o rascunho, os dados da empresa e o tipo do arquivo. */
+export function readComposeDraft(
+  raw: string,
+  images: string[] = [],
+): { draft: SiteDraft; file: string | null } {
+  const draft = readSiteDraft(raw, images);
+  let legal: DraftLegal = { document: null, legalName: null };
+  let file: string | null = null;
+  let cep: string | null = null;
+  try {
+    const j = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+      store?: { document?: unknown; legalName?: unknown; cep?: unknown };
+      file?: unknown;
+    };
+    legal = {
+      document: legalDocument(j.store?.document),
+      legalName: clip(j.store?.legalName, 160),
+    };
+    file =
+      typeof j.file === 'string' && ['logo', 'menu', 'cover', 'document', 'other'].includes(j.file)
+        ? j.file
+        : null;
+    const c = typeof j.store?.cep === 'string' ? j.store.cep.replace(/\D/g, '') : '';
+    cep = c.length === 8 ? c : null;
+  } catch {
+    /* sem os extras: fica o rascunho */
+  }
+  // Arquivo que não é cardápio não traz itens (a IA às vezes "sugere" mesmo assim).
+  const noItems = file && file !== 'menu';
+  return {
+    draft: {
+      ...draft,
+      store: { ...draft.store, cep: draft.store.cep ?? cep },
+      categories: noItems ? [] : draft.categories,
+      suggested: noItems ? false : draft.suggested,
+      legal,
+    },
+    file,
+  };
+}
+
+/**
+ * Junta uma parte nova ao rascunho: dados da loja que faltavam, itens novos (sugestão sai quando
+ * chega cardápio de verdade) e os dados da empresa.
+ */
+export function mergeCompose(a: SiteDraft, b: SiteDraft): SiteDraft {
+  const real = (d: SiteDraft) => draftItems(d) > 0 && !d.suggested;
+  let base: SiteDraft = a;
+  if (a.suggested && real(b)) base = { ...a, categories: [], suggested: false };
+  const merged =
+    draftItems(b) && !(b.suggested && draftItems(base))
+      ? mergeMenuDrafts(base, b)
+      : { ...base, store: mergeStores(base.store, b.store) };
+  return {
+    ...merged,
+    pages: a.pages,
+    tagline: a.tagline ?? b.tagline,
+    suggested: draftItems(merged) > 0 && (base.suggested || (!draftItems(base) && b.suggested)),
+    legal: {
+      document: a.legal?.document ?? b.legal?.document ?? null,
+      legalName: a.legal?.legalName ?? b.legal?.legalName ?? null,
+    },
+    parts: (a.parts ?? 1) + (b.parts ?? 1),
+    files: [...(a.files ?? []), ...(b.files ?? [])].slice(0, 20),
+  };
+}
+
+/** O que a tela de criar recebe do campo único: a loja montada e o cardápio com o estoque. */
+export function publicCompose(d: SiteDraft) {
+  return {
+    site: publicDraft(d),
+    menu: publicMenu(d),
+    legal: d.legal ?? { document: null, legalName: null },
+    store: {
+      address: d.store.address,
+      city: d.store.city,
+      state: d.store.state,
+      cep: d.store.cep,
+      whatsapp: d.store.whatsapp,
+      hours: d.store.hours.length,
+    },
+    parts: d.parts ?? 1,
+    files: d.files ?? [],
+  };
+}
+
+/** Links do texto (até 3): http(s), www. e domínios .com/.com.br soltos. */
+export function linksIn(text: string): string[] {
+  const out: string[] = [];
+  const re =
+    /\b((?:https?:\/\/|www\.)[^\s<>"']+|[a-z0-9][a-z0-9-]{1,62}\.(?:com\.br|com|net\.br|net|app|site|menu|food|delivery)(?:\/[^\s<>"']*)?)/gi;
+  for (const m of text.matchAll(re)) {
+    let u = m[1]!.replace(/[),.;!?]+$/, '');
+    if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+    if (!out.includes(u)) out.push(u);
+    if (out.length >= 3) break;
+  }
+  return out;
 }

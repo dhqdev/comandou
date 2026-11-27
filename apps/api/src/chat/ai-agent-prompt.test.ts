@@ -76,8 +76,16 @@ describe('menuText', () => {
 });
 
 describe('customerPrompt', () => {
-  it('usa o nome padrão, o link da loja e o cardápio liberado', () => {
+  it('no menu numerado, o pedido é pela conversa (sem mandar o link) e com a formatação do WhatsApp', () => {
     const p = customerPrompt(base);
+    expect(p).toContain('O pedido é feito aqui mesmo, pelo menu numerado');
+    expect(p).not.toContain('https://casa.comandou.com/pedir');
+    expect(p).toContain('~riscado~');
+    expect(p).toContain('_itálico_');
+  });
+
+  it('usa o nome padrão, o link da loja e o cardápio liberado', () => {
+    const p = customerPrompt({ ...base, settings: { ...AGENT_DEFAULTS, menuMode: false } });
     expect(p).toContain('Você é Comandinho');
     expect(p).toContain('"Casa do Lanche"');
     expect(p).toContain('https://casa.comandou.com/pedir');

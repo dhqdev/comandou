@@ -229,63 +229,6 @@ html:has(.st) {
 }
 
 /* ---------------------------------------------------------------- criar o restaurante (topo) */
-/*
- * Escolha de onde vem o cardápio: três botões do mesmo tamanho e uma pílula branca que desliza
- * até o escolhido (no jeito dos "radio tabs" do Uiverse, só com transform).
- */
-.st-seg {
-  position: relative;
-  display: inline-grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  padding: 3px;
-  border-radius: 12px;
-  background: var(--cm-surface-sunken);
-  isolation: isolate;
-}
-.st-seg__glider {
-  position: absolute;
-  z-index: -1;
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  width: calc((100% - 6px) / 3);
-  border-radius: 9px;
-  background: var(--cm-surface);
-  box-shadow:
-    0 1px 2px rgb(24 24 27 / 8%),
-    0 2px 8px -2px rgb(24 24 27 / 10%);
-  transform: translateX(calc(var(--seg-i, 0) * 100%));
-  transition: transform 300ms var(--cm-spring-smooth);
-}
-.st-seg__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 36px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--cm-text-muted);
-  font: inherit;
-  font-size: var(--cm-text-sm);
-  font-weight: 550;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color 200ms var(--cm-ease);
-}
-.st-seg__btn:hover,
-.st-seg__btn.is-on {
-  color: var(--cm-text);
-}
-.st-seg__btn:active {
-  transform: scale(0.97);
-}
-.st-seg__short {
-  display: none;
-}
 .st-build__form {
   display: flex;
   gap: var(--cm-space-2);
@@ -404,19 +347,6 @@ html:has(.st) {
 @media (max-width: 620px) {
   .st-build__form {
     flex-direction: column;
-  }
-  .st-seg {
-    display: grid;
-    width: 100%;
-  }
-  .st-seg__btn {
-    padding: 0 6px;
-  }
-  .st-seg__full {
-    display: none;
-  }
-  .st-seg__short {
-    display: inline;
   }
 }
 
@@ -1777,7 +1707,6 @@ html:has(.st) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .st-seg__glider,
   .st-roll__col,
   .st-create,
   .st-create::backdrop {
@@ -1792,5 +1721,233 @@ html:has(.st) {
   .st-ready__check circle,
   .st-ready__check path {
     stroke-dashoffset: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- campo único da criação (0.279) */
+/*
+ * Uma caixa só, como o campo de uma conversa: texto que cresce, os links e arquivos em pílulas
+ * embaixo e a barra com o clipe e o botão. Arrastar ou colar fotos e PDF também anexa.
+ */
+.st-compose {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--cm-btn-line);
+  border-radius: 18px;
+  background: var(--cm-surface);
+  box-shadow:
+    0 1px 2px rgb(24 24 27 / 5%),
+    0 8px 24px -12px rgb(24 24 27 / 12%);
+  transition:
+    border-color var(--cm-dur) var(--cm-ease),
+    box-shadow var(--cm-dur) var(--cm-ease);
+}
+.st-compose:focus-within {
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
+}
+.st-compose[data-drag] {
+  border-color: var(--cm-brand-500);
+  border-style: dashed;
+}
+.st-compose__text {
+  width: 100%;
+  min-height: 76px;
+  max-height: 260px;
+  padding: 4px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  field-sizing: content;
+}
+.st-compose__text::placeholder {
+  color: var(--cm-gray-400);
+}
+.st-compose__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.st-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: st-up 0.22s var(--cm-spring) both;
+}
+.st-att {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--cm-border);
+  border-radius: 12px;
+  background: var(--cm-surface);
+  font-size: var(--cm-text-sm);
+  animation: st-up 0.22s var(--cm-spring) both;
+}
+.st-att img,
+.st-att__pdf {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--cm-surface-sunken);
+}
+.st-att__pdf {
+  display: grid;
+  place-items: center;
+  color: var(--cm-text-muted);
+}
+.st-att__label {
+  color: var(--cm-text);
+  font-weight: 550;
+}
+.st-att[data-state='failed'] {
+  border-color: color-mix(in oklab, var(--cm-danger) 45%, var(--cm-border));
+}
+.st-att[data-state='failed'] .st-att__label {
+  color: var(--cm-danger);
+}
+.st-att[data-state='reading'] img {
+  filter: saturate(0.4);
+}
+.st-att__ok {
+  color: var(--cm-success);
+}
+.st-att__x {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.st-att__x:hover {
+  color: var(--cm-text);
+}
+.st-att__spin {
+  display: inline-flex;
+}
+.st-compose__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.st-compose__attach {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--cm-border);
+  border-radius: 12px;
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.st-compose__attach:hover:not(:disabled) {
+  color: var(--cm-text);
+  border-color: var(--cm-border-strong);
+}
+.st-compose__attach:active:not(:disabled) {
+  transform: scale(0.95);
+}
+.st-compose__attach:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.st-compose__attach:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.st-compose__hint {
+  flex: 1;
+  min-width: 0;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-sm);
+}
+.st-compose .st-build__go {
+  min-height: 46px;
+}
+.st-compose__drop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: color-mix(in oklab, var(--cm-brand-500) 8%, var(--cm-surface));
+  color: var(--cm-brand-700);
+  font-weight: 600;
+  pointer-events: none;
+}
+@media (max-width: 620px) {
+  .st-compose__hint {
+    display: none;
+  }
+  .st-compose__bar {
+    justify-content: space-between;
+  }
+  .st-compose .st-build__go {
+    flex: 1;
+  }
+}
+
+/* Contrato pronto para assinar, na tela final da criação. */
+.st-contract {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: 14px;
+  background: var(--cm-surface-sunken);
+}
+.st-contract__ic {
+  flex: none;
+  color: var(--cm-text-muted);
+}
+.st-contract[data-signed] .st-contract__ic {
+  color: var(--cm-success);
+}
+.st-contract__text {
+  flex: 1 1 220px;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.st-contract__text span {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-chip,
+  .st-att,
+  .st-compose__attach {
+    animation: none;
+    transition: none;
   }
 }

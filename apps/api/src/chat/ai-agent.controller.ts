@@ -44,6 +44,23 @@ const Settings = z
     replyWhen: z.enum(['always', 'open']),
     takeReservations: z.boolean(),
     sendPdfs: z.boolean(),
+    menuMode: z.boolean(),
+    takeOrders: z.boolean(),
+    orderStatus: z.boolean(),
+    offerSignup: z.boolean(),
+    guestOrders: z.boolean(),
+    orderDelivery: z.boolean(),
+    orderPickup: z.boolean(),
+    payMethods: z
+      .array(z.enum(['pix', 'cash', 'credit', 'debit', 'voucher']))
+      .min(1, 'Escolha pelo menos uma forma de pagamento')
+      .max(5)
+      .transform((v) => [...new Set(v)]),
+    understandText: z.boolean(),
+    itemNotes: z.boolean(),
+    sendTracking: z.boolean(),
+    freeChat: z.boolean(),
+    showInfo: z.boolean(),
   })
   .partial();
 

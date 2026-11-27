@@ -41,6 +41,7 @@ interface CreationReport {
 }
 
 const SOURCE: Record<string, string> = {
+  compose: 'Campo único (texto, links e arquivos)',
   site: 'Site',
   maps: 'Google Maps',
   text: 'Itens escritos',

@@ -1977,3 +1977,55 @@ button.acct-tile {
 .searchbar[data-chips] .cchips {
   mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
 }
+
+/* ================================================================ pedir pelo WhatsApp (0.279) */
+/* Cartão embaixo da loja quando o atendente automático do WhatsApp faz pedidos: abre a conversa
+   com "Oi! Quero fazer um pedido" e o menu numerado responde. */
+.hm-wa {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in oklab, var(--cm-success) 35%, var(--cm-border));
+  border-radius: var(--sf-card-r);
+  background: color-mix(in oklab, var(--cm-success) 6%, var(--cm-surface));
+  color: var(--cm-text);
+  text-decoration: none;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.hm-wa:active {
+  transform: scale(0.98);
+  transition-duration: 80ms;
+}
+.hm-wa:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.hm-wa__icon {
+  flex: none;
+  color: var(--cm-success);
+  margin-left: 6px;
+}
+.hm-wa__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.hm-wa__text strong {
+  font-size: var(--cm-text-md);
+  font-weight: 700;
+}
+.hm-wa__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-wa {
+    transition: none;
+  }
+}

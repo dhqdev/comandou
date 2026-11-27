@@ -384,6 +384,11 @@ export interface OnlineOrderInput {
   couponCode?: string;
   /** Mesa: onde o celular está (a loja confere com o ponto dela no mapa). */
   presence?: Presence;
+  /**
+   * Pedido feito pelo atendimento do WhatsApp (0.279): o pagamento é sempre na entrega ou na
+   * retirada (sem Pix com comprovante pelo cardápio nem cartão pelo app).
+   */
+  whatsapp?: boolean;
 }
 
 /** Loja online: configurações, cardápio público e pedidos feitos pelo cliente final. */
@@ -869,6 +874,14 @@ export class StoreService {
                 ORDER BY starts_at DESC LIMIT 30`,
             )
           ).map((n) => n.id);
+      // Atendimento da IA no WhatsApp com pedido pelo menu: o cardápio mostra "Pedir pelo
+      // WhatsApp" com o número conectado (ou o da loja, se ainda não se soube o conectado).
+      const wa = await one<{ on: boolean; phone: string | null }>(
+        tx,
+        `SELECT whatsapp_enabled AND menu_mode AND take_orders AS on, wa_phone AS phone
+           FROM ai_agent_settings`,
+      ).catch(() => null);
+      const waDigits = (wa?.phone ?? s.whatsapp ?? '').replace(/\D/g, '');
       return {
         restaurant: {
           name: tenantName,
@@ -876,6 +889,13 @@ export class StoreService {
           about: s.about,
           address: s.address,
           whatsapp: s.whatsapp,
+          /** Pedido pelo WhatsApp com o atendente automático (null = desligado). */
+          waOrder:
+            wa?.on && waDigits.length >= 10
+              ? waDigits.length <= 11
+                ? `55${waDigits}`
+                : waDigits
+              : null,
           city: region.city,
           state: region.state,
           coverUrl: mediaUrl(s.coverImageId),
@@ -1025,7 +1045,9 @@ export class StoreService {
     // Pago pelo app (PagBank): cartão de crédito marcado "pelo app" ou Pix (quando a loja liga o
     // Pix pelo app), na entrega e na retirada. O pedido espera o pagamento em análise.
     const offer =
-      !atTable && s.accountsEnabled ? await this.onlinePay.offer(tenantId).catch(() => null) : null;
+      !atTable && !input.whatsapp && s.accountsEnabled
+        ? await this.onlinePay.offer(tenantId).catch(() => null)
+        : null;
     if (input.payInApp && !(input.paymentMethod === 'credit' && offer?.card))
       throw new ConflictException('Esta loja não está recebendo cartão pelo app agora');
     const payOnline: 'card' | 'pix' | undefined =
@@ -1041,7 +1063,11 @@ export class StoreService {
       });
     // Pix pelo cardápio (QR Code na hora): só com a conta do cliente aberta.
     const pixNow =
-      !payOnline && input.paymentMethod === 'pix' && s.accountsEnabled && !!pixPayeeOf(s);
+      !payOnline &&
+      !input.whatsapp &&
+      input.paymentMethod === 'pix' &&
+      s.accountsEnabled &&
+      !!pixPayeeOf(s);
     if (pixNow && !input.customerId)
       throw new ForbiddenException({
         message: 'Entre na sua conta para pagar pelo Pix',

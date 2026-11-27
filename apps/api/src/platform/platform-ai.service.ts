@@ -55,6 +55,12 @@ export const AiSettingsBody = z.object({
     .trim()
     .regex(/^[A-Za-z0-9._:/-]{3,120}$/, 'Modelo inválido (ex.: google/gemini-2.5-flash)')
     .optional(),
+  /** Modelo do atendimento no WhatsApp (só o Super Admin troca; o restaurante não escolhe). */
+  whatsappModel: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9._:/-]{3,120}$/, 'Modelo inválido (ex.: google/gemini-2.5-flash-lite)')
+    .optional(),
 });
 export type AiSettingsInput = z.infer<typeof AiSettingsBody>;
 
@@ -95,6 +101,7 @@ interface Row {
   vision_model: string;
   image_model: string;
   import_model: string;
+  whatsapp_model: string;
   updated_at: Date;
 }
 
@@ -134,7 +141,7 @@ const MODEL_ROLES = {
   chat: {
     label: 'Conversa',
     detail:
-      'Chat da equipe, IA do WhatsApp, modelo de impressão, texto da página do restaurante e estoque sugerido na criação pelo site',
+      'Chat da equipe, modelo de impressão, texto da página do restaurante e estoque sugerido na criação pelo site',
   },
   chat_fallback: {
     label: 'Reserva da conversa',
@@ -149,6 +156,11 @@ const MODEL_ROLES = {
     label: 'Ler o cardápio',
     detail:
       'Importar o cardápio (PDF, foto, link, texto), achar o restaurante no Google e ler o cardápio enviado no site',
+  },
+  whatsapp: {
+    label: 'Atendimento no WhatsApp',
+    detail:
+      'Perguntas livres e pedidos escritos no WhatsApp dos restaurantes (o menu numerado não gasta IA)',
   },
   pipeline: { label: 'Esteira de chamados', detail: 'Agentes da triagem, do código e do PR' },
   sites: {
@@ -458,6 +470,7 @@ export class PlatformAiService {
         visionModel: r.vision_model,
         imageModel: r.image_model,
         importModel: r.import_model,
+        whatsappModel: r.whatsapp_model,
         updatedAt: r.updated_at,
       },
       /** Um cartão por modelo: para que serve, preço e quanto foi usado no mês e onde. */
@@ -549,6 +562,7 @@ export class PlatformAiService {
       ['vision', r.vision_model],
       ['image', r.image_model],
       ['import', r.import_model],
+      ['whatsapp', r.whatsapp_model],
       ['pipeline', other.pipeline || r.model],
       ['sites', other.sites || ''],
     ];
@@ -799,7 +813,8 @@ export class PlatformAiService {
                 assistant_name = $4, default_monthly_tokens = $5, low_balance_usd = $6,
                 owner_api_key_enc = $8, admin_api_key_enc = $9,
                 photo_ai_enabled = $10, vision_model = $11,
-                image_model = $12, import_model = $13, updated_at = now(), updated_by = $7
+                image_model = $12, import_model = $13, whatsapp_model = $14, updated_at = now(),
+                updated_by = $7
           WHERE id`,
         [
           b.enabled,
@@ -815,6 +830,7 @@ export class PlatformAiService {
           b.visionModel ?? current.vision_model,
           b.imageModel ?? current.image_model,
           b.importModel ?? current.import_model,
+          b.whatsappModel ?? current.whatsapp_model,
         ],
       );
       const { apiKey: _k, ownerApiKey: _o, adminApiKey: _a, ...safe } = b;

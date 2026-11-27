@@ -19,6 +19,7 @@ export const TrialBody = z.object({
       z.object({ kind: z.literal('site'), value: z.string().trim().min(4).max(2000) }),
       z.object({ kind: z.literal('maps'), value: z.string().trim().min(8).max(2000) }),
       z.object({ kind: z.literal('text'), value: z.string().trim().min(10).max(6000) }),
+      z.object({ kind: z.literal('compose'), value: z.string().trim().max(6000).default('') }),
       z.object({ kind: z.literal('none'), value: z.string().max(0).default('') }),
     ])
     .default({ kind: 'none', value: '' }),
@@ -37,6 +38,31 @@ export const TrialBody = z.object({
     .string()
     .regex(/^[A-Za-z0-9_-]{16,64}$/)
     .optional(),
+  /** CNPJ ou CPF do restaurante (vai para o cadastro e para o contrato). */
+  document: z
+    .string()
+    .transform(digits)
+    .refine((v) => v === '' || v.length === 11 || v.length === 14, 'CPF (11) ou CNPJ (14 números)')
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
+  /** Razão social (ou o nome de quem assina, no CPF). */
+  legalName: z
+    .string()
+    .trim()
+    .max(160)
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
+  city: z.string().trim().max(80).nullable().optional(),
+  state: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^([A-Z]{2})?$/)
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
   /** Campo escondido: gente não preenche, robô sim. */
   company: z.string().max(0).optional(),
 });
@@ -52,3 +78,16 @@ export const SiteSettingsBody = z.object({
 export type SiteSettingsInput = z.infer<typeof SiteSettingsBody>;
 
 export const TestEmailBody = z.object({ to: z.string().trim().toLowerCase().email().max(254) });
+
+/** Uma mensagem do campo único da criação (texto e links). */
+export const ComposeBody = z.object({
+  text: z.string().trim().min(2, 'Escreva alguma coisa sobre o restaurante').max(6000),
+  claim: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{32}$/)
+    .optional(),
+  session: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{16,64}$/)
+    .optional(),
+});

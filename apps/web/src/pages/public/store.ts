@@ -53,6 +53,8 @@ export interface PublicMenu {
     about: string | null;
     address: string | null;
     whatsapp: string | null;
+    /** Número do atendente automático do WhatsApp que faz o pedido (null = desligado). */
+    waOrder?: string | null;
     /** Cidade e UF da loja: base para achar o CEP pelo nome da rua. */
     city?: string | null;
     state?: string | null;

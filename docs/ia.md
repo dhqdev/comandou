@@ -51,6 +51,12 @@ A migração 0129 trocou o padrão da conversa (quem estava no Gemini 2.5 Flash 
 para o DeepSeek; modelo escolhido à mão ficou) e criou `platform_ai_settings.import_model` (antes
 fixo no `AI_IMPORT_MODEL` do servidor, que segue como reserva).
 
+**Modelo do WhatsApp (0.279):** `platform_ai_settings.whatsapp_model` (migração 0132, padrão
+`google/gemini-2.5-flash-lite`), trocado só em Super Admin › Tokens de IA › Chaves e assistente
+("Modelo do WhatsApp", papel `whatsapp` dos cartões de modelos). Vale para a IA que atende o cliente
+(perguntas livres, pedido escrito, resumo da memória e o teste do gerente) por `waModel()` em
+`ai-agent.service.ts`; o menu numerado do WhatsApp não chama IA (veja [whatsapp.md](whatsapp.md)).
+
 ## O que o assistente da equipe enxerga
 
 `apps/api/src/chat/ai.service.ts` monta duas mensagens de sistema a cada pergunta:

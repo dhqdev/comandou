@@ -31,11 +31,14 @@ import { mapsPlaceName } from '../../common/maps-link';
 import { trialSlug } from './site-util';
 import { welcomeEmail } from './welcome-email';
 import { SiteAiService } from './site-ai.service';
+import { ContractsService } from '../contracts/contracts.service';
 import { creationReport } from './creation-ai';
 import { MailService } from '../../mail/mail.service';
 import { resetEmail } from '../../store/reset-email';
 
 const SECRET_CONTEXT = 'site:trial';
+/** Começo do mês no relógio de Brasília (a mesma conta do uso de IA). */
+const MONTH_START_SQL = `date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo'`;
 const MAIL_OFF = 'Envio de e-mail não configurado (Super Admin › E-mail)';
 /** O link que abre o restaurante novo já logado vale este tempo depois do cadastro. */
 const ENTRY_MINUTES = 60;
@@ -93,6 +96,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly platform: PlatformService,
     private readonly siteAi: SiteAiService,
     private readonly mail: MailService,
+    private readonly contracts: ContractsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -265,7 +269,19 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       adminName: b.name,
       adminPassword: password,
       planCode: plan.code,
-      profile: { contactName: b.name, phone: b.phone ?? null, billingEmail: b.email },
+      profile: {
+        contactName: b.name,
+        phone: b.phone ?? null,
+        billingEmail: b.email,
+        // CNPJ/CPF e razão social da criação pelo site (a IA acha, a pessoa confere): vão para o
+        // cadastro do Super Admin e para o contrato gerado quando o restaurante fica pronto.
+        ...(b.document ? { document: b.document } : {}),
+        ...(b.document
+          ? { legalName: b.legalName || (b.document.length === 11 ? b.name : b.restaurant) }
+          : {}),
+        ...(b.city ? { city: b.city.slice(0, 80) } : {}),
+        ...(b.state ? { state: b.state } : {}),
+      },
     };
 
     let tenantId: string;
@@ -395,6 +411,96 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       r.status === 'provisioned' ? 'ready' : r.status === 'failed' ? 'failed' : 'creating';
     if (state === 'ready' && !r.email_sent_at) void this.deliverPending().catch(() => undefined);
     return { state, step: r.step, url: this.tenantUrl(r.slug), emailSent: !!r.email_sent_at };
+  }
+
+  /**
+   * Contrato da criação pelo site (0.279, pedido do David: "um contrato para ele assinar
+   * digitalmente e daí eu já receber no Super Admin"): na primeira chamada, com o restaurante
+   * pronto e o CNPJ/CPF no cadastro, gera o contrato pelo mesmo caminho do painel (plano e dias de
+   * teste do restaurante) e devolve um link novo de assinatura (o anterior deixa de valer). Quando
+   * o cliente assina, a contratada recebe o aviso de sempre (e-mail e Status do painel).
+   */
+  async contract(token: string, ip: string | undefined) {
+    if (!this.db.enabled) throw new NotFoundException();
+    const [r] = await this.db.query<{
+      id: string;
+      tenant_id: string;
+      email: string;
+      contract_id: string | null;
+      status: string;
+      document: string | null;
+    }>(
+      `SELECT s.id, s.tenant_id, s.email, s.contract_id, t.status, pf.document
+         FROM trial_signups s JOIN tenants t ON t.id = s.tenant_id
+         LEFT JOIN tenant_profiles pf ON pf.tenant_id = s.tenant_id
+        WHERE s.status_hash = $1 AND s.created_at > now() - interval '2 hours'`,
+      [hashToken(token)],
+    );
+    if (!r) throw new NotFoundException('Cadastro não encontrado');
+    if (r.status !== 'provisioned')
+      throw new ConflictException('O restaurante ainda está sendo criado. Tente em instantes.');
+    if (!r.document)
+      return { url: null, signed: false, reason: 'Informe o CNPJ ou CPF para gerar o contrato.' };
+    const actor: Actor = { admin: { id: null, name: 'Site' } as unknown as PlatformAdmin, ip };
+    const origin = this.adminUrl();
+    try {
+      let id = r.contract_id;
+      if (!id) {
+        // Duas chamadas juntas (duas abas): uma cria, a outra espera e usa o mesmo contrato.
+        const lock = await this.db.pool!.connect();
+        try {
+          await lock.query(`SELECT pg_advisory_lock(hashtext($1))`, [
+            `comandou:trial-contract:${r.id}`,
+          ]);
+          const [again] = await this.db.query<{ contract_id: string | null }>(
+            `SELECT contract_id FROM trial_signups WHERE id = $1`,
+            [r.id],
+          );
+          id = again?.contract_id ?? null;
+          if (!id) {
+            const c = (await this.contracts.create(
+              r.tenant_id,
+              { signerEmail: r.email },
+              actor,
+            )) as { id: string };
+            id = c.id;
+            await this.db.query(
+              `UPDATE trial_signups SET contract_id = $2, contract_error = NULL WHERE id = $1`,
+              [r.id, id],
+            );
+          }
+        } finally {
+          await lock
+            .query(`SELECT pg_advisory_unlock(hashtext($1))`, [`comandou:trial-contract:${r.id}`])
+            .catch(() => undefined);
+          lock.release();
+        }
+      }
+      const [st] = await this.db.query<{ status: string }>(
+        `SELECT status FROM tenant_contracts WHERE id = $1`,
+        [id],
+      );
+      if (st?.status === 'client_signed' || st?.status === 'signed')
+        return { url: null, signed: true, reason: null };
+      const { url } = await this.contracts.link(id, actor, origin);
+      return { url, signed: false, reason: null };
+    } catch (e) {
+      const msg = (e as Error).message.slice(0, 300);
+      this.logger.warn(`contrato da criação pelo site não saiu: ${msg}`);
+      await this.db
+        .query(`UPDATE trial_signups SET contract_error = $2 WHERE id = $1`, [r.id, msg])
+        .catch(() => undefined);
+      return {
+        url: null,
+        signed: false,
+        reason: 'O contrato sai em instantes pelo e-mail. Se não chegar, fale com a gente.',
+      };
+    }
+  }
+
+  private adminUrl() {
+    const port = this.env.SITE_CHECK_PORT ? `:${this.env.SITE_CHECK_PORT}` : '';
+    return `${this.env.COOKIE_SECURE ? 'https' : 'http'}://admin.${this.env.COMANDOU_BASE_DOMAIN}${port}`;
   }
 
   // ------------------------------------------------------------------ e-mail
@@ -680,6 +786,154 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     const r = await creationReport(this.db, tenantId);
     if (!r) throw new NotFoundException('Este restaurante não foi criado pelo site');
     return r;
+  }
+
+  /**
+   * Aba Criações do Super Admin (0.279, pedido do David: "deixe em algum lugar, de quando criar o
+   * restaurante pelo site, o tanto de IA que usou e como foi o processo"): cada visita que começou a
+   * criar pelo site (rascunhos da mesma sessão) e cada restaurante criado, com o gasto de IA, o que
+   * a IA montou, o CNPJ/CPF e a situação do contrato. As que não viraram restaurante também entram.
+   */
+  async creations() {
+    const [trials, drafts, month] = await Promise.all([
+      this.db.query<{
+        tenantId: string;
+        slug: string;
+        name: string;
+        status: string;
+        email: string;
+        contactName: string;
+        phone: string | null;
+        sourceKind: string;
+        sourceValue: string;
+        createdAt: Date;
+        session: string | null;
+        subscription: string | null;
+        document: string | null;
+        legalName: string | null;
+        contractId: string | null;
+        contractStatus: string | null;
+        contractNumber: string | null;
+        contractSignedAt: Date | null;
+        contractError: string | null;
+        items: number | null;
+        aiTokens: number;
+        aiCostUsd: number;
+        aiCalls: number;
+      }>(
+        `SELECT ts.tenant_id AS "tenantId", t.slug, t.name, t.status, ts.email::text AS email,
+                ts.contact_name AS "contactName", ts.phone, ts.source_kind AS "sourceKind",
+                left(ts.source_value, 200) AS "sourceValue", ts.created_at AS "createdAt",
+                ts.site_session AS session, s.status AS subscription,
+                pf.document, pf.legal_name AS "legalName",
+                ts.contract_id AS "contractId", c.status AS "contractStatus",
+                c.number AS "contractNumber", c.signed_at AS "contractSignedAt",
+                ts.contract_error AS "contractError",
+                (SELECT max(g.items) FROM site_ai_generations g WHERE g.tenant_id = ts.tenant_id) AS items,
+                coalesce(u.tokens, 0)::float8 AS "aiTokens", coalesce(u.cost, 0)::float8 AS "aiCostUsd",
+                coalesce(u.calls, 0)::int AS "aiCalls"
+           FROM trial_signups ts
+           JOIN tenants t ON t.id = ts.tenant_id
+           LEFT JOIN tenant_profiles pf ON pf.tenant_id = ts.tenant_id
+           LEFT JOIN subscriptions s ON s.tenant_id = ts.tenant_id AND s.status <> 'cancelled'
+           LEFT JOIN tenant_contracts c ON c.id = ts.contract_id
+           LEFT JOIN LATERAL (
+             SELECT sum(x.prompt_tokens + x.completion_tokens) AS tokens, sum(x.cost_usd) AS cost,
+                    count(*) AS calls
+               FROM platform_ai_usage x
+              WHERE x.source IN ('site_ia', 'criacao')
+                AND (x.tenant_id = ts.tenant_id OR x.generation_id IN (
+                      SELECT g.id FROM site_ai_generations g
+                       WHERE g.tenant_id = ts.tenant_id
+                          OR (ts.site_session IS NOT NULL AND g.session = ts.site_session
+                              AND g.tenant_id IS NULL)))
+           ) u ON true
+          ORDER BY ts.created_at DESC LIMIT 300`,
+      ),
+      // Visitas que começaram e não viraram restaurante (rascunhos sem dono, por sessão).
+      this.db.query<{
+        session: string;
+        firstAt: Date;
+        lastAt: Date;
+        drafts: number;
+        items: number;
+        sourceKind: string;
+        sourceValue: string;
+        storeName: string | null;
+        document: string | null;
+        failed: boolean;
+        aiTokens: number;
+        aiCostUsd: number;
+      }>(
+        `SELECT coalesce(g.session, g.id::text) AS session, min(g.created_at) AS "firstAt",
+                max(g.created_at) AS "lastAt", count(*)::int AS drafts,
+                coalesce(max(g.items), 0)::int AS items,
+                (array_agg(g.source_kind ORDER BY g.created_at))[1] AS "sourceKind",
+                (array_agg(left(g.source_value, 200) ORDER BY g.created_at))[1] AS "sourceValue",
+                (array_agg(g.draft->'store'->>'name' ORDER BY g.created_at DESC)
+                   FILTER (WHERE g.draft IS NOT NULL))[1] AS "storeName",
+                (array_agg(g.draft->'legal'->>'document' ORDER BY g.created_at DESC)
+                   FILTER (WHERE g.draft->'legal'->>'document' IS NOT NULL))[1] AS document,
+                bool_and(g.status = 'failed') AS failed,
+                sum(g.prompt_tokens + g.completion_tokens)::float8 AS "aiTokens",
+                sum(g.cost_usd)::float8 AS "aiCostUsd"
+           FROM site_ai_generations g
+          WHERE NOT g.from_panel AND g.created_at > now() - interval '60 days'
+            AND NOT EXISTS (SELECT 1 FROM trial_signups ts WHERE ts.site_session = g.session)
+          GROUP BY 1 HAVING bool_and(g.tenant_id IS NULL)
+          ORDER BY max(g.created_at) DESC LIMIT 200`,
+      ),
+      this.db.query<{ started: number; created: number; signed: number; costUsd: number }>(
+        `SELECT (SELECT count(DISTINCT coalesce(session, id::text)) FROM site_ai_generations
+                  WHERE NOT from_panel AND created_at >= ${MONTH_START_SQL})::int AS started,
+                (SELECT count(*) FROM trial_signups WHERE created_at >= ${MONTH_START_SQL})::int AS created,
+                (SELECT count(*) FROM trial_signups ts JOIN tenant_contracts c ON c.id = ts.contract_id
+                  WHERE ts.created_at >= ${MONTH_START_SQL}
+                    AND c.status IN ('client_signed', 'signed'))::int AS signed,
+                (SELECT coalesce(sum(cost_usd), 0) FROM platform_ai_usage
+                  WHERE source IN ('site_ia', 'criacao')
+                    AND created_at >= ${MONTH_START_SQL})::float8 AS "costUsd"`,
+      ),
+    ]);
+    return { month: month[0]!, trials, drafts };
+  }
+
+  /** O que a IA fez numa visita que não virou restaurante: cada rascunho e cada chamada. */
+  async creationSession(session: string) {
+    const gens = await this.db.query<{
+      id: string;
+      sourceKind: string;
+      sourceValue: string;
+      status: string;
+      error: string | null;
+      items: number;
+      model: string;
+      tokens: number;
+      costUsd: number;
+      createdAt: Date;
+      store: unknown;
+      legal: unknown;
+      files: unknown;
+    }>(
+      `SELECT id, source_kind AS "sourceKind", left(source_value, 400) AS "sourceValue", status, error,
+              items, model, (prompt_tokens + completion_tokens)::int AS tokens,
+              cost_usd::float8 AS "costUsd", created_at AS "createdAt",
+              (draft->'store') - 'logoUrl' - 'coverUrl' AS store, draft->'legal' AS legal,
+              draft->'files' AS files
+         FROM site_ai_generations
+        WHERE (session = $1 OR id::text = $1) AND NOT from_panel
+        ORDER BY created_at`,
+      [session],
+    );
+    if (!gens.length) throw new NotFoundException('Criação não encontrada');
+    const calls = await this.db.query(
+      `SELECT u.id::text, u.step, u.model, (u.prompt_tokens + u.completion_tokens)::int AS tokens,
+              u.cost_usd::float8 AS "costUsd", u.ref, u.created_at AS "createdAt"
+         FROM platform_ai_usage u
+        WHERE u.generation_id = ANY($1::uuid[]) ORDER BY u.created_at`,
+      [gens.map((g) => g.id)],
+    );
+    return { generations: gens, calls };
   }
 
   /** Testes criados pelo site, do mais novo para o mais antigo. */

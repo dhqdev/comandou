@@ -24,6 +24,30 @@ export interface AgentSettings {
   takeReservations: boolean;
   /** Mandar o cardápio (arquivo que o restaurante subiu) e o calendário de reservas em PDF. */
   sendPdfs: boolean;
+  /** Atendimento por menu numerado (0.279): o servidor anda pelas telas sem gastar a IA. */
+  menuMode: boolean;
+  /** Fazer o pedido inteiro pela conversa (sem mandar para o cardápio online). */
+  takeOrders: boolean;
+  /** Mostrar a situação dos pedidos do número. */
+  orderStatus: boolean;
+  /** Oferecer o cadastro (só o nome) para quem não tem. */
+  offerSignup: boolean;
+  /** Deixar pedir sem cadastro. */
+  guestOrders: boolean;
+  orderDelivery: boolean;
+  orderPickup: boolean;
+  /** Formas de pagamento aceitas no pedido pelo WhatsApp (na entrega ou na retirada). */
+  payMethods: ('pix' | 'cash' | 'credit' | 'debit' | 'voucher')[];
+  /** Entender o pedido escrito ("2 smash e 1 coca") com a IA quando o leitor sem IA não entende. */
+  understandText: boolean;
+  /** Perguntar observação de cada item. */
+  itemNotes: boolean;
+  /** Mandar o link para acompanhar o pedido depois de feito. */
+  sendTracking: boolean;
+  /** Responder perguntas livres com a IA (fora do menu). */
+  freeChat: boolean;
+  /** Opção "Horários e endereço" no menu. */
+  showInfo: boolean;
 }
 
 export const AGENT_DEFAULTS: AgentSettings = {
@@ -40,7 +64,32 @@ export const AGENT_DEFAULTS: AgentSettings = {
   replyWhen: 'always',
   takeReservations: true,
   sendPdfs: true,
+  menuMode: true,
+  takeOrders: true,
+  orderStatus: true,
+  offerSignup: true,
+  guestOrders: true,
+  orderDelivery: true,
+  orderPickup: true,
+  payMethods: ['pix', 'cash', 'credit', 'debit'],
+  understandText: true,
+  itemNotes: true,
+  sendTracking: false,
+  freeChat: true,
+  showInfo: true,
 };
+
+/**
+ * Formatação do WhatsApp (pedido do David: "use todos os estilos que só o WhatsApp tem"): o
+ * modelo escreve com elas e o cliente vê formatado.
+ */
+export const WHATSAPP_FORMAT = `Formatação (só a do WhatsApp, nunca Markdown com # ou links em [colchetes]):
+- *negrito* com um asterisco de cada lado: nomes de itens, preços, totais e o que é importante.
+- _itálico_ com sublinhado: observações e detalhes.
+- ~riscado~ com til: item esgotado ou preço antigo.
+- \`código\` com crase: o que o cliente deve digitar (ex.: \`menu\`).
+- Listas com "- " no começo da linha, listas numeradas com "1. ", e citação com "> " para um aviso.
+- Pule uma linha entre blocos. Emojis com moderação.`;
 
 export const DEFAULT_HANDOFF =
   'Vou chamar alguém da nossa equipe para continuar com você, só um instante.';
@@ -292,7 +341,11 @@ export function customerPrompt(o: {
     );
   if (s.suggestItems)
     can.push('Sugerir itens e complementos do cardápio quando fizer sentido (sem insistir).');
-  if (s.sendStoreLink && st.storeUrl)
+  if (s.menuMode && s.takeOrders)
+    can.push(
+      'O pedido é feito aqui mesmo, pelo menu numerado: quando o cliente quiser pedir, diga que é só mandar *menu* e escolher *Fazer um pedido*, ou escrever o pedido (ex.: "2 smash e 1 coca"). Não mande link do cardápio para pedir.',
+    );
+  else if (s.sendStoreLink && st.storeUrl)
     can.push(
       `Para fazer o pedido, mandar o link do cardápio online: ${st.storeUrl} (o cliente monta o pedido, paga e acompanha por lá).`,
     );
@@ -336,7 +389,9 @@ export function customerPrompt(o: {
 
   return `Você é ${name}, atendente virtual do restaurante "${o.tenantName}" no WhatsApp. Você conversa com clientes.
 
-Jeito de falar: ${TONES[s.tone]}. Responda em português do Brasil, em mensagens curtas (no máximo uns 4 parágrafos curtos), como numa conversa de WhatsApp. Use *asterisco* para negrito, nunca Markdown com # ou links em [colchetes].
+Jeito de falar: ${TONES[s.tone]}. Responda em português do Brasil, em mensagens curtas (no máximo uns 4 parágrafos curtos), como numa conversa de WhatsApp.
+
+${WHATSAPP_FORMAT}
 
 O que você pode fazer:
 ${can.map((l) => `- ${l}`).join('\n')}

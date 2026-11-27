@@ -20,6 +20,63 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.279.0',
+    date: '2026-11-27',
+    title: 'Pedido inteiro pelo WhatsApp e criação do restaurante num campo só',
+    summary:
+      'O atendimento do WhatsApp virou um menu numerado (1, 2, 3...) em que o cliente faz o pedido inteiro pela conversa: cadastro, entrega ou retirada, endereço com a taxa, itens com complementos, pagamento e confirmação, sem ir para o cardápio. No site, a criação do restaurante ficou num campo só para mandar texto, links, fotos e PDF, com o CNPJ/CPF e o contrato para assinar.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'WhatsApp com menu numerado: Fazer um pedido, Acompanhar meu pedido, Ver o cardápio, Reservar uma mesa, Horários e endereço e Falar com uma pessoa. O menu anda sozinho, sem gastar a IA; ela só entra nas perguntas livres e nos pedidos escritos ("2 smash e 1 coca").',
+      },
+      {
+        tag: 'novo',
+        text: 'Pedido pela conversa: pergunta se o cliente tem cadastro (ou cadastra só com o nome), entrega ou retirada, endereço com a taxa da área de entrega, categorias, itens, complementos obrigatórios, observação, sacola com sugestão de acompanhamento, pagamento, troco e a conferência antes de confirmar. O pedido entra no PDV como os do cardápio online.',
+      },
+      {
+        tag: 'novo',
+        text: 'Mensagens com a formatação do WhatsApp: negrito, itálico, riscado, monoespaçado, listas, citação e as opções numeradas.',
+      },
+      {
+        tag: 'novo',
+        text: 'Assistente de IA com muitas escolhas novas: o que o menu mostra, entrega, retirada, formas de pagamento, cadastro, pedido sem cadastro, observação por item, entender pedido escrito, sugestão na sacola, link de acompanhamento e perguntas livres, com a prévia de como o cliente vê no WhatsApp.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Assistente de IA: itens em cartões com a foto para marcar e desmarcar, com filtros por categoria, liberados, fora e esgotados; o topo ficou mais organizado e o "Testar a conversa" saiu.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tela WhatsApp: o número conectado num cartão com Reiniciar conexão, Reconectar, Trocar número e Desconectar; avisos com liga-desliga e a prévia de cada texto; mensagens com filtros (enviadas, em processo, com erro), por aviso e por telefone ou pedido. O "Enviar teste" saiu.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cardápio online: botão "Pedir pelo WhatsApp" quando o atendimento faz pedidos, que abre a conversa com o atendente.',
+      },
+      {
+        tag: 'novo',
+        text: 'Site: um campo só para mandar tudo sobre o restaurante (texto, links do site, Maps ou iFood, fotos e PDF do cardápio, logo, cartão do CNPJ). A IA monta a loja com nome, logo, endereço de entrega, cardápio com preços, estoque sugerido e o CNPJ/CPF.',
+      },
+      {
+        tag: 'novo',
+        text: 'Criação pelo site com contrato: com o CNPJ ou CPF informado, o contrato do teste é gerado quando o restaurante fica pronto e o cliente assina pelo link na mesma tela; a assinatura chega no Super Admin como os outros contratos.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Criações: cada criação pelo site (virou restaurante ou não), o que a pessoa mandou, o gasto de IA por etapa, o CNPJ/CPF e a situação do contrato.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Tokens de IA: modelo próprio do atendimento no WhatsApp, escolhido só pelo Super Admin (padrão Gemini 2.5 Flash Lite, barato e rápido).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site: o sistema de exemplo ganhou o botão Expandir, que abre o sistema grande por cima da página para mexer nos dados à vontade.',
+      },
+    ],
+  },
+  {
     version: '0.278.2',
     date: '2026-11-27',
     title: 'Aviso quando as mensagens do WhatsApp não chegam',

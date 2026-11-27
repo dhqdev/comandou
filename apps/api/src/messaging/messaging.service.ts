@@ -244,10 +244,41 @@ export class MessagingService implements OnModuleInit {
   }
 
   // ------------------------------------------------------------- conexão Baileys (QR Code)
-  session(ctx: Ctx) {
-    return this.gateway.session(ctx.tenantId).catch((e: Error) => {
+  async session(ctx: Ctx) {
+    const r = await this.gateway.session(ctx.tenantId).catch((e: Error) => {
       throw new ConflictException(e.message);
     });
+    // Número conectado: o cardápio mostra "Pedir pelo WhatsApp" com ele (atendimento da IA).
+    if (r.status === 'connected' && r.phone && /^[0-9]{10,15}$/.test(r.phone))
+      await this.db
+        .withTenant(ctx, (tx) =>
+          tx.$client.query(
+            `INSERT INTO ai_agent_settings (tenant_id, wa_phone) VALUES ($1, $2)
+             ON CONFLICT (tenant_id) DO UPDATE SET wa_phone = EXCLUDED.wa_phone
+              WHERE ai_agent_settings.wa_phone IS DISTINCT FROM EXCLUDED.wa_phone`,
+            [ctx.tenantId, r.phone],
+          ),
+        )
+        .catch(() => undefined);
+    return r;
+  }
+
+  /** Reinicia a conexão (sem ler o QR Code de novo). */
+  async restart(ctx: Ctx) {
+    const r = await this.gateway.restart(ctx.tenantId).catch((e: Error) => {
+      throw new ConflictException(e.message);
+    });
+    await this.db.withTenant(ctx, (tx) =>
+      this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'messaging.session_restarted',
+        entity: 'tenant_messaging_settings',
+        entityId: ctx.tenantId,
+        ip: ctx.ip,
+      }),
+    );
+    return r;
   }
 
   async connect(ctx: Ctx) {
@@ -284,10 +315,43 @@ export class MessagingService implements OnModuleInit {
     return r;
   }
 
-  list(ctx: Ctx, limit: number) {
+  /**
+   * Mensagens recentes, com filtro pela situação (enviada, na fila, falhou), pelo aviso e por
+   * telefone ou número do pedido.
+   */
+  list(
+    ctx: Ctx,
+    limit: number,
+    f: { status?: 'queued' | 'sent' | 'failed'; event?: string; q?: string } = {},
+  ) {
+    const digits = (f.q ?? '').replace(/\D/g, '');
     return this.db.withTenant(ctx, (tx) =>
-      q(tx, `${MSG_SELECT} ORDER BY m.created_at DESC LIMIT $1`, [limit]),
+      q(
+        tx,
+        `${MSG_SELECT}
+          WHERE ($2::text IS NULL OR m.status = $2)
+            AND ($3::text IS NULL OR m.event = $3)
+            AND ($4::text IS NULL OR m.to_phone LIKE '%' || $4 || '%' OR o.number::text = $4)
+          ORDER BY m.created_at DESC LIMIT $1`,
+        [limit, f.status ?? null, f.event ?? null, digits || null],
+      ),
     );
+  }
+
+  /** Quantas mensagens em cada situação (últimos 30 dias), para os filtros da tela. */
+  async summary(ctx: Ctx) {
+    const r = await this.db.withTenant(ctx, (tx) =>
+      one<{ all: number; queued: number; sent: number; failed: number; today: number }>(
+        tx,
+        `SELECT count(*)::int AS all,
+                count(*) FILTER (WHERE status = 'queued')::int AS queued,
+                count(*) FILTER (WHERE status = 'sent')::int AS sent,
+                count(*) FILTER (WHERE status = 'failed')::int AS failed,
+                count(*) FILTER (WHERE created_at > now() - interval '24 hours')::int AS today
+           FROM message_outbox WHERE created_at > now() - interval '30 days'`,
+      ),
+    );
+    return r ?? { all: 0, queued: 0, sent: 0, failed: 0, today: 0 };
   }
 
   /**

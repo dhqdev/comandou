@@ -183,6 +183,7 @@ export interface AiOverview {
     visionModel: string;
     imageModel: string;
     importModel: string;
+    whatsappModel: string;
     updatedAt: string;
   };
   /** Um cartão por modelo (configurado ou que gastou no mês). */
@@ -1242,6 +1243,7 @@ type Form = {
   visionModel: string;
   imageModel: string;
   importModel: string;
+  whatsappModel: string;
 };
 
 const toForm = (s: AiOverview['settings']): Form => ({
@@ -1255,6 +1257,7 @@ const toForm = (s: AiOverview['settings']): Form => ({
   visionModel: s.visionModel,
   imageModel: s.imageModel,
   importModel: s.importModel,
+  whatsappModel: s.whatsappModel,
 });
 
 interface TestResult {
@@ -1287,6 +1290,10 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
     () => models.find((m) => m.id === f.importModel.trim()),
     [models, f.importModel],
   );
+  const wa = useMemo(
+    () => models.find((m) => m.id === f.whatsappModel.trim()),
+    [models, f.whatsappModel],
+  );
 
   const body = () => ({
     enabled: f.enabled,
@@ -1299,6 +1306,7 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
     visionModel: f.visionModel.trim(),
     imageModel: f.imageModel.trim(),
     importModel: f.importModel.trim(),
+    whatsappModel: f.whatsappModel.trim(),
   });
 
   async function save(e: FormEvent) {
@@ -1348,7 +1356,7 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
               onChange={(e) => set('model')(e.target.value)}
               hint={
                 picked
-                  ? `${perM(picked)}. Chat, WhatsApp, impressão e página; se falhar, responde o google/gemini-2.5-flash-lite`
+                  ? `${perM(picked)}. Chat da equipe, impressão e página; se falhar, responde o google/gemini-2.5-flash-lite`
                   : models.length
                     ? 'Modelo não encontrado na lista do OpenRouter'
                     : 'Padrão: deepseek/deepseek-v4-flash (o mais barato que conversa bem)'
@@ -1363,6 +1371,17 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
                 importer
                   ? `${perM(importer)}. Importar cardápio (PDF, foto, link) e achar o restaurante no Google`
                   : 'Padrão: google/gemini-2.5-flash (lê PDF e foto com precisão; uma vez por restaurante)'
+              }
+            />
+            <TextField
+              label="Modelo do WhatsApp"
+              list="adm-ai-models"
+              value={f.whatsappModel}
+              onChange={(e) => set('whatsappModel')(e.target.value)}
+              hint={
+                wa
+                  ? `${perM(wa)}. Perguntas livres e pedidos escritos no WhatsApp dos restaurantes; o menu numerado não gasta IA`
+                  : 'Padrão: google/gemini-2.5-flash-lite (barato e rápido). Só o Super Admin troca.'
               }
             />
             <datalist id="adm-ai-models">
