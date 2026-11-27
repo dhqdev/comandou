@@ -113,7 +113,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/impressao',
     name: 'Impressão',
     perms: ['printing:manage'],
-    text: 'impressoras térmicas por setor (cozinha, bar, caixa) pelo aplicativo Comandou Impressão instalado num computador da loja (baixar o aplicativo, computadores conectados, como ligar a impressora, modelos de impressão, teste e fila de impressões).',
+    text: 'impressoras térmicas por setor (cozinha, bar, caixa) pelo aplicativo Comandou Impressão instalado num computador da loja (baixar o aplicativo, computadores conectados, como ligar a impressora, modelos de impressão com editor visual (tamanho da letra, negrito, alinhamento, lugar da logo, QR Code e estilos prontos) ou em código, teste e fila de impressões).',
   },
   {
     path: '/fiscal/nfce',

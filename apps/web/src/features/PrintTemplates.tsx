@@ -1,14 +1,21 @@
 import {
+  compileLayout,
+  layoutPreset,
   PRINT_TEMPLATE_FILTERS,
   PRINT_TEMPLATE_HELP,
   PRINT_TEMPLATE_LABELS,
   PRINT_TEMPLATE_VARS,
+  readLayout,
+  splitLayoutPreview,
+  type PrintLayout,
   type PrintTemplateKind,
 } from '@comandou/shared';
 import {
   ChevronDown,
   ChevronUp,
   Check,
+  CodeXml,
+  LayoutTemplate,
   Redo2,
   RotateCcw,
   Save,
@@ -24,6 +31,8 @@ import { Alert, Badge, Button, Card, Segmented, Skeleton, Spinner } from '../des
 import { api } from '../lib/api';
 import { changedLines } from './paper-diff';
 import { PaperText } from './PaperText';
+import { VisualEditor, VisualStart } from './print-visual/VisualEditor';
+import './print-visual/print-visual.css';
 
 type Kind = PrintTemplateKind;
 interface Template {
@@ -37,6 +46,8 @@ interface Preview {
   logoUrl: string | null;
   /** Número do pedido usado na prévia (null = pedido de exemplo). */
   order: number | null;
+  /** Bloco do editor visual de cada linha (prévia pedida com as marcas). */
+  owners?: (string | null)[];
 }
 interface PreviewReply {
   text: string;
@@ -84,12 +95,21 @@ type OmitEach<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type NewEntry = OmitEach<Entry, 'id'>;
 
 type Side = 'preview' | 'help';
+type Mode = 'visual' | 'code';
+interface History {
+  past: string[];
+  future: string[];
+  group?: string;
+  at: number;
+}
 
 const LABEL = PRINT_TEMPLATE_LABELS;
 const HELP = PRINT_TEMPLATE_HELP;
 const VARS = PRINT_TEMPLATE_VARS;
 const FILTERS = PRINT_TEMPLATE_FILTERS;
 const KINDS = Object.keys(LABEL) as Kind[];
+/** Tamanho máximo do modelo (o mesmo da API). */
+const TEMPLATE_MAX = 8000;
 /** Espera depois da última tecla para montar a prévia (tempo real sem pedir a cada letra). */
 const PREVIEW_DELAY = 350;
 /** Conversa e folha da IA: largura do computador (abaixo disso, folha embaixo). */
@@ -167,6 +187,9 @@ export function PrintTemplatesCard() {
   const [busy, setBusy] = useState<'save' | 'reset' | null>(null);
   const [savedNote, setSavedNote] = useState<{ kind: Kind; text: string } | null>(null);
   const [side, setSide] = useState<Side>('preview');
+  const [mode, setMode] = useState<Mode>('visual');
+  /** Só para redesenhar quando o histórico do Desfazer muda (ele mora numa ref). */
+  const [, setHistTick] = useState(0);
   // IA
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -190,6 +213,56 @@ export function PrintTemplatesCard() {
   const nextId = useRef(1);
   const stop = useRef<AbortController | null>(null);
   const previewBox = useRef<HTMLDivElement>(null);
+  /** Blocos do editor visual por modelo (papel + texto): os mesmos blocos voltam no Desfazer. */
+  const layouts = useRef(new Map<string, PrintLayout>());
+  const history = useRef<Record<Kind, History>>({
+    receipt: { past: [], future: [], at: 0 },
+    delivery_slip: { past: [], future: [], at: 0 },
+    kitchen_ticket: { past: [], future: [], at: 0 },
+    fiscal_footer: { past: [], future: [], at: 0 },
+  });
+  const listRef = useRef(list);
+  listRef.current = list;
+
+  const keepLayout = (key: string, l: PrintLayout) => {
+    layouts.current.delete(key);
+    layouts.current.set(key, l);
+    if (layouts.current.size > 200) layouts.current.delete(layouts.current.keys().next().value!);
+  };
+
+  /**
+   * Blocos do modelo, se ele é do editor visual. O modelo padrão do Comandou abre no estilo
+   * Clássico (imprime igual: o teste da API confere). `stale` = era do visual, mas mudou no código.
+   */
+  const layoutOf = useCallback(
+    (k: Kind, body: string): { layout: PrintLayout | null; stale: PrintLayout | null } => {
+      const key = `${k}\n${body}`;
+      const hit = layouts.current.get(key);
+      if (hit) return { layout: hit, stale: null };
+      const def = listRef.current?.find((t) => t.kind === k)?.default;
+      if (def !== undefined && body === def) {
+        const l = layoutPreset(k, 'classico');
+        keepLayout(key, l);
+        return { layout: l, stale: null };
+      }
+      const r = readLayout(k, body);
+      if (r?.exact) {
+        keepLayout(key, r.layout);
+        return { layout: r.layout, stale: null };
+      }
+      return { layout: null, stale: r?.layout ?? null };
+    },
+    [],
+  );
+
+  /** O que vai para a prévia: no visual, o modelo com as marcas de bloco (clicar no papel). */
+  const previewBody = useCallback(
+    (k: Kind, body: string) => {
+      const l = layoutOf(k, body).layout;
+      return l ? { body: compileLayout(k, l, true), marked: true } : { body, marked: false };
+    },
+    [layoutOf],
+  );
 
   const saved = (k: Kind) => {
     const t = list?.find((x) => x.kind === k);
@@ -260,15 +333,22 @@ export function PrintTemplatesCard() {
       asked.current[k] = body;
       setPreviewBusy(true);
       try {
+        const sent = previewBody(k, body);
         const r = await api<PreviewReply>('/printing/templates/preview', {
           method: 'POST',
-          json: { kind: k, body },
+          json: { kind: k, body: sent.body },
         });
         if (my !== seq.current) return;
+        const split = sent.marked ? splitLayoutPreview(r.text) : null;
         showPreview(
           k,
           body,
-          { text: r.text, logoUrl: r.logoUrl ?? null, order: r.order ?? null },
+          {
+            text: split ? split.text : r.text,
+            logoUrl: r.logoUrl ?? null,
+            order: r.order ?? null,
+            owners: split?.owners,
+          },
           false,
         );
       } catch (e) {
@@ -278,7 +358,7 @@ export function PrintTemplatesCard() {
         if (my === seq.current) setPreviewBusy(false);
       }
     },
-    [showPreview],
+    [showPreview, previewBody],
   );
 
   // Prévia em tempo real: o que muda no editor aparece no papel ao lado.
@@ -391,13 +471,51 @@ export function PrintTemplatesCard() {
       setList((l) =>
         l ? l.map((x) => (x.kind === kind ? { ...x, body: null, updatedAt: null } : x)) : l,
       );
-      if (t) setDraft((d) => ({ ...d, [kind]: t.default }));
+      if (t) {
+        // O Desfazer do visual volta ao que estava antes do padrão.
+        history.current[kind].past.push(draftRef.current[kind]);
+        history.current[kind].future = [];
+        setDraft((d) => ({ ...d, [kind]: t.default }));
+      }
       setSavedNote({ kind, text: 'Voltou ao modelo padrão do Comandou.' });
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(null);
     }
+  }
+
+  /** Mudança no editor visual: vira o modelo (Liquid) e entra no Desfazer. */
+  function applyVisual(k: Kind, next: PrintLayout, group?: string) {
+    const prev = draftRef.current[k];
+    const body = compileLayout(k, next);
+    keepLayout(`${k}\n${body}`, next);
+    if (body === prev) return;
+    const h = history.current[k];
+    const now = Date.now();
+    // Letras seguidas no mesmo campo viram um passo só do Desfazer.
+    if (!(group && h.group === group && now - h.at < 1500)) {
+      h.past.push(prev);
+      if (h.past.length > 80) h.past.shift();
+    }
+    h.future = [];
+    h.group = group;
+    h.at = now;
+    setDraft((d) => ({ ...d, [k]: body }));
+    setSavedNote(null);
+    setError(null);
+    setHistTick((t) => t + 1);
+  }
+
+  function travel(k: Kind, back: boolean) {
+    const h = history.current[k];
+    const to = back ? h.past.pop() : h.future.pop();
+    if (to === undefined) return;
+    (back ? h.future : h.past).push(draftRef.current[k]);
+    h.group = undefined;
+    setDraft((d) => ({ ...d, [k]: to }));
+    setSavedNote(null);
+    setHistTick((t) => t + 1);
   }
 
   /** Põe um modelo no editor e mostra a prévia (a que veio da IA, a guardada ou pede uma nova). */
@@ -498,6 +616,7 @@ export function PrintTemplatesCard() {
   const pvErr = previewErr[kind];
   const aiName = ai?.name || 'IA';
   const lockEditor = asking?.kind === kind;
+  const vis = layoutOf(kind, body);
 
   return (
     <Card
@@ -523,102 +642,174 @@ export function PrintTemplatesCard() {
         )
       ) : (
         <div className="print-tpl">
-          <Segmented
-            label="Papel"
-            value={kind}
-            onChange={setKind}
-            options={KINDS.map((k) => ({
-              value: k,
-              label: LABEL[k],
-              icon: dirty(k) ? (
-                <span className="print-tpl__dirty" role="img" aria-label="não salvo" />
-              ) : undefined,
-            }))}
-          />
-          <p className="cm-hint">
+          <div className="print-tpl__top">
+            <Segmented
+              label="Papel"
+              value={kind}
+              onChange={setKind}
+              options={KINDS.map((k) => ({
+                value: k,
+                label: LABEL[k],
+                icon: dirty(k) ? (
+                  <span className="print-tpl__dirty" role="img" aria-label="não salvo" />
+                ) : undefined,
+              }))}
+            />
+            <Segmented
+              label="Jeito de editar"
+              className="print-tpl__mode"
+              value={mode}
+              onChange={setMode}
+              options={[
+                {
+                  value: 'visual',
+                  label: 'Visual',
+                  icon: <LayoutTemplate size={15} aria-hidden />,
+                },
+                { value: 'code', label: 'Código', icon: <CodeXml size={15} aria-hidden /> },
+              ]}
+            />
+          </div>
+          <p className="cm-hint print-tpl__help">
             {HELP[kind]}{' '}
             {cur?.body ? <Badge tone="brand">personalizado</Badge> : <Badge>padrão</Badge>}
           </p>
-          <div className="print-tpl__grid">
-            <div className="cm-field">
-              <label className="cm-label" htmlFor={areaId}>
-                Modelo
-              </label>
-              <textarea
-                id={areaId}
-                className="cm-input print-tpl__area"
-                spellCheck={false}
-                rows={22}
-                maxLength={8000}
-                value={body}
-                readOnly={lockEditor}
-                aria-busy={lockEditor || undefined}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setDraft((d) => ({ ...d, [kind]: v }));
-                  setSavedNote(null);
-                }}
-              />
-              <span className="cm-hint">
-                {lockEditor
-                  ? `${aiName} está mudando este papel…`
-                  : 'Use {{ variável }} para mostrar um dado e {% if %} / {% for %} para condições e listas. A bobina tem 42 colunas; a letra grande, 21. A prévia muda enquanto você digita.'}
-              </span>
-            </div>
-            <div className="print-tpl__side">
-              <Segmented
-                label="Ao lado do editor"
-                value={side}
-                onChange={setSide}
-                options={[
-                  { value: 'preview', label: 'Prévia' },
-                  { value: 'help', label: 'O que dá para usar' },
-                ]}
-              />
-              {side === 'preview' ? (
-                <div className="print-tpl__preview" ref={previewBox}>
-                  <div className="print-tpl__src">
-                    <span className="cm-hint">
-                      {pv ? previewSource(kind, pv) : 'Montando a prévia…'}
-                    </span>
-                    {(previewBusy || lockEditor) && <Spinner inline label="Atualizando a prévia" />}
-                  </div>
-                  {pvErr && <Alert tone="danger">{pvErr}</Alert>}
-                  {pv ? (
-                    <PaperText
-                      key={flash?.kind === kind ? flash.key : 0}
-                      text={pv.text}
-                      logoUrl={pv.logoUrl}
-                      flash={flash?.kind === kind ? flash.lines : undefined}
-                      className={`print-tpl__paper${pvErr ? ' is-stale' : ''}`}
-                      label="Prévia do modelo"
-                    />
-                  ) : pvErr ? null : (
-                    <Skeleton variant="list" rows={8} label="Montando a prévia" />
-                  )}
-                </div>
+          {mode === 'visual' ? (
+            <div className="print-tpl__visual" ref={previewBox}>
+              {vis.layout ? (
+                <VisualEditor
+                  kind={kind}
+                  layout={vis.layout}
+                  preview={pv}
+                  previewErr={pvErr}
+                  busy={previewBusy}
+                  source={pv ? previewSource(kind, pv) : ''}
+                  locked={lockEditor}
+                  canUndo={history.current[kind].past.length > 0}
+                  canRedo={history.current[kind].future.length > 0}
+                  onUndo={() => travel(kind, true)}
+                  onRedo={() => travel(kind, false)}
+                  onChange={(l, g) => applyVisual(kind, l, g)}
+                />
               ) : (
-                <>
-                  <strong>O que dá para usar</strong>
-                  <ul className="print-tpl__vars">
-                    {VARS[kind].map(([v, d]) => (
-                      <li key={v}>
-                        <code>{v}</code> <span className="cm-hint">{d}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <strong>Ajudantes</strong>
-                  <ul className="print-tpl__vars">
-                    {FILTERS.map(([v, d]) => (
-                      <li key={v}>
-                        <code>{v}</code> <span className="cm-hint">{d}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </>
+                <VisualStart
+                  kind={kind}
+                  stale={vis.stale}
+                  locked={lockEditor}
+                  onLayout={(l) => applyVisual(kind, l)}
+                  onCode={() => setMode('code')}
+                  paper={
+                    pv ? (
+                      <PaperText
+                        key={flash?.kind === kind ? flash.key : 0}
+                        text={pv.text}
+                        logoUrl={pv.logoUrl}
+                        flash={flash?.kind === kind ? flash.lines : undefined}
+                        className={`print-tpl__paper${pvErr ? ' is-stale' : ''}`}
+                        label="Prévia do modelo"
+                      />
+                    ) : pvErr ? (
+                      <Alert tone="danger">{pvErr}</Alert>
+                    ) : (
+                      <Skeleton variant="list" rows={8} label="Montando a prévia" />
+                    )
+                  }
+                  source={pv ? previewSource(kind, pv) : 'Montando a prévia…'}
+                />
               )}
             </div>
-          </div>
+          ) : (
+            <div className="print-tpl__grid">
+              <div className="cm-field">
+                <label className="cm-label" htmlFor={areaId}>
+                  Modelo
+                </label>
+                <textarea
+                  id={areaId}
+                  className="cm-input print-tpl__area"
+                  spellCheck={false}
+                  rows={22}
+                  maxLength={TEMPLATE_MAX}
+                  value={body}
+                  readOnly={lockEditor}
+                  aria-busy={lockEditor || undefined}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setDraft((d) => ({ ...d, [kind]: v }));
+                    setSavedNote(null);
+                  }}
+                />
+                <span className="cm-hint">
+                  {lockEditor
+                    ? `${aiName} está mudando este papel…`
+                    : 'Use {{ variável }} para mostrar um dado e {% if %} / {% for %} para condições e listas. A bobina tem 42 colunas; a letra grande, 21. A prévia muda enquanto você digita.'}
+                  {body.startsWith('{% comment %}comandou-visual') &&
+                    ' O comentário do começo guarda as partes do editor visual: mudar o código tira este papel do visual (dá para voltar lá).'}
+                </span>
+              </div>
+              <div className="print-tpl__side">
+                <Segmented
+                  label="Ao lado do editor"
+                  value={side}
+                  onChange={setSide}
+                  options={[
+                    { value: 'preview', label: 'Prévia' },
+                    { value: 'help', label: 'O que dá para usar' },
+                  ]}
+                />
+                {side === 'preview' ? (
+                  <div className="print-tpl__preview" ref={previewBox}>
+                    <div className="print-tpl__src">
+                      <span className="cm-hint">
+                        {pv ? previewSource(kind, pv) : 'Montando a prévia…'}
+                      </span>
+                      {(previewBusy || lockEditor) && (
+                        <Spinner inline label="Atualizando a prévia" />
+                      )}
+                    </div>
+                    {pvErr && <Alert tone="danger">{pvErr}</Alert>}
+                    {pv ? (
+                      <PaperText
+                        key={flash?.kind === kind ? flash.key : 0}
+                        text={pv.text}
+                        logoUrl={pv.logoUrl}
+                        flash={flash?.kind === kind ? flash.lines : undefined}
+                        className={`print-tpl__paper${pvErr ? ' is-stale' : ''}`}
+                        label="Prévia do modelo"
+                      />
+                    ) : pvErr ? null : (
+                      <Skeleton variant="list" rows={8} label="Montando a prévia" />
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <strong>O que dá para usar</strong>
+                    <ul className="print-tpl__vars">
+                      {VARS[kind].map(([v, d]) => (
+                        <li key={v}>
+                          <code>{v}</code> <span className="cm-hint">{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <strong>Ajudantes</strong>
+                    <ul className="print-tpl__vars">
+                      {FILTERS.map(([v, d]) => (
+                        <li key={v}>
+                          <code>{v}</code> <span className="cm-hint">{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          {body.length > TEMPLATE_MAX && (
+            <Alert tone="warning">
+              O papel passou do tamanho máximo do modelo. Tire algumas partes ou textos longos para
+              conseguir salvar.
+            </Alert>
+          )}
           {error && <Alert tone="danger">{error}</Alert>}
           <div className="print-tpl__actions">
             <Button

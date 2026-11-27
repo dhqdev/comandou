@@ -82,11 +82,18 @@ engine.registerFilter('centro', (v: unknown, n?: unknown) =>
     .map((l) => centerLine(l, widthOf(n)))
     .join('\n'),
 );
+/** Alinha cada linha do texto (texto que já passou pelo | quebra continua em várias linhas). */
 engine.registerFilter('esquerda', (v: unknown, n?: unknown) =>
-  str(v).slice(0, clampWidth(n)).padEnd(clampWidth(n)),
+  str(v)
+    .split('\n')
+    .map((l) => l.slice(0, clampWidth(n)).padEnd(clampWidth(n)))
+    .join('\n'),
 );
 engine.registerFilter('direita', (v: unknown, n?: unknown) =>
-  str(v).slice(0, clampWidth(n)).padStart(clampWidth(n)),
+  str(v)
+    .split('\n')
+    .map((l) => l.slice(0, clampWidth(n)).padStart(clampWidth(n)))
+    .join('\n'),
 );
 /**
  * "Total" | linha: "R$ 10,00" → texto à esquerda e valor à direita, na largura da bobina.
@@ -168,6 +175,14 @@ engine.registerFilter('grande', (v: unknown, align?: unknown) =>
     .map((l) => (l.trim() ? PRINT_MARKS.big + l : ''))
     .join('\n'),
 );
+/**
+ * QR Code que leva para um link: {{ "https://instagram.com/loja" | qrcode }}. A linha vira a marca
+ * do QR (o aplicativo desenha o código; a prévia mostra "[QR Code] link").
+ */
+engine.registerFilter('qrcode', (v: unknown) => {
+  const link = str(v).replace(/@@/g, '@').replace(/\s+/g, '').slice(0, 300);
+  return link ? PRINT_MARKS.qr + link : '';
+});
 /** 2.000 → 2; 1.500 → 1,5. */
 engine.registerFilter('qtd', (v: unknown) =>
   str(v)

@@ -824,6 +824,30 @@ tempo real na prévia, não precisa aparecer a foto do cupom no chat"):**
   folha; teclado aberto (`cm-kb-open`) leva a folha para cima dele. No celular a prévia vem antes do
   código (`order: -1`) e as 42 colunas cabem na largura (a letra encolhe até 9px).
 
+## Editor visual dos modelos de impressão (0.278)
+
+Pedido do David: "tipo um Canva para cada modelo" (`features/print-visual/VisualEditor.tsx`,
+`print-visual.css`, prefixo `pv-`). A aba tem, na mesma linha, o `Segmented` dos papéis e o do
+jeito de editar (**Visual** | **Código**, um só para os quatro papéis). No Visual a área mede a si
+mesma (`container: pv`): **estilos prontos** numa faixa em cima (cartão com a miniatura do papel
+`pv-mini`, nome e uma linha); embaixo três colunas a partir de 1041px de contêiner (partes do papel
+| barra + papel | ajustes da parte), as laterais presas no topo e a lista rolando por dentro; até
+1040px o papel fica à esquerda e ajustes + partes à direita (sem prender); até 680px uma coluna
+(papel, ajustes, estilos, partes) e a barra numa linha só que corre de lado. O **papel** é o da
+prévia de verdade (`.print-tpl__paper`, 14px no computador; no celular a letra encolhe para as 42
+colunas caberem): cada parte é um bloco que se toca (`pv-blk`: contorno tracejado laranja no
+hover, contorno de 2px e fundo laranja a 7% na escolhida, com a etiqueta do nome em cima à
+direita). A **barra** (`pv-bar`, presa no topo, linha fina e `--cm-shadow-sm`) tem grupos
+separados por traço vertical: Normal/Grande, negrito (travado na grande, que já é negrito),
+maiúsculas, alinhamento, o desenho da linha num `select` monoespaçado, subir/descer/duplicar/tirar
+e, no fim, Desfazer/Refazer; botão ligado = fundo laranja a 15% com texto `--cm-brand-700`. A
+**lista** (`pv-row`) tem alça de arrastar, ícone solto, nome + resumo de uma linha ("Não aparece
+neste pedido", "Escondido") e o olho. Liga/desliga das opções é o `pv-switch` próprio (não dependa
+do `.switch` do PDV, que mora em `home.css`). Nada de escolher fonte: a térmica tem uma letra só, e
+a tela diz isso no pé dos ajustes. Modelo feito no código abre no Visual como está (`VisualStart`:
+aviso azul, estilos prontos para começar, "Voltar aos blocos do visual" quando dá, e "Continuar no
+código").
+
 ## Chat em balões (0.249)
 
 Pedido do David: tudo no jeito do WhatsApp. Uma regra só de balão (`features/store-chat/store-chat.css`, classes `scx-*`) vale no Suporte, Clientes, cardápio, Super Admin › Conversas e no chat da equipe (`ConversationView.tsx`, extras `tcm*` em `chat.css`): as suas à direita (`--cm-chat-mine`), as dos outros à esquerda (`--cm-chat-other`), na largura toda sobre `--cm-chat-wall` (tokens nos dois blocos de `tokens.css`); sequência da mesma pessoa em até 3 min junta (`features/chat/bubbles.ts`, `runInfo`); hora e risquinhos dentro do balão; só emoji (até 3, `emojiCount`) grande e sem balão; efeito só no que acabou de chegar (`useFreshKeys`) e chave fixa da mensagem enviada (não pisca nem anima duas vezes). Mandar nunca trava o campo: a mensagem aparece na hora, sai na ordem escrita e, se falhar, fica com "Tentar de novo". Em grupo/canal, nome e avatar na cor da pessoa (`avatarColors`). O **Mural** (`features/chat/Mural.tsx`, `tm-*`) é feed de rede social: cartão de escrever no topo, recado com foto na largura do cartão, reações, Reagir/Comentar e comentários em balão (API `chat_post_comments`, migração 0120). Super Admin › Conversas: dados do restaurante só abrem pelo nome ou pelo botão do topo (`cm-admin-support-details`).

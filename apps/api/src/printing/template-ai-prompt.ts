@@ -48,12 +48,17 @@ export function templateAiPrompt(kind: TemplateKind): string {
  * Mensagem do usuário: o papel, o pedido, o que o papel mostra hoje (os nomes certos para a ação
  * remover), o modelo do editor e como ele sai hoje com um pedido de exemplo.
  */
+/** Comentário do editor visual (`compileLayout` do shared). */
+const VISUAL_TAG = /^\{% comment %\}comandou-visual [A-Za-z0-9+/=]*\{% endcomment %\}/;
+
 export function templateAiUserTurn(
   kind: TemplateKind,
   ask: string,
   body: string,
   preview: string | null,
 ) {
+  // Os blocos do editor visual ficam num comentário no começo: a IA não precisa ler.
+  body = body.replace(VISUAL_TAG, '');
   const f = templateFacts(body);
   return `Papel: ${PRINT_TEMPLATE_LABELS[kind]}
 

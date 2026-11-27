@@ -149,7 +149,7 @@ export const FOCUS_TARGETS: readonly FocusTarget[] = [
   {
     id: 'secao-modelos',
     path: '/impressao',
-    title: 'Modelos de impressão (o desenho do papel, com IA)',
+    title: 'Modelos de impressão (editor visual do papel, estilos prontos e IA)',
     perms: ['printing:manage'],
   },
   {

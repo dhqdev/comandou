@@ -101,4 +101,5 @@ export const PRINT_TEMPLATE_FILTERS: [string, string][] = [
   ['{{ loja.nome | grande: "centro" }}', 'letra grande (21 colunas)'],
   ['{{ x | coluna: 6 }}', 'coluna de largura fixa (tabela)'],
   ['{{ item.quantidade | qtd }}', '2,000 → 2'],
+  ['{{ "https://…" | qrcode }}', 'QR Code que leva para o link'],
 ];

@@ -1,0 +1,735 @@
+/* Editor visual dos modelos de impressão (0.278, pedido do David: "tipo um Canva").
+   Três colunas no computador: estilos e partes | barra + papel | ajustes da parte escolhida.
+   A grade mede a si mesma (com a conversa da IA aberta a tela fica mais estreita). */
+
+.print-tpl__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-2) var(--cm-space-3);
+}
+.print-tpl__top > .cm-seg {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.print-tpl__mode {
+  flex: none;
+}
+.print-tpl__help {
+  margin: 0;
+}
+.print-tpl {
+  /* Sem isto o papel (linhas que não quebram) alargava a coluna e a tela rolava de lado no celular. */
+  grid-template-columns: minmax(0, 1fr);
+}
+.print-tpl__visual {
+  container: pv / inline-size;
+  scroll-margin: var(--cm-space-6) 0;
+}
+
+.pv {
+  display: grid;
+  grid-template-columns: minmax(230px, 270px) minmax(0, 1fr) minmax(230px, 270px);
+  grid-template-areas:
+    'top top top'
+    'left center right';
+  gap: var(--cm-space-4);
+  align-items: start;
+}
+.pv-top {
+  grid-area: top;
+}
+.pv-left {
+  grid-area: left;
+}
+.pv-center {
+  grid-area: center;
+}
+.pv-right {
+  grid-area: right;
+}
+@container pv (max-width: 1040px) {
+  .pv {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+    grid-template-areas:
+      'top top'
+      'center right'
+      'center left';
+  }
+}
+@container pv (max-width: 680px) {
+  .pv {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'center' 'right' 'top' 'left';
+  }
+}
+
+.pv-left,
+.pv-right {
+  display: grid;
+  gap: var(--cm-space-4);
+  min-width: 0;
+}
+.pv-right {
+  gap: var(--cm-space-3);
+}
+/* Três colunas: as laterais ficam paradas enquanto o papel rola; a lista rola por dentro. */
+@container pv (min-width: 1041px) {
+  .pv-left,
+  .pv-right {
+    position: sticky;
+    top: var(--cm-space-2);
+  }
+  .pv-left {
+    max-height: calc(100dvh - 120px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+  }
+}
+.pv-sec {
+  display: grid;
+  gap: var(--cm-space-2);
+  min-width: 0;
+}
+.pv-sec__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-2);
+}
+.pv-sec__title {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+
+/* Estilos prontos: miniatura do papel + nome e uma linha. */
+.pv-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--cm-space-2);
+}
+@container pv (max-width: 680px) {
+  .pv-presets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.pv-preset {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-2);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    border-color 0.15s;
+}
+.pv-preset:hover:not(:disabled) {
+  border-color: var(--cm-border-strong);
+}
+.pv-preset:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.pv-preset:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.pv-preset__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pv-preset__text strong {
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.pv-preset__text span {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+  line-height: 1.3;
+}
+.pv-mini {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  width: 34px;
+  height: 46px;
+  padding: 5px 4px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-xs);
+  background: #fffef8;
+}
+.pv-mini i {
+  display: block;
+  height: 2px;
+  width: 70%;
+  border-radius: 1px;
+  background: #8a8a86;
+}
+.pv-mini i:nth-child(1) {
+  height: 4px;
+  width: 80%;
+  justify-self: center;
+  background: #2a2a28;
+}
+.pv-mini i:nth-child(2),
+.pv-mini i:nth-child(5) {
+  width: 100%;
+  background: repeating-linear-gradient(90deg, #8a8a86 0 2px, transparent 2px 3px);
+}
+.pv-mini i:nth-child(3) {
+  width: 55%;
+}
+.pv-mini i:nth-child(6) {
+  height: 4px;
+  width: 100%;
+  background: #2a2a28;
+}
+.pv-mini[data-preset='moderno'] i {
+  justify-self: center;
+}
+.pv-mini[data-preset='moderno'] i:nth-child(2),
+.pv-mini[data-preset='moderno'] i:nth-child(5) {
+  background: repeating-linear-gradient(90deg, #8a8a86 0 1px, transparent 1px 3px);
+}
+.pv-mini[data-preset='moderno'] i:nth-child(6) {
+  width: 70%;
+}
+.pv-mini[data-preset='economico'] {
+  gap: 2px;
+}
+.pv-mini[data-preset='economico'] i:nth-child(1),
+.pv-mini[data-preset='economico'] i:nth-child(6) {
+  height: 2px;
+  width: 60%;
+  background: #2a2a28;
+}
+.pv-mini[data-preset='destaque'] i:nth-child(1),
+.pv-mini[data-preset='destaque'] i:nth-child(3),
+.pv-mini[data-preset='destaque'] i:nth-child(6) {
+  height: 5px;
+  width: 90%;
+  justify-self: center;
+  background: #2a2a28;
+}
+
+/* Partes do papel (lista que se arrasta). */
+.pv-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.pv-add-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.pv-add {
+  display: grid;
+  gap: var(--cm-space-3);
+  max-height: 380px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--cm-space-2);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+}
+.pv-add__group {
+  display: grid;
+  gap: 2px;
+}
+.pv-add__title {
+  padding: 0 6px 2px;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.pv-add__opt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cm-space-2);
+  padding: 7px 6px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pv-add__opt:hover {
+  background: var(--cm-surface-muted);
+}
+.pv-add__opt > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--cm-text-muted);
+}
+.pv-add__opt strong {
+  display: block;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.pv-add__opt small {
+  display: block;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+
+.pv-list {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pv-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px;
+  padding-left: 2px;
+  border-radius: var(--cm-radius-sm);
+}
+.pv-row:hover {
+  background: var(--cm-surface-muted);
+}
+.pv-row[data-sel] {
+  background: color-mix(in oklab, var(--cm-brand-500) 11%, transparent);
+}
+.pv-row[data-over='before'] {
+  box-shadow: inset 0 2px 0 var(--cm-brand-500);
+}
+.pv-row[data-over='after'] {
+  box-shadow: inset 0 -2px 0 var(--cm-brand-500);
+}
+.pv-row__grip {
+  color: var(--cm-text-subtle);
+  cursor: grab;
+}
+.pv-row__main {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  min-width: 0;
+  min-height: 38px;
+  padding: 3px 4px;
+  border: 0;
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pv-row__icon {
+  flex: none;
+  color: var(--cm-text-muted);
+}
+.pv-row[data-sel] .pv-row__icon {
+  color: var(--cm-brand-600);
+}
+.pv-row__text {
+  display: grid;
+  min-width: 0;
+}
+.pv-row__text strong {
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.pv-row__text small {
+  overflow: hidden;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pv-row[data-hidden] .pv-row__text,
+.pv-row[data-hidden] .pv-row__icon {
+  opacity: 0.5;
+}
+.pv-row__eye {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.pv-row__eye:hover {
+  color: var(--cm-text);
+}
+
+/* Barra de formatação em cima do papel (presa no topo enquanto o papel rola). */
+.pv-center {
+  display: grid;
+  gap: var(--cm-space-3);
+  min-width: 0;
+}
+.pv-bar {
+  position: sticky;
+  top: var(--cm-space-2);
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 6px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-sm);
+}
+.pv-bar__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pv-bar__name svg {
+  color: var(--cm-brand-600);
+}
+.pv-bar__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.pv-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 6px;
+  border-left: 1px solid var(--cm-border);
+}
+.pv-tools--end {
+  margin-left: auto;
+}
+.pv-bar__hint + .pv-tools--history {
+  margin-left: auto;
+}
+.pv-tool {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.pv-tool:hover:not(:disabled) {
+  background: var(--cm-surface-muted);
+}
+.pv-tool:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.pv-tool[aria-pressed='true'] {
+  background: color-mix(in oklab, var(--cm-brand-500) 15%, transparent);
+  color: var(--cm-brand-700);
+}
+.pv-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pv-tool--text {
+  padding: 0 10px;
+}
+.pv-tool--big {
+  font-weight: 800;
+  font-size: var(--cm-text-md);
+}
+.pv-tool--danger:hover:not(:disabled) {
+  color: var(--cm-danger);
+}
+.pv-tool--select {
+  padding: 0;
+}
+.pv-tool--select select {
+  height: 34px;
+  min-height: 34px;
+  width: auto;
+  padding: 0 28px 0 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--cm-text-sm);
+}
+
+/* O papel: cada parte é um bloco que se toca (contorno laranja na escolhida). */
+.pv-stage {
+  display: grid;
+  gap: var(--cm-space-2);
+  justify-items: center;
+  min-width: 0;
+}
+.pv-stage > .print-tpl__src {
+  justify-self: stretch;
+  justify-content: center;
+}
+.pv-paper {
+  max-width: 48ch;
+  padding: var(--cm-space-4) var(--cm-space-3);
+  overflow: visible;
+  font-size: 14px;
+  box-shadow: var(--cm-shadow-sm);
+}
+.pv-line {
+  display: block;
+  min-height: 1.35em;
+  white-space: pre;
+}
+.pv-blk {
+  position: relative;
+  /* Escolhida pela lista, a parte rola até aparecer abaixo da barra de formatação. */
+  scroll-margin: 96px 0 24px;
+  border-radius: 3px;
+  outline: 1px dashed transparent;
+  outline-offset: 2px;
+  cursor: pointer;
+  transition: outline-color 0.12s;
+}
+.pv-blk.is-free {
+  cursor: default;
+}
+.pv-blk:not(.is-free):hover {
+  outline-color: color-mix(in oklab, var(--cm-brand-500) 60%, transparent);
+}
+.pv-blk[data-sel='true'] {
+  outline: 2px solid var(--cm-brand-500);
+  background: color-mix(in oklab, var(--cm-brand-500) 7%, transparent);
+}
+.pv-blk:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+}
+.pv-blk[data-sel='true']::after {
+  content: attr(data-label);
+  position: absolute;
+  top: 0;
+  right: -2px;
+  z-index: 1;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--cm-brand-600);
+  color: #fff;
+  font-family: var(--cm-font, Inter, system-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  transform: translateY(calc(-100% - 3px));
+  pointer-events: none;
+}
+.pv-qr {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 4px 0;
+  color: #1a1a1a;
+  white-space: normal;
+}
+.pv-qr small {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 10px;
+  opacity: 0.7;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pv[data-locked] .pv-paper {
+  opacity: 0.6;
+}
+
+/* Ajustes da parte escolhida. */
+.pv-right__head {
+  display: grid;
+  gap: 2px;
+}
+.pv-right__head strong {
+  font-size: var(--cm-text-md);
+  font-weight: 600;
+}
+.pv-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+.pv-right .cm-hint[data-over] {
+  color: var(--cm-warning);
+  font-weight: 600;
+}
+.pv-opts {
+  display: grid;
+}
+.pv-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  padding: 9px 0;
+  font-size: var(--cm-text-sm);
+  cursor: pointer;
+}
+.pv-opt + .pv-opt {
+  border-top: 1px solid var(--cm-border);
+}
+.pv-right__empty {
+  display: grid;
+  gap: var(--cm-space-2);
+  font-size: var(--cm-text-sm);
+}
+.pv-right__empty ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.1em;
+  color: var(--cm-text-muted);
+}
+.pv-limits {
+  margin: 0;
+  padding-top: var(--cm-space-3);
+  border-top: 1px solid var(--cm-border);
+}
+
+/* Modelo feito no código: o papel como está e os estilos para começar. */
+.pv-start {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 48ch);
+  gap: var(--cm-space-5);
+  align-items: start;
+}
+.pv-start__main {
+  display: grid;
+  gap: var(--cm-space-4);
+  min-width: 0;
+}
+.pv-start__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+}
+@container pv (max-width: 760px) {
+  .pv-start {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* No celular as 42 colunas cabem na largura (a letra encolhe em vez de rolar de lado). */
+@media (max-width: 760px) {
+  .pv-paper {
+    padding: var(--cm-space-3) var(--cm-space-2);
+    font-size: clamp(9px, calc((100vw - 96px) / 25.5), 13px);
+  }
+  .pv-bar {
+    top: 0;
+  }
+  .pv-tools--end {
+    margin-left: 0;
+  }
+  .pv-tool {
+    min-width: 40px;
+    height: 40px;
+  }
+}
+
+/* Liga/desliga das opções (o mesmo desenho do .switch do PDV, sem depender daquela folha). */
+.pv-switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.pv-switch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.pv-switch__track {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-border-strong);
+  transition: background 0.2s;
+}
+.pv-switch__track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.pv-switch input:checked + .pv-switch__track {
+  background: var(--cm-brand-600);
+}
+.pv-switch input:checked + .pv-switch__track::after {
+  transform: translateX(16px);
+}
+.pv-switch input:focus-visible + .pv-switch__track {
+  box-shadow: var(--cm-focus);
+}
+.pv-switch input:disabled + .pv-switch__track {
+  opacity: 0.5;
+}
+
+/* Celular: a barra fica numa linha só e corre de lado (como os editores de foto). Fica no fim
+   do arquivo para vencer as regras de base da barra. */
+@container pv (max-width: 680px) {
+  /* Celular: a barra fica numa linha só e corre de lado (como os editores de foto). */
+  .pv-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .pv-bar::-webkit-scrollbar {
+    display: none;
+  }
+  .pv-bar > * {
+    flex: none;
+  }
+  .pv-tools--end,
+  .pv-bar__hint + .pv-tools--history {
+    margin-left: 0;
+  }
+  .pv-bar__hint {
+    flex: 1 0 auto;
+    white-space: nowrap;
+  }
+}

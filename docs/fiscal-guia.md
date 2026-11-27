@@ -114,6 +114,29 @@ e total grande):
   aplicativo Comandou Impressão 1.11+ troca por ESC/POS (`ESC E`, `GS !`, `GS v 0`). Aplicativo
   mais antigo recebe o papel sem as marcas (`plainPrintText` no `claim`). Texto que vem do cliente
   tem o `@@` desfeito antes de montar o papel, para ninguém imprimir QR Code pela observação.
+- **Editor visual** (0.278, pedido do David: "tipo um Canva"): a aba abre no modo **Visual**, ao
+  lado do **Código**. O papel vira uma lista de partes (logo, nome, endereço e telefone da loja,
+  número, data, mesa, cliente, endereço de entrega, observação, itens, totais, pagamentos, CPF,
+  texto livre, linha, espaço e QR Code com link). Tocar numa parte do papel (ou da lista) escolhe;
+  a barra de cima muda o **tamanho** (normal, 42 letras por linha; grande, 21 e sempre em negrito),
+  o **negrito**, as **maiúsculas**, o **alinhamento** e o desenho da linha (traço, duplo,
+  pontinho, estrela…); a coluna da direita muda o texto, o rótulo ("DATA:") e as opções (itens com
+  ou sem preço, complementos, observação do item, cabeçalho). Arrastar na lista muda a ordem (a
+  logo vai para o topo, para o fim ou para onde quiser), o olho esconde sem apagar, e há Desfazer e
+  Refazer (Ctrl+Z). **Estilos prontos**: Clássico (igual ao padrão do Comandou), Moderno (tudo no
+  meio, linhas de pontinhos), Econômico (sem logo, gasta menos papel) e Destaque (número e total
+  grandes). A impressora térmica tem uma letra só: não há escolha de fonte, e a tela diz isso.
+  Por dentro, `packages/shared/src/print-layout.ts` (`compileLayout`) transforma as partes no
+  mesmo Liquid do modo código e guarda as partes num comentário no começo do modelo
+  (`{% comment %}comandou-visual …{% endcomment %}`, lido por `readLayout`); a API, a impressora e a
+  IA não mudam. A prévia do visual vai com uma linha de marca antes de cada parte (`\uE000` + id,
+  tirada por `splitLayoutPreview`) para saber de qual parte é cada linha; isso nunca vai para a
+  impressora. Modelo escrito no código, ou mudado no código ou pela IA depois do visual, abre no
+  visual como está, com a opção de começar de um estilo pronto ou voltar às partes de antes.
+  O teste `apps/api/src/printing/print-layout.test.ts` confere que todo estilo monta, cabe na
+  bobina, volta para o visual e que o Clássico imprime igual ao padrão. Filtro novo para o QR
+  Code: `{{ "https://…" | qrcode }}`; `direita` e `esquerda` agora alinham cada linha de um texto
+  que já passou pelo `quebra`.
 - **Prévia em tempo real** (0.274): o papel ao lado do editor muda enquanto se digita (espera
   0,35 s depois da última tecla), com o último pedido de verdade (diz qual: "Com o último pedido
   (#123)") e já com negrito, letra grande e logo. Modelo com erro mostra o erro e deixa a última

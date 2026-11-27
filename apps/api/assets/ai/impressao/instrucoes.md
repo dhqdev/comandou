@@ -84,6 +84,8 @@ Detalhes:
 - centro[: largura], traco[: largura], quebra[: recuo[, largura]], esquerda: n, direita: n, coluna: n.
 - negrito: a linha inteira em negrito; use no fim: {{ "TOTAL:" | linha: x | negrito }}.
 - grande[: "centro"]: letra grande; texto maior que <<GRANDE>> quebra em linhas.
+- "https://…" | qrcode: a linha inteira vira um QR Code que leva para o link (só com um link que a
+  pessoa deu; nunca invente).
 
 ## Modelo padrão do Comandou para este papel (referência de estilo cupom)
 

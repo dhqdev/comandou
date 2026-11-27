@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.278.0',
+    date: '2026-11-27',
+    title: 'Editor visual dos modelos de impressão',
+    summary:
+      'Em Impressão › Modelos de impressão, cada papel (conferência de conta, via de entrega, comanda da cozinha e rodapé do cupom fiscal) agora se monta no jeito de um editor de fotos: toca na parte do papel e muda o tamanho da letra, o negrito, as maiúsculas, o alinhamento e o lugar, com quatro estilos prontos para começar. O código continua no modo Código e a IA segue ajudando.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Modo Visual: o papel de verdade no meio (com o último pedido), a barra de formatação em cima (Normal ou Grande, negrito, maiúsculas, esquerda/centro/direita e o desenho da linha) e os ajustes da parte escolhida ao lado (texto, rótulo como "DATA:", itens com ou sem preço, complementos, cabeçalho). Desfazer e Refazer, também no Ctrl+Z.',
+      },
+      {
+        tag: 'novo',
+        text: 'Partes do papel numa lista para arrastar: a logo vai para o topo, para o fim ou para onde quiser; o olho esconde uma parte sem apagar; Adicionar traz título, texto (Wi-Fi, Instagram, recado), linha, espaço, QR Code com link e os dados do pedido e da loja.',
+      },
+      {
+        tag: 'novo',
+        text: 'Estilos prontos para cada papel: Clássico (o de sempre), Moderno (tudo no meio, linhas de pontinhos), Econômico (sem logo, gasta menos papel) e Destaque (número e total bem grandes).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A tela respeita a impressora térmica: uma letra só, 42 letras por linha na normal e 21 na grande (sempre em negrito), e avisa quando o texto vai quebrar. Papel escrito no código abre como está, com a opção de começar de um estilo pronto.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Aba Modelos de impressão arrumada: papel e jeito de editar (Visual ou Código) na mesma linha, no celular a barra corre de lado e o papel cabe na largura sem rolar.',
+      },
+    ],
+  },
+  {
     version: '0.277.0',
     date: '2026-11-27',
     title: 'O sistema de verdade para clicar no site',

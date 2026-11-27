@@ -36,3 +36,4 @@ export * from './birthday';
 export * from './search-links';
 export * from './ai-focus';
 export * from './ai-places';
+export * from './print-layout';
