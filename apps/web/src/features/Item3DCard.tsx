@@ -361,6 +361,7 @@ export function Item3DCard({
                       <p className="cm-hint">
                         {made.byAi ? 'A IA leu a forma assim' : 'Montado com esta forma'} ·{' '}
                         {String(made.size.widthCm).replace('.', ',')} cm de largura ·{' '}
+                        {made.cutout ? 'recortado do fundo · ' : ''}
                         {mb(made.bytes)}. Ficou estranho? Ajuste e monte de novo (não gasta IA).
                       </p>
                       <label className="cm-field">

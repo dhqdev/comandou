@@ -19,7 +19,9 @@ import { AI_KEY_CONTEXT } from '../chat/ai.service';
 import { loadAiQuota, recordAiUsage, type AiConfig } from '../chat/ai-quota';
 import { OpenRouterClient, OpenRouterError } from '../chat/openrouter';
 import { aiPrompt, cleanPrompt, createPrompt, itemName, photoPrompts } from './ai-prompts';
-import { buildDish, normalizeShape, writeGlb, type DishShape } from './dish3d';
+import { maskBox, silhouette, withEllipse, type SilRow } from './cutout';
+import { cutPhoto, type Cutout } from './cutout-run';
+import { buildDish, normalizeShape, usesSilhouette, writeGlb, type DishShape } from './dish3d';
 import { jsonOf, notFood, readTips, type PhotoTips } from './item-ai';
 import { MAX_MODEL_BYTES } from './models.controller';
 
@@ -274,10 +276,38 @@ export class ItemAiService {
         );
     }
     const s: DishShape = normalizeShape(raw as Partial<DishShape> & Record<string, unknown>);
-    const mesh = buildDish(s, size.width, size.height);
+    // Recorte do item (modelo pequeno no próprio servidor, sem IA paga): o lanche e o copo seguem
+    // a silhueta, e o fundo da foto não aparece no modelo. Sem recorte, monta como antes.
+    const lathe = usesSilhouette(s);
+    let cut: Cutout | null = null;
+    try {
+      cut = await cutPhoto(
+        { bytes: file, mime },
+        s.box,
+        lathe ? { clip: true } : { keep: (m) => withEllipse(m, s.box) },
+      );
+    } catch (e) {
+      this.logger.warn(`recorte da foto para o 3D falhou: ${(e as Error).message}`);
+    }
+    let sil: SilRow[] | null = null;
+    if (cut && lathe) sil = silhouette(cut.mask, s.kind === 'glass' || s.kind === 'cup');
+    if (cut && !lathe && !s.food) {
+      // Comida menor que o prato: o volume vai só onde ela está.
+      const f = maskBox(cut.mask);
+      const inside = f && f.x0 >= s.box.x0 - 0.02 && f.x1 <= s.box.x1 + 0.02;
+      if (
+        f &&
+        inside &&
+        (f.x1 - f.x0) * (f.y1 - f.y0) < 0.8 * (s.box.x1 - s.box.x0) * (s.box.y1 - s.box.y0)
+      )
+        s.food = f;
+    }
+    const mesh = buildDish(s, size.width, size.height, sil);
     const glb = writeGlb(
       mesh,
-      { bytes: file, mime: mime as 'image/jpeg' | 'image/png' },
+      cut
+        ? { bytes: cut.texture, mime: 'image/jpeg' }
+        : { bytes: file, mime: mime as 'image/jpeg' | 'image/png' },
       product.name,
     );
     if (glb.length > MAX_MODEL_BYTES)
@@ -290,6 +320,8 @@ export class ItemAiService {
         widthCm: Math.round(mesh.size.width * 1000) / 10,
         heightCm: Math.round(mesh.size.height * 1000) / 10,
       },
+      /** O item foi recortado da foto (formato pela silhueta, sem o fundo). */
+      cutout: !!cut,
       bytes: glb.length,
       glb: glb.toString('base64'),
     };

@@ -1,6 +1,6 @@
 {
   "name": "@comandou/api",
-  "version": "0.271.0",
+  "version": "0.271.1",
   "private": true,
   "description": "API NestJS do Comandou (monólito modular).",
   "scripts": {
@@ -36,6 +36,7 @@
     "helmet": "^8.1.0",
     "liquidjs": "10.30.0",
     "nestjs-pino": "^4.4.0",
+    "onnxruntime-web": "1.31.1",
     "pdf-lib": "1.17.1",
     "pg": "^8.16.0",
     "pino": "^9.7.0",

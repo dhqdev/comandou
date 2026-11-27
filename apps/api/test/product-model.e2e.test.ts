@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -139,6 +141,29 @@ describe('modelo 3D do item', () => {
 });
 
 /** Menor JPEG que o servidor lê: cabeçalho, um bloco APP0 e o quadro (SOF) de 1024 × 768. */
+/** Foto do site (WebP) regravada em JPEG, como a tela manda. */
+async function realJpeg(name: string) {
+  const { decodeImage } = await import('../src/store/media-thumbs');
+  const webp = readFileSync(join(__dirname, '..', '..', 'web', 'public', 'site', 'food', name));
+  const img = await decodeImage('image/webp', webp);
+  const enc = await import('@jsquash/jpeg/encode.js');
+  await enc.init(
+    new WebAssembly.Module(
+      readFileSync(require.resolve('@jsquash/jpeg/codec/enc/mozjpeg_enc.wasm')),
+    ) as never,
+  );
+  const out = await enc.default(
+    {
+      data: new Uint8ClampedArray(img.data),
+      width: img.width,
+      height: img.height,
+      colorSpace: 'srgb',
+    } as ImageData,
+    { quality: 85 },
+  );
+  return Buffer.from(out);
+}
+
 function jpeg() {
   const app0 = [0xff, 0xe0, 0x00, 0x04, 0x4a, 0x46];
   const sof = [0xff, 0xc0, 0x00, 0x11, 0x08, 0x03, 0x00, 0x04, 0x00, 0x03, 0x01, 0x22, 0x00];
@@ -188,6 +213,28 @@ describe('3D pela foto do item', () => {
     await put('glb', 'model/gltf-binary', file).expect(200);
     expect((await menuProduct()).model!.glb).toContain('modelo.glb');
   });
+
+  it('foto de verdade: o lanche é recortado e o 3D segue a silhueta, sem o fundo', async () => {
+    const photo = await realJpeg('burger-crispy.webp');
+    const stack = encodeURIComponent(
+      JSON.stringify({
+        kind: 'stack',
+        view: 'side',
+        box: { x0: 0.1, y0: 0.08, x1: 0.9, y1: 0.85 },
+        diameterCm: 12,
+        heightCm: 10,
+      }),
+    );
+    const res = await generate(`?forma=${stack}`, 'image/jpeg', photo).expect(200);
+    expect(res.body.cutout).toBe(true);
+    expect(res.body.size).toMatchObject({ widthCm: 12, heightCm: 10 });
+    const file = Buffer.from(res.body.glb as string, 'base64');
+    expect(file.toString('latin1', 0, 4)).toBe('glTF');
+    // Foto que não abre (só o cabeçalho): monta como antes, pela caixa.
+    expect((await generate(`?forma=${forma}`, 'image/jpeg', jpeg()).expect(200)).body.cutout).toBe(
+      false,
+    );
+  }, 60_000);
 
   it('recusa foto que não serve de textura, forma estragada e produto de outro restaurante', async () => {
     const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBPVP8 ')]);

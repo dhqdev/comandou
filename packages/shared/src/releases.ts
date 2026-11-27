@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.271.1',
+    date: '2026-11-27',
+    title: 'Item em 3D com o formato do lanche',
+    summary:
+      'O "Fazer o 3D pela foto" agora recorta o item do fundo e monta o modelo pelo contorno dele: o hambúrguer sai com o pão redondo, o recheio e o pão de baixo no lugar, sem o fundo escuro da foto enrolado num bloco. O recorte roda no próprio Comandou e não gasta tokens de IA.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Lanche, copo, xícara e porção vistos de lado seguem a silhueta recortada da foto, linha por linha; a asa da caneca, o palito e a batata do lado ficam de fora.',
+      },
+      {
+        tag: 'correção',
+        text: 'O fundo da foto não aparece mais nas laterais, atrás e embaixo do modelo: ele é trocado pela cor da borda do item. Vale também para pratos e tigelas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O recorte usa um modelo pequeno que roda no servidor, sem custo de IA; "Montar de novo" continua sem gastar tokens.',
+      },
+    ],
+  },
+  {
     version: '0.271.0',
     date: '2026-11-27',
     title: 'Comandinho leva até a tela e avisa o que está travando',

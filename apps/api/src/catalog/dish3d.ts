@@ -10,6 +10,8 @@
  * Sem dependências: geometria em Float32Array e o GLB escrito à mão (JSON + BIN).
  */
 
+import type { SilRow } from './cutout';
+
 export type DishKind = 'plate' | 'bowl' | 'glass' | 'cup' | 'stack' | 'slice' | 'box' | 'other';
 export type DishView = 'top' | 'angle' | 'side';
 
@@ -137,6 +139,14 @@ export function normalizeShape(raw: Partial<DishShape> & Record<string, unknown>
 export const buildsAsLathe = (s: DishShape) =>
   s.view === 'side' ||
   ((s.kind === 'glass' || s.kind === 'cup' || s.kind === 'stack') && s.view !== 'top');
+
+/**
+ * Com o item recortado da foto, monta pela silhueta: além de copo, xícara e lanche, o "outro"
+ * visto de lado ou inclinado (porção na cestinha, sorvete na casquinha). Prato, tigela, fatia e
+ * embalagem seguem montados de cima.
+ */
+export const usesSilhouette = (s: DishShape) =>
+  buildsAsLathe(s) || (s.kind === 'other' && s.view !== 'top');
 
 /* ------------------------------------------------------------------ malha */
 
@@ -428,8 +438,101 @@ function buildLathe(s: DishShape, w: number, h: number): BuiltMesh {
   };
 }
 
-/** Monta a malha do item pela forma lida na foto (w × h = tamanho da foto em px). */
-export function buildDish(s: DishShape, w: number, h: number): BuiltMesh {
+/**
+ * Lanche, copo ou bolo pela silhueta recortada da foto (cutout.ts): cada linha da foto vira um
+ * anel com a largura que o item tem ali, então o modelo tem o formato do lanche (pão de cima
+ * redondo, recheio saindo, pão de baixo) e não um cilindro. A foto vai na frente e se repete
+ * atrás; a textura já vem com o fundo trocado pela cor da borda do item.
+ */
+function buildSilhouette(s: DishShape, rows: SilRow[]): BuiltMesh {
+  const H = s.heightCm / 100;
+  const R = s.diameterCm / 200;
+  const half = (r: SilRow) => (r.right - r.left) / 2;
+  const maxHalf = Math.max(...rows.map(half));
+  const vBottom = rows[0]!.v;
+  const vTop = rows[rows.length - 1]!.v;
+  const span = Math.max(vBottom - vTop, 1e-6);
+  // Um anel a cada linha (até 48), da base ao topo, e uma ponta no centro de cima.
+  const steps = Math.min(48, rows.length - 1);
+  const at = (t: number) => {
+    const f = t * (rows.length - 1);
+    const i = Math.min(rows.length - 2, Math.floor(f));
+    const k = f - i;
+    const a = rows[i]!;
+    const b = rows[i + 1]!;
+    return {
+      v: a.v + (b.v - a.v) * k,
+      left: a.left + (b.left - a.left) * k,
+      right: a.right + (b.right - a.right) * k,
+    };
+  };
+  const rings: { r: number; y: number; row: SilRow; uv: number }[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const row = at(i / steps);
+    const r = Math.max((half(row) / maxHalf) * R, R * 0.01);
+    rings.push({ r, y: (vBottom - row.v) / span, row, uv: 1 });
+  }
+  // O topo fecha numa cúpula baixa (sem tampa chata nem bico): a linha mais alta vai até o centro.
+  const last = rings[rings.length - 1]!;
+  const dome = Math.min(0.04, (last.r / R) * 0.12);
+  for (let i = 1; i <= 6; i++) {
+    const f = 1 - i / 6;
+    rings.push({ r: last.r * f, y: 1 + dome * (1 - f * f), row: last.row, uv: f });
+  }
+  const top = rings[rings.length - 1]!.y;
+  for (const ring of rings) ring.y = (ring.y / top) * H;
+  const side = newPart(0, true);
+  const segs = SEGS;
+  for (const ring of rings) {
+    const cu = (ring.row.left + ring.row.right) / 2;
+    const hu = half(ring.row) * 0.96 * ring.uv;
+    // Na cúpula a foto vem um pouco para dentro do pão (a linha da borda é a mais clara).
+    const v = ring.row.v + (1 - ring.uv) * 0.02;
+    for (let k = 0; k <= segs; k++) {
+      const a = (k / segs) * Math.PI * 2;
+      side.pos.push(Math.cos(a) * ring.r, ring.y, Math.sin(a) * ring.r);
+      side.uv!.push(clamp(cu + Math.cos(a) * hu, 0, 1), clamp(v, 0, 1));
+    }
+  }
+  const row = segs + 1;
+  for (let i = 0; i < rings.length - 1; i++)
+    for (let k = 0; k < segs; k++) {
+      const a = i * row + k;
+      const b = a + row;
+      side.idx.push(a, b, a + 1, a + 1, b, b + 1);
+    }
+  // Embaixo fecha reto, com a cor do pé do item.
+  const first = rings[0]!;
+  const bottom = newPart(0, true);
+  const bu = (first.row.left + first.row.right) / 2;
+  ringGrid(
+    bottom,
+    [
+      { r: 0, y: first.y },
+      { r: first.r, y: first.y },
+    ],
+    segs,
+    (x) => [
+      clamp(bu + (x / Math.max(first.r, 1e-6)) * half(first.row) * 0.9, 0, 1),
+      clamp(first.row.v - 0.01, 0, 1),
+    ],
+    undefined,
+    true,
+  );
+  return {
+    parts: [side, bottom],
+    colors: [[1, 1, 1, 1]],
+    size: { width: R * 2, height: H },
+  };
+}
+
+/**
+ * Monta a malha do item pela forma lida na foto (w × h = tamanho da foto em px). Com a
+ * silhueta recortada, lanche, copo e bolo seguem o contorno do item.
+ */
+export function buildDish(s: DishShape, w: number, h: number, sil?: SilRow[] | null): BuiltMesh {
+  const hasSil = !!sil && sil.length >= 6;
+  if (hasSil && usesSilhouette(s)) return buildSilhouette(s, sil);
   return buildsAsLathe(s) ? buildLathe(s, w, h) : buildTop(s, w, h);
 }
 

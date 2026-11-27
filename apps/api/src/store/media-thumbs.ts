@@ -58,7 +58,8 @@ const pngDec = lazy(async () => {
   return m;
 });
 
-async function decode(type: string, bytes: Buffer): Promise<Pixels> {
+/** Abre WebP, JPEG ou PNG em RGBA (WebAssembly). */
+export async function decodeImage(type: string, bytes: Buffer): Promise<Pixels> {
   if (type === 'image/webp') return (await webpDec()).default(buf(bytes));
   if (type === 'image/jpeg') return (await jpegDec()).default(buf(bytes));
   if (type === 'image/png') return (await pngDec()).default(buf(bytes));
@@ -73,7 +74,7 @@ export async function makeThumb(
   original: { type: string; bytes: Buffer },
   max: ThumbWidth,
 ): Promise<{ type: string; bytes: Buffer }> {
-  const img = await decode(original.type, original.bytes);
+  const img = await decodeImage(original.type, original.bytes);
   if (Math.max(img.width, img.height) <= max) return original;
   const s = shrink(img.width, img.height, img.data, max);
   const out = await (

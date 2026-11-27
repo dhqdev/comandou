@@ -32,13 +32,26 @@ Cartão **Item em 3D** (`apps/web/src/features/Item3DCard.tsx`). O OpenRouter n�
    (prato, tigela, copo, xícara, lanche alto, fatia, embalagem), de onde a foto foi tirada, onde
    estão o recipiente e a comida na foto, diâmetro e alturas, e o perfil de lado para copos e
    lanches.
-3. `catalog/dish3d.ts` monta o GLB sem biblioteca: prato ou tigela por anéis, com a foto projetada
-   de cima (o ângulo da câmera sai do formato da borda, `cameraElevation`), e um domo onde está a
-   comida; copo e lanche girando o perfil, com a foto em volta. Base em y = 0, medidas reais em
+3. **Recorte do item (0.271.1)**: `catalog/cutout.ts` + `cutout-run.ts` acham o item na foto com o
+   U²-Netp (modelo de "objeto principal da foto", 4,5 MB, Apache 2.0, em
+   `apps/api/assets/ai/models/`), rodando aqui em WebAssembly (`onnxruntime-web`) numa linha
+   separada (`cutout.worker.ts`, ~2 s por foto, um de cada vez, fila de 4). Não usa IA paga. Da
+   máscara sai a peça principal (a que cai na caixa que a IA leu; em lanche e copo, o que passa
+   muito da caixa é cortado: batata e molho do lado), a **silhueta** linha por linha e a textura
+   com o fundo trocado pela cor da borda do item (`bleedBackground`), então nenhum fundo escuro
+   aparece no modelo. Recorte que falha ou não serve (quase nada, quase a foto toda) monta como
+   antes, pela caixa.
+4. `catalog/dish3d.ts` monta o GLB sem biblioteca: com a silhueta, lanche, copo, xícara e "outro"
+   de lado ou inclinado (`usesSilhouette`) viram um anel por linha da foto, com a largura do item
+   ali (copo e xícara pelo lado mais estreito do eixo, para a asa não entrar), fechando em cima numa
+   cúpula baixa. Prato, tigela, fatia e embalagem saem por anéis, com a foto projetada de cima (o
+   ângulo da câmera sai do formato da borda, `cameraElevation`), e um domo onde está a comida (a
+   caixa da comida sai do recorte quando a IA não mandou); a elipse do prato entra na máscara para o
+   fundo trocado nunca comer a louça. Sem recorte, copo e lanche giram o perfil, com a foto em volta. Base em y = 0, medidas reais em
    metros, foto embutida como textura.
-4. A tela mostra girando (o mesmo `@google/model-viewer` do cardápio). Ficou estranho? Troca a
+5. A tela mostra girando (o mesmo `@google/model-viewer` do cardápio). Ficou estranho? Troca a
    forma, o ângulo ou os tamanhos e **Monta de novo**: vai com `?forma=<json>` e não usa IA.
-5. **Publicar no cardápio** envia o GLB pelo `PUT /products/:id/model/glb` de sempre. O iPhone
+6. **Publicar no cardápio** envia o GLB pelo `PUT /products/:id/model/glb` de sempre. O iPhone
    gera o USDZ na hora a partir do GLB.
 
 Quem já tem um arquivo 3D ainda envia `.glb` e `.usdz` em "Já tem o arquivo 3D?".

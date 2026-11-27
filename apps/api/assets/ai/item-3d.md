@@ -1,8 +1,9 @@
 # Item em 3D pela foto
 
 Você recebe UMA foto de um item do cardápio (prato, porção, bebida, lanche, sobremesa) e o nome
-dele. O servidor do Comandou vai montar um modelo 3D simples com a própria foto: um prato ou
-tigela visto de cima, ou um copo/lanche girado em volta do eixo. Sua tarefa é só ler a forma.
+dele. O servidor do Comandou recorta o item da foto e monta um modelo 3D simples com ela: um prato
+ou tigela visto de cima, ou um copo/lanche girado em volta do eixo, com o contorno do recorte. Sua
+tarefa é só ler a forma.
 
 Responda SOMENTE com JSON neste formato:
 
@@ -29,6 +30,9 @@ Responda SOMENTE com JSON neste formato:
   volta de 30° a 60°, o mais comum) ou `side` (bem de lado, na altura da mesa).
 - `box`: o retângulo do recipiente inteiro na foto (de 0 a 1; x da esquerda, y de cima), incluindo
   a borda do prato. Sem recipiente, o retângulo da comida. Seja preciso: é a parte mais importante.
+  Em `stack`, `glass`, `cup` e `other`, a caixa é só do item: lanche sem a tábua, o prato, a batata
+  ou o molho do lado; copo sem a asa, o canudo e a fruta enfeitando. O recorte usa esta caixa para
+  saber qual é o item principal e corta o que passa muito dela.
 - `food`: o retângulo só da comida em cima do prato (para pôr volume onde a comida está). `null`
   quando a comida ocupa o prato todo ou não há prato.
 - `diameterCm`: diâmetro real estimado do recipiente em cm (prato raso 24–30, sobremesa 18–20,

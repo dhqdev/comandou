@@ -50,6 +50,8 @@ export interface DishShape {
 export interface Generated3D {
   shape: DishShape;
   byAi: boolean;
+  /** O lanche foi recortado da foto: o 3D segue o contorno dele, sem o fundo. */
+  cutout?: boolean;
   size: { widthCm: number; heightCm: number };
   bytes: number;
   glb: string;
