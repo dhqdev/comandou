@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.275.0',
+    date: '2026-11-27',
+    title: 'Mesas da reserva em quadradinhos e reserva mais fácil no cardápio',
+    summary:
+      'Na reserva, tocar em Mesa mostra as mesas em quadradinhos, como na Nova venda do PDV, com a situação no horário da reserva. No cardápio, os dias rolam de lado no computador e quem tem conta reserva sem digitar os dados de novo.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Reservas: a Mesa da reserva (e do formulário Nova reserva/Editar) abre as mesas em quadradinhos por área do Salão, com lugares e se está livre, reservada para outra pessoa no horário (não dá para escolher) ou ocupada agora. Mesa pequena para o grupo fica avisada.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio › Reservar mesa: a faixa dos dias rola de lado com setas e com a rodinha do mouse no computador, sem dia escolhido "subindo".',
+      },
+      {
+        tag: 'novo',
+        text: 'Cardápio › Reservar mesa: cliente com conta vê só um resumo com nome e celular (Alterar abre os campos). Quem não entrou escolhe Já sou cliente ou Criar conta e volta direto para a reserva.',
+      },
+    ],
+  },
+  {
     version: '0.274.1',
     date: '2026-11-27',
     title: 'Sem a chave de gerenciamento do OpenRouter',

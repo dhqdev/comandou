@@ -589,18 +589,6 @@
 .rv-contact:hover {
   text-decoration: underline;
 }
-.rv-table {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--cm-text-sm);
-  color: var(--cm-text-muted);
-}
-.rv-table select {
-  min-width: 140px;
-  padding-block: 4px;
-}
 .rv-card__actions {
   display: flex;
   gap: 6px;
@@ -766,12 +754,5 @@
 @media (max-width: 720px) {
   .rv-lane__cards--grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .rv-table {
-    margin-left: 0;
-    width: 100%;
-  }
-  .rv-table select {
-    flex: 1;
   }
 }

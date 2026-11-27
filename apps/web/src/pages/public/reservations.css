@@ -79,8 +79,8 @@
 }
 .rsv-day span {
   font-size: var(--cm-text-xs);
+  font-weight: 600;
   color: var(--cm-text-muted);
-  text-transform: uppercase;
 }
 .rsv-day strong {
   font-size: var(--cm-text-xl);
@@ -90,8 +90,9 @@
   background: var(--cm-brand-600);
   border-color: var(--cm-brand-600);
   color: var(--cm-on-brand);
-  transform: translateY(-2px);
-  box-shadow: var(--cm-shadow-md);
+}
+.rsv-day:active {
+  transform: scale(0.96);
 }
 .rsv-day[aria-selected='true'] span {
   color: inherit;
@@ -384,4 +385,132 @@
   .rsv-ticket {
     animation: none;
   }
+}
+
+/* Faixa dos dias (0.275): setas no computador, rodinha do mouse e borda que some na ponta. */
+.rsv-strip {
+  position: relative;
+  min-width: 0;
+}
+.rsv-strip .rsv-days {
+  scroll-padding-inline: 4px;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 28px,
+    #000 calc(100% - 28px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 28px,
+    #000 calc(100% - 28px),
+    transparent 100%
+  );
+}
+.rsv-strip[data-start] .rsv-days {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent 100%);
+}
+.rsv-strip[data-end] .rsv-days {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 28px);
+  mask-image: linear-gradient(90deg, transparent 0, #000 28px);
+}
+.rsv-strip[data-start][data-end] .rsv-days {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.rsv-strip__arrow {
+  position: absolute;
+  top: calc(50% - 4px);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 50%;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  box-shadow: var(--cm-shadow-sm);
+  cursor: pointer;
+}
+.rsv-strip__arrow[hidden] {
+  display: none;
+}
+.rsv-strip__arrow:active {
+  transform: scale(0.94);
+}
+.rsv-strip__arrow--prev {
+  left: -6px;
+}
+.rsv-strip__arrow--next {
+  right: -6px;
+}
+/* No toque a faixa rola com o dedo: as setas ficam só com mouse. */
+@media (hover: none), (pointer: coarse) {
+  .rsv-strip__arrow {
+    display: none;
+  }
+}
+
+/* Entrar para reservar: Já sou cliente e Criar conta lado a lado. */
+.rsv-auth {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Seus dados do cliente com conta: um resumo, Alterar abre os campos. */
+.rsv-me {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-r-sm);
+  background: var(--cm-surface);
+}
+.rsv-me__avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--cm-brand-600) 14%, var(--cm-surface));
+  color: var(--cm-brand-700);
+  font-weight: 700;
+}
+.rsv-me__who {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.rsv-me__who strong,
+.rsv-me__who small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rsv-me__who small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.rsv-me__edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--sf-r-sm);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }

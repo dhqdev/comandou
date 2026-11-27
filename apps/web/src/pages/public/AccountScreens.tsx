@@ -103,18 +103,23 @@ function useAsync() {
 }
 
 /** Quem veio da finalização do pedido (sacola) e precisa voltar para ela depois de entrar. */
-type AuthBack = { back?: 'checkout' } | null;
+type AuthBack = { back?: 'checkout' | 'reserve'; mode?: 'login' | 'signup' } | null;
 
 /** Depois de entrar: volta para a finalização com a sacola como estava, ou para a tela anterior. */
 function useAfterLogin() {
   const navigate = useNavigate();
-  const back = (useLocation().state as AuthBack)?.back;
+  const state = useLocation().state as AuthBack;
+  const back = state?.back;
   return {
     back,
+    /** Aba que abre primeiro ("Já sou cliente" = Entrar, "Criar conta" = Criar conta). */
+    mode: state?.mode,
     done: (fallback: () => void) =>
       back === 'checkout'
         ? navigate('/pedir/sacola', { replace: true, state: { checkout: true } })
-        : fallback(),
+        : back === 'reserve'
+          ? navigate('/pedir/reservar', { replace: true })
+          : fallback(),
   };
 }
 
@@ -124,7 +129,7 @@ function AuthForms() {
   const navigate = useNavigate();
   const after = useAfterLogin();
   const toast = useToast();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup'>(after.mode ?? 'login');
   const [form, setForm] = useState({
     name: customer.customerName,
     phone: customer.customerPhone,
@@ -211,6 +216,8 @@ function AuthForms() {
         <p>
           {after.back === 'checkout' ? (
             'Entre para continuar o seu pedido.'
+          ) : after.back === 'reserve' ? (
+            'Entre para reservar a sua mesa.'
           ) : table ? (
             <>
               e peça para a <strong>Mesa {table.label}</strong>

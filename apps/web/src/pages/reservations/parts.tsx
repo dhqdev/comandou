@@ -1,14 +1,20 @@
-import { Copy, MessageCircle, Phone, Smartphone, Users } from 'lucide-react';
+import { Armchair, ChevronDown, Copy, MessageCircle, Phone, Smartphone, Users } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { Alert, Badge, Button, Modal, TextField, useToast } from '../../design-system';
 import { CustomerPicker, maskPhone, type OrderCustomer } from '../../features/CustomerPicker';
 import { SelectField } from '../../features/forms';
 import { api, ApiError } from '../../lib/api';
+import { TableSquares } from './TableSquares';
 
 /* Peças da tela de Reservas: tipos, cartão com as ações, formulário e configurações. */
 
 export type ReservationStatus =
-  'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show';
+  | 'pending'
+  | 'confirmed'
+  | 'seated'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show';
 
 export interface Reservation {
   id: string;
@@ -55,6 +61,8 @@ export interface DiningTable {
   seats: number;
   area: string | null;
   active?: boolean;
+  /** Comanda aberta agora (vem do Salão): mesa ocupada. */
+  tabId?: string | null;
 }
 
 export const RESERVATION_STATUS: Record<
@@ -138,6 +146,9 @@ export function ReservationCard({
   // que no app instalado nem sempre aparece).
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState('');
+  // Mesa: o botão mostra a atual e abre as mesas em quadradinhos (como no PDV).
+  const [picking, setPicking] = useState(false);
+  const table = tables.find((t) => t.id === r.tableId);
   return (
     <article
       className={`rv-card ${plain ? 'rv-card--plain' : ''} ${fresh ? 'is-fresh' : ''}`}
@@ -205,29 +216,49 @@ export function ReservationCard({
         <a className="rv-contact" href={wa} target="_blank" rel="noreferrer">
           <MessageCircle size={14} aria-hidden /> WhatsApp
         </a>
-        <label className="rv-table">
-          <span>Mesa</span>
-          <select
-            className="cm-input"
-            value={r.tableId ?? ''}
-            disabled={closed}
-            onChange={(e) =>
-              onUpdate(
-                r,
-                { tableId: e.target.value || null },
-                e.target.value ? 'Mesa marcada' : undefined,
-              )
-            }
-          >
-            <option value="">Sem mesa</option>
-            {tables.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label} ({t.seats} lugares{t.area ? ` · ${t.area}` : ''})
-              </option>
-            ))}
-          </select>
-        </label>
+        <button
+          type="button"
+          className="rv-tblbtn"
+          aria-expanded={picking}
+          disabled={closed}
+          onClick={() => setPicking((v) => !v)}
+        >
+          <Armchair size={16} aria-hidden />
+          {r.tableId ? (
+            <>
+              Mesa {table?.label ?? r.tableLabel}
+              {table && (
+                <small>
+                  {table.seats} lugares{table.area ? ` · ${table.area}` : ''}
+                </small>
+              )}
+            </>
+          ) : (
+            'Escolher mesa'
+          )}
+          <ChevronDown size={16} aria-hidden />
+        </button>
       </div>
+
+      {picking && !closed && (
+        <div className="rv-tblpick">
+          <TableSquares
+            label={`Mesa da reserva de ${r.name}`}
+            tables={tables}
+            value={r.tableId}
+            partySize={r.partySize}
+            startsAt={r.startsAt}
+            durationMinutes={r.durationMinutes}
+            ignoreId={r.id}
+            noneLabel="Sem mesa"
+            onPick={(id) => {
+              setPicking(false);
+              if (id !== r.tableId)
+                onUpdate(r, { tableId: id }, id ? 'Mesa marcada' : 'Mesa tirada');
+            }}
+          />
+        </div>
+      )}
 
       {cancelling ? (
         <form
@@ -317,6 +348,13 @@ export function ReservationCard({
     </article>
   );
 }
+
+/** Dia + horário do formulário em ISO (null enquanto incompleto). */
+const startsAtOf = (date: string, time: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return null;
+  const d = new Date(`${date}T${time}:00`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+};
 
 /** Tempos na mesa que a equipe escolhe (o valor da reserva entra se for outro). */
 const DURATIONS = [30, 45, 60, 90, 120, 150, 180, 240, 300];
@@ -459,15 +497,20 @@ export function ReservationForm({
               </option>
             ))}
         </SelectField>
-        <SelectField label="Mesa" value={f.tableId} onChange={set('tableId')}>
-          <option value="">Escolher depois</option>
-          {tables.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label} ({t.seats} lugares
-              {t.seats < Number(f.partySize || 0) ? ', pequena para o grupo' : ''})
-            </option>
-          ))}
-        </SelectField>
+        <div className="cm-field cm-form__wide">
+          <span className="cm-label">Mesa</span>
+          <TableSquares
+            label="Mesa da reserva"
+            tables={tables}
+            value={f.tableId || null}
+            partySize={Number(f.partySize) || 1}
+            startsAt={startsAtOf(f.date, f.time)}
+            durationMinutes={Number(f.duration) || 90}
+            ignoreId={initial?.id}
+            noneLabel="Escolher depois"
+            onPick={(id) => setF((x) => ({ ...x, tableId: id ?? '' }))}
+          />
+        </div>
         <h3 className="cm-form__section">Detalhes</h3>
         <TextField
           label="Ocasião"

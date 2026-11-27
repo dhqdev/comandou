@@ -1,5 +1,13 @@
-import { CalendarDays, ChevronRight, Clock, UserRound, Users } from 'lucide-react';
-import { CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react';
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Pencil,
+  UserRound,
+  Users,
+} from 'lucide-react';
+import { CSSProperties, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { StoreMark, useToast } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
@@ -193,6 +201,82 @@ export function ReserveCard() {
   );
 }
 
+/**
+ * Faixa dos dias: rola de lado com o dedo, com as setas (computador) e com a rodinha do mouse.
+ * As setas somem na ponta; o dia escolhido sempre fica à vista.
+ */
+function DayStrip({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = useState({ start: true, end: true });
+  const measure = () => {
+    const el = ref.current;
+    if (!el) return;
+    setEdge({
+      start: el.scrollLeft <= 2,
+      end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 2,
+    });
+  };
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    measure();
+    // Rodinha do mouse (vertical) vira rolagem de lado, sem rolar a página junto.
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || el.scrollWidth <= el.clientWidth) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if ((e.deltaY < 0 && el.scrollLeft <= 0) || (e.deltaY > 0 && el.scrollLeft >= max)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    ro?.observe(el);
+    el.querySelector('[aria-selected="true"]')?.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+    });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      ro?.disconnect();
+    };
+  }, []);
+  const go = (dir: number) => {
+    const el = ref.current;
+    if (el) el.scrollBy({ left: dir * Math.max(200, el.clientWidth * 0.8), behavior: 'smooth' });
+  };
+  return (
+    <div
+      className="rsv-strip"
+      data-start={edge.start || undefined}
+      data-end={edge.end || undefined}
+    >
+      <button
+        type="button"
+        className="rsv-strip__arrow rsv-strip__arrow--prev"
+        aria-label="Dias anteriores"
+        tabIndex={-1}
+        onClick={() => go(-1)}
+        hidden={edge.start}
+      >
+        <ChevronLeft size={20} aria-hidden />
+      </button>
+      <div className="rsv-days" role="listbox" aria-label="Dia" ref={ref} onScroll={measure}>
+        {children}
+      </div>
+      <button
+        type="button"
+        className="rsv-strip__arrow rsv-strip__arrow--next"
+        aria-label="Próximos dias"
+        tabIndex={-1}
+        onClick={() => go(1)}
+        hidden={edge.end}
+      >
+        <ChevronRight size={20} aria-hidden />
+      </button>
+    </div>
+  );
+}
+
 /** Reserva de mesa: pessoas → dia → horário → seus dados. */
 export function ReserveScreen() {
   const { menu, account, customer } = useStore();
@@ -211,6 +295,8 @@ export function ReserveScreen() {
     occasion: '',
     notes: '',
   });
+  // Cliente com conta: nome e celular já vêm dela (mostra um resumo; Alterar abre os campos).
+  const [editData, setEditData] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [token] = useState(newOrderToken);
@@ -312,10 +398,23 @@ export function ReserveScreen() {
         <div className="empty-state">
           <ReserveArt live className="empty-state__art" />
           <strong>Entre para reservar</strong>
-          <p>Você acompanha e cancela a reserva por aqui.</p>
-          <Link className="cta cta--inline" to="/pedir/conta">
-            Entrar ou criar conta
-          </Link>
+          <p>Com a sua conta, a reserva sai com o seu nome e celular e você acompanha por aqui.</p>
+          <div className="rsv-auth">
+            <Link
+              className="cta cta--inline"
+              to="/pedir/conta"
+              state={{ back: 'reserve', mode: 'login' }}
+            >
+              Já sou cliente
+            </Link>
+            <Link
+              className="cta cta--inline cta--ghost"
+              to="/pedir/conta"
+              state={{ back: 'reserve', mode: 'signup' }}
+            >
+              Criar conta
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -359,7 +458,7 @@ export function ReserveScreen() {
         {days.length === 0 ? (
           <p className="rsv-hint">Nenhum dia aberto para reserva no momento.</p>
         ) : (
-          <div className="rsv-days" role="listbox" aria-label="Dia">
+          <DayStrip>
             {days.map((d, i) => (
               <button
                 key={d}
@@ -371,13 +470,13 @@ export function ReserveScreen() {
                 onClick={() => setDate(d)}
               >
                 <span>
-                  {i === 0 && d === cfg.today ? 'hoje' : WD[new Date(`${d}T12:00:00Z`).getUTCDay()]}
+                  {i === 0 && d === cfg.today ? 'Hoje' : WD[new Date(`${d}T12:00:00Z`).getUTCDay()]}
                 </span>
                 <strong>{Number(d.slice(8))}</strong>
                 <span>{dayLabel(d, { month: 'short' }).replace('.', '')}</span>
               </button>
             ))}
-          </div>
+          </DayStrip>
         )}
       </section>
 
@@ -430,34 +529,54 @@ export function ReserveScreen() {
           <h2>
             <UserRound size={18} aria-hidden /> Seus dados
           </h2>
-          <Field label="Seu nome">
-            <input
-              required
-              maxLength={80}
-              autoComplete="name"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            />
-          </Field>
-          <Field label="Celular (WhatsApp)">
-            <input
-              required
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="(11) 98888-7777"
-              value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: maskPhone(e.target.value) }))}
-            />
-          </Field>
-          <Field label="E-mail (opcional)">
-            <input
-              type="email"
-              maxLength={254}
-              autoComplete="email"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            />
-          </Field>
+          {!editData && form.name.trim() && form.phone ? (
+            <div className="rsv-me">
+              <span className="rsv-me__avatar" aria-hidden>
+                {form.name.trim().charAt(0).toUpperCase()}
+              </span>
+              <span className="rsv-me__who">
+                <strong>{form.name}</strong>
+                <small>
+                  {form.phone}
+                  {form.email ? ` · ${form.email}` : ''}
+                </small>
+              </span>
+              <button type="button" className="rsv-me__edit" onClick={() => setEditData(true)}>
+                <Pencil size={15} aria-hidden /> Alterar
+              </button>
+            </div>
+          ) : (
+            <>
+              <Field label="Seu nome">
+                <input
+                  required
+                  maxLength={80}
+                  autoComplete="name"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                />
+              </Field>
+              <Field label="Celular (WhatsApp)">
+                <input
+                  required
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="(11) 98888-7777"
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: maskPhone(e.target.value) }))}
+                />
+              </Field>
+              <Field label="E-mail (opcional)">
+                <input
+                  type="email"
+                  maxLength={254}
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                />
+              </Field>
+            </>
+          )}
           <div className="f">
             <span>É uma ocasião especial?</span>
             <div className="rsv-chips">
