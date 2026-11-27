@@ -27,6 +27,7 @@ describe('caminho para resolver os impedimentos', () => {
     ],
     ['Insumo insuficiente para a produção: Farinha', 'stock-low'],
     ['Permissão insuficiente', 'permission'],
+    ['O limite de uso do assistente neste mês acabou. Fale com o suporte do Comandou.', 'ai-limit'],
   ];
   it.each(cases)('"%s" leva a %s', (msg, id) => {
     expect(findFixHint(msg)?.id).toBe(id);

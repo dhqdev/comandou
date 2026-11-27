@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.271.0',
+    date: '2026-11-27',
+    title: 'Comandinho leva até a tela e avisa o que está travando',
+    summary:
+      'Quando você pergunta onde fica alguma coisa, o assistente de IA agora sempre responde com o botão que leva até lá (e o campo pisca ao chegar). Ele também enxerga o que está dando problema agora, como pedido parado, nota recusada ou impressora desligada, e ajuda a resolver.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Toda tela, aba ou campo citado pelo Comandinho vira um botão que leva até lá, mesmo nas conversas antigas. Endereço errado é trocado pelo certo, e só aparece o que o seu perfil abre.',
+      },
+      {
+        tag: 'novo',
+        text: 'Problemas agora: o assistente vê pedidos parados ou esperando aceite, pedidos concluídos sem pagamento, notas recusadas, certificado vencendo, impressão parada, WhatsApp desconectado, caixa aberto há muito tempo, chamados de mesa, entregas demoradas e o limite de IA perto do fim, e diz em qual tela resolver.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O Comandinho fala como braço direito do dono: resolve junto, avisa no fim de algo urgente que você ainda não viu e explica o que depende da Comandou (como o limite de IA do plano) e onde pedir.',
+      },
+      {
+        tag: 'correção',
+        text: 'A pergunta sobre o uso de tokens levava para Assinatura. Agora leva para Conta › Uso de IA.',
+      },
+    ],
+  },
+  {
     version: '0.270.0',
     date: '2026-11-27',
     title: 'Loja aberta ou fechada no topo do cardápio',

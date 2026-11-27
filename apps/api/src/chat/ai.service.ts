@@ -6,18 +6,37 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { roleHas, type Role, type SearchHit } from '@comandou/shared';
+import { placesFor, roleHas, type Role, type SearchHit } from '@comandou/shared';
+import { BillingService } from '../billing/billing.service';
 import { Ctx } from '../common/context';
 import { open } from '../common/secret-box';
 import { one, q } from '../common/sql';
 import { ENV, Env } from '../config/env';
 import { DatabaseService, type Tx } from '../database/database.service';
 import { financeSnapshot } from '../finance/finance-ai';
+import { GatewayClient } from '../messaging/gateway.client';
 import { groupParts } from '../platform/ai-parts';
 import { RealtimeService } from '../realtime/realtime.service';
 import { parseTerm, runSearch } from '../search/search';
-import { contextPrompt, systemPrompt } from './ai-guide';
+import { canFor, contextPrompt, finishAnswer, linkHistory, systemPrompt } from './ai-guide';
 import { lookupQueries } from './ai-lookup';
+import {
+  billingProblem,
+  cashProblems,
+  channelProblems,
+  deliveryProblems,
+  fiscalProblems,
+  floorProblems,
+  messagingProblems,
+  noticeProblems,
+  orderProblems,
+  paymentProblems,
+  printProblems,
+  type Problem,
+  safely,
+  sortProblems,
+  whatsappProblem,
+} from './ai-problems';
 import { registryLines, salesLines, stockLines, todayLines } from './ai-snapshot';
 import { chatFallbacks } from './ai-models';
 import { availableTokens, loadAiQuota, MONTH_START, recordAiUsage } from './ai-quota';
@@ -33,9 +52,22 @@ const HISTORY = 10;
 const WARN_AT = [80, 100];
 /** Itens achados pela busca com as palavras da pergunta que vão para o assistente. */
 const FOUND_MAX = 12;
+/** Espera máxima por quem está fora do banco (WhatsApp, assinatura) antes de responder sem. */
+const OUTSIDE_MS = 1500;
+
+/** Resolve com `fallback` se `p` demorar mais que `ms` (ou falhar). */
+function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    p.catch(() => fallback),
+    new Promise<T>((r) => setTimeout(() => r(fallback), ms).unref?.()),
+  ]);
+}
 
 export interface Prepared {
   ctx: Ctx;
+  /** A pergunta (para pôr o link do lugar no fim, se a resposta sair sem). */
+  question: string;
+  role: Role;
   model: string;
   name: string;
   apiKey: string;
@@ -59,6 +91,8 @@ export class AiService {
     private readonly db: DatabaseService,
     private readonly chat: ChatService,
     private readonly realtime: RealtimeService,
+    private readonly gateway: GatewayClient,
+    private readonly billing: BillingService,
   ) {}
 
   private async config(ctx: Ctx) {
@@ -153,11 +187,13 @@ export class AiService {
       return rows;
     });
     const role = ctx.user.role as Role;
-    const [state, found, usageLine] = await Promise.all([
+    const [state, found, usageLine, problems] = await Promise.all([
       this.snapshot(ctx),
       this.lookup(ctx, content),
       this.usageLine(ctx, role, used, c.monthly_tokens),
+      this.problems(ctx, role, { used, limit: c.monthly_tokens }),
     ]);
+    const places = placesFor(content, canFor(role)).map((x) => x.place);
     // Duas mensagens de sistema: a fixa (regras, telas, campos) vai igual em toda pergunta e o
     // provedor guarda em cache; a segunda muda a cada pergunta (quem, tela, estado, achados).
     const turns: ChatTurn[] = [
@@ -172,13 +208,17 @@ export class AiService {
           now: new Date(),
           state: usageLine ? [...state, usageLine] : state,
           found,
+          problems,
+          places,
         }),
       },
-      ...history,
+      ...linkHistory(history, role),
       { role: 'user', content },
     ];
     return {
       ctx,
+      question: content,
+      role,
       model: c.model,
       name: c.assistant_name,
       apiKey,
@@ -266,6 +306,77 @@ export class AiService {
       this.logger.warn(`Retrato da operação falhou: ${(e as Error).message}`);
       return [];
     }
+  }
+
+  /**
+   * O que trava a operação ou o dinheiro agora (pedidos parados, nota recusada, impressão,
+   * WhatsApp, aplicativos, caixa esquecido, assinatura…), cada parte só para quem pode ver e
+   * resolver aquilo. As partes do banco rodam numa transação só (uma vaga do pool); WhatsApp e
+   * assinatura ficam fora do banco do restaurante e têm até 1,5 s, senão seguem sem eles.
+   */
+  async problems(ctx: Ctx, role: Role, ai: { used: number; limit: number }): Promise<Problem[]> {
+    const has = (...p: Parameters<typeof roleHas>[1][]) => p.some((x) => roleHas(role, x));
+    const bill =
+      has('plan:read') && this.billing.available
+        ? within(this.billing.notice(ctx.tenantId).then(billingProblem), OUTSIDE_MS, null)
+        : Promise.resolve(null);
+    const local = this.db
+      .withTenant(ctx, async (tx) => {
+        const out: Problem[] = [];
+        const run = async (name: string, fn: () => Promise<Problem[]>) =>
+          out.push(...(await safely(tx, name, fn, [])));
+        if (has('orders:manage')) await run('pedidos', () => orderProblems(tx));
+        if (has('fiscal:emit', 'fiscal:manage'))
+          await run('nota', () => fiscalProblems(tx, has('fiscal:manage')));
+        if (has('printing:manage', 'orders:manage'))
+          await run('impressao', () => printProblems(tx));
+        let qr = false;
+        if (has('messaging:manage'))
+          await run('whatsapp', async () => {
+            const m = await messagingProblems(tx);
+            qr = m.qrEnabled;
+            return m.problems;
+          });
+        if (has('orders:manage')) {
+          await run('aplicativos', () => channelProblems(tx));
+          await run('pagamentos', () => paymentProblems(tx));
+        }
+        if (has('cash:operate', 'cash:close')) await run('caixa', () => cashProblems(tx));
+        const floor = {
+          tables: has('tables:operate'),
+          reservations: has('settings:manage') || (has('tables:operate') && has('orders:manage')),
+          chats: has('orders:manage'),
+          agent: has('settings:manage', 'messaging:manage'),
+        };
+        if (Object.values(floor).some(Boolean)) await run('salao', () => floorProblems(tx, floor));
+        if (has('delivery:manage')) await run('entregas', () => deliveryProblems(tx));
+        if (ctx.userId) await run('avisos', () => noticeProblems(tx, ctx.userId!));
+        return { out, qr };
+      })
+      .catch((e: Error) => {
+        this.logger.warn(`Problemas para o assistente falharam: ${e.message}`);
+        return { out: [] as Problem[], qr: false };
+      });
+    const [{ out, qr }, billing] = await Promise.all([local, bill]);
+    const wa =
+      qr && this.gateway.configured
+        ? await within(
+            this.gateway
+              .session(ctx.tenantId)
+              .then((s) => whatsappProblem(s.status, s.reconnecting)),
+            OUTSIDE_MS,
+            null,
+          )
+        : null;
+    const usage =
+      has('plan:read') && ai.limit > 0 && ai.used >= ai.limit * 0.8
+        ? ({
+            level: ai.used >= ai.limit ? 'urgente' : 'atencao',
+            text: `O uso de IA do mês está em ${Math.round((ai.used / ai.limit) * 100)}% do limite${ai.used >= ai.limit ? ': o assistente e a IA do WhatsApp param até o dia 1º (ou até o Comandou liberar mais)' : ''}. Veja onde gastou; o limite quem define é o Comandou.`,
+            to: '/conta/uso-ia',
+          } satisfies Problem)
+        : null;
+    return sortProblems([...out, wa, billing, usage].filter((p): p is Problem => !!p));
   }
 
   /**
@@ -523,7 +634,10 @@ export class AiService {
       }
       throw e;
     }
-    const answer = text.trim() || 'Não consegui responder agora. Pode perguntar de outro jeito?';
+    // O link de cada lugar citado entra aqui (o modelo às vezes só escreve o nome em negrito).
+    const answer = text.trim()
+      ? finishAnswer(text.trim(), p.question, p.role)
+      : 'Não consegui responder agora. Pode perguntar de outro jeito?';
     const tokens = usage.promptTokens + usage.completionTokens;
     const saved = await this.db.withTenant(p.ctx, (tx) =>
       one<{ id: string; createdAt: Date }>(

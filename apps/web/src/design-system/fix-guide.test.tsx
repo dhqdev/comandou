@@ -84,4 +84,71 @@ describe('links do assistente', () => {
     expect(screen.queryByRole('link', { name: /site/ })).toBeNull();
     expect(screen.getByText('site')).toBeInTheDocument();
   });
+
+  it('caminho que não existe (a IA inventou) não vira link para "não encontrada"', () => {
+    expect(safeAppPath('/conta/assinatura')).toBeNull();
+    expect(safeAppPath('/financeiro/dre')).toBeNull();
+    expect(safeAppPath(`${window.location.origin}/conta/uso-ia`)).toBe('/conta/uso-ia');
+  });
+});
+
+describe('links do assistente que a IA esqueceu', () => {
+  afterEach(() => {
+    cleanup();
+    act(() => setGuideAccess(null));
+  });
+  const owner = {
+    role: 'owner',
+    perms: ['plan:read', 'finance:read', 'settings:manage', 'cash:operate', 'orders:write'],
+  };
+  const answer =
+    'Você vê em **Conta › Uso de IA**. A mensalidade fica em [Assinatura](/assinatura) e o **DRE** no Financeiro.';
+
+  it('nome de lugar em negrito vira o botão que leva até lá', () => {
+    act(() => setGuideAccess(owner));
+    render(
+      <MemoryRouter>
+        <Markdown text={answer} autoLink />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /Conta › Uso de IA/ })).toHaveAttribute(
+      'href',
+      '/conta/uso-ia',
+    );
+    // Link com caminho inventado vai para a tela certa pelo nome.
+    expect(screen.getByRole('link', { name: /Assinatura/ })).toHaveAttribute('href', '/plano');
+    expect(screen.getByRole('link', { name: /DRE/ })).toHaveAttribute(
+      'href',
+      '/financeiro?aba=dre',
+    );
+  });
+
+  it('só leva aonde a pessoa abre; garçom fica no app dele', () => {
+    act(() => setGuideAccess({ role: 'cashier', perms: ['cash:operate', 'orders:write'] }));
+    const { unmount } = render(
+      <MemoryRouter>
+        <Markdown text={answer} autoLink />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('link', { name: /Uso de IA/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /DRE/ })).toBeNull();
+    unmount();
+    act(() => setGuideAccess({ role: 'waiter', perms: ['orders:write', 'tables:operate'] }));
+    render(
+      <MemoryRouter>
+        <Markdown text={'Vá em **Salão**.'} autoLink />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('sem pedir, o negrito fica negrito', () => {
+    act(() => setGuideAccess(owner));
+    render(
+      <MemoryRouter>
+        <Markdown text={'Veja em **Conta › Uso de IA**.'} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('link')).toBeNull();
+  });
 });

@@ -272,6 +272,16 @@ export const FIX_HINTS: FixHint[] = [
     what: 'O envio pelo WhatsApp ainda não foi ligado no servidor. Fale com o suporte do Comandou.',
   },
   {
+    id: 'ai-limit',
+    problem: 'Assistente de IA parou (acabou o limite do mês)',
+    match: /limite de uso do assistente neste mês acabou/i,
+    what: 'O limite de IA do mês vem do plano e quem define é o Comandou. Veja onde gastou no Uso de IA; ele volta no dia 1º, ou peça mais tokens ao suporte do Comandou.',
+    to: '/conta/uso-ia',
+    label: 'Ver o Uso de IA',
+    perms: ['plan:read'],
+    ask: 'Peça ao dono ou ao gerente para falar com o suporte do Comandou.',
+  },
+  {
     id: 'permission',
     problem: 'Sem permissão',
     match: /permissão insuficiente/i,

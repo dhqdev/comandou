@@ -654,6 +654,65 @@ describe('Assistente de IA', () => {
     expect((await get('adminB', '/chat/ai').expect(200)).body.usage.used).toBe(0);
   });
 
+  it('dono: vê os problemas da loja e a resposta sai com o link de onde fica', async () => {
+    // Pedido pronto há 10 dias, a pagar (como no print do David): entra em "Problemas agora".
+    const [o] = await ownerQuery<{ id: string }>(
+      `INSERT INTO orders (tenant_id, number, channel, status, subtotal, total, created_at, updated_at)
+       VALUES ($1, 98579, 'counter', 'ready', 45.9, 45.9, now() - interval '10 days',
+               now() - interval '10 days') RETURNING id`,
+      [fx.tenantA],
+    );
+    // Hora do banco (o uso do teste de cima foi gravado antes dela).
+    const [{ started }] = await ownerQuery<{ started: Date }>(
+      `SELECT clock_timestamp() AS started`,
+    );
+    // O modelo esquece o link e escreve só o nome em negrito: o link entra mesmo assim.
+    agentReply = 'Você vê isso em **Conta › Uso de IA**.';
+    const res = await send('adminA', 'post', '/chat/ai/messages', {
+      content: 'aonde eu vejo quanto de token eu to gastando de ia no sistema ?',
+      screen: '/',
+    })
+      .buffer(true)
+      .parse((r, cb) => {
+        let d = '';
+        r.on('data', (c: Buffer) => (d += c.toString()));
+        r.on('end', () => cb(null, d));
+      })
+      .expect(200);
+    const done = parseSse(res.body as string).find((e) => e.event === 'done')!.data;
+    expect(done.content).toBe('Você vê isso em [Conta › Uso de IA](/conta/uso-ia).');
+    const call = orCalls.filter((c) => c.path === '/chat/completions').pop()!;
+    const ctx = (call.body!.messages as { content: string }[])[1]!.content;
+    expect(ctx).toContain('Lugares para esta pergunta');
+    expect(ctx).toContain('- [Uso de IA](/conta/uso-ia) · Conta › Uso de IA');
+    expect(ctx).toContain('Problemas agora (do mais urgente');
+    expect(ctx).toContain(`#98579 (Pronto, a pagar, parado há 10 dias: /pedidos?abrir=${o!.id})`);
+    // Fica gravada com o link: é o que volta para o modelo na próxima pergunta.
+    const s = (await get('adminA', '/chat/ai').expect(200)).body;
+    expect(s.messages.at(-1).content).toBe('Você vê isso em [Conta › Uso de IA](/conta/uso-ia).');
+    // O garçom não vê os pedidos parados da loja (não é com ele).
+    agentReply = 'Ok.';
+    await send('waiterA', 'post', '/chat/ai/messages', { content: 'tem algo travado?' }).expect(
+      200,
+    );
+    const w = (
+      orCalls.filter((c) => c.path === '/chat/completions').pop()!.body!.messages as {
+        content: string;
+      }[]
+    )[1]!.content;
+    expect(w).not.toContain('#98579');
+    // Limpa para os testes de baixo (contam o uso e a conversa do restaurante A).
+    await ownerQuery(
+      `DELETE FROM ai_usage WHERE tenant_id = $1 AND source = 'chat' AND created_at >= $2`,
+      [fx.tenantA, started],
+    );
+    await ownerQuery(`DELETE FROM ai_messages WHERE tenant_id = $1 AND created_at >= $2`, [
+      fx.tenantA,
+      started,
+    ]);
+    await ownerQuery(`DELETE FROM orders WHERE id = $1`, [o!.id]);
+  });
+
   it('Conta › Uso de IA: onde e quem usou, só para dono e gerente, sem dinheiro', async () => {
     await get('waiterA', '/chat/ai/usage').expect(403);
     const u = (await get('adminA', '/chat/ai/usage?period=month').expect(200)).body;

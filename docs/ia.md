@@ -88,6 +88,46 @@ estilo `.cm-spotlight` em `lib/spotlight.css`, que vale também no Super Admin).
   e `ai-guide.test.ts` confere que todo caminho citado existe.
 - Garçom, cozinha e entregador usam o app deles, sem essas telas: para eles o assistente não manda
   link, só explica.
+- **Link garantido (0.271):** o modelo (o DeepSeek mais ainda) às vezes escreve o nome em negrito
+  ou inventa caminho (`/assinatura`). Por isso o link não depende dele:
+  - `packages/shared/src/ai-places.ts` junta telas, seções, atalhos e `FOCUS_TARGETS` em
+    "lugares" (`appPlaces`). `placesFor(pergunta)` acha os que combinam com a pergunta, e eles
+    entram no contexto em "Lugares para esta pergunta" com o link exato.
+  - Na volta, `finishAnswer` (`ai-guide.ts`) passa `linkPlaces`: nome de lugar em negrito vira
+    link, link com caminho que não existe é trocado pelo certo (ou vira negrito) e endereço do
+    próprio Comandou vira caminho. Pergunta de "onde fica" sem link ganha o lugar mais provável no
+    fim. O histórico (`linkHistory`) e a tela (`Markdown autoLink`) fazem o mesmo nas conversas
+    antigas. Tudo pelas permissões de quem pergunta (`pathAllowed`).
+  - `isKnownAppPath` só aceita subcaminho que existe de verdade (`SUBPATHS` em `nav-catalog.ts`):
+    `/conta/assinatura` e `/financeiro/dre` são recusados.
+  - Lugar novo que o assistente deve achar por outro nome: um apelido em `ALIASES` de
+    `ai-places.ts`; o teste `ai-places.test.ts` cobre as perguntas do David.
+
+## Problemas agora
+
+`problems()` de `ai.service.ts` monta, a cada pergunta, a lista "Problemas agora" (do mais urgente,
+cada um com a tela que resolve), com as consultas de `apps/api/src/chat/ai-problems.ts`. Cada parte
+roda num SAVEPOINT próprio (`safely`): se falhar, as outras seguem. Gateway do WhatsApp e cobrança
+têm 1,5 s no máximo.
+
+| Problema | Permissão |
+| --- | --- |
+| Pedidos parados há mais de 3 h (os 3 mais antigos com link), esperando aceite, pedido de cancelamento, Pix enviado ou a devolver, concluídos sem pagamento (30 dias), negociações e lojas dos aplicativos, pagamentos online a devolver, conversas da loja sem resposta | `orders:manage` |
+| Notas recusadas ou com erro (7 dias), paradas, contingência; certificado, CSC e homologação só para quem gerencia o fiscal | `fiscal:*` |
+| Impressão sem app ligado, fila parada, falhas | `printing:manage` ou `orders:manage` |
+| WhatsApp desconectado, mensagens que falharam | `messaging:manage` |
+| Caixa aberto há mais de 18 h | caixa |
+| Chamados de mesa, reservas para confirmar, cliente pedindo atendente na IA do WhatsApp | salão |
+| Entregas na rua há mais de 90 min | `delivery:manage` |
+| Avisos do sistema não lidos da própria pessoa | todos |
+| Aviso de cobrança, uso de IA a partir de 80% do limite | `plan:read` |
+
+Nada de telefone, e-mail ou CPF de cliente vai na lista; texto que vem de fora (motivo da SEFAZ,
+erro do aplicativo) passa por `cleanText` e é dado, não instrução. A regra do guia manda começar
+por essa lista quando perguntam de problema e avisar no fim um item `[urgente]` que a pessoa ainda
+não viu. O que depende da Comandou (limite de IA do plano, por exemplo) o assistente explica e
+mostra onde pedir: Conta › Falar com a Comandou para quem tem `plan:read`; para os outros, "o dono
+ou o gerente fala com a Comandou".
 
 ## Onde ver o uso
 

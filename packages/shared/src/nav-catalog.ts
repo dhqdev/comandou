@@ -686,7 +686,7 @@ const SECTIONS: StaticEntry[] = [
     group: 'Seções',
     title: 'Notas emitidas',
     hint: 'Fiscal',
-    words: 'nfce cancelar nota xml danfe',
+    words: 'nfce cancelar nota xml danfe recusada recusadas rejeitada rejeitadas erro sefaz',
     icon: 'fiscal',
     to: '/fiscal/nfce',
     perms: ['fiscal:emit', 'fiscal:manage'],
@@ -957,14 +957,37 @@ export const APP_ROUTE_ROOTS = [
   'mais',
 ] as const;
 
-/** O caminho ("/fiscal/configuracao?foco=…") cai numa tela que existe? */
+/**
+ * Telas com mais de um nível (o resto tem um nível só: "/financeiro/dre" não existe, a aba vai
+ * em "?aba="). Cardápio, Estoque, Fiscal e o app do garçom têm rotas internas que nunca caem em
+ * "Página não encontrada" (o que não existe volta para o começo da tela).
+ */
+const SUBPATHS: Record<string, RegExp> = {
+  cardapio: /^[\w\-/]+$/,
+  estoque: /^[\w\-/]+$/,
+  fiscal: /^[\w\-/]+$/,
+  garcom: /^[\w\-/]+$/,
+  conta: /^uso-ia$/,
+  chamados: /^[\w-]+$/,
+  plano: /^pagar\/[\w-]+$/,
+  equipe: /^[\w-]+\/app$/,
+};
+
+/**
+ * O caminho ("/fiscal/configuracao?foco=…") cai numa tela que existe? Confere a tela e o resto
+ * do caminho: "/conta/assinatura" (inventado pela IA) daria "Página não encontrada".
+ */
 export function isKnownAppPath(path: string): boolean {
   if (!path.startsWith('/') || path.startsWith('//')) return false;
-  let root = path.slice(1).split(/[/?#]/)[0] ?? '';
+  const pathname = (path.split(/[?#]/)[0] ?? '').replace(/\/+$/, '');
+  const [first = '', ...rest] = pathname.slice(1).split('/');
+  let root: string;
   try {
-    root = decodeURIComponent(root);
+    root = decodeURIComponent(first).toLowerCase();
   } catch {
     return false;
   }
-  return (APP_ROUTE_ROOTS as readonly string[]).includes(root.toLowerCase());
+  if (!(APP_ROUTE_ROOTS as readonly string[]).includes(root)) return false;
+  if (!rest.length) return true;
+  return SUBPATHS[root]?.test(rest.join('/')) ?? false;
 }

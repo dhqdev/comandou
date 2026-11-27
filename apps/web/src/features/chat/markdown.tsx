@@ -1,7 +1,8 @@
-import { isKnownAppPath } from '@comandou/shared';
+import { linkPlaces, safeAppPath as sharedSafePath } from '@comandou/shared';
 import { ArrowRight } from 'lucide-react';
-import { Fragment, ReactNode } from 'react';
+import { Fragment, ReactNode, useMemo } from 'react';
 import { Link } from 'react-router';
+import { useGuideAccess } from '../../design-system/fix-guide';
 
 /**
  * Markdown bem pequeno para as respostas do assistente: parágrafos, listas (- e 1.),
@@ -9,17 +10,19 @@ import { Link } from 'react-router';
  * Monta elementos do React (nada de HTML cru).
  */
 
+const host = () => (typeof window === 'undefined' ? undefined : window.location.host);
+
 /**
  * Só caminhos internos do app ("/caixa", "/fiscal/configuracao?foco=…"); nada de fora. Caminho
  * que não cai numa tela que existe (a IA inventou) vira texto, não um link para "não encontrada".
+ * Endereço inteiro do próprio Comandou vira só o caminho.
  */
 export function safeAppPath(raw: string): string | null {
-  const p = raw.trim();
-  if (!/^\/(?!\/)[\w\-./?=&%#àáâãçéêíóôõú]*$/i.test(p)) return null;
-  if (p.includes('..')) return null;
-  if (!isKnownAppPath(p)) return null;
-  return p;
+  return sharedSafePath(raw, host());
 }
+
+/** Garçom, cozinha e entregador usam o app deles: as telas da loja não abrem para eles. */
+const OWN_APP_ROLES = new Set(['waiter', 'kitchen', 'driver']);
 
 type Go = (() => void) | undefined;
 
@@ -57,7 +60,25 @@ function inline(text: string, key: string, onGo?: Go): ReactNode[] {
   return out;
 }
 
-export function Markdown({ text, onNavigate }: { text: string; onNavigate?: () => void }) {
+export function Markdown({
+  text: raw,
+  onNavigate,
+  autoLink,
+}: {
+  text: string;
+  onNavigate?: () => void;
+  /**
+   * Resposta do assistente: o nome de lugar em negrito ("**Conta › Uso de IA**") vira o botão
+   * que leva até lá, só para o que a pessoa abre (as respostas antigas também ganham o link).
+   */
+  autoLink?: boolean;
+}) {
+  const access = useGuideAccess();
+  const text = useMemo(() => {
+    if (!autoLink || !access || OWN_APP_ROLES.has(access.role)) return raw;
+    const can = (perms?: string[]) => !perms?.length || perms.some((p) => access.perms.includes(p));
+    return linkPlaces(raw, can, { host: host() });
+  }, [raw, autoLink, access]);
   const lines = text.replace(/\r/g, '').split('\n');
   const blocks: ReactNode[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;

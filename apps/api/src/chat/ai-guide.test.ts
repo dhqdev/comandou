@@ -7,7 +7,7 @@ import {
   type SearchHit,
 } from '@comandou/shared';
 import { describe, expect, it } from 'vitest';
-import { contextPrompt, screenName, systemPrompt } from './ai-guide';
+import { contextPrompt, finishAnswer, linkHistory, screenName, systemPrompt } from './ai-guide';
 
 const prompt = (role: (typeof ROLES)[number]) =>
   systemPrompt({ assistantName: 'Comandinho', role });
@@ -131,5 +131,112 @@ describe('assistente da equipe: o que muda a cada pergunta', () => {
     expect(c).not.toContain('99999');
     expect(c).not.toContain('[ignore]');
     expect(c).toContain('/estoque?foco=insumo-s1');
+  });
+});
+
+describe('assistente da equipe: ajuda de verdade (0.270)', () => {
+  it('a parte fixa manda resolver, usar os problemas e dizer o que depende do Comandou', () => {
+    const p = prompt('owner');
+    expect(p).toContain('braço direito');
+    expect(p).toContain('comece pelo "Problemas agora"');
+    expect(p).toContain('o limite de IA do mês');
+    expect(p).toContain('[Falar com a Comandou](/conta?foco=conta-suporte)');
+    expect(p).toContain('Exemplo: "Você vê em [Uso de IA](/conta/uso-ia)');
+    // Quem não vê a assinatura não recebe o link do suporte, só a quem pedir.
+    expect(prompt('cashier')).not.toContain('/conta?foco=conta-suporte)');
+    expect(prompt('cashier')).toContain('o dono ou o gerente fala com o Comandou');
+  });
+
+  it('o contexto traz os lugares da pergunta, os problemas e o lembrete do link', () => {
+    const c = contextPrompt({
+      userName: 'David',
+      role: 'owner',
+      tenantName: 'Fumaça',
+      now: new Date('2026-11-27T12:00:00Z'),
+      problems: [
+        { level: 'urgente', text: '4 pedidos parados há mais de 3 horas.', to: '/pedidos' },
+        { level: 'atencao', text: 'Aviso não lido: "Custo subiu".' },
+      ],
+      places: [
+        {
+          id: 's-uso-ia',
+          title: 'Uso de IA',
+          where: 'Conta › Uso de IA',
+          path: '/conta/uso-ia',
+          focus: false,
+        },
+      ],
+    });
+    expect(c).toContain('Lugares para esta pergunta');
+    expect(c).toContain('- [Uso de IA](/conta/uso-ia) · Conta › Uso de IA');
+    expect(c).toContain('- [urgente] 4 pedidos parados há mais de 3 horas. → /pedidos');
+    expect(c).toContain('- [atencao] Aviso não lido: "Custo subiu".');
+    expect(c).toContain('Lembrete: cada tela');
+    expect(
+      contextPrompt({ userName: 'Ana', role: 'owner', tenantName: 'X', now: new Date() }),
+    ).toContain('Problemas agora: nenhum encontrado');
+  });
+
+  it('garçom recebe o problema sem link da tela da loja', () => {
+    const c = contextPrompt({
+      userName: 'Zé',
+      role: 'waiter',
+      tenantName: 'X',
+      now: new Date(),
+      problems: [{ level: 'urgente', text: 'Mesa chamando: Mesa 4.', to: '/mesas' }],
+      places: [{ id: 's-caixa', title: 'Caixa', where: 'Caixa', path: '/caixa', focus: false }],
+    });
+    expect(c).toContain('- [urgente] Mesa chamando: Mesa 4.');
+    expect(c).not.toContain('→ /mesas');
+    expect(c).not.toContain('Lugares para esta pergunta');
+  });
+
+  it('a resposta sai com o link mesmo quando o modelo esquece (as do print do David)', () => {
+    expect(
+      finishAnswer(
+        'Você pode acessar a tela de **Conta** e depois clicar em **Assinatura**.',
+        'aonde eu vejo quanto de token eu to gastando de ia no sistema ?',
+        'owner',
+      ),
+    ).toBe('Você pode acessar a tela de [Conta](/conta) e depois clicar em [Assinatura](/plano).');
+    expect(
+      finishAnswer(
+        'O controle do uso de IA é do sistema. Você vê em **Conta › Uso de IA**.',
+        'aonde eu controlo a quantidade de tokens que uso da ia ?',
+        'owner',
+      ),
+    ).toBe('O controle do uso de IA é do sistema. Você vê em [Conta › Uso de IA](/conta/uso-ia).');
+    // Pergunta de "onde fica" com resposta sem nenhum lugar: o link do mais provável vai no fim.
+    expect(
+      finishAnswer(
+        'Fica no seu painel de consumo.',
+        'aonde eu controlo a quantidade de tokens que uso da ia ?',
+        'owner',
+      ),
+    ).toBe('Fica no seu painel de consumo.\n\n[Uso de IA](/conta/uso-ia)');
+    // Conversa que não pede lugar fica como está.
+    expect(finishAnswer('Bom dia! Tudo certo por aqui.', 'bom dia', 'owner')).toBe(
+      'Bom dia! Tudo certo por aqui.',
+    );
+    // Garçom fica no app dele: sem link das telas da loja.
+    expect(finishAnswer('Vá em **Caixa**.', 'onde fica o caixa?', 'waiter')).toBe(
+      'Vá em **Caixa**.',
+    );
+    // Caixa não abre o Uso de IA: fica o negrito.
+    expect(finishAnswer('Veja em **Uso de IA**.', 'onde vejo os tokens', 'cashier')).toBe(
+      'Veja em **Uso de IA**.',
+    );
+  });
+
+  it('as respostas antigas voltam ao modelo já com o link (ele imita o que respondeu)', () => {
+    const h = linkHistory(
+      [
+        { role: 'user', content: 'onde fica o **Caixa**?' },
+        { role: 'assistant', content: 'Em **Caixa**.' },
+      ],
+      'owner',
+    );
+    expect(h[0]!.content).toBe('onde fica o **Caixa**?');
+    expect(h[1]!.content).toBe('Em [Caixa](/caixa).');
   });
 });

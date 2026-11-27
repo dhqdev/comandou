@@ -150,6 +150,12 @@ cookie, CSRF, corpo gigante e Host estranho.
   leva título, valor e link; cliente, pedido, comanda, pessoa e entregador vão sem o detalhe,
   `NO_DETAIL`); o que a pessoa escreveu e o que veio do banco vão como dado, no
   `contextPrompt`, separado das regras fixas do `systemPrompt`.
+- Problemas agora (`chat/ai-problems.ts`, 0.271): cada parte só com a permissão dela, sem
+  telefone, e-mail ou CPF de cliente; texto que vem de fora (motivo da SEFAZ, erro de aplicativo,
+  recado do cliente) passa por `cleanText` e vai como dado. Link que a IA escreve só vira botão se
+  for caminho do app que existe e que o perfil abre (`safeAppPath` + `pathAllowed` de
+  `ai-places.ts`): `//outro.site`, `javascript:` e `..` são recusados, e endereço de fora fica só
+  como texto.
 - Menu do Super Admin pelo WhatsApp (`platform-whatsapp/admin-bot.service.ts`) só responde a
   número cadastrado de Super Admin ativo (`operatorFor`); opção nova que muda algo pede SIM
   (`PendingAction`), chama o serviço da tela com o `Actor` do dono do número e grava

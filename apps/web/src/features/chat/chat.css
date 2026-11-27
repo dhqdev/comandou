@@ -2476,9 +2476,17 @@
   text-decoration: none;
   white-space: nowrap;
   vertical-align: baseline;
+  /* Nome comprido no celular quebra dentro do botão em vez de passar da borda. */
+  max-width: 100%;
   transition:
     background var(--cm-dur) var(--cm-ease),
     border-color var(--cm-dur) var(--cm-ease);
+}
+@media (max-width: 480px) {
+  .tc-golink {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 .tc-golink:hover {
   border-color: var(--cm-border-strong);

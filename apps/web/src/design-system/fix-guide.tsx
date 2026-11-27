@@ -25,7 +25,8 @@ export function setGuideAccess(next: Access | null) {
   subs.forEach((f) => f());
 }
 
-function useAccess() {
+/** Permissões e papel de quem está usando (null fora da equipe logada). */
+export function useGuideAccess(): Access | null {
   return useSyncExternalStore(
     (cb) => {
       subs.add(cb);
@@ -64,7 +65,7 @@ export function planFor(message: string | null | undefined, a: Access | null): F
 }
 
 export function useFixPlan(message: string | null | undefined): FixPlan | null {
-  return planFor(message, useAccess());
+  return planFor(message, useGuideAccess());
 }
 
 /** Lê o acesso atual sem assinar (para o toast, que decide na hora em que aparece). */

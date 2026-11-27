@@ -433,7 +433,7 @@ export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () 
                 <LivePanda size={28} mood={m.streaming ? 'talking' : 'idle'} still={!m.streaming} />
                 <div className="tc-ai__text">
                   {m.content ? (
-                    <Markdown text={m.content} onNavigate={onNavigate} />
+                    <Markdown text={m.content} onNavigate={onNavigate} autoLink />
                   ) : (
                     <span className="tc-typing tc-typing--inline">
                       <i />
