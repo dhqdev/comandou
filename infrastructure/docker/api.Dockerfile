@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Imagem da API (NestJS). Base node:22-alpine é multiarch (linux/amd64 e linux/arm64).
-# Sem dependências nativas: senhas usam scrypt do próprio Node; fotos e o recorte do 3D, WebAssembly.
+# Sem dependências nativas: senhas usam scrypt do próprio Node; fotos, WebAssembly.
 # O estágio de build roda no processador do próprio runner (rápido) e só o runtime é por arquitetura:
 # sem isso o arm64 seria compilado por emulação (QEMU), 10x mais lento.
 FROM --platform=$BUILDPLATFORM node:22-alpine AS build
@@ -16,12 +16,6 @@ COPY packages/shared packages/shared
 COPY apps/api apps/api
 RUN pnpm --filter @comandou/shared build && pnpm --filter @comandou/api build \
  && pnpm --filter @comandou/api deploy --legacy --prod /out
-# O recorte da foto do 3D (onnxruntime-web) só usa a versão para Node e o WebAssembly simples:
-# o resto (WebGPU, WebGL, mapas) é ~120 MB que a imagem não precisa.
-RUN find /out/node_modules -path '*/onnxruntime-web/dist/*' -type f \
-      ! -name 'ort.node.min.js' ! -name 'ort-wasm-simd-threaded.wasm' ! -name 'ort-wasm-simd-threaded.mjs' -delete \
- && find /out/node_modules -path '*/onnxruntime-web/lib' -type d -prune -exec rm -rf {} + \
- && test -n "$(find /out/node_modules -path '*/onnxruntime-web/dist/ort.node.min.js')"
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production

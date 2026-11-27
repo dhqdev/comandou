@@ -19,7 +19,7 @@ export const CHAT_MODEL = 'deepseek/deepseek-v4-flash';
  */
 export const CHAT_FALLBACK_MODEL = 'google/gemini-2.5-flash-lite';
 
-/** Olhar a foto do item (melhorar a foto, 3D): o mais barato que lê imagem com JSON confiável. */
+/** Olhar a foto do item (melhorar a foto): o mais barato que lê imagem com JSON confiável. */
 export const VISION_MODEL = 'google/gemini-2.5-flash-lite';
 
 /** Refazer o fundo e criar a foto do item, pela API de imagens (~US$ 0,014 por foto). */

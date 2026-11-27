@@ -30,8 +30,6 @@ export interface PublicProduct {
   photos?: string[];
   /** Média das avaliações dos clientes; null sem avaliação. */
   rating?: { average: number; count: number } | null;
-  /** Modelo 3D do prato (GLB e, se houver, o USDZ do iPhone). */
-  model?: { glb: string; usdz: string | null } | null;
   /** Pontos fixos que o item rende na fidelidade (null = pela regra do programa). */
   loyaltyPoints?: number | null;
   optionGroups: MenuGroup[];

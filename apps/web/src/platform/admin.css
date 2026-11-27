@@ -997,9 +997,6 @@ details.adm-fieldset[open] > summary::before {
 :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='photos'] {
   --part: #ee7fac;
 }
-:is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='model3d'] {
-  --part: #6a4ce2;
-}
 :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='setup'] {
   --part: #f47230;
 }
@@ -1018,10 +1015,6 @@ details.adm-fieldset[open] > summary::before {
 :root[data-theme='dark']
   :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='photos'] {
   --part: #e24d8b;
-}
-:root[data-theme='dark']
-  :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='model3d'] {
-  --part: #9887ef;
 }
 :root[data-theme='dark']
   :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='setup'] {
@@ -1043,10 +1036,6 @@ details.adm-fieldset[open] > summary::before {
   :root:not([data-theme])
     :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='photos'] {
     --part: #e24d8b;
-  }
-  :root:not([data-theme])
-    :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='model3d'] {
-    --part: #9887ef;
   }
   :root:not([data-theme])
     :is(.adm-ai-split i, .adm-ai-pie__slice, .adm-ai-swatch)[data-part='setup'] {
@@ -3535,7 +3524,7 @@ button.adm-card:hover {
   overflow-wrap: normal;
 }
 
-/* Tokens › Assistente: fotos e 3D do cardápio. O fieldset nasce com min-inline-size:
+/* Tokens › Assistente: fotos do cardápio. O fieldset nasce com min-inline-size:
    min-content e crescia até a frase mais larga (passava da tela no celular): min-width: 0. */
 .adm-ai-menu {
   display: grid;

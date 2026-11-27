@@ -180,7 +180,6 @@ export interface AiOverview {
     defaultMonthlyTokens: number;
     lowBalanceUsd: number;
     photoAiEnabled: boolean;
-    model3dAiEnabled: boolean;
     visionModel: string;
     imageModel: string;
     importModel: string;
@@ -1078,7 +1077,7 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
             <span className="adm-sub">
               {owner
                 ? 'Só do Comandou, separada da dos restaurantes: a esteira de chamados e os testes do painel gastam desta chave.'
-                : 'Só dos restaurantes: chat e WhatsApp, fotos e 3D, importar cardápio e os sites com IA.'}
+                : 'Só dos restaurantes: chat e WhatsApp, fotos, importar cardápio e os sites com IA.'}
             </span>
           </div>
           <Tag level={level}>
@@ -1242,7 +1241,6 @@ type Form = {
   defaultMonthlyTokens: string;
   lowBalanceUsd: string;
   photoAiEnabled: boolean;
-  model3dAiEnabled: boolean;
   visionModel: string;
   imageModel: string;
   importModel: string;
@@ -1256,7 +1254,6 @@ const toForm = (s: AiOverview['settings']): Form => ({
   defaultMonthlyTokens: String(s.defaultMonthlyTokens),
   lowBalanceUsd: String(s.lowBalanceUsd).replace('.', ','),
   photoAiEnabled: s.photoAiEnabled,
-  model3dAiEnabled: s.model3dAiEnabled,
   visionModel: s.visionModel,
   imageModel: s.imageModel,
   importModel: s.importModel,
@@ -1301,7 +1298,6 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
     defaultMonthlyTokens: Number(f.defaultMonthlyTokens || 0),
     lowBalanceUsd: Number(f.lowBalanceUsd.replace(',', '.') || 0),
     photoAiEnabled: f.photoAiEnabled,
-    model3dAiEnabled: f.model3dAiEnabled,
     visionModel: f.visionModel.trim(),
     imageModel: f.imageModel.trim(),
     importModel: f.importModel.trim(),
@@ -1418,12 +1414,11 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
             </span>
           </label>
           <fieldset className="adm-ai-menu">
-            <legend>Fotos e 3D do cardápio</legend>
+            <legend>Fotos do cardápio</legend>
             <p className="adm-sub">
               Nos itens do cardápio: “Melhorar a foto” (a IA olha e sugere um retoque leve, ou refaz
-              só o fundo) e “Fazer o 3D pela foto” (a IA lê a forma do prato e o Comandou monta o
-              modelo). Desconta dos tokens de cada restaurante, como o resto da IA. Os textos que
-              guiam a IA ficam em apps/api/assets/ai.
+              só o fundo). Desconta dos tokens de cada restaurante, como o resto da IA. Os textos
+              que guiam a IA ficam em apps/api/assets/ai.
             </p>
             <label className="adm-check">
               <input
@@ -1433,19 +1428,6 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
               />
               <span>
                 <strong>Melhorar a foto com IA</strong>
-              </span>
-            </label>
-            <label className="adm-check">
-              <input
-                type="checkbox"
-                checked={f.model3dAiEnabled}
-                onChange={(e) => set('model3dAiEnabled')(e.target.checked)}
-              />
-              <span>
-                <strong>3D pela foto com IA</strong>
-                <span className="adm-sub">
-                  Desligado, o restaurante ainda monta o 3D escolhendo a forma do prato (sem IA).
-                </span>
               </span>
             </label>
             <div className="adm-backup-grid">

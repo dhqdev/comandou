@@ -81,7 +81,7 @@ cookie, CSRF, corpo gigante e Host estranho.
 - Painel: ação que não volta (excluir, produção, assinar) pede `PlatformAuthService.confirmCode`
   (código do autenticador, mesmo em navegador confiável) e grava a tentativa negada na auditoria.
 
-- Foto do perfil da equipe (0.272, `member_photos`): só a própria pessoa lê, troca e tira
+- Foto do perfil da equipe (0.273, `member_photos`): só a própria pessoa lê, troca e tira
   (`/account/photo`, filtro por `user_id` além do RLS); não crie rota que devolva a foto de outra
   pessoa sem decidir antes quem pode ver. Upload pelo `checkMemberPhoto` (assinatura, 1 MB).
 - Dado pessoal novo de cliente (nome, telefone, endereço, CPF, conversa) numa tabela: entra no
@@ -120,7 +120,7 @@ cookie, CSRF, corpo gigante e Host estranho.
 
 ### Resposta da API (A02 Configuração, ASVS V3/V14)
 - `common/api-headers.ts` põe `Cache-Control: no-store` e CSP `default-src 'none'` em tudo.
-  Rota que pode ter cache (foto, modelo 3D) define o seu. HTML de propósito: CSP própria com hash
+  Rota que pode ter cache (foto, vídeo) define o seu. HTML de propósito: CSP própria com hash
   do script (`previewCsp` em `store/link-preview.ts`). PDF fica sem CSP (leitor do navegador).
 - Erro: lance `HttpException`; o filtro esconde pilha e detalhe do banco. Nunca devolva
   `e.message` de biblioteca para o cliente.
@@ -141,11 +141,11 @@ cookie, CSRF, corpo gigante e Host estranho.
 - Saída da IA validada por Zod e mostrada como texto (nada de HTML ou link de fora).
 - IA que mexe em código do restaurante (modelos de impressão, `printing/template-ai.service.ts`) só
   propõe: o servidor confere a proposta (sintaxe, largura) e a pessoa aplica e salva.
-- IA das fotos e do 3D dos itens (`catalog/item-ai.*`): o nome do item vai entre aspas sem aspas
-  nem quebras (`itemName`); a resposta passa por `readTips`/`normalizeShape` (números presos em
-  faixas, textos curtos) e a foto que volta é conferida por `sniff`. Nada é gravado pela IA: a tela
-  mostra e a pessoa usa a foto ou publica o 3D pelas rotas de sempre. Foto de entrada até 3 MB,
-  conferida pela assinatura; GLB montado até 12 MB.
+- IA das fotos dos itens (`catalog/item-ai.*`): o nome do item vai entre aspas sem aspas nem
+  quebras (`itemName`); a resposta passa por `readTips` (números presos em faixas, textos curtos)
+  e a foto que volta é conferida por `sniff`. Nada é gravado pela IA: a tela mostra e a pessoa usa
+  a foto pelas rotas de sempre. Foto de entrada até 3 MB, conferida pela assinatura. (O 3D dos
+  itens saiu na 0.272.)
 - O que entra no prompt respeita a permissão de quem pergunta (`roleHas` antes de montar o
   contexto): dado que o perfil não vê na tela também não vai para a IA dele. Vale para o retrato
   (`moreLines` + `ai-snapshot.ts`) e para os achados da pergunta (`lookup` usa o `runSearch` com o

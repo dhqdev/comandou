@@ -18,7 +18,6 @@ export const AI_PARTS: readonly AiPartDef[] = [
     label: 'Fotos dos itens',
     sources: ['photo_tune', 'photo_clean', 'photo_create', 'menu_photo'],
   },
-  { key: 'model3d', label: '3D dos itens', sources: ['menu_model'] },
   {
     key: 'setup',
     label: 'Cardápio e página',
@@ -38,7 +37,8 @@ export const TENANT_SOURCE_LABEL: Record<string, string> = {
   photo_clean: 'Foto com fundo limpo',
   photo_create: 'Foto criada pela IA',
   menu_photo: 'Foto do item na importação',
-  menu_model: 'Item em 3D pela foto',
+  // Saiu na 0.272 (o 3D dos itens foi retirado): só para o uso antigo ter nome em "Outros".
+  menu_model: 'Item em 3D pela foto (desativado)',
   menu_import: 'Importar o cardápio',
   menu_place: 'Achar o restaurante no Google',
   site_page: 'Texto da página do restaurante',

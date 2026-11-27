@@ -37,8 +37,6 @@ export const AiSettingsBody = z.object({
   lowBalanceUsd: z.number().min(0).max(100_000),
   /** Botão "Melhorar a foto" dos itens do cardápio. Sem o campo, mantém. */
   photoAiEnabled: z.boolean().optional(),
-  /** "Fazer o 3D pela foto" dos itens do cardápio. Sem o campo, mantém. */
-  model3dAiEnabled: z.boolean().optional(),
   /** Modelo que olha a foto do item (o mais barato que lê imagem). */
   visionModel: z
     .string()
@@ -94,7 +92,6 @@ interface Row {
   default_monthly_tokens: number;
   low_balance_usd: string;
   photo_ai_enabled: boolean;
-  model3d_ai_enabled: boolean;
   vision_model: string;
   image_model: string;
   import_model: string;
@@ -127,7 +124,7 @@ const SOURCE_LABEL: Record<string, string> = {
   photo_tune: 'Melhorar a foto do item',
   photo_clean: 'Foto do item com fundo limpo',
   photo_create: 'Foto do item criada pela IA',
-  menu_model: 'Item em 3D pela foto',
+  menu_model: 'Item em 3D pela foto (desativado)',
   print_template: 'Modelo de impressão',
 };
 
@@ -141,7 +138,7 @@ const MODEL_ROLES = {
     label: 'Reserva da conversa',
     detail: 'Entra sozinho quando o modelo da conversa falha ou está fora do ar',
   },
-  vision: { label: 'Olhar a foto', detail: 'Melhorar a foto do item e fazer o 3D pela foto' },
+  vision: { label: 'Olhar a foto', detail: 'Melhorar a foto do item' },
   image: {
     label: 'Fazer a foto',
     detail: 'Foto com fundo limpo, foto criada pela IA e fotos da importação do cardápio',
@@ -472,7 +469,6 @@ export class PlatformAiService {
         defaultMonthlyTokens: r.default_monthly_tokens,
         lowBalanceUsd: Number(r.low_balance_usd),
         photoAiEnabled: r.photo_ai_enabled,
-        model3dAiEnabled: r.model3d_ai_enabled,
         visionModel: r.vision_model,
         imageModel: r.image_model,
         importModel: r.import_model,
@@ -817,8 +813,8 @@ export class PlatformAiService {
         `UPDATE platform_ai_settings SET enabled = $1, api_key_enc = $2, model = $3,
                 assistant_name = $4, default_monthly_tokens = $5, low_balance_usd = $6,
                 owner_api_key_enc = $8, admin_api_key_enc = $9,
-                photo_ai_enabled = $10, model3d_ai_enabled = $11, vision_model = $12,
-                image_model = $13, import_model = $14, updated_at = now(), updated_by = $7
+                photo_ai_enabled = $10, vision_model = $11,
+                image_model = $12, import_model = $13, updated_at = now(), updated_by = $7
           WHERE id`,
         [
           b.enabled,
@@ -831,7 +827,6 @@ export class PlatformAiService {
           ownerEnc,
           adminEnc,
           b.photoAiEnabled ?? current.photo_ai_enabled,
-          b.model3dAiEnabled ?? current.model3d_ai_enabled,
           b.visionModel ?? current.vision_model,
           b.imageModel ?? current.image_model,
           b.importModel ?? current.import_model,

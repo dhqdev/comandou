@@ -1,10 +1,9 @@
 /*
  * Site público (0.245, refeito na 0.253 a pedido do dono: "minimalista, mais legal e bonito").
  * Muito espaço, linha fina no lugar de cartão, título grande e escuro com a segunda linha cinza,
- * laranja só na ação principal. Títulos com o Shuffle do React Bits (Shuffle.tsx). Três momentos
- * em 3D: o palco do topo (celular e pedidos em camadas, girando de leve com o mouse), a tela do
- * sistema que chega deitada e se endireita com a rolagem e o prato de verdade em profundidade
- * (Dish3D.tsx, num estúdio escuro). Movimento só com transform e opacity; com "reduzir
+ * laranja só na ação principal. Títulos com o Shuffle do React Bits (Shuffle.tsx). Dois momentos
+ * em 3D: o palco do topo (celular e pedidos em camadas, girando de leve com o mouse) e a tela do
+ * sistema que chega deitada e se endireita com a rolagem. Movimento só com transform e opacity; com "reduzir
  * movimento", tudo parado no estado final.
  */
 
@@ -50,7 +49,6 @@ html.lenis {
   text-align: center;
 }
 .st-head h2,
-.st-3d__text h2,
 .st-price h2,
 .st-end h2 {
   font-size: clamp(2rem, 4.2vw, 3.25rem);
@@ -59,8 +57,7 @@ html.lenis {
   letter-spacing: -0.042em;
   text-wrap: balance;
 }
-.st-head p,
-.st-3d__text > p {
+.st-head p {
   margin-top: 16px;
   font-size: clamp(1.0625rem, 1.5vw, 1.1875rem);
   line-height: 1.55;
@@ -819,233 +816,6 @@ html.lenis {
   }
 }
 
-/* ---------------------------------------------------------------- prato em 3D (estúdio escuro) */
-/*
- * As fotos têm fundo preto: o painel escuro faz o prato flutuar. A moldura gira de leve com o
- * ângulo do shader (`--lx`/`--ly`, de depth-photo.ts) e a sombra embaixo anda ao contrário.
- */
-.st-3d {
-  --ink: #050505;
-  display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-  align-items: center;
-  gap: clamp(28px, 5vw, 64px);
-  padding: clamp(32px, 5vw, 64px);
-  overflow: hidden;
-  border-radius: 32px;
-  background: var(--ink);
-  color: #f4f4f5;
-}
-.st-3d__text h2 {
-  color: #fff;
-}
-.st-3d__text > p {
-  color: #a1a1aa;
-}
-.st-3d__facts {
-  display: grid;
-  gap: 12px;
-  margin: 28px 0 0;
-  padding: 24px 0 0;
-  border-top: 1px solid rgb(255 255 255 / 10%);
-  list-style: none;
-  color: #d4d4d8;
-}
-.st-3d__facts li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.st-3d__facts svg {
-  flex: none;
-  color: #fff;
-}
-.st-dish {
-  display: grid;
-  gap: 18px;
-  min-width: 0;
-}
-.st-dish__stage {
-  --lx: 0;
-  --ly: 0;
-  position: relative;
-  width: 100%;
-  max-width: 620px;
-  margin: 0 auto;
-  perspective: 1400px;
-  touch-action: pan-y;
-  cursor: grab;
-  user-select: none;
-}
-.st-dish__stage:active {
-  cursor: grabbing;
-}
-.st-dish__card {
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 4 / 3;
-  border-radius: 24px;
-  background: var(--ink);
-  transform: rotateY(calc(var(--lx) * 7deg)) rotateX(calc(var(--ly) * -5deg));
-  /* As bordas da foto somem no escuro: só o prato fica. */
-  -webkit-mask-image: radial-gradient(ellipse 52% 54% at 50% 48%, #000 64%, transparent 100%);
-  mask-image: radial-gradient(ellipse 52% 54% at 50% 48%, #000 64%, transparent 100%);
-}
-.st-dish__photo,
-.st-dish__canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.st-dish__photo {
-  object-fit: cover;
-  transform: scale(1.064);
-  animation: st-fade 0.4s var(--cm-ease) both;
-}
-.st-dish__canvas {
-  display: block;
-  opacity: 0;
-  transition: opacity 0.5s var(--cm-ease);
-}
-.st-dish[data-state='ready'] .st-dish__canvas {
-  opacity: 1;
-}
-.st-dish[data-state='off'] .st-dish__canvas {
-  display: none;
-}
-/* Luz que passa por cima do prato, do lado contrário ao ângulo. */
-.st-dish__light {
-  position: absolute;
-  inset: -20%;
-  background: radial-gradient(
-    40% 35% at calc(50% - var(--lx) * 30%) calc(30% - var(--ly) * 20%),
-    rgb(255 255 255 / 9%),
-    transparent 70%
-  );
-  pointer-events: none;
-}
-.st-dish__shadow {
-  position: absolute;
-  left: 22%;
-  right: 22%;
-  bottom: -2%;
-  height: 10%;
-  border-radius: 50%;
-  background: rgb(0 0 0 / 70%);
-  filter: blur(22px);
-  transform: translateX(calc(var(--lx) * -18px));
-  z-index: -1;
-}
-.st-dish__hint {
-  position: absolute;
-  left: 50%;
-  bottom: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 10%);
-  color: #e4e4e7;
-  font-size: var(--cm-text-xs);
-  white-space: nowrap;
-  transform: translateX(-50%);
-  pointer-events: none;
-  animation: st-hint 6s var(--cm-ease) 1.2s both;
-}
-.st-dish__hint-touch {
-  display: none;
-}
-@media (pointer: coarse) {
-  .st-dish__hint-fine {
-    display: none;
-  }
-  .st-dish__hint-touch {
-    display: inline;
-  }
-}
-@keyframes st-hint {
-  0%,
-  100% {
-    opacity: 0;
-  }
-  10%,
-  80% {
-    opacity: 1;
-  }
-}
-.st-dish__picker {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-.st-dish__picker button {
-  display: grid;
-  align-content: start;
-  gap: 8px;
-  min-width: 0;
-  padding: 6px 6px 10px;
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 18px;
-  background: rgb(255 255 255 / 3%);
-  color: #d4d4d8;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    color 160ms ease,
-    transform 160ms var(--cm-spring-snappy);
-}
-.st-dish__picker button:hover {
-  border-color: rgb(255 255 255 / 26%);
-}
-.st-dish__picker button:active {
-  transform: scale(0.97);
-}
-.st-dish__picker button.is-on {
-  border-color: #fff;
-  background: rgb(255 255 255 / 9%);
-  color: #fff;
-}
-.st-dish__picker i {
-  aspect-ratio: 4 / 3;
-  border-radius: 13px;
-  background: #111 var(--thumb) center / cover no-repeat;
-}
-.st-dish__picker span {
-  display: grid;
-  padding: 0 4px;
-  font-size: var(--cm-text-sm);
-  font-weight: 600;
-  line-height: 1.3;
-}
-.st-dish__picker small {
-  font-size: var(--cm-text-xs);
-  font-weight: 500;
-  color: #a1a1aa;
-  font-variant-numeric: tabular-nums;
-}
-@media (max-width: 900px) {
-  .st-3d {
-    grid-template-columns: 1fr;
-    border-radius: 24px;
-  }
-}
-@media (max-width: 520px) {
-  .st-3d {
-    padding: 28px 18px 22px;
-  }
-  .st-dish__picker {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: 132px;
-    margin: 0 -18px;
-    padding: 0 18px 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-}
-
 /* ---------------------------------------------------------------- lanchonete de demonstração */
 .st-demo {
   display: grid;
@@ -1721,8 +1491,6 @@ html.lenis {
   .st-live__bar i,
   .st-live-dot i,
   .st-tour__frame img,
-  .st-dish__photo,
-  .st-dish__hint,
   .st-hero__try-dot {
     animation: none;
   }

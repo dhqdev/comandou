@@ -35,7 +35,6 @@ import { distanceM, locateContext } from '../delivery/zones';
 import { GeocoderService } from '../delivery/geocoder.service';
 import { customerMapOf } from '../delivery/delivery.service';
 import { menuTreeSql } from '../catalog/menu-sql';
-import { modelUrls } from '../catalog/models.controller';
 import { LinkPreview, oneLine, PRODUCT_PATH_RE } from './link-preview';
 import { SiteCopy } from '../chat/site-page';
 
@@ -799,8 +798,6 @@ export class StoreService {
           featured: boolean;
           badge: string | null;
           loyaltyPoints: number | null;
-          modelV: number | null;
-          modelUsdz: boolean;
           photoIds: string[] | null;
           rating: { average: number; count: number } | null;
           optionGroups: unknown[];
@@ -811,10 +808,6 @@ export class StoreService {
         // Na mesa vale o Principal (o do salão), que é o que o pedido de mesa cobra.
         menuTreeSql(
           `'featured', p.featured, 'badge', p.badge, 'loyaltyPoints', p.loyalty_points,
-           'modelV', (SELECT floor(extract(epoch FROM pm.updated_at))::bigint FROM product_models pm
-                       WHERE pm.product_id = p.id AND pm.glb IS NOT NULL),
-           'modelUsdz', COALESCE((SELECT pm.usdz IS NOT NULL FROM product_models pm
-                                   WHERE pm.product_id = p.id), false),
            'photoIds', (SELECT json_agg(pp.image_id ORDER BY pp.position) FROM product_photos pp
                          WHERE pp.product_id = p.id),
            'rating', (SELECT json_build_object('average', round(avg(r.rating), 1), 'count', count(*))
@@ -946,7 +939,7 @@ export class StoreService {
         categories: visible.map(({ imageId, products, ...c }) => ({
           ...c,
           imageUrl: mediaUrl(imageId),
-          products: products.map(({ imageId: img, modelV, modelUsdz, photoIds, rating, ...p }) => ({
+          products: products.map(({ imageId: img, photoIds, rating, ...p }) => ({
             ...p,
             imageUrl: mediaUrl(img),
             // Fotos extras do item (a principal vem em imageUrl).
@@ -954,7 +947,6 @@ export class StoreService {
             rating: rating
               ? { average: Number(rating.average), count: Number(rating.count) }
               : null,
-            model: modelUrls(p.id, modelV ?? null, !!modelUsdz),
           })),
         })),
       };

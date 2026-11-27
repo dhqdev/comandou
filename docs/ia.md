@@ -1,8 +1,8 @@
 # IA no Comandou
 
 Onde a IA trabalha, que modelo cada parte usa e por quê, o que o assistente da equipe enxerga e
-onde o restaurante e o Super Admin acompanham o uso. Revisão da 0.269 (pedido do David). Fotos e
-3D dos itens têm guia próprio: [ia-fotos-e-3d.md](ia-fotos-e-3d.md). A IA do WhatsApp está em
+onde o restaurante e o Super Admin acompanham o uso. Revisão da 0.269 (pedido do David). Fotos dos
+itens têm guia próprio: [ia-fotos.md](ia-fotos.md) (o 3D dos itens saiu na 0.272). A IA do WhatsApp está em
 [whatsapp.md](whatsapp.md) e a esteira de chamados em [chamados.md](chamados.md).
 
 ## Onde a IA trabalha
@@ -17,7 +17,6 @@ limite de restaurante nenhum.
 | IA do WhatsApp | Responde os clientes, faz e cancela reservas | conversa | `whatsapp`, `agent_test` |
 | Modelo de impressão | Monta o papel da comanda na conversa da tela Impressão | conversa | `print_template` |
 | Fotos dos itens | Melhorar a foto (olhar), fundo limpo, foto criada e fotos da importação (fazer a foto) | olhar a foto + fazer a foto | `photo_tune`, `photo_clean`, `photo_create`, `menu_photo` |
-| 3D dos itens | Lê a forma pela foto (o GLB é montado no servidor) | olhar a foto | `menu_model` |
 | Cardápio e página | Importar o cardápio, achar o restaurante no Google e o texto da página | ler o cardápio (página: conversa) | `menu_import`, `menu_place`, `site_page` |
 | Esteira de chamados (Comandou) | Os agentes da esteira, da triagem ao PR | o de Chamados › Configurar, vazio = conversa | `platform_ai_usage`, fonte `esteira` |
 | Sites com IA (Comandou) | Sites criados pelo comandou.com | o de Sites com IA | `platform_ai_usage` |
@@ -35,7 +34,7 @@ um em **Tokens de IA › Chaves e assistente**.
 | --- | --- | --- | --- |
 | Conversa (chat, WhatsApp, impressão, página) | DeepSeek V4 Flash (`deepseek/deepseek-v4-flash`) | 0,05 / 0,45 | O mais barato que conversa bem em português. A conversa gasta quase tudo em entrada (o guia do sistema vai em toda pergunta), e a entrada dele custa metade da do Gemini 2.5 Flash Lite; a parte repetida ainda sai pelo preço do cache |
 | Reserva da conversa | Gemini 2.5 Flash Lite (`google/gemini-2.5-flash-lite`) | 0,10 / 0,40 | Outro provedor: se o DeepSeek cair ou recusar, o OpenRouter responde com ele na mesma chamada (`models: [principal, reserva]`) e o uso fica com o nome de quem respondeu (`servedModel`) |
-| Olhar a foto (melhorar, 3D) | Gemini 2.5 Flash Lite | 0,10 / 0,40 | O mais barato que lê imagem e devolve JSON confiável |
+| Olhar a foto (melhorar) | Gemini 2.5 Flash Lite | 0,10 / 0,40 | O mais barato que lê imagem e devolve JSON confiável |
 | Fazer a foto (fundo limpo, criar) | GPT Image 2 (`openai/gpt-image-2`) | ~US$ 0,014 por foto | Boa qualidade pelo menor preço por imagem |
 | Ler o cardápio e achar no Google | Gemini 2.5 Flash (`google/gemini-2.5-flash`) | 0,30 / 2,50 | Mais caro, mas é uma vez por restaurante, e errar o preço do cardápio inteiro sai mais caro |
 

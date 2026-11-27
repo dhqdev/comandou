@@ -3,14 +3,13 @@ import { api, ApiError } from '../lib/api';
 import { mediaUrl } from '../lib/media';
 
 /**
- * IA nas fotos e no 3D dos itens do cardápio (API em apps/api/src/catalog/item-ai.*): a foto vai
- * reduzida em JPEG e volta a sugestão de retoque (feito aqui no navegador), a foto com fundo
- * limpo ou o modelo 3D montado pelo servidor.
+ * IA nas fotos dos itens do cardápio (API em apps/api/src/catalog/item-ai.*): a foto vai
+ * reduzida em JPEG e volta a sugestão de retoque (feito aqui no navegador) ou a foto com fundo
+ * limpo.
  */
 
 export interface CatalogAiStatus {
   photo: boolean;
-  model3d: boolean;
   reason: string | null;
 }
 
@@ -36,30 +35,9 @@ export interface PhotoTips {
   cleanWorth: boolean;
 }
 
-export type DishKind = 'plate' | 'bowl' | 'glass' | 'cup' | 'stack' | 'slice' | 'box' | 'other';
-export interface DishShape {
-  kind: DishKind;
-  view: 'top' | 'angle' | 'side';
-  box: Box;
-  food: Box | null;
-  diameterCm: number;
-  heightCm: number;
-  foodHeightCm: number;
-  profile: [number, number][] | null;
-}
-export interface Generated3D {
-  shape: DishShape;
-  byAi: boolean;
-  /** O lanche foi recortado da foto: o 3D segue o contorno dele, sem o fundo. */
-  cutout?: boolean;
-  size: { widthCm: number; heightCm: number };
-  bytes: number;
-  glb: string;
-}
-
 let statusCache: Promise<CatalogAiStatus> | null = null;
 
-/** Se a IA das fotos e do 3D está liberada (uma consulta por abertura do app). */
+/** Se a IA das fotos está liberada (uma consulta por abertura do app). */
 export function useCatalogAi(enabled = true): CatalogAiStatus | null {
   const [s, setS] = useState<CatalogAiStatus | null>(null);
   useEffect(() => {
@@ -67,7 +45,7 @@ export function useCatalogAi(enabled = true): CatalogAiStatus | null {
     let alive = true;
     statusCache ??= api<CatalogAiStatus>('/catalog-ai').catch(() => {
       statusCache = null;
-      return { photo: false, model3d: false, reason: null };
+      return { photo: false, reason: null };
     });
     void statusCache.then((v) => alive && setS(v));
     return () => {
@@ -213,23 +191,6 @@ export const photoClean = (photo: Blob, item: string) =>
     photo,
     'blob',
   ) as Promise<Blob>;
-
-/** Monta o 3D pela foto. Com `shape`, monta de novo sem IA (não gasta tokens). */
-export const generate3D = (productId: string, photo: Blob, shape?: DishShape) =>
-  sendPhoto(
-    `/products/${productId}/model/generate${
-      shape ? `?forma=${encodeURIComponent(JSON.stringify(shape))}` : ''
-    }`,
-    photo,
-    'json',
-  ) as Promise<Generated3D>;
-
-export function glbBlob(base64: string): Blob {
-  const bin = atob(base64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new Blob([bytes], { type: 'model/gltf-binary' });
-}
 
 /** Foto do item criada do zero pela IA, pelo nome e pela descrição (volta a foto). */
 export async function photoCreate(name: string, description?: string | null): Promise<Blob> {

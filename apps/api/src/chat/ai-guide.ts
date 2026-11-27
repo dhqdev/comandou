@@ -161,7 +161,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/conta/uso-ia',
     name: 'Uso de IA',
     perms: ['plan:read'],
-    text: 'fica na Conta (bloco Uso de IA). Painel de quanto o restaurante usou de IA no mês contra o limite (e os tokens extras que o Comandou liberou), em que parte do sistema mais gastou (IA do WhatsApp, chat com a IA, modelo de impressão, fotos, 3D, cardápio e página), o uso por dia e por pessoa. O limite de tokens do mês vem do plano e quem define é o Comandou: o restaurante não muda o número, mas controla o gasto (a IA do WhatsApp costuma ser a que mais usa e liga ou desliga em Assistente de IA; o chat com a IA, as fotos e o 3D gastam a cada uso). O limite vira todo dia 1º; para aumentar, peça ao Comandou em Conta › Falar com a Comandou ou na aba Suporte do Chat.',
+    text: 'fica na Conta (bloco Uso de IA). Painel de quanto o restaurante usou de IA no mês contra o limite (e os tokens extras que o Comandou liberou), em que parte do sistema mais gastou (IA do WhatsApp, chat com a IA, modelo de impressão, fotos, cardápio e página), o uso por dia e por pessoa. O limite de tokens do mês vem do plano e quem define é o Comandou: o restaurante não muda o número, mas controla o gasto (a IA do WhatsApp costuma ser a que mais usa e liga ou desliga em Assistente de IA; o chat com a IA e as fotos gastam a cada uso). O limite vira todo dia 1º; para aumentar, peça ao Comandou em Conta › Falar com a Comandou ou na aba Suporte do Chat.',
   },
   {
     path: '/plano',

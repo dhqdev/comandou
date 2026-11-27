@@ -9,8 +9,7 @@ dono cria o próprio restaurante de teste.
 Minimalista desde a 0.245: muito espaço, linha fina no lugar de cartão, título grande e escuro com
 a segunda parte em cinza e laranja só na ação principal. Na 0.253 (pedido do dono: "minimalista,
 mais legal e bonito", com os efeitos do React Bits e do Uiverse) ganhou o Shuffle nos títulos, o
-cardápio de verdade no celular do topo, o prato em 3D feito da foto e a lanchonete de
-demonstração. O código fica em `apps/web/src/site/`:
+cardápio de verdade no celular do topo e a lanchonete de demonstração. O código fica em `apps/web/src/site/`:
 
 | Arquivo | O que é |
 | --- | --- |
@@ -18,7 +17,6 @@ demonstração. O código fica em `apps/web/src/site/`:
 | `Builder.tsx` + `CreateFlow.tsx` | O cartão de criar do topo (site, Google Maps ou descrever) e a janela de criar o restaurante. |
 | `PhoneMock.tsx` | O celular do topo: a loja de exemplo (Fumaça Burger, `SAMPLE_STORE`/`SAMPLE_ITEMS` de `site-data.ts`) ou o que a pessoa digita. |
 | `Shuffle.tsx` | Shuffle do React Bits (MIT + Commons Clause, créditos no arquivo), passado do GSAP para Web Animations. |
-| `Dish3D.tsx` + `depth-photo.ts` | O prato em 3D: foto + mapa de profundidade num shader WebGL puro. |
 | `DemoStore.tsx` + `demo-data.ts` + `demo.css` | A lanchonete de demonstração (`/demo`), num arquivo à parte que só baixa quando alguém abre. |
 | `fx.tsx` | Número que rola (`RollingValue`, `RollIn`) e a navegação entre o site e a `/demo`. |
 | `site.css` / `landing.css` | Menu, cartão de criar, janela de criar, celular e efeitos / as seções. |
@@ -33,17 +31,10 @@ demonstração. O código fica em `apps/web/src/site/`:
   a pessoa mexe (link, Maps, itens digitados, nome), o celular vira a loja dela.
 - **Seções, em ordem**: a faixa "Recebe os pedidos de" (nomes com Shuffle), **O sistema** (telas
   de verdade numa moldura que se endireita com a rolagem), **Módulos** (grade de linhas finas; uma
-  luz fraca segue o mouse e acende só as linhas por perto), **Prato em 3D** (estúdio escuro),
-  **convite da lanchonete** (leque de fotos que abre ao chegar), **Aplicativos**, **três passos**,
+  luz fraca segue o mouse e acende só as linhas por perto), **convite da lanchonete** (leque de fotos que abre ao chegar), **Aplicativos**, **três passos**,
   **preço** (o valor rola até o certo ao aparecer), **perguntas** e o fim.
-- **Prato em 3D** (`Dish3D.tsx`): foto de verdade com profundidade. `depth-photo.ts` desenha a
-  foto num `<canvas>` e desloca cada ponto conforme o mapa de profundidade e o ângulo (mouse ou
-  dedo arrastando; parado, o ângulo passeia sozinho); a moldura gira junto (`--lx`/`--ly`), com
-  sombra e luz. Começa a 300 px da tela, para fora dela e com a aba escondida; sem WebGL fica a
-  foto. Fotos em `public/site/3d/<prato>.webp`, `-sm.webp` (miniatura) e `-depth.webp` (mapa),
-  saídas de `tools/site-images/build.py` (Pillow e numpy) a partir das fotos da Fumaça. Prato
-  novo: uma linha em `DEPTH` no script, outra em `DISHES` e rodar o script. Os `.glb` e o
-  `model-viewer` saíram do site (o cardápio continua com eles).
+- **Prato em 3D**: saiu na 0.272 junto com o 3D dos itens do cardápio (`Dish3D.tsx`,
+  `depth-photo.ts` e `public/site/3d` estão no git na 0.271.1).
 - **Movimento**: Lenis no computador (no toque, a rolagem do aparelho), Shuffle nos títulos (toca
   ao chegar e de novo com o mouse em cima), seções que entram ao chegar (`.st-reveal`), barra de
   leitura no topo, exemplos que se escrevem sozinhos no campo do site vazio e a pílula que desliza
