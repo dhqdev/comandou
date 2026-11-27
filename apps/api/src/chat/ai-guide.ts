@@ -155,7 +155,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/conta',
     name: 'Conta',
     perms: [],
-    text: 'aberta pelo nome no pé do menu (computador) ou pelo cartão do topo da tela Mais (celular). Blocos: Seu restaurante (Dados do restaurante, só o dono; Assinatura; Uso de IA; Ajustes), Ajuda e novidades (Novidades, Falar com a Comandou, Primeiros passos, Rever apresentação), Este aparelho (tema claro ou escuro, Sons de aviso: liga/desliga, volume, repetir até atender, som gravado e o som de cada aviso; instalar o app) e Você (Meus dados, Trocar senha, Sair).',
+    text: 'aberta pelo nome no pé do menu (computador) ou pelo cartão do topo da tela Mais (celular). Blocos: Seu restaurante (Dados do restaurante, só o dono; Assinatura; Uso de IA; Ajustes), Ajuda e novidades (Novidades, Falar com a Comandou, Primeiros passos, Rever apresentação), Este aparelho (tema claro ou escuro, Sons de aviso: liga/desliga, volume, repetir até atender, som gravado e o som de cada aviso; instalar o app) e Você (Meus dados: foto do perfil, que aparece na conversa com o assistente e no menu, nome e e-mail de entrada; tocar na foto do topo da Conta também abre; Trocar senha, Sair).',
   },
   {
     path: '/conta/uso-ia',

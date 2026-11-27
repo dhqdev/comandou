@@ -2,18 +2,22 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
+  Headers,
   NotFoundException,
   Patch,
+  Put,
   UnprocessableEntityException,
   Req,
+  Res,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { isPinOnlyEmail, isValidCnpj, isValidCpf } from '@comandou/shared';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { verifyPassword } from '../auth/password';
@@ -27,6 +31,7 @@ import { PlatformDb, platformAudit } from '../platform/platform-db.service';
 import { TenantProfileBody } from '../platform/platform.schemas';
 import { saveProfile } from '../platform/tenant-profile';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
+import { checkMemberPhoto, memberPhotoAt } from './member-photo';
 
 /**
  * Preferências de tela da pessoa neste restaurante (ex.: `pdv.density` = compact|full): só
@@ -97,10 +102,98 @@ export class StaffAccountController {
 
   @Get()
   async get(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    const photoAt = await this.db.withTenant(ctxOf(t, u), (tx) => memberPhotoAt(tx, u.id));
     return {
-      me: { name: u.name, email: isPinOnlyEmail(u.email) ? null : u.email },
+      me: { name: u.name, email: isPinOnlyEmail(u.email) ? null : u.email, photoAt },
       restaurant: u.role === 'owner' ? await this.readRestaurant(t.id) : null,
     };
+  }
+
+  /**
+   * Foto do perfil da própria pessoa (só ela vê, pela sessão dela). A URL leva `?v=<photoAt>`,
+   * então pode ficar guardada no navegador; trocar a foto muda a URL.
+   */
+  @Get('photo')
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  async photo(
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    const row = await this.db.withTenant(ctxOf(t, u), (tx) =>
+      one<{ type: string; bytes: Buffer }>(
+        tx,
+        `SELECT photo_type AS type, photo AS bytes FROM member_photos WHERE user_id = $1`,
+        [u.id],
+      ),
+    );
+    if (!row) throw new NotFoundException('Sem foto');
+    res.setHeader('Content-Type', row.type);
+    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Length', String(row.bytes.length));
+    res.end(row.bytes);
+  }
+
+  /** Põe ou troca a foto: o corpo é a própria imagem, já recortada e reduzida no navegador. */
+  @Put('photo')
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  async putPhoto(
+    @Body() body: unknown,
+    @Headers('content-type') type: string | undefined,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    assertNotSupport(u, 'trocar a foto do perfil');
+    const f = checkMemberPhoto(body, type);
+    const photoAt = await this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const r = await one<{ at: Date }>(
+        tx,
+        `INSERT INTO member_photos (tenant_id, user_id, photo, photo_type)
+         VALUES (app_current_tenant(), $1, $2, $3)
+         ON CONFLICT (tenant_id, user_id)
+           DO UPDATE SET photo = EXCLUDED.photo, photo_type = EXCLUDED.photo_type,
+                         updated_at = clock_timestamp()
+         RETURNING updated_at AS at`,
+        [u.id, f.bytes, f.mime],
+      );
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'user.photo_updated',
+        entity: 'user',
+        entityId: u.id,
+        ip: req.ip,
+      });
+      return r!.at.toISOString();
+    });
+    return { photoAt };
+  }
+
+  @Delete('photo')
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  async deletePhoto(
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    assertNotSupport(u, 'tirar a foto do perfil');
+    await this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const gone = await one(tx, `DELETE FROM member_photos WHERE user_id = $1 RETURNING user_id`, [
+        u.id,
+      ]);
+      if (gone)
+        await this.audit.record(tx, {
+          tenantId: t.id,
+          actorUserId: u.id,
+          action: 'user.photo_removed',
+          entity: 'user',
+          entityId: u.id,
+          ip: req.ip,
+        });
+    });
+    return { photoAt: null };
   }
 
   /** Preferências de tela da pessoa neste restaurante (valem em qualquer aparelho). */

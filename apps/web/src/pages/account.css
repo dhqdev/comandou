@@ -26,15 +26,30 @@
 .acc__avatar {
   flex-shrink: 0;
   display: grid;
-  place-items: center;
   width: 72px;
   height: 72px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
-  background: var(--cm-brand-100);
-  color: var(--cm-brand-800);
+  background: none;
   font-size: 24px;
   font-weight: 750;
   letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.acc__avatar .cm-person {
+  width: 100%;
+  height: 100%;
+  font-weight: inherit;
+  letter-spacing: inherit;
+}
+.acc__avatar:active {
+  transform: scale(0.96);
+}
+.acc__avatar:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
 }
 .acc__who {
   min-width: 0;

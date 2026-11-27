@@ -28,6 +28,7 @@ import { SoundSettings } from '../features/SoundControl';
 import { api } from '../lib/api';
 import { useSoundSettings } from '../lib/sounds';
 import { MyDataModal, RestaurantDataModal } from './account/AccountForms';
+import { MyPhoto } from '../features/MyPhoto';
 import './account.css';
 
 /** Situação da assinatura (o mesmo aviso da faixa do topo). */
@@ -80,14 +81,6 @@ function aiStatus(percent: number | null): Action['status'] {
     text: p >= 100 ? 'Limite do mês acabou' : `${p}% do limite do mês`,
   };
 }
-
-const initialsOf = (name?: string) =>
-  (name ?? '?')
-    .split(' ')
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
 
 /**
  * Conta (toque no nome, no pé do menu; no celular, no cartão do topo da tela Mais): quem está
@@ -265,7 +258,7 @@ export function AccountPage() {
         {
           key: 'meus-dados',
           title: 'Meus dados',
-          text: 'Seu nome e o e-mail com que você entra no sistema.',
+          text: 'Sua foto, seu nome e o e-mail com que você entra no sistema.',
           icon: <UserRound />,
           onClick: () => setForm('me'),
         },
@@ -283,9 +276,16 @@ export function AccountPage() {
   return (
     <div className="acc">
       <header className="acc__me">
-        <div className="acc__avatar" aria-hidden>
-          {initialsOf(me?.user.name)}
-        </div>
+        {/* Tocar na foto abre Meus dados, onde se põe ou troca a foto. */}
+        <button
+          type="button"
+          className="acc__avatar"
+          onClick={() => setForm('me')}
+          aria-label="Trocar a foto do perfil"
+          title="Trocar a foto"
+        >
+          <MyPhoto />
+        </button>
         <div className="acc__who">
           <h1 className="acc__name">{me?.user.name}</h1>
           {me?.user.email && <p className="acc__email">{me.user.email}</p>}

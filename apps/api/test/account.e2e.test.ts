@@ -219,3 +219,85 @@ describe('Preferências de tela (Compacto/Completo do PDV)', () => {
     expect((await patch('waiterA', '/account/prefs', { 'pdv.x': { a: 1 } })).status).toBe(400);
   });
 });
+
+describe('Foto do perfil da equipe (Meus dados)', () => {
+  // PNG 1×1 de verdade (a API confere a assinatura do arquivo).
+  const PNG = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  const put = (w: string, body: Buffer, type: string) =>
+    http
+      .put('/api/v1/account/photo')
+      .set('Host', hostOf(w))
+      .set('Cookie', cookies[w] ?? '')
+      .set(CSRF)
+      .set('Content-Type', type)
+      .send(body);
+  const del = (w: string) =>
+    http
+      .delete('/api/v1/account/photo')
+      .set('Host', hostOf(w))
+      .set('Cookie', cookies[w] ?? '')
+      .set(CSRF);
+
+  it('põe, mostra em /auth/me e só a própria pessoa lê a foto', async () => {
+    expect((await get('waiterA', '/auth/me')).body.user.photoAt).toBeNull();
+    expect((await get('waiterA', '/account/photo')).status).toBe(404);
+
+    const saved = await put('waiterA', PNG, 'image/png');
+    expect(saved.status).toBe(200);
+    const at = saved.body.photoAt as string;
+    expect(typeof at).toBe('string');
+    expect((await get('waiterA', '/auth/me')).body.user.photoAt).toBe(at);
+    expect((await get('waiterA', '/account')).body.me.photoAt).toBe(at);
+
+    const img = await get('waiterA', `/account/photo?v=${encodeURIComponent(at)}`);
+    expect(img.status).toBe(200);
+    expect(img.headers['content-type']).toBe('image/png');
+    expect(img.headers['x-content-type-options']).toBe('nosniff');
+    expect(img.headers['cache-control']).toContain('private');
+    expect(Buffer.compare(img.body as Buffer, PNG)).toBe(0);
+
+    // Outra pessoa do mesmo restaurante e outro restaurante não veem esta foto.
+    expect((await get('adminA', '/account/photo')).status).toBe(404);
+    expect((await get('adminA', '/auth/me')).body.user.photoAt).toBeNull();
+    expect((await get('adminB', '/account/photo')).status).toBe(404);
+    // Sem sessão, nada.
+    expect((await http.get('/api/v1/account/photo').set('Host', HOST_A)).status).toBe(401);
+
+    // Trocar muda a versão (a URL nova não usa a foto guardada no navegador).
+    const again = await put('waiterA', PNG, 'image/png');
+    expect(again.status).toBe(200);
+    expect(again.body.photoAt).not.toBe(at);
+
+    const gone = await del('waiterA');
+    expect(gone.status).toBe(200);
+    expect(gone.body.photoAt).toBeNull();
+    expect((await get('waiterA', '/account/photo')).status).toBe(404);
+    expect((await get('waiterA', '/auth/me')).body.user.photoAt).toBeNull();
+    const [log] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM audit_log
+        WHERE tenant_id = $1 AND action IN ('user.photo_updated', 'user.photo_removed')`,
+      [fx.tenantA],
+    );
+    expect(log!.n).toBe(3);
+  });
+
+  it('recusa arquivo que não é foto, tipo trocado e foto grande', async () => {
+    expect((await put('adminA', Buffer.from('<svg/>'), 'image/png')).status).toBe(422);
+    // Content-Type de JPEG com um PNG dentro: a assinatura manda.
+    expect((await put('adminA', PNG, 'image/jpeg')).status).toBe(422);
+    const big = Buffer.concat([PNG, Buffer.alloc(1024 * 1024 + 1)]);
+    expect((await put('adminA', big, 'image/png')).status).toBe(422);
+    // JSON no lugar da imagem.
+    const json = await http
+      .put('/api/v1/account/photo')
+      .set('Host', HOST_A)
+      .set('Cookie', cookies.adminA!)
+      .set(CSRF)
+      .send({ photo: 'x' });
+    expect(json.status).toBe(422);
+    expect((await get('adminA', '/account/photo')).status).toBe(404);
+  });
+});

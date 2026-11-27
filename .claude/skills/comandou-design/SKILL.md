@@ -436,7 +436,7 @@ dd/mm ·" na linha do cartão (`periodEnd`, 0.267).
 
 Tocar no nome no pé do menu abre a **tela Conta** (`pages/AccountPage.tsx`, `account.css`, prefixo
 `acc`), não um menuzinho (pedido do David na 0.175). Topo: cartão com avatar redondo
-(`--cm-brand-100`), nome, e-mail, papel · restaurante. Embaixo, grupos com título cinza semibold
+(a foto do perfil, `MyPhoto`; sem foto, as iniciais em `--cm-brand-100`; tocar abre Meus dados), nome, e-mail, papel · restaurante. Embaixo, grupos com título cinza semibold
 (Seu restaurante, Ajuda e novidades, Este aparelho, Segurança) e **blocos grandes** `acc-card`:
 ícone solto (sem quadradinho colorido), título, frase curta, seta; linha fina, afunda ao tocar,
 nada sobe no hover. Situação (ex.: assinatura) é bolinha + texto (`acc-card__status`). Duas colunas
@@ -777,6 +777,18 @@ quem faz o elástico e o puxar para atualizar é o `pull-refresh.ts` (o nativo b
 bolinha do topo). Caixa nova que rola por dentro: `overscroll-behavior: contain` (estica e não
 leva a página), nunca `none`, a não ser que a tela precise ficar parada (conversa aberta).
 Tela que trava a página: regra com `html.<classe>` já ganha da de base.css (ela vai em `:where`).
+
+## Conversa com o assistente de IA (0.272)
+
+`AiTab` em `features/chat/Tabs.tsx` (classes `tc-ai__*` em `chat.css`), pedido do David: "melhore a
+identação, aumente um pouco para a horizontal, coloque a minha foto e a dele". A janela do botão IA
+tem 560px no computador (era 460) e a conversa 24px de folga dos lados (16px no celular). Cada
+mensagem é um `tc-ai__turn`: foto de 36px (32px no celular), nome + hora em cima (`tc-ai__meta`) e o
+texto no mesmo recuo do nome. A sua pergunta fica à direita, com a sua foto (`MyPhoto`, iniciais
+sem foto) e num balão `--cm-chat-mine`; a resposta do Comandinho fica à esquerda, com o panda num
+círculo branco de linha fina (`tc-ai__bot`) e o texto corrido, sem balão (resposta longa lê melhor
+assim). Com o chat ampliado a conversa fica numa coluna de 760px no meio (`tc-ai__thread`). Nunca
+volte com o "VO" (iniciais de "Você") nem com o panda solto sem círculo.
 
 ## IA do layout de impressão (0.233)
 

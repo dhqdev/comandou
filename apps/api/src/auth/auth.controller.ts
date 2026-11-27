@@ -24,6 +24,7 @@ import { ZodPipe } from '../common/zod.pipe';
 import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
+import { memberPhotoAt } from '../users/member-photo';
 import { DUMMY_HASH, verifyPassword } from './password';
 import { StaffPasswordResetService } from './password-reset.service';
 import { RESET_REQUEST_LIMIT, RESET_STEP_LIMIT } from './reset-code';
@@ -417,7 +418,12 @@ export class AuthController {
   }
 
   @Get('me')
-  me(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tenant: ResolvedTenant) {
+  async me(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tenant: ResolvedTenant) {
+    // Foto do perfil (Conta › Meus dados): só a versão, para a tela montar a URL. Falhou a
+    // leitura, a tela fica com as iniciais (entrar nunca depende da foto).
+    const photoAt = await this.db
+      .withTenant({ tenantId: tenant.id, userId: user.id }, (tx) => memberPhotoAt(tx, user.id))
+      .catch(() => null);
     return {
       user: {
         id: user.id,
@@ -425,6 +431,7 @@ export class AuthController {
         email: user.email,
         role: user.role,
         roleLabel: ROLE_LABELS[user.role],
+        photoAt,
       },
       support: user.supportAdminName
         ? {

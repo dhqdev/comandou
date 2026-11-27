@@ -1,0 +1,92 @@
+/* Foto do perfil da equipe (MyPhoto.tsx): círculo com a foto ou as iniciais. */
+.cm-person {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--cm-brand-100);
+  color: var(--cm-brand-800);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  user-select: none;
+}
+.cm-person[data-photo] {
+  background: var(--cm-surface-sunken);
+}
+/* Linha fina por cima da foto: foto clara não se perde no fundo claro. */
+.cm-person[data-photo]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--cm-border);
+  pointer-events: none;
+}
+.cm-person img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Meus dados: a foto com a câmera no canto e os botões ao lado. */
+.my-photo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+.my-photo__pic {
+  position: relative;
+  display: grid;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.my-photo__pic:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.my-photo__pic:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.my-photo__cam {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--cm-surface);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+}
+.my-photo__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.my-photo__text strong {
+  font-size: var(--cm-text-sm);
+}
+.my-photo__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.my-photo__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.my-photo__error {
+  grid-column: 1 / -1;
+}

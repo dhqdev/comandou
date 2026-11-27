@@ -110,6 +110,19 @@
   letter-spacing: 0;
   transition: box-shadow var(--cm-dur) var(--cm-ease);
 }
+/* Foto do perfil (Conta › Meus dados) no lugar das iniciais. */
+.cm-rail__avatar,
+.cm-menu__avatar {
+  overflow: hidden;
+}
+.cm-rail__avatar img,
+.cm-menu__avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
 .cm-rail__item.is-active .cm-rail__avatar {
   box-shadow:
     0 0 0 2px var(--cm-frame),

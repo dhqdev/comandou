@@ -293,7 +293,15 @@ function plainHeaders(h: HeadersInit): Record<string, string> {
 }
 
 export interface Me {
-  user: { id: string; name: string; email: string; role: string; roleLabel: string };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    roleLabel: string;
+    /** Última troca da foto do perfil (Conta › Meus dados); null = sem foto, mostra as iniciais. */
+    photoAt?: string | null;
+  };
   permissions: string[];
   tenant: { id: string; slug: string; name: string };
   /** Sessão aberta pelo suporte da plataforma. */

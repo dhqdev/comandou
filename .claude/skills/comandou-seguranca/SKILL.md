@@ -81,6 +81,9 @@ cookie, CSRF, corpo gigante e Host estranho.
 - Painel: ação que não volta (excluir, produção, assinar) pede `PlatformAuthService.confirmCode`
   (código do autenticador, mesmo em navegador confiável) e grava a tentativa negada na auditoria.
 
+- Foto do perfil da equipe (0.272, `member_photos`): só a própria pessoa lê, troca e tira
+  (`/account/photo`, filtro por `user_id` além do RLS); não crie rota que devolva a foto de outra
+  pessoa sem decidir antes quem pode ver. Upload pelo `checkMemberPhoto` (assinatura, 1 MB).
 - Dado pessoal novo de cliente (nome, telefone, endereço, CPF, conversa) numa tabela: entra no
   `app_privacy_erase` e no export da LGPD (`store/privacy.service.ts`), senão o pedido do titular
   deixa o dado para trás. Função SECURITY DEFINER filtra `app_current_tenant()` em todo comando (o

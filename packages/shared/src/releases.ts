@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.272.0',
+    date: '2026-11-27',
+    title: 'Sua foto na conversa com o Comandinho',
+    summary:
+      'Agora dá para pôr uma foto no seu perfil, em Conta › Meus dados. Ela aparece nas suas mensagens para o assistente de IA, no menu e na tela Conta. A conversa com o assistente ficou mais larga e arrumada: cada mensagem tem a foto de quem fala, o nome e a hora, e o texto fica sempre alinhado.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Foto do perfil em Conta › Meus dados (ou tocando na foto do topo da Conta): escolha uma foto ou tire na hora pelo celular. Ela é recortada e reduzida no aparelho antes de enviar, e dá para trocar ou tirar quando quiser.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Conversa com o assistente: suas perguntas ficam à direita, num balão, com a sua foto; as respostas do Comandinho ficam à esquerda, com o panda num círculo. Nome e hora em cima de cada mensagem.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A janela do assistente ficou mais larga no computador e com mais espaço dos lados, então as respostas quebram menos as linhas. Listas numeradas com o recuo certo.',
+      },
+      {
+        tag: 'segurança',
+        text: 'A foto só é vista pela própria pessoa, com a sessão dela; o servidor confere que o arquivo é mesmo uma foto (JPG, PNG ou WebP, até 1 MB) e registra a troca no histórico.',
+      },
+    ],
+  },
+  {
     version: '0.271.1',
     date: '2026-11-27',
     title: 'Item em 3D com o formato do lanche',

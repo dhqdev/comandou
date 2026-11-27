@@ -26,7 +26,8 @@ import { ApiError } from '../../lib/api';
 import { useRealtimeEvents } from '../../lib/realtime';
 import { AiMessage, AiStatus, AiUsage, askAi, chatApi, Notice } from './chat-api';
 import { Markdown } from './markdown';
-import { Avatar, fmtInt, keepFocus, shortWhen } from './util';
+import { MyPhoto } from '../MyPhoto';
+import { fmtInt, hhmm, keepFocus, shortWhen } from './util';
 
 export { MuralTab } from './Mural';
 
@@ -415,49 +416,65 @@ export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () 
             </div>
           </div>
         ) : (
-          msgs.map((m) =>
-            m.role === 'user' ? (
-              <div key={m.id} className="tc-msg is-mine">
-                <div className="tc-msg__side">
-                  <Avatar name="Você" size={36} />
-                </div>
-                <div className="tc-msg__main">
-                  <div className="tc-msg__head">
-                    <span className="tc-msg__who">Você</span>
+          // Cada mensagem com a foto de quem fala: a sua (Conta › Meus dados) à direita, num
+          // balão; o panda do assistente à esquerda, com a resposta em texto corrido. Nome e hora
+          // em cima, e o texto sempre no mesmo recuo da linha do nome.
+          <div className="tc-ai__thread">
+            {msgs.map((m) =>
+              m.role === 'user' ? (
+                <div key={m.id} className="tc-ai__turn is-mine">
+                  <div className="tc-ai__body">
+                    <div className="tc-ai__meta">
+                      <span className="tc-ai__name">Você</span>
+                      <time dateTime={m.createdAt}>{hhmm(m.createdAt)}</time>
+                    </div>
+                    <div className="tc-ai__q">{m.content}</div>
                   </div>
-                  <span className="tc-msg__text">{m.content}</span>
+                  <MyPhoto className="tc-ai__face" />
                 </div>
-              </div>
-            ) : (
-              <div key={m.id} className={`tc-ai__answer ${m.error ? 'is-error' : ''}`}>
-                <LivePanda size={28} mood={m.streaming ? 'talking' : 'idle'} still={!m.streaming} />
-                <div className="tc-ai__text">
-                  {m.content ? (
-                    <Markdown text={m.content} onNavigate={onNavigate} autoLink />
-                  ) : (
-                    <span className="tc-typing tc-typing--inline">
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                  )}
-                  {m.streaming && m.content && <span className="tc-caret" />}
-                  {m.error && (
-                    <button
-                      className="tc-link"
-                      onClick={() => {
-                        const prev = msgs[msgs.findIndex((x) => x.id === m.id) - 1];
-                        setMsgs((cur) => cur.filter((x) => x.id !== m.id && x.id !== prev?.id));
-                        if (prev) void ask(prev.content);
-                      }}
-                    >
-                      <RotateCcw size={13} /> Tentar de novo
-                    </button>
-                  )}
+              ) : (
+                <div key={m.id} className={`tc-ai__turn is-ai ${m.error ? 'is-error' : ''}`}>
+                  <span className="tc-ai__face tc-ai__bot" aria-hidden>
+                    <LivePanda
+                      size={30}
+                      mood={m.streaming ? 'talking' : 'idle'}
+                      still={!m.streaming}
+                    />
+                  </span>
+                  <div className="tc-ai__body">
+                    <div className="tc-ai__meta">
+                      <span className="tc-ai__name">{name}</span>
+                      {!m.streaming && <time dateTime={m.createdAt}>{hhmm(m.createdAt)}</time>}
+                    </div>
+                    <div className="tc-ai__text">
+                      {m.content ? (
+                        <Markdown text={m.content} onNavigate={onNavigate} autoLink />
+                      ) : (
+                        <span className="tc-typing tc-typing--inline">
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                      )}
+                      {m.streaming && m.content && <span className="tc-caret" />}
+                      {m.error && (
+                        <button
+                          className="tc-link"
+                          onClick={() => {
+                            const prev = msgs[msgs.findIndex((x) => x.id === m.id) - 1];
+                            setMsgs((cur) => cur.filter((x) => x.id !== m.id && x.id !== prev?.id));
+                            if (prev) void ask(prev.content);
+                          }}
+                        >
+                          <RotateCcw size={13} /> Tentar de novo
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ),
-          )
+              ),
+            )}
+          </div>
         )}
       </div>
       <footer className="tc-composer">

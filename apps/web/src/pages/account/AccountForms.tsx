@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '../../app/auth';
 import { Alert, Button, Modal, Select, TextField, useToast, Skeleton } from '../../design-system';
+import { MyPhotoField } from '../../features/MyPhoto';
 import { api } from '../../lib/api';
 import { UFS, maskDocument, maskPhone, onlyDigits } from '../../lib/br-format';
 
@@ -23,7 +24,7 @@ interface AccountData {
 const loadAccount = () => api<AccountData>('/account');
 
 /**
- * Meus dados: nome e e-mail de entrada. O e-mail é o login da pessoa (em todos os restaurantes
+ * Meus dados: foto do perfil (salva na hora), nome e e-mail de entrada. O e-mail é o login da pessoa (em todos os restaurantes
  * dela), então trocar pede a senha atual.
  */
 export function MyDataModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -88,6 +89,7 @@ export function MyDataModal({ open, onClose }: { open: boolean; onClose: () => v
       }
     >
       <form className="cm-form" onSubmit={save}>
+        <MyPhotoField />
         {error && <Alert tone="danger">{error}</Alert>}
         <TextField
           label="Seu nome"

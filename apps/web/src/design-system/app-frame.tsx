@@ -48,6 +48,8 @@ export interface FrameAccount {
   /** Linha embaixo do nome (e-mail). */
   sub?: string;
   initials: string;
+  /** Foto do perfil (URL); sem foto ou se não carregar, ficam as iniciais. */
+  photo?: string | null;
   /** Papel em destaque no cartão (ex.: Dono). */
   role?: string;
   /** Linha final do cartão (ex.: nome do restaurante). */
@@ -775,8 +777,16 @@ export function AppFrame({
   );
 }
 
-/** Iniciais da pessoa num círculo, no lugar do ícone do item da conta na barra lateral. */
-export function FrameAvatar({ name }: { name?: string | null }) {
+/** Foto da pessoa, ou as iniciais se não tem foto ou se ela não carregar (sem internet). */
+function AvatarFace({ initials, photo }: { initials: string; photo?: string | null }) {
+  const [broken, setBroken] = useState<string | null>(null);
+  if (photo && broken !== photo)
+    return <img src={photo} alt="" draggable={false} onError={() => setBroken(photo)} />;
+  return <>{initials}</>;
+}
+
+/** Foto (ou iniciais) da pessoa num círculo, no lugar do ícone do item da conta na barra lateral. */
+export function FrameAvatar({ name, photo }: { name?: string | null; photo?: string | null }) {
   const initials =
     (name ?? '')
       .trim()
@@ -787,8 +797,8 @@ export function FrameAvatar({ name }: { name?: string | null }) {
       .join('')
       .toUpperCase() || '?';
   return (
-    <span className="cm-rail__avatar" aria-hidden>
-      {initials}
+    <span className="cm-rail__avatar" data-photo={photo ? '' : undefined} aria-hidden>
+      <AvatarFace initials={initials} photo={photo} />
     </span>
   );
 }
@@ -1025,7 +1035,7 @@ function FrameMenu({
           )}
           <div className="cm-menu__who">
             <div className="cm-menu__avatar" aria-hidden>
-              {account.initials}
+              <AvatarFace initials={account.initials} photo={account.photo} />
             </div>
             <div className="cm-menu__id">
               <div className="cm-menu__name">{account.name}</div>

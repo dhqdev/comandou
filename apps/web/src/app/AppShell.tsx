@@ -52,6 +52,7 @@ import {
 } from '../design-system';
 import { GlobalSearch, GlobalSearchTrigger, useSearchHotkey } from '../features/GlobalSearch';
 import { NewsBell } from '../features/NewsBell';
+import { myPhotoUrl } from '../features/MyPhoto';
 import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
 import {
   openSupportInbox,
@@ -381,7 +382,7 @@ export function AppShell() {
     key: 'conta',
     to: '/conta',
     label: 'Conta',
-    icon: <FrameAvatar name={me?.user.name} />,
+    icon: <FrameAvatar name={me?.user.name} photo={myPhotoUrl(me?.user.photoAt)} />,
     dot: unseen,
     profile: me ? { name: me.user.name, detail: me.user.roleLabel } : undefined,
     pages: accountPages,
@@ -411,6 +412,7 @@ export function AppShell() {
                 name: me.user.name,
                 sub: me.user.email,
                 initials,
+                photo: myPhotoUrl(me.user.photoAt),
                 role: me.user.roleLabel,
                 note: me.tenant.name,
                 to: '/conta',

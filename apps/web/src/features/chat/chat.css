@@ -2377,10 +2377,10 @@
 .tc-ai__scroll {
   overflow-y: auto;
   min-height: 0;
-  padding: 14px 16px;
+  /* Mais folga dos lados (pedido do David): o texto não encosta nas bordas do painel. */
+  padding: 18px 24px 22px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
   background: var(--cm-bg);
   overscroll-behavior: contain;
 }
@@ -2413,31 +2413,90 @@
   border-color: var(--cm-brand-400);
   color: var(--cm-brand-700);
 }
-.tc-ai__answer {
+/* Conversa com o assistente: cada mensagem tem a foto de quem fala (a sua à direita, o panda à
+   esquerda), nome e hora em cima e o texto no mesmo recuo do nome. Com o chat ampliado, a
+   conversa fica numa coluna de leitura no meio. */
+.tc-ai__thread {
+  display: grid;
+  gap: 20px;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+}
+.tc-ai__turn {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
-  column-gap: 10px;
-  justify-items: start;
-  margin-top: 12px;
+  column-gap: 12px;
+  align-items: start;
 }
-.tc-ai__answer > .cm-mascot {
-  justify-self: center;
+.tc-ai__turn.is-mine {
+  grid-template-columns: minmax(0, 1fr) 36px;
 }
-.tc-ai__answer > .cm-mascot {
-  flex-shrink: 0;
-  margin-top: 2px;
+.tc-ai__face {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+/* O panda num círculo, como uma foto de perfil. */
+.tc-ai__bot {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cm-surface);
+  box-shadow: inset 0 0 0 1px var(--cm-border);
+  overflow: hidden;
+}
+.tc-ai__bot > .cm-mascot {
+  margin-top: 3px;
+}
+.tc-ai__body {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.tc-ai__turn.is-mine .tc-ai__body {
+  justify-items: end;
+}
+.tc-ai__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 18px;
+  line-height: 18px;
+}
+.tc-ai__name {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--cm-text);
+}
+.tc-ai__meta time {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-text-subtle);
+}
+/* Sua pergunta: balão na cor das suas mensagens dos outros chats. */
+.tc-ai__q {
+  max-width: min(100%, 520px);
+  padding: 8px 13px;
+  border-radius: 16px 4px 16px 16px;
+  border: 1px solid var(--cm-chat-mine-line);
+  background: var(--cm-chat-mine);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
 }
 .tc-ai__text {
-  padding-top: 4px;
-  line-height: 1.5;
+  line-height: 1.55;
   min-width: 48px;
   overflow-wrap: anywhere;
 }
-.tc-ai__answer.is-error .tc-ai__text {
+.tc-ai__turn.is-error .tc-ai__text {
   color: var(--cm-danger);
 }
 .tc-ai__text p {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
 }
 .tc-ai__text p:last-child,
 .tc-ai__text ul:last-child,
@@ -2446,10 +2505,14 @@
 }
 .tc-ai__text ul,
 .tc-ai__text ol {
-  margin: 0 0 6px;
-  padding-left: 20px;
+  margin: 0 0 8px;
+  padding-left: 22px;
   display: grid;
-  gap: 3px;
+  gap: 4px;
+}
+.tc-ai__text li::marker {
+  color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 .tc-ai__text code {
   padding: 1px 5px;
@@ -2632,7 +2695,8 @@
     transform-origin: top right;
   }
   .tc-panel--shell.tc-panel--ai {
-    width: min(460px, calc(100vw - 24px));
+    /* Um pouco mais largo (pedido do David): respostas com menos quebra de linha. */
+    width: min(560px, calc(100vw - 24px));
   }
   .tc-peek--shell {
     bottom: 16px;
@@ -2752,6 +2816,28 @@
   .tc-msg {
     grid-template-columns: 32px minmax(0, 1fr);
     column-gap: 8px;
+  }
+  /* Assistente no celular: a tela é estreita, então folga menor e fotos de 32px. */
+  .tc-ai__scroll {
+    padding: 16px 16px 20px;
+  }
+  .tc-ai__thread {
+    gap: 18px;
+  }
+  .tc-ai__turn {
+    grid-template-columns: 32px minmax(0, 1fr);
+    column-gap: 10px;
+  }
+  .tc-ai__turn.is-mine {
+    grid-template-columns: minmax(0, 1fr) 32px;
+  }
+  .tc-ai__face {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+  .tc-ai__q {
+    max-width: 88%;
   }
   .tc-info {
     position: absolute;
