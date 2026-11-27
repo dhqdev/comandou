@@ -173,9 +173,15 @@ cookie, CSRF, corpo gigante e Host estranho.
   `packages/shared/src/nav-catalog.ts`, usado por `safeAppPath`); tela nova entra em
   `APP_ROUTE_ROOTS`. O `?foco=` só faz rolar e piscar um elemento com aquele `data-search-id`
   (busca por atributo com `CSS.escape`), nunca executa nada.
-- Chave do sistema × chave dos restaurantes: o gasto do Comandou (esteira, testes do painel) vai
-  para `platform_ai_usage` com a chave que pagou; nunca para o `ai_usage` do restaurante, que é o
-  que o limite e a tela Conta › Uso de IA somam.
+- Chave do sistema × chave dos restaurantes: o gasto do Comandou (esteira, testes do painel,
+  criação pelo site) vai para `platform_ai_usage` com a chave que pagou; nunca para o `ai_usage`
+  do restaurante, que é o que o limite e a tela Conta › Uso de IA somam. A chave do sistema nunca
+  sai para o papel do restaurante: os primeiros passos a abrem pelo `PlatformDb`
+  (`creationKey`), e só enquanto `firstStepsLeft` (7 dias + limite de tokens) deixar.
+- Rotas públicas da criação (`POST /public/site/menu` e `/stock`): arquivo conferido pelo
+  começo (`%PDF-` ou a assinatura da imagem), até 3 MB e 8 páginas, limite por IP e tokens do
+  dia/mês do site com IA; o estoque só com o token do rascunho e uma vez por item (trava
+  `stockAt` contra clique duplo pagar duas vezes).
 
 ### Dependência (A03 Cadeia de suprimentos)
 - Versão fixa ou `^` com lockfile; `pnpm audit --prod --audit-level high` no CI.

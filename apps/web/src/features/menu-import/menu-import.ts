@@ -7,6 +7,8 @@ export interface ImportStatus {
   enabled: boolean;
   reason: 'platform' | 'tenant' | 'limit' | null;
   assistantName: string;
+  /** Restaurante criado pelo site, nos primeiros dias: a IA sai por conta do Comandou. */
+  creation?: boolean;
 }
 export interface ImportedItem {
   name: string;
@@ -16,6 +18,8 @@ export interface ImportedItem {
   imageUrl?: string | null;
   /** Primeiros passos: onde está a foto do item na foto do cardápio (0–1000). */
   photoBox?: [number, number, number, number] | null;
+  /** Estoque sugerido pela IA na criação pelo site (null = sem controle). */
+  stock?: { qty: number; min: number } | null;
 }
 export interface ImportedCategory {
   name: string;
@@ -40,6 +44,13 @@ export interface DraftItem {
   photoUrl?: string | null;
   /** Endereço para mostrar a miniatura na conferência. */
   thumb?: string | null;
+  /**
+   * Estoque para começar, como a pessoa digita (sugerido pela IA na criação pelo site). Vazio =
+   * não controlar. Ausente = o item veio sem sugestão (a coluna não aparece).
+   */
+  stock?: string;
+  /** Com quanto avisar para repor (vem junto da sugestão). */
+  stockMin?: string;
 }
 
 export const importStatus = () => api<ImportStatus>('/menu-import');
@@ -162,6 +173,12 @@ export function toDrafts(
         on: !!i.price && !dup,
         ...(dup ? { dup } : {}),
         ...(i.imageUrl ? { photoUrl: i.imageUrl, thumb: externalImage(i.imageUrl) } : {}),
+        ...(i.stock !== undefined
+          ? {
+              stock: i.stock ? String(i.stock.qty) : '',
+              stockMin: i.stock ? String(i.stock.min) : '',
+            }
+          : {}),
       });
     }
   }
@@ -192,6 +209,14 @@ export function draftPrice(v: string): string | null {
   if (!s) return null;
   const n = Number(s);
   return Number.isFinite(n) && n >= 0 && n < 100_000 ? n.toFixed(2) : null;
+}
+
+/** "30" → "30"; vazio, zero ou inválido → null (não controlar o estoque deste item). */
+export function draftStock(v: string | undefined): string | null {
+  const s = (v ?? '').replace(/\D/g, '');
+  if (!s) return null;
+  const n = Number(s);
+  return n > 0 && n <= 99_999 ? String(n) : null;
 }
 
 export const readyDrafts = (list: DraftItem[]) =>
@@ -252,7 +277,7 @@ export async function saveDrafts(
         categoryId = c.id;
         byName.set(nameKey(catName), c.id);
       }
-      await api('/products', {
+      const product = await api<Pick<Product, 'id'>>('/products', {
         method: 'POST',
         json: {
           categoryId,
@@ -263,6 +288,15 @@ export async function saveDrafts(
         },
       });
       savedKeys.push(d.key);
+      // Estoque sugerido na criação pelo site: um extra; se falhar, o item já entrou.
+      const qty = draftStock(d.stock);
+      if (qty && product?.id) {
+        const min = draftStock(d.stockMin);
+        await api(`/stock/products/${product.id}/quantity`, {
+          method: 'PUT',
+          json: { quantity: qty, ...(min ? { minQuantity: min } : {}) },
+        }).catch(() => undefined);
+      }
     } catch (e) {
       if (stopsAll(e)) {
         stopped = (e as Error).message;

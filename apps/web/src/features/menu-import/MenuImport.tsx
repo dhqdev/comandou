@@ -4,6 +4,7 @@ import { Alert, Button, Skeleton, Spinner } from '../../design-system';
 import {
   analyzeMenuFile,
   draftPrice,
+  draftStock,
   existingNames,
   importStatus,
   readyDrafts,
@@ -291,6 +292,7 @@ export function DraftList({
   const renameCategory = (group: string, to: string) =>
     setDrafts((cur) => cur.map((d) => (d.group === group ? { ...d, category: to } : d)));
   const withThumbs = drafts.some((d) => d.thumb);
+  const withStock = drafts.some((d) => d.stock !== undefined);
 
   return (
     <div className="mi-list">
@@ -309,6 +311,7 @@ export function DraftList({
               className="mi-row"
               data-off={!d.on || undefined}
               data-thumbs={withThumbs || undefined}
+              data-stock={withStock || undefined}
             >
               <input
                 type="checkbox"
@@ -377,6 +380,26 @@ export function DraftList({
                   }
                 />
               </label>
+              {withStock && (
+                <label
+                  className="mi-row__price mi-row__stock"
+                  title={
+                    draftStock(d.stock)
+                      ? `Estoque para começar${draftStock(d.stockMin) ? `; avisa com ${d.stockMin}` : ''}`
+                      : 'Sem controle de estoque'
+                  }
+                >
+                  <input
+                    inputMode="numeric"
+                    aria-label={`Estoque de ${d.name}`}
+                    placeholder="—"
+                    maxLength={5}
+                    value={d.stock ?? ''}
+                    onChange={(e) => patch(d.key, { stock: e.target.value.replace(/\D/g, '') })}
+                  />
+                  <span aria-hidden>un</span>
+                </label>
+              )}
             </div>
           ))}
         </section>

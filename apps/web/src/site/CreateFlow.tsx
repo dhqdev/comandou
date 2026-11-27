@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { Alert, Button, Mascot, TextField } from '../design-system';
+import { MenuField } from './MenuField';
 import { calmMotion } from './motion';
 import { slugPreview } from './site-data';
 
@@ -126,6 +127,7 @@ export function CreateFlow({
   onRetry,
   look,
   trialDays,
+  menu,
 }: {
   open: boolean;
   /** `force`: o navegador já fechou a janela (Esc duas vezes); fecha mesmo criando. */
@@ -144,6 +146,8 @@ export function CreateFlow({
   onRetry: () => void;
   look: { color: string | null; icon: string | null; cover: string | null };
   trialDays: number;
+  /** Campo "Seu cardápio" (só com o site com IA ligado). */
+  menu: Omit<Parameters<typeof MenuField>[0], 'disabled'> | null;
 }) {
   const { ref, mounted } = useDialog(open);
   const titleId = useId();
@@ -211,7 +215,7 @@ export function CreateFlow({
   const send = (e?: FormEvent) => {
     e?.preventDefault();
     setTried(true);
-    if (!valid || busy) {
+    if (!valid || busy || menu?.reading) {
       const bad = ['restaurant', 'name', 'email'].find((k) => issues[k as keyof typeof issues]);
       firstField.current?.querySelector<HTMLInputElement>(`[name="${bad}"]`)?.focus();
       return;
@@ -239,6 +243,7 @@ export function CreateFlow({
   const free =
     trialDays > 0 ? `${trialDays} ${trialDays === 1 ? 'dia' : 'dias'} grátis` : 'Teste grátis';
   const closable = !busy;
+  const items = menu?.menu?.items ?? 0;
 
   return (
     <dialog
@@ -323,7 +328,7 @@ export function CreateFlow({
                     {MODS.map((m, i) => (
                       <li key={m.label} data-on={i < lit || undefined}>
                         <m.icon size={17} strokeWidth={1.8} />
-                        <span>{m.label}</span>
+                        <span>{i === 0 && items > 0 ? `Cardápio (${items})` : m.label}</span>
                         <Check size={13} strokeWidth={3} className="st-forge__ok" />
                       </li>
                     ))}
@@ -397,11 +402,21 @@ export function CreateFlow({
                       onChange={(e) => onForm({ ...form, company: e.target.value })}
                     />
                   </div>
+                  {menu && <MenuField {...menu} disabled={busy} />}
                   <div className="st-create__foot">
+                    {menu?.reading && (
+                      <span className="st-create__wait">Espere a leitura do cardápio</span>
+                    )}
                     <Button type="button" variant="ghost" onClick={() => onClose()} disabled={busy}>
                       Voltar
                     </Button>
-                    <Button type="submit" size="lg" className="st-press st-arrow" loading={busy}>
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="st-press st-arrow"
+                      loading={busy}
+                      disabled={!!menu?.reading}
+                    >
                       Criar e abrir
                       {!busy && <ArrowRight size={18} aria-hidden className="st-arrow__i" />}
                     </Button>

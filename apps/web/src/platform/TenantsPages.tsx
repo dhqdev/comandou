@@ -28,6 +28,7 @@ import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useAutoReload, useLoad } from './OverviewPages';
 import { TenantHistory } from './audit';
+import { CreationPanel } from './TenantCreation';
 import { ConsumptionPanel, OperationPanel } from './TenantInsights';
 import { TenantBillingPanel } from './TenantBilling';
 import { isOnline, ROLE, TenantOverview } from './TenantOverview';
@@ -265,6 +266,7 @@ type DetailTab =
   | 'database'
   | 'operation'
   | 'usage'
+  | 'creation'
   | 'team'
   | 'history';
 
@@ -509,6 +511,7 @@ export function TenantDetailPage() {
             ['database', 'Banco de dados'],
             ['operation', 'Operação'],
             ['usage', 'Consumo'],
+            ...(t.fromSite ? [['creation', 'Criação'] as [DetailTab, string]] : []),
             ['team', `Equipe (${team.data?.length ?? '…'})`],
             ['history', 'Histórico'],
           ]}
@@ -586,6 +589,7 @@ export function TenantDetailPage() {
         {tab === 'database' && <DatabasePanel t={t} onChanged={setData} />}
         {tab === 'operation' && <OperationPanel id={t.id} team={team.data} timezone={t.timezone} />}
         {tab === 'usage' && <ConsumptionPanel id={t.id} />}
+        {tab === 'creation' && t.fromSite && <CreationPanel id={t.id} />}
 
         {tab === 'team' && (
           <div className="adm-panel">

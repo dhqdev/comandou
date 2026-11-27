@@ -252,10 +252,15 @@ export function OnboardingChat({
     const auto = trialAuto(signup, aiOn);
     if (auto === 'site')
       return say(
-        [
-          'A loja que a IA montou no comandou.com já veio para cá.',
-          'Confira os itens e os preços, corrija o que precisar e aplique. Depois dá para mudar tudo em Cardápio.',
-        ],
+        signup?.trial?.aiMenu
+          ? [
+              'O cardápio que você mandou no comandou.com já veio para cá, com o estoque que a IA sugeriu para cada item.',
+              'Confira os itens, os preços e o estoque, corrija o que precisar e aplique. Depois dá para mudar tudo em Cardápio e Estoque.',
+            ]
+          : [
+              'A loja que a IA montou no comandou.com já veio para cá.',
+              'Confira os itens e os preços, corrija o que precisar e aplique. Depois dá para mudar tudo em Cardápio.',
+            ],
         'menu',
       );
     if (auto === 'text')

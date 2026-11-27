@@ -3,12 +3,14 @@ import {
   Controller,
   Get,
   Header,
+  Headers,
   Inject,
   HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   Req,
   UnprocessableEntityException,
   UseGuards,
@@ -26,9 +28,12 @@ import type { Actor } from '../platform.service';
 import { PreviewBody, SiteSettingsBody, TestEmailBody, TrialBody } from './site.schemas';
 import { SiteService } from './site.service';
 import {
+  MENU_FILE_TYPES,
   SiteAiService,
   SiteAiSettingsBody,
   SiteAiSource,
+  SiteSession,
+  SiteStockBody,
   type SiteAiSettingsInput,
   type SiteAiSourceInput,
 } from './site-ai.service';
@@ -80,6 +85,43 @@ export class PublicSiteController {
     return this.ai.generate(b, clientIp(req) || undefined);
   }
 
+  /**
+   * Cardápio enviado na janela de criar (foto ou PDF, até 3 MB, uma página por vez): a IA separa
+   * itens e preços. `rascunho`: o token do cardápio já começado (página a mais). Conta no limite
+   * de rascunhos por visitante e nos tokens do dia e do mês do site com IA.
+   */
+  @Post('menu')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 600_000, limit: 10 } })
+  menu(
+    @Body() body: unknown,
+    @Headers('content-type') type: string | undefined,
+    @Query('rascunho') claim: string | undefined,
+    @Query('sessao') session: string | undefined,
+    @Req() req: Request,
+  ) {
+    const mime = (type ?? '').split(';')[0]!.trim().toLowerCase();
+    if (!MENU_FILE_TYPES.has(mime) || !Buffer.isBuffer(body))
+      throw new UnprocessableEntityException('Envie uma foto (JPG, PNG, WebP) ou um PDF');
+    if (claim !== undefined && !/^[A-Za-z0-9_-]{32}$/.test(claim))
+      throw new UnprocessableEntityException('Rascunho inválido');
+    return this.ai.readMenu(body, mime, clientIp(req) || undefined, {
+      claim,
+      session: SiteSession.safeParse(session).success ? session : undefined,
+    });
+  }
+
+  /**
+   * Estoque inicial sugerido pela IA para os itens do rascunho (cardápio enviado ou site
+   * montado). Só para quem tem o token do rascunho; uma vez por item.
+   */
+  @Post('stock')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 600_000, limit: 12 } })
+  stock(@Body(new ZodPipe(SiteStockBody)) b: z.infer<typeof SiteStockBody>) {
+    return this.ai.suggestStock(b.claim);
+  }
+
   /** Cada IP tenta no máximo 6 cadastros por hora (além do limite por dia do painel). */
   @Post('trials')
   @Throttle({ default: { ttl: 3_600_000, limit: 6 } })
@@ -124,6 +166,15 @@ export class PlatformSiteController {
   @Throttle({ default: { ttl: 60_000, limit: 6 } })
   test(@Body(new ZodPipe(TestEmailBody)) b: z.infer<typeof TestEmailBody>) {
     return this.svc.testEmail(b.to);
+  }
+
+  /**
+   * Aba Criação do restaurante: quanto a IA gastou em cada etapa da criação pelo site (montar o
+   * site, ler o cardápio, sugerir o estoque e os primeiros passos), pela chave do sistema.
+   */
+  @Get('creation/:tenantId')
+  creation(@Param('tenantId', new ParseUUIDPipe()) tenantId: string) {
+    return this.svc.creation(tenantId);
   }
 
   @Get('email-preview')

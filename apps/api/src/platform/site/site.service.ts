@@ -31,6 +31,7 @@ import { mapsPlaceName } from '../../common/maps-link';
 import { trialSlug } from './site-util';
 import { welcomeEmail } from './welcome-email';
 import { SiteAiService } from './site-ai.service';
+import { creationReport } from './creation-ai';
 import { MailService } from '../../mail/mail.service';
 import { resetEmail } from '../../store/reset-email';
 
@@ -292,8 +293,9 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     const pending = this.env.INTEGRATIONS_KEY
       ? seal(this.env.INTEGRATIONS_KEY, password, SECRET_CONTEXT)
       : null;
-    // Site montado pela IA na página: o rascunho vai junto para os primeiros passos.
+    // Site montado pela IA na página e o cardápio enviado: vão junto para os primeiros passos.
     const aiGeneration = await this.siteAi.claim(b.aiSite, tenantId).catch(() => null);
+    const aiMenu = await this.siteAi.claim(b.aiMenu, tenantId, 'menu').catch(() => null);
     const trialEndsAt = await this.db.tx(async (c) => {
       // Teste do site: os dias do plano (os mesmos do sistema), contados de agora.
       await c.query(
@@ -303,8 +305,9 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       );
       const { rows } = await c.query<{ trial_ends_at: Date }>(
         `INSERT INTO trial_signups (tenant_id, email, contact_name, phone, source_kind, source_value,
-                                    status_hash, ip, trial_ends_at, pending_enc, ai_generation_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + make_interval(days => $9), $10, $11)
+                                    status_hash, ip, trial_ends_at, pending_enc, ai_generation_id,
+                                    menu_generation_id, site_session)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + make_interval(days => $9), $10, $11, $12, $13)
          RETURNING trial_ends_at`,
         [
           tenantId,
@@ -318,6 +321,8 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
           days,
           pending,
           aiGeneration,
+          aiMenu,
+          b.session ?? null,
         ],
       );
       await platformAudit(c, {
@@ -331,6 +336,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
           source: b.source.kind,
           trialDays: days,
           aiSite: !!aiGeneration,
+          aiMenu: !!aiMenu,
         },
         ip,
       });
@@ -669,6 +675,13 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     }).html;
   }
 
+  /** Aba Criação do restaurante (Super Admin): o gasto de IA de cada etapa da criação. */
+  async creation(tenantId: string) {
+    const r = await creationReport(this.db, tenantId);
+    if (!r) throw new NotFoundException('Este restaurante não foi criado pelo site');
+    return r;
+  }
+
   /** Testes criados pelo site, do mais novo para o mais antigo. */
   trials() {
     return this.db.query(
@@ -678,7 +691,16 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
               COALESCE(s.trial_ends_at, ts.trial_ends_at) AS "trialEndsAt",
               s.status AS "subscription", ts.email_sent_at AS "emailSentAt",
               ts.email_error AS "emailError", ts.expired_at AS "expiredAt",
-              ts.ai_generation_id IS NOT NULL AS "aiSite"
+              ts.ai_generation_id IS NOT NULL AS "aiSite",
+              ts.menu_generation_id IS NOT NULL AS "aiMenu",
+              (SELECT coalesce(sum(u.cost_usd), 0)::float8 FROM platform_ai_usage u
+                WHERE u.source IN ('site_ia', 'criacao')
+                  AND (u.tenant_id = ts.tenant_id OR u.generation_id IN (
+                        SELECT g.id FROM site_ai_generations g
+                         WHERE g.tenant_id = ts.tenant_id
+                            OR (ts.site_session IS NOT NULL AND g.session = ts.site_session
+                                AND g.tenant_id IS NULL)))
+              ) AS "aiCostUsd"
          FROM trial_signups ts JOIN tenants t ON t.id = ts.tenant_id
          LEFT JOIN subscriptions s ON s.tenant_id = ts.tenant_id AND s.status <> 'cancelled'
         ORDER BY ts.created_at DESC LIMIT 200`,

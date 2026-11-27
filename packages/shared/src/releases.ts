@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.276.0',
+    date: '2026-11-27',
+    title: 'Cardápio e estoque já na criação pelo site',
+    summary:
+      'Na janela de criar o restaurante do comandou.com, a pessoa pode mandar a foto ou o PDF do cardápio: a IA separa os itens com os preços e já sugere o estoque de cada um. Tudo isso, o site montado pela IA e os primeiros passos dos primeiros dias saem da chave do sistema do Comandou, e o Super Admin mostra quanto a IA gastou em cada etapa da criação.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Campo "Seu cardápio" na janela de criar do site: manda a foto ou o PDF (uma página por vez, até 8), a IA lista os itens por categoria com o preço e o estoque sugerido ("30 un · mín. 6"; peso e rodízio ficam sem controle). Sem cardápio enviado, o estoque é sugerido para os itens do site que a IA montou.',
+      },
+      {
+        tag: 'novo',
+        text: 'Primeiros passos com o cardápio enviado no site já na conferência e a coluna "un" com o estoque sugerido, que dá para mudar ou apagar. Ao aplicar, cada item entra no cardápio com o estoque e o aviso de repor.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Toda a IA da criação pelo site sai da "OpenRouter · chave do sistema (esteira)": montar o site, ler o cardápio, sugerir o estoque e, nos primeiros 7 dias, os primeiros passos do restaurante (até o limite novo em Super Admin › Site com IA; depois volta para o limite do restaurante).',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Restaurantes › aba Criação (para quem nasceu pelo site): gasto da IA em cada etapa, do site aos primeiros passos, com tokens, custo, modelo, chave e as chamadas. A lista de testes do Site mostra o gasto total de cada um.',
+      },
+    ],
+  },
+  {
     version: '0.275.0',
     date: '2026-11-27',
     title: 'Mesas da reserva em quadradinhos e reserva mais fácil no cardápio',

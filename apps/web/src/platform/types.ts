@@ -209,6 +209,8 @@ export interface TenantDetail {
   owners: { name: string; email: string }[];
   provisioning: { step: string; status: string; attempts: number; lastError: string | null }[];
   database: TenantDatabase;
+  /** Criado pelo site (comandou.com): mostra a aba Criação, com a IA de cada etapa. */
+  fromSite?: boolean;
 }
 
 export interface AuditRow {

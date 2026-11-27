@@ -143,9 +143,10 @@ descrição). Lugar sem cardápio (só o Maps) ganha itens sugeridos, sempre sem
 
 - **Só liga com chave.** Sem chave, desligado ou com o limite esgotado, o site funciona como
   antes, sem IA, e nada aparece de diferente para o visitante.
-- **Chave.** Os sites usam a chave dos restaurantes (Super Admin › Credenciais); sem ela, a sua
-  chave. Desde a 0.171 não existe mais chave própria dos sites: a antiga sai no primeiro salvar
-  da aba Site com IA. Para segurar o gasto, use os limites abaixo.
+- **Chave (0.276).** Toda a criação pelo site sai da **chave do sistema** ("OpenRouter · chave
+  do sistema (esteira)", Super Admin › Credenciais): é gasto do Comandou, não do restaurante.
+  Sem ela, cai na dos restaurantes, e a aba Criação do restaurante avisa. Para segurar o gasto,
+  use os limites abaixo.
 - **Limites** (Super Admin › Site › aba Site com IA): teto de tokens de resposta por site, tokens por dia
   e por mês somando todos os sites (0 = sem limite) e sites por visitante (IP) em 24 horas. Além
   disso, cada IP chama a geração no máximo 6 vezes em 10 minutos.
@@ -157,4 +158,34 @@ descrição). Lugar sem cardápio (só o Maps) ganha itens sugeridos, sempre sem
   horas). Nos primeiros passos, a conferência já abre com a loja e o cardápio da IA, sem gastar o
   limite de IA do restaurante. Nada entra na loja sem a pessoa conferir.
 
-Tabelas: `platform_site_ai_settings` e `site_ai_generations` (migração 0071).
+### Cardápio e estoque na janela de criar (0.276)
+
+Com o site com IA ligado, a janela de criar tem o campo **Seu cardápio (opcional)**: a pessoa
+manda a foto ou o PDF (até 3 MB, uma página por vez, até 8 páginas) e a IA separa os itens com
+os preços (`POST /public/site/menu`, modelo de "ler o cardápio" de Tokens). Logo depois, a IA
+sugere o **estoque para começar** de cada item, com quanto avisar para repor (`POST
+/public/site/stock`, modelo da conversa, o mais barato; uma vez por item; peso, rodízio e
+adicional ficam "sem controle"). Sem cardápio enviado, a mesma sugestão sai para os itens do
+site montado pela IA quando a janela abre.
+
+- O cardápio enviado vira um rascunho em `site_ai_generations` (`source_kind = 'menu'`), com o
+  mesmo token de 3 horas e o mesmo limite por visitante; o cadastro leva os dois (`aiSite` e
+  `aiMenu`). Nos primeiros passos, os itens do cardápio enviado valem no lugar dos do site, e a
+  conferência ganha a coluna **un** (estoque sugerido, editável; vazio = não controlar). Ao
+  aplicar, o estoque entra pelo controle simples do item (`PUT /stock/products/:id/quantity`
+  com `minQuantity`).
+- **Primeiros passos pela chave do sistema.** Nos primeiros 7 dias do restaurante criado pelo
+  site, o que a IA faz nos primeiros passos (ler foto, PDF, link e texto, achar no Google Maps,
+  fotos dos itens) também sai da chave do sistema, até o limite "Tokens dos primeiros passos por
+  restaurante" (Site com IA; padrão 400 mil, 0 = desligado). Passou disso ou dos 7 dias, volta a
+  contar no limite de IA do restaurante. Leitura do site do restaurante (página da loja) segue
+  no limite dele.
+- **Gasto por etapa.** Cada chamada fica em `platform_ai_usage` com a etapa (`step`), o
+  restaurante (`tenant_id`) ou o rascunho (`generation_id`). A visita ao site tem um id
+  (`session`, guardado na aba do navegador) que junta os "Refazer" ao restaurante criado no fim.
+  Super Admin › Restaurantes › restaurante › aba **Criação** (só para quem nasceu pelo site)
+  mostra o gasto de cada etapa, o limite dos primeiros passos e as chamadas; a lista de testes de
+  Site mostra o total.
+
+Tabelas: `platform_site_ai_settings` e `site_ai_generations` (migração 0071); cardápio enviado,
+sessão, etapa e limite dos primeiros passos na 0131.

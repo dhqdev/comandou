@@ -576,6 +576,219 @@ html:has(.st) {
 .st-create__foot .cm-btn--lg {
   border-radius: 14px;
 }
+.st-create__wait {
+  margin-right: auto;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-subtle);
+}
+
+/* "Seu cardápio": foto ou PDF lido pela IA, com preço e estoque sugerido por item. */
+.st-menu {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--cm-border);
+}
+.st-menu__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+.st-menu__title {
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text);
+}
+.st-menu__title small {
+  font-weight: 400;
+  color: var(--cm-text-subtle);
+}
+.st-menu__acts {
+  display: inline-flex;
+  gap: 14px;
+  font-size: var(--cm-text-sm);
+}
+.st-menu__acts .st-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  min-height: 32px;
+}
+.st-menu__acts .st-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.st-drop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 12px 16px;
+  border: 1px dashed var(--cm-border-strong);
+  border-radius: 14px;
+  background: var(--cm-surface-muted);
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--cm-ease),
+    background-color 160ms var(--cm-ease);
+}
+.st-drop[hidden] {
+  display: none;
+}
+.st-drop:hover,
+.st-drop[data-over] {
+  border-color: var(--cm-brand-500);
+  background: color-mix(in oklab, var(--cm-brand-50) 60%, var(--cm-surface));
+}
+.st-drop:has(input:focus-visible) {
+  outline: 2px solid var(--cm-brand-600);
+  outline-offset: 2px;
+}
+.st-drop[data-busy] {
+  cursor: progress;
+  border-style: solid;
+}
+.st-drop:active:not([data-busy]) {
+  transform: scale(0.99);
+  transition: transform 120ms var(--cm-spring-snappy);
+}
+.st-drop input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.st-drop__ic {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  color: var(--cm-text-muted);
+}
+.st-drop__txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.st-drop__txt b {
+  font-weight: 600;
+  color: var(--cm-text);
+}
+.st-drop__txt small {
+  font-size: var(--cm-text-sm);
+  line-height: 1.4;
+  color: var(--cm-text-muted);
+}
+.st-menu__err {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-danger);
+}
+.st-menu__sum,
+.st-menu__note {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.st-menu__note {
+  color: var(--cm-text-subtle);
+}
+.st-menu__list {
+  isolation: isolate;
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--cm-border);
+  border-radius: 12px;
+  font-size: var(--cm-text-sm);
+}
+.st-menu__list:focus-visible {
+  outline: 2px solid var(--cm-brand-600);
+  outline-offset: 2px;
+}
+.st-menu__list h4 {
+  position: sticky;
+  top: 33px;
+  z-index: 1;
+  margin: 0;
+  padding: 8px 12px 4px;
+  background: var(--cm-surface);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.st-menu__list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.st-menu__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 104px;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 12px;
+}
+.st-menu__row + .st-menu__row {
+  border-top: 1px solid var(--cm-border);
+}
+.st-menu__row--head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-block: 8px;
+  border-bottom: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+  color: var(--cm-text-subtle);
+}
+.st-menu__name {
+  color: var(--cm-text);
+  overflow-wrap: anywhere;
+}
+.st-menu__price,
+.st-menu__stock {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--cm-text-muted);
+}
+.st-menu__row > :nth-child(2),
+.st-menu__row > :nth-child(3) {
+  text-align: right;
+}
+.st-menu__stock .cm-bone {
+  display: inline-block;
+  vertical-align: middle;
+}
+.st-menu__stock b {
+  font-weight: 600;
+  color: var(--cm-text);
+}
+.st-menu__stock small {
+  margin-left: 2px;
+  color: var(--cm-text-subtle);
+}
+@media (max-width: 520px) {
+  .st-menu__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .st-menu__row--head > :nth-child(3) {
+    display: none;
+  }
+  .st-menu__row:not(.st-menu__row--head) {
+    row-gap: 2px;
+  }
+  .st-menu__stock {
+    grid-column: 1 / -1;
+    text-align: left !important;
+  }
+  .st-menu__stock::before {
+    content: 'Estoque ';
+    color: var(--cm-text-subtle);
+  }
+}
 
 /* A loja nascendo: um navegador pequeno com a loja e os módulos. */
 .st-forge {

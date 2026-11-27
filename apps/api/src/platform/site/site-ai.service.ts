@@ -9,26 +9,47 @@ import {
 } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
+import { chatFallbacks } from '../../chat/ai-models';
 import { MONTH_START } from '../../chat/ai-quota';
-import { OpenRouterClient, OpenRouterError } from '../../chat/openrouter';
-import { extractPage, metaContent, pageForModel } from '../../chat/store-import';
+import { type ContentPart, OpenRouterClient, OpenRouterError } from '../../chat/openrouter';
+import { readStockGuess, STOCK_PROMPT, stockQuestion } from '../../chat/stock-guess';
+import { extractPage, MENU_FILE_PROMPT, metaContent, pageForModel } from '../../chat/store-import';
+import { sniff } from '../../common/file-sniff';
 import { mapsPlaceName } from '../../common/maps-link';
 import { safeFetch, SafeFetchError } from '../../common/safe-fetch';
 import { ENV, Env } from '../../config/env';
-import { type KeyKind, type KeyRow, recordSystemUsage, siteKey } from '../ai-keys';
+import type { KeyKind } from '../ai-keys';
 import { PlatformDb, platformAudit } from '../platform-db.service';
 import type { Actor } from '../platform.service';
+import { creationKey, recordCreation } from './creation-ai';
 import {
+  applyStock,
   draftItems,
+  MENU_MAX_PAGES,
+  mergeMenuDrafts,
   placeForModel,
   publicDraft,
+  publicMenu,
+  readMenuDraft,
   readSiteDraft,
   SITE_PROMPT,
+  stockTargets,
   type SiteAiKind,
+  type SiteDraft,
 } from './site-ai';
 
 /** O rascunho pode ser levado para o cadastro por este tempo depois de gerado. */
 const CLAIM_HOURS = 3;
+/** Foto ou PDF do cardápio enviado no site. */
+export const MENU_FILE_MAX = 3 * 1024 * 1024;
+export const MENU_FILE_TYPES = new Set([
+  'image/webp',
+  'image/jpeg',
+  'image/png',
+  'application/pdf',
+]);
+/** Sessão do visitante no site (número aleatório da aba): junta os rascunhos de uma criação. */
+export const SiteSession = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
 
 export const SiteAiSettingsBody = z.object({
   enabled: z.boolean(),
@@ -40,14 +61,29 @@ export const SiteAiSettingsBody = z.object({
   dailyTokens: z.number().int().min(0).max(1_000_000_000),
   monthlyTokens: z.number().int().min(0).max(10_000_000_000),
   perIpDaily: z.number().int().min(1).max(100),
+  /** Primeiros passos do restaurante criado pelo site pela chave do sistema (0 = desligado). */
+  firstStepsTokens: z.number().int().min(0).max(100_000_000).optional(),
 });
 export type SiteAiSettingsInput = z.infer<typeof SiteAiSettingsBody>;
 
 export const SiteAiSource = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('site'), value: z.string().trim().min(4).max(2000) }),
-  z.object({ kind: z.literal('maps'), value: z.string().trim().min(8).max(2000) }),
-  z.object({ kind: z.literal('text'), value: z.string().trim().min(10).max(6000) }),
+  z.object({
+    kind: z.literal('site'),
+    value: z.string().trim().min(4).max(2000),
+    session: SiteSession.optional(),
+  }),
+  z.object({
+    kind: z.literal('maps'),
+    value: z.string().trim().min(8).max(2000),
+    session: SiteSession.optional(),
+  }),
+  z.object({
+    kind: z.literal('text'),
+    value: z.string().trim().min(10).max(6000),
+    session: SiteSession.optional(),
+  }),
 ]);
+export const SiteStockBody = z.object({ claim: z.string().regex(/^[A-Za-z0-9_-]{32}$/) });
 export type SiteAiSourceInput = z.infer<typeof SiteAiSource>;
 
 interface SettingsRow {
@@ -57,6 +93,7 @@ interface SettingsRow {
   daily_tokens: string;
   monthly_tokens: string;
   per_ip_daily: number;
+  first_steps_tokens: string;
   updated_at: Date;
 }
 
@@ -67,10 +104,11 @@ const hash = (token: string) => createHash('sha256').update(token).digest();
 
 /**
  * Site do restaurante criado com IA, no comandou.com. Só funciona com uma chave do OpenRouter
- * (a dos restaurantes ou, sem ela, a sua, de Super Admin › Credenciais) e dentro dos limites desta seção:
- * tokens por site, por dia e por mês e sites por visitante. Cada site gerado fica registrado
- * (tokens, custo, rascunho) e, se a pessoa criar o restaurante, o rascunho vai junto: os
- * primeiros passos começam por ele sem gastar o limite do restaurante.
+ * (a do sistema, "OpenRouter · chave do sistema (esteira)", e sem ela a dos restaurantes, de
+ * Super Admin › Credenciais) e dentro dos limites desta seção: tokens por site, por dia e por
+ * mês e sites por visitante. Também lê o cardápio que a pessoa envia (foto ou PDF) e sugere o
+ * estoque de cada item. Cada rascunho fica registrado (tokens, custo, etapa) e, se a pessoa criar
+ * o restaurante, vai junto: os primeiros passos começam por ele sem gastar o limite do restaurante.
  */
 @Injectable()
 export class SiteAiService {
@@ -88,14 +126,17 @@ export class SiteAiService {
     return r!;
   }
 
-  /** A chave que vale: a dos restaurantes; sem ela, a sua (as duas de Credenciais). */
-  private async key(): Promise<{ key: string; kind: KeyKind } | null> {
-    const secret = this.env.INTEGRATIONS_KEY;
-    if (!secret) return null;
-    const [k] = await this.db.query<KeyRow>(
-      `SELECT api_key_enc, owner_api_key_enc FROM platform_ai_settings WHERE id`,
+  /** A chave que vale: a do sistema; sem ela, a dos restaurantes (as duas de Credenciais). */
+  private key(): Promise<{ key: string; kind: KeyKind } | null> {
+    return creationKey(this.env, this.db);
+  }
+
+  /** Modelos de Super Admin › Tokens de IA: o que lê o cardápio e o da conversa (estoque). */
+  private async models() {
+    const [m] = await this.db.query<{ import_model: string; model: string }>(
+      `SELECT import_model, model FROM platform_ai_settings WHERE id`,
     );
-    return k ? siteKey(secret, k) : null;
+    return { read: m!.import_model, chat: m!.model };
   }
 
   private async spent() {
@@ -126,6 +167,268 @@ export class SiteAiService {
     } catch {
       return false;
     }
+  }
+
+  /** Confere se a IA do site está no ar (o painel testa mesmo desligada). Fora: 503. */
+  private async open(panel?: Actor): Promise<SettingsRow> {
+    if (!this.db.enabled) throw new ServiceUnavailableException('Site com IA indisponível');
+    const r = await this.row();
+    const off = await this.off(r);
+    if (off && !(panel && off === 'disabled'))
+      throw new ServiceUnavailableException(
+        off === 'no_key'
+          ? 'Coloque a chave do OpenRouter para ligar o site com IA'
+          : 'Site com IA indisponível agora',
+      );
+    return r;
+  }
+
+  /** Rascunhos novos por visitante (IP) em 24 horas: site montado ou cardápio enviado. */
+  private async perIp(r: SettingsRow, ip: string | undefined) {
+    if (!ip) return;
+    const [{ n }] = await this.db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM site_ai_generations
+        WHERE ip = $1 AND NOT from_panel AND created_at > now() - interval '24 hours'`,
+      [ip],
+    );
+    if (n >= r.per_ip_daily)
+      throw new HttpException(
+        {
+          statusCode: 429,
+          code: 'site_ai_limit',
+          message: 'Você já criou alguns sites hoje. Siga com o último ou volte amanhã.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+  }
+
+  // ------------------------------------------------------------------ cardápio enviado
+  /**
+   * Lê uma página do cardápio (foto ou PDF) enviada na janela de criar do site e devolve os
+   * itens com os preços. Com `claim` de um cardápio já começado (até 3 horas, 8 páginas), junta
+   * a página nele; senão começa um rascunho novo (conta no limite por visitante). A sugestão de
+   * estoque vem em seguida, por `suggestStock`.
+   */
+  async readMenu(
+    file: Buffer,
+    mime: string,
+    ip: string | undefined,
+    opts: { claim?: string; session?: string } = {},
+  ) {
+    if (!MENU_FILE_TYPES.has(mime) || file.length === 0 || file.length > MENU_FILE_MAX)
+      throw new UnprocessableEntityException(
+        'Envie uma foto (JPG, PNG, WebP) ou um PDF de até 3 MB',
+      );
+    const isPdf = mime === 'application/pdf';
+    if (isPdf ? file.toString('latin1', 0, 5) !== '%PDF-' : sniff(file) !== mime)
+      throw new UnprocessableEntityException(
+        'Envie uma foto (JPG, PNG, WebP) ou um PDF de até 3 MB',
+      );
+    const r = await this.open();
+    // Página a mais de um cardápio já começado (o mesmo visitante, com o token dele).
+    let current: { id: string; draft: SiteDraft } | null = null;
+    if (opts.claim) {
+      const [g] = await this.db.query<{ id: string; draft: SiteDraft }>(
+        `SELECT id, draft FROM site_ai_generations
+          WHERE claim_hash = $1 AND source_kind = 'menu' AND status = 'ok' AND tenant_id IS NULL
+            AND created_at > now() - make_interval(hours => $2)`,
+        [hash(opts.claim), CLAIM_HOURS],
+      );
+      if (!g) throw new UnprocessableEntityException('Envie o cardápio de novo, do começo');
+      if ((g.draft.pages ?? 1) >= MENU_MAX_PAGES)
+        throw new UnprocessableEntityException(
+          `Até ${MENU_MAX_PAGES} páginas por aqui. O resto você manda nos primeiros passos.`,
+        );
+      current = g;
+    } else await this.perIp(r, ip);
+    const key = (await this.key())!;
+    const { read } = await this.models();
+    const data = `data:${mime};base64,${file.toString('base64')}`;
+    const attachment: ContentPart = isPdf
+      ? { type: 'file', file: { filename: 'cardapio.pdf', file_data: data } }
+      : { type: 'image_url', image_url: { url: data } };
+    const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key.key);
+    let result;
+    try {
+      result = await client.complete(
+        read,
+        [
+          { role: 'system', content: MENU_FILE_PROMPT },
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'Leia este cardápio e devolva o JSON.' }, attachment],
+          },
+        ],
+        { json: true, maxTokens: 16_000, signal: AbortSignal.timeout(150_000) },
+      );
+    } catch (e) {
+      this.logger.warn(`cardápio do site falhou: ${(e as Error).message.slice(0, 300)}`);
+      throw new ServiceUnavailableException(
+        e instanceof OpenRouterError
+          ? 'A IA não respondeu agora. Tente de novo em instantes.'
+          : 'Não deu para falar com a IA agora',
+      );
+    }
+    const page = readMenuDraft(result.text);
+    const u = result.usage;
+    const claim = opts.claim ?? randomBytes(24).toString('base64url');
+    const id = await this.db.tx(async (c) => {
+      if (current) {
+        // Outra página pode ter chegado enquanto a IA lia: junta no que está gravado agora.
+        const { rows } = await c.query<{ draft: SiteDraft }>(
+          `SELECT draft FROM site_ai_generations WHERE id = $1 FOR UPDATE`,
+          [current.id],
+        );
+        const merged = mergeMenuDrafts(rows[0]?.draft ?? current.draft, page);
+        await c.query(
+          `UPDATE site_ai_generations
+              SET draft = $2, items = $3, prompt_tokens = prompt_tokens + $4,
+                  completion_tokens = completion_tokens + $5, cost_usd = cost_usd + $6
+            WHERE id = $1`,
+          [
+            current.id,
+            JSON.stringify(merged),
+            draftItems(merged),
+            u.promptTokens,
+            u.completionTokens,
+            u.costUsd,
+          ],
+        );
+        return current.id;
+      }
+      const ok = draftItems(page) > 0;
+      const { rows } = await c.query<{ id: string }>(
+        `INSERT INTO site_ai_generations (source_kind, source_value, from_panel, ip, model, prompt_tokens,
+                                          completion_tokens, cost_usd, status, error, draft, items,
+                                          claim_hash, session)
+         VALUES ('menu', $1, false, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+        [
+          isPdf ? 'PDF' : 'Foto',
+          ip ?? null,
+          result.model,
+          u.promptTokens,
+          u.completionTokens,
+          u.costUsd,
+          ok ? 'ok' : 'failed',
+          ok ? null : 'A IA não achou itens no cardápio enviado',
+          ok ? JSON.stringify(page) : null,
+          draftItems(page),
+          ok ? hash(claim) : null,
+          opts.session ?? null,
+        ],
+      );
+      return rows[0]!.id;
+    });
+    await recordCreation(this.db, {
+      step: 'cardapio',
+      ref: isPdf ? 'PDF' : 'Foto',
+      model: result.model,
+      usage: u,
+      key: key.kind,
+      generationId: id,
+    }).catch(() => undefined);
+    if (!draftItems(page))
+      throw new UnprocessableEntityException(
+        current
+          ? 'Não achei itens nesta página. Tente uma foto mais nítida, de perto.'
+          : 'Não achei itens nesse arquivo. Tente uma foto mais nítida, de perto, ou o PDF do cardápio.',
+      );
+    const [g] = await this.db.query<{ draft: SiteDraft }>(
+      `SELECT draft FROM site_ai_generations WHERE id = $1`,
+      [id],
+    );
+    return { claim, menu: publicMenu(g!.draft) };
+  }
+
+  /**
+   * Sugere o estoque inicial dos itens que ainda não têm (cardápio enviado ou site montado pela
+   * IA), pelo modelo da conversa (o mais barato). Uma vez por item: chamar de novo não gasta.
+   * Outra sugestão do mesmo rascunho em andamento: devolve como está, com `busy`.
+   */
+  async suggestStock(claim: string) {
+    if (!this.db.enabled) throw new ServiceUnavailableException('Site com IA indisponível');
+    const [g] = await this.db.query<{ id: string; draft: SiteDraft }>(
+      `SELECT id, draft FROM site_ai_generations
+        WHERE claim_hash = $1 AND status = 'ok' AND draft IS NOT NULL
+          AND created_at > now() - make_interval(hours => $2)`,
+      [hash(claim), CLAIM_HOURS],
+    );
+    if (!g) throw new UnprocessableEntityException('Esse cardápio não está mais aqui');
+    const targets = stockTargets(g.draft);
+    if (!targets.length) return { busy: false, menu: publicMenu(g.draft) };
+    // Uma sugestão por vez para o mesmo rascunho (dois cliques não pagam duas vezes).
+    const [mine] = await this.db.query<{ id: string }>(
+      `UPDATE site_ai_generations SET draft = jsonb_set(draft, '{stockAt}', to_jsonb(now()))
+        WHERE id = $1 AND (draft->>'stockAt' IS NULL
+                           OR (draft->>'stockAt')::timestamptz < now() - interval '2 minutes')
+        RETURNING id`,
+      [g.id],
+    );
+    if (!mine) return { busy: true, menu: publicMenu(g.draft) };
+    const release = () =>
+      this.db
+        .query(`UPDATE site_ai_generations SET draft = draft - 'stockAt' WHERE id = $1`, [g.id])
+        .catch(() => undefined);
+    const key = await this.key();
+    if (!key) {
+      await release();
+      throw new ServiceUnavailableException('Site com IA indisponível agora');
+    }
+    const { chat } = await this.models();
+    const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key.key);
+    let result;
+    try {
+      result = await client.complete(
+        chat,
+        [
+          { role: 'system', content: STOCK_PROMPT },
+          { role: 'user', content: stockQuestion(targets) },
+        ],
+        {
+          json: true,
+          maxTokens: Math.min(8000, 400 + targets.length * 40),
+          signal: AbortSignal.timeout(60_000),
+          fallbacks: chatFallbacks(chat),
+          reasoning: false,
+          fast: true,
+        },
+      );
+    } catch (e) {
+      await release();
+      this.logger.warn(`estoque do site falhou: ${(e as Error).message.slice(0, 300)}`);
+      throw new ServiceUnavailableException(
+        'A IA não respondeu agora. Tente de novo em instantes.',
+      );
+    }
+    const guesses = readStockGuess(result.text, targets.length);
+    const u = result.usage;
+    const draft = await this.db.tx(async (c) => {
+      const { rows } = await c.query<{ draft: SiteDraft }>(
+        `SELECT draft FROM site_ai_generations WHERE id = $1 FOR UPDATE`,
+        [g.id],
+      );
+      const { stockAt: _s, ...cur } = (rows[0]?.draft ?? g.draft) as SiteDraft & {
+        stockAt?: string;
+      };
+      const next = applyStock(cur, targets, guesses);
+      await c.query(
+        `UPDATE site_ai_generations
+            SET draft = $2, prompt_tokens = prompt_tokens + $3,
+                completion_tokens = completion_tokens + $4, cost_usd = cost_usd + $5
+          WHERE id = $1`,
+        [g.id, JSON.stringify(next), u.promptTokens, u.completionTokens, u.costUsd],
+      );
+      return next;
+    });
+    await recordCreation(this.db, {
+      step: 'estoque',
+      ref: `${targets.length} itens`,
+      model: result.model,
+      usage: u,
+      key: key.kind,
+      generationId: g.id,
+    }).catch(() => undefined);
+    return { busy: false, menu: publicMenu(draft) };
   }
 
   // ------------------------------------------------------------------ gerar
@@ -196,35 +499,13 @@ export class SiteAiService {
    * cadastro. Fora do ar ou sem limite: 503 (a página segue sem IA).
    */
   async generate(src: SiteAiSourceInput, ip: string | undefined, panel?: Actor) {
-    if (!this.db.enabled) throw new ServiceUnavailableException('Site com IA indisponível');
-    const r = await this.row();
-    const off = await this.off(r);
-    if (off && !(panel && off === 'disabled'))
-      throw new ServiceUnavailableException(
-        off === 'no_key'
-          ? 'Coloque a chave do OpenRouter para ligar o site com IA'
-          : 'Site com IA indisponível agora',
-      );
-    if (!panel && ip) {
-      const [{ n }] = await this.db.query<{ n: number }>(
-        `SELECT count(*)::int AS n FROM site_ai_generations
-          WHERE ip = $1 AND NOT from_panel AND created_at > now() - interval '24 hours'`,
-        [ip],
-      );
-      if (n >= r.per_ip_daily)
-        throw new HttpException(
-          {
-            statusCode: 429,
-            code: 'site_ai_limit',
-            message: 'Você já criou alguns sites hoje. Siga com o último ou volte amanhã.',
-          },
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
-    }
+    const r = await this.open(panel);
+    if (!panel) await this.perIp(r, ip);
     const key = (await this.key())!;
     const { text, images, ref, web } = await this.input(src);
     const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key.key);
     const source = { kind: src.kind, value: src.value.slice(0, 2000) };
+    const session = panel ? null : (src.session ?? null);
     let result;
     try {
       result = await client.complete(
@@ -244,9 +525,9 @@ export class SiteAiService {
       const msg = (e as Error).message.slice(0, 300);
       this.logger.warn(`site com IA falhou: ${msg}`);
       await this.db.query(
-        `INSERT INTO site_ai_generations (source_kind, source_value, from_panel, ip, model, status, error)
-         VALUES ($1, $2, $3, $4, $5, 'failed', $6)`,
-        [source.kind, source.value, !!panel, ip ?? null, r.model, msg],
+        `INSERT INTO site_ai_generations (source_kind, source_value, from_panel, ip, model, status, error, session)
+         VALUES ($1, $2, $3, $4, $5, 'failed', $6, $7)`,
+        [source.kind, source.value, !!panel, ip ?? null, r.model, msg, session],
       );
       throw new ServiceUnavailableException(
         e instanceof OpenRouterError
@@ -260,8 +541,9 @@ export class SiteAiService {
     const claim = randomBytes(24).toString('base64url');
     const [g] = await this.db.query<{ id: string }>(
       `INSERT INTO site_ai_generations (source_kind, source_value, from_panel, ip, model, prompt_tokens,
-                                        completion_tokens, cost_usd, status, error, draft, items, claim_hash)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+                                        completion_tokens, cost_usd, status, error, draft, items, claim_hash,
+                                        session)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
       [
         source.kind,
         source.value,
@@ -276,15 +558,16 @@ export class SiteAiService {
         ok ? JSON.stringify(draft) : null,
         items,
         ok ? hash(claim) : null,
+        session,
       ],
     );
-    await recordSystemUsage(this.db, {
-      source: 'site_ia',
+    await recordCreation(this.db, {
+      step: 'site',
       ref: ref.slice(0, 60),
-      model: r.model,
+      model: result.model,
       usage: result.usage,
-      adminId: panel?.admin.id ?? null,
       key: key.kind,
+      generationId: g!.id,
     }).catch(() => undefined);
     if (!ok)
       throw new UnprocessableEntityException(
@@ -298,15 +581,24 @@ export class SiteAiService {
     };
   }
 
-  /** No cadastro: liga o rascunho (de até 3 horas, ainda sem dono) ao restaurante novo. */
-  async claim(token: string | undefined, tenantId: string): Promise<string | null> {
+  /**
+   * No cadastro: liga o rascunho (de até 3 horas, ainda sem dono) ao restaurante novo. `kind`:
+   * o site montado pela IA ('site', 'maps' ou 'text', o que veio na geração) ou o cardápio
+   * enviado ('menu').
+   */
+  async claim(
+    token: string | undefined,
+    tenantId: string,
+    what: 'site' | 'menu' = 'site',
+  ): Promise<string | null> {
     if (!token || !/^[A-Za-z0-9_-]{32}$/.test(token)) return null;
     const [g] = await this.db.query<{ id: string }>(
       `UPDATE site_ai_generations SET tenant_id = $2
         WHERE claim_hash = $1 AND tenant_id IS NULL AND status = 'ok'
+          AND (source_kind = 'menu') = $4
           AND created_at > now() - make_interval(hours => $3)
         RETURNING id`,
-      [hash(token), tenantId, CLAIM_HOURS],
+      [hash(token), tenantId, CLAIM_HOURS, what === 'menu'],
     );
     return g?.id ?? null;
   }
@@ -386,6 +678,7 @@ export class SiteAiService {
         dailyTokens: Number(r.daily_tokens),
         monthlyTokens: Number(r.monthly_tokens),
         perIpDaily: r.per_ip_daily,
+        firstStepsTokens: Number(r.first_steps_tokens),
         updatedAt: r.updated_at,
       },
       off,
@@ -416,9 +709,18 @@ export class SiteAiService {
       await c.query(
         `UPDATE platform_site_ai_settings
             SET enabled = $1, model = $2, max_tokens_per_site = $3, daily_tokens = $4,
-                monthly_tokens = $5, per_ip_daily = $6, api_key_enc = NULL, updated_at = now()
+                monthly_tokens = $5, per_ip_daily = $6, api_key_enc = NULL,
+                first_steps_tokens = coalesce($7, first_steps_tokens), updated_at = now()
           WHERE id`,
-        [b.enabled, b.model, b.maxTokensPerSite, b.dailyTokens, b.monthlyTokens, b.perIpDaily],
+        [
+          b.enabled,
+          b.model,
+          b.maxTokensPerSite,
+          b.dailyTokens,
+          b.monthlyTokens,
+          b.perIpDaily,
+          b.firstStepsTokens ?? null,
+        ],
       );
       await platformAudit(c, {
         adminId: a.admin.id,
@@ -431,6 +733,7 @@ export class SiteAiService {
           dailyTokens: b.dailyTokens,
           monthlyTokens: b.monthlyTokens,
           perIpDaily: b.perIpDaily,
+          firstStepsTokens: b.firstStepsTokens,
         },
         ip: a.ip,
       });

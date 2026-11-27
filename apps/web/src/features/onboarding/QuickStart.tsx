@@ -165,7 +165,10 @@ export function QuickStart({
     }
     // A IA já montou o site no comandou.com: a conferência abre com ele, sem ler de novo.
     if (what === 'site') {
-      setStage({ at: 'reading', label: 'Abrindo o site que a IA montou' });
+      setStage({
+        at: 'reading',
+        label: t.aiMenu ? 'Abrindo o cardápio que você mandou' : 'Abrindo o site que a IA montou',
+      });
       readSiteDraft(null)
         .then((r) => (r ? finishReading(r, []) : setStage({ at: 'pick' })))
         .catch((e: Error) => {
@@ -922,6 +925,8 @@ export function QuickStart({
             <p className="mi-lead">
               Confira e corrija o que precisar. Desmarque o que não quer cadastrar.
               {drafts.some((d) => !d.price) && ' Item sem preço só entra depois que você digitar.'}
+              {drafts.some((d) => d.stock !== undefined) &&
+                ' A coluna “un” é o estoque para começar, sugerido pela IA: apague para não controlar o item.'}
             </p>
             <DraftList drafts={drafts} setDrafts={setDrafts} />
           </>

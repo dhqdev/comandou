@@ -383,7 +383,7 @@ export class StockService {
    * um número para digitar: a quantidade sai da ficha. Cada venda baixa o insumo e, quando zera,
    * o item sai do cardápio.
    */
-  async setProductQuantity(ctx: Ctx, productId: string, quantity: string) {
+  async setProductQuantity(ctx: Ctx, productId: string, quantity: string, minQuantity?: string) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       const p = await one<{ name: string; sold_by_weight: boolean }>(
         tx,
@@ -442,8 +442,9 @@ export class StockService {
       }
       const it = await one<{ quantity: string }>(
         tx,
-        `UPDATE stock_items SET counted_at = now() WHERE id = $1 RETURNING quantity::text`,
-        [itemId],
+        `UPDATE stock_items SET counted_at = now(), min_quantity = coalesce($2::numeric, min_quantity)
+          WHERE id = $1 RETURNING quantity::text`,
+        [itemId, minQuantity ?? null],
       );
       const d = await one<{ d: string }>(tx, `SELECT ($1::numeric - $2::numeric)::text AS d`, [
         quantity,
@@ -459,7 +460,15 @@ export class StockService {
         action: 'stock.product_quantity',
         entity: 'product',
         entityId: productId,
-        data: { name: p.name, quantity, delta: d!.d, stockItemId: itemId, created, reused },
+        data: {
+          name: p.name,
+          quantity,
+          delta: d!.d,
+          stockItemId: itemId,
+          created,
+          reused,
+          ...(minQuantity !== undefined ? { minQuantity } : {}),
+        },
         ip: ctx.ip,
       });
       const av = await one(tx, `SELECT * FROM (${AVAILABILITY_SQL}) a WHERE "productId" = $1`, [

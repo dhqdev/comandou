@@ -36,6 +36,10 @@ interface Trial {
   expiredAt: string | null;
   /** O restaurante nasceu de um site montado pela IA. */
   aiSite?: boolean;
+  /** Mandou o cardápio (foto ou PDF) na janela de criar. */
+  aiMenu?: boolean;
+  /** Quanto a IA gastou na criação (site, cardápio, estoque e primeiros passos), em dólar. */
+  aiCostUsd?: number | null;
 }
 
 const SOURCE = { site: 'Site', maps: 'Google Maps', text: 'Descrição', none: 'Só o nome' };
@@ -225,7 +229,19 @@ function Trials({ trials }: { trials: Trial[] }) {
                       </td>
                       <td title={t.sourceValue}>
                         {SOURCE[t.sourceKind]}
-                        {t.aiSite && <div className="cm-hint">site com IA</div>}
+                        {(t.aiSite || t.aiMenu || !!t.aiCostUsd) && (
+                          <div className="cm-hint">
+                            {[
+                              t.aiSite && 'site com IA',
+                              t.aiMenu && 'cardápio enviado',
+                              t.aiCostUsd
+                                ? `IA US$ ${t.aiCostUsd.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <Tag level={level}>{label}</Tag>

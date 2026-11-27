@@ -31,6 +31,8 @@ interface Overview {
     dailyTokens: number;
     monthlyTokens: number;
     perIpDaily: number;
+    /** Tokens dos primeiros passos de cada restaurante criado pelo site (chave do sistema). */
+    firstStepsTokens: number;
     updatedAt: string;
   };
   off: Off;
@@ -51,7 +53,7 @@ interface Overview {
   days: { day: string; tokens: number; sites: number }[];
   log: {
     id: string;
-    sourceKind: Kind;
+    sourceKind: Kind | 'menu';
     sourceValue: string;
     fromPanel: boolean;
     model: string;
@@ -94,10 +96,15 @@ interface Draft {
   }[];
 }
 
-const SOURCE: Record<Kind, string> = { site: 'Site', maps: 'Google Maps', text: 'Descrição' };
+const SOURCE: Record<Kind | 'menu', string> = {
+  site: 'Site',
+  maps: 'Google Maps',
+  text: 'Descrição',
+  menu: 'Cardápio enviado',
+};
 const KEY_LABEL = {
-  owner: 'a chave do sistema (falta a dos restaurantes)',
-  clients: 'a chave dos restaurantes',
+  owner: 'a chave do sistema',
+  clients: 'a chave dos restaurantes (falta a do sistema)',
 };
 const OFF_TEXT: Record<Exclude<Off, null>, string> = {
   disabled: 'Desligado: o site funciona sem IA, como antes.',
@@ -115,9 +122,10 @@ const pct = (used: number, limit: number) =>
   limit > 0 ? Math.round((used / limit) * 1000) / 10 : null;
 
 /**
- * Super Admin › Site › Site com IA: a loja montada pela IA no site do Comandou. Liga só com
- * uma chave do OpenRouter (a própria dos sites, em Credenciais, ou a sua); aqui ficam o modelo, os
- * limites de tokens e de sites por visitante, o consumo de cada site e de cada cliente.
+ * Super Admin › Site › Site com IA: a loja montada pela IA no site do Comandou, o cardápio
+ * enviado e o estoque sugerido. Tudo pela chave do sistema do OpenRouter (sem ela, a dos
+ * restaurantes); aqui ficam o modelo, os limites de tokens e de sites por visitante, o limite dos
+ * primeiros passos e o consumo de cada site e de cada cliente.
  */
 export function SiteAiPage() {
   const { data, error, reload } = useLoad<Overview>('/platform/site-ai');
@@ -222,6 +230,7 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
     dailyTokens: String(s.dailyTokens),
     monthlyTokens: String(s.monthlyTokens),
     perIpDaily: String(s.perIpDaily),
+    firstStepsTokens: String(s.firstStepsTokens ?? 0),
   });
   const [busy, setBusy] = useState(false);
   const digits = (v: string) => v.replace(/\D/g, '');
@@ -239,7 +248,8 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
           dailyTokens: Number(f.dailyTokens) || 0,
           monthlyTokens: Number(f.monthlyTokens) || 0,
           perIpDaily: Number(f.perIpDaily) || 4,
-          // Os sites usam a chave dos restaurantes (Super Admin › Credenciais).
+          firstStepsTokens: Number(f.firstStepsTokens) || 0,
+          // A criação pelo site usa a chave do sistema (Super Admin › Credenciais).
         },
       });
       toast('Site com IA salvo', 'success');
@@ -258,13 +268,13 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
           <div className="cm-form__block">
             <CheckField
               label="Montar a loja com IA no site do Comandou"
-              description="Precisa de uma chave do OpenRouter. Desligado ou sem chave, o site segue como antes, sem IA."
+              description="Monta o site, lê o cardápio enviado e sugere o estoque, pela chave do sistema. Desligado ou sem chave, o site segue como antes, sem IA."
               checked={f.enabled}
               onChange={(v) => setF({ ...f, enabled: v })}
             />
           </div>
           <div className="cm-form__block">
-            <KeyInUse ids={['openrouter_clients', 'openrouter_owner']} />
+            <KeyInUse ids={['openrouter_owner', 'openrouter_clients']} />
           </div>
           <TextField
             label="Modelo"
@@ -300,6 +310,13 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
             hint="Cada pessoa (IP) monta no máximo esta quantidade em 24 horas."
             value={f.perIpDaily}
             onChange={(e) => setF({ ...f, perIpDaily: digits(e.target.value) })}
+          />
+          <TextField
+            label="Tokens dos primeiros passos por restaurante"
+            inputMode="numeric"
+            hint="Nos primeiros 7 dias, o que a IA faz nos primeiros passos do restaurante criado pelo site sai da chave do sistema até este total. Depois, conta no limite do restaurante. 0 = desligado."
+            value={f.firstStepsTokens}
+            onChange={(e) => setF({ ...f, firstStepsTokens: digits(e.target.value) })}
           />
           <div className="cm-form__block">
             <Button type="submit" loading={busy}>

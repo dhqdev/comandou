@@ -27,6 +27,16 @@ export const TrialBody = z.object({
     .string()
     .regex(/^[A-Za-z0-9_-]{32}$/)
     .optional(),
+  /** Token do cardápio enviado na janela de criar (itens, preços e o estoque sugerido). */
+  aiMenu: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{32}$/)
+    .optional(),
+  /** Sessão do visitante no site: junta no restaurante o que a IA fez antes do cadastro. */
+  session: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{16,64}$/)
+    .optional(),
   /** Campo escondido: gente não preenche, robô sim. */
   company: z.string().max(0).optional(),
 });

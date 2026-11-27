@@ -556,8 +556,11 @@ export class PlatformService {
          FROM tenant_provisioning_steps WHERE tenant_id = $1 ORDER BY updated_at`,
       [id],
     );
+    // Criado pelo site (comandou.com): a tela mostra a aba Criação, com o gasto de IA dela.
+    const site = await this.db.query(`SELECT 1 FROM trial_signups WHERE tenant_id = $1`, [id]);
     return {
       ...t,
+      fromSite: site.length > 0,
       iconUrl: h ? await tenantIcon(this.db, id) : null,
       subscription: subscription ?? null,
       profile: profile ?? EMPTY_PROFILE,

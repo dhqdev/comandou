@@ -28,8 +28,9 @@ export function openKey(secret: string | undefined, r: KeyRow, kind: KeyKind): s
 }
 
 /**
- * Chave que o próprio sistema usa (esteira de chamados, testes do painel): a do dono; sem ela,
- * a dos restaurantes. Devolve também qual foi usada, para o registro de uso.
+ * Chave que o próprio sistema usa (esteira de chamados, testes do painel e, desde a 0.275, a
+ * criação do restaurante pelo site): a do dono; sem ela, a dos restaurantes. Devolve também qual
+ * foi usada, para o registro de uso.
  */
 export function systemKey(
   secret: string | undefined,
@@ -39,20 +40,6 @@ export function systemKey(
   if (own) return { key: own, kind: 'owner' };
   const cli = openKey(secret, r, 'clients');
   return cli ? { key: cli, kind: 'clients' } : null;
-}
-
-/**
- * Chave dos sites com IA (comandou.com): a mesma dos restaurantes; sem ela, a do dono. Desde a
- * 0.171 não existe mais chave própria dos sites (a que estava salva fica sem uso).
- */
-export function siteKey(
-  secret: string | undefined,
-  r: KeyRow,
-): { key: string; kind: KeyKind } | null {
-  const cli = openKey(secret, r, 'clients');
-  if (cli) return { key: cli, kind: 'clients' };
-  const own = openKey(secret, r, 'owner');
-  return own ? { key: own, kind: 'owner' } : null;
 }
 
 /**
@@ -74,13 +61,17 @@ export async function recordSystemUsage(
     usage: Usage;
     adminId?: string | null;
     key: UsageKey;
-    /** Etapa da esteira que gastou (triagem, desenvolvimento...). */
+    /** Etapa que gastou (da esteira: triagem, desenvolvimento...; da criação pelo site: cardápio...). */
     step?: string | null;
+    /** Criação pelo site: o restaurante (primeiros passos) ou o rascunho (antes do cadastro). */
+    tenantId?: string | null;
+    generationId?: string | null;
   },
 ) {
   await db.query(
-    `INSERT INTO platform_ai_usage (source, ref, model, prompt_tokens, completion_tokens, cost_usd, admin_id, key_kind, step)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    `INSERT INTO platform_ai_usage (source, ref, model, prompt_tokens, completion_tokens, cost_usd,
+                                    admin_id, key_kind, step, tenant_id, generation_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
     [
       p.source,
       p.ref ?? null,
@@ -91,6 +82,8 @@ export async function recordSystemUsage(
       p.adminId ?? null,
       p.key,
       p.step ?? null,
+      p.tenantId ?? null,
+      p.generationId ?? null,
     ],
   );
 }

@@ -79,6 +79,8 @@ export interface Signup {
     trialEndsAt: string;
     /** A IA já montou o site no comandou.com: os primeiros passos começam por ele. */
     aiSite?: boolean;
+    /** A pessoa mandou o cardápio (foto ou PDF) lá, com o estoque sugerido pela IA. */
+    aiMenu?: boolean;
   } | null;
 }
 

@@ -177,7 +177,9 @@ const OPEN_WITHOUT_TENANT = [
   'GET /api/v1/public/plans',
   'GET /api/v1/public/site',
   'POST /api/v1/public/site/ai',
+  'POST /api/v1/public/site/menu', // foto ou PDF do cardápio: limite por IP e tokens do site com IA
   'POST /api/v1/public/site/preview',
+  'POST /api/v1/public/site/stock', // só com o token do rascunho; uma vez por item
   'POST /api/v1/public/site/trials',
   'GET /api/v1/public/site/trials/:token',
 ];

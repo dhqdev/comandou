@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { draftPrice, nameKey, readyDrafts, toDrafts } from './menu-import';
+import { draftPrice, draftStock, nameKey, readyDrafts, toDrafts } from './menu-import';
 
 describe('importar cardápio: conferência', () => {
   it('lê o preço como a pessoa digita', () => {
@@ -63,5 +63,28 @@ describe('importar cardápio: repetidos e outras páginas', () => {
       ['suco', false, 'import'],
       ['Água', true, undefined],
     ]);
+  });
+
+  it('traz o estoque sugerido pela IA na criação pelo site (vazio = não controlar)', () => {
+    const list = toDrafts([
+      {
+        name: 'Lanches',
+        items: [
+          { name: 'X-Burger', description: null, price: '24.90', stock: { qty: 30, min: 6 } },
+          { name: 'Picanha (kg)', description: null, price: '99.90', stock: null },
+          { name: 'Suco', description: null, price: '9.00' },
+        ],
+      },
+    ]);
+    expect(list.map((d) => [d.stock, d.stockMin])).toEqual([
+      ['30', '6'],
+      ['', ''],
+      [undefined, undefined],
+    ]);
+    expect(draftStock('30')).toBe('30');
+    expect(draftStock(' 1.200 ')).toBe('1200');
+    expect(draftStock('0')).toBeNull();
+    expect(draftStock('')).toBeNull();
+    expect(draftStock(undefined)).toBeNull();
   });
 });

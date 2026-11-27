@@ -299,3 +299,25 @@
     opacity: 1;
   }
 }
+
+/* Estoque sugerido pela IA na criação pelo site: uma coluna a mais, vazia = não controlar. */
+.mi-row[data-stock] {
+  grid-template-columns: auto minmax(0, 1fr) 92px 76px;
+}
+.mi-row[data-stock][data-thumbs] {
+  grid-template-columns: auto 44px minmax(0, 1fr) 92px 76px;
+}
+.mi-row__stock input {
+  text-align: right;
+}
+@media (max-width: 520px) {
+  .mi-row[data-stock] {
+    grid-template-columns: auto minmax(0, 1fr) 92px;
+  }
+  .mi-row[data-stock][data-thumbs] {
+    grid-template-columns: auto 44px minmax(0, 1fr) 92px;
+  }
+  .mi-row__stock {
+    grid-column: -2 / -1;
+  }
+}

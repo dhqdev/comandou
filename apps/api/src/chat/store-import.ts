@@ -545,6 +545,20 @@ ${ITEM_RULES}
 - Foto de um único prato, sem texto: devolva um item com o nome mais provável do prato, uma descrição curta do que aparece, "price": null e "photo" com a caixa do prato.
 - Se não houver comida, bebida nem cardápio na imagem, devolva "categories":[] e o que der da loja.`;
 
+/**
+ * Prompt da leitura de uma foto ou PDF do cardápio no site (comandou.com), antes do cadastro:
+ * itens e dados da loja, sem as caixas das fotos (o arquivo não fica guardado para recortar).
+ */
+export const MENU_FILE_PROMPT = `Você lê cardápios de restaurantes brasileiros (foto do cardápio, print do cardápio digital ou PDF) e monta o cadastro da loja.
+
+Responda SOMENTE com JSON neste formato:
+{${STORE_FIELDS.replace('LOGO', '')},"categories":[{"name":"Nome da categoria","items":[{"name":"Nome do item","description":"descrição curta ou null","price":"24.90 ou null"}]}]}
+
+${STORE_RULES}
+
+${ITEM_RULES}
+- Se não houver comida, bebida nem cardápio na imagem, devolva "categories":[] e o que der da loja.`;
+
 /** Prompt da leitura do cardápio descrito em texto pelo dono (primeiros passos pelo site). */
 export const TEXT_PROMPT = `Você monta o cadastro de um restaurante brasileiro a partir do que o dono escreveu: os itens do cardápio (com ou sem preço) e, às vezes, dados da loja (endereço, telefone, horário).
 

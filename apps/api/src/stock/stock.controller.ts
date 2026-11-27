@@ -93,7 +93,11 @@ const Recipe = z.object({
     .max(50)
     .refine((l) => new Set(l.map((x) => x.stockItemId)).size === l.length, 'insumo repetido'),
 });
-const ProductQuantity = z.object({ quantity: qty });
+const ProductQuantity = z.object({
+  quantity: qty,
+  /** Com quanto avisar para repor (primeiros passos: o estoque sugerido pela IA). */
+  minQuantity: qty.optional(),
+});
 const CostUpdate = z.object({
   unitCost,
   note: z.string().trim().min(3).max(300).optional(),
@@ -663,7 +667,7 @@ export class StockController {
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
-    return this.stock.setProductQuantity(ctxOf(t, u, req), id, b.quantity);
+    return this.stock.setProductQuantity(ctxOf(t, u, req), id, b.quantity, b.minQuantity);
   }
 
   @Get('recipes')

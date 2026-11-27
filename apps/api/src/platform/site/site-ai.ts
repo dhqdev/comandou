@@ -1,4 +1,6 @@
-import { readImport, type ImportedCategory } from '../../chat/menu-import.service';
+import { readImport, type ImportedItem } from '../../chat/menu-import.service';
+import { mergeStores } from '../../chat/place-research';
+import type { StockGuess, StockItemIn } from '../../chat/stock-guess';
 import type { ImportedStore } from '../../chat/store-import';
 
 /**
@@ -8,14 +10,26 @@ import type { ImportedStore } from '../../chat/store-import';
 
 export type SiteAiKind = 'site' | 'maps' | 'text';
 
+/**
+ * Item do rascunho. `stock`: o estoque inicial sugerido pela IA (null = não controlar; sem o
+ * campo = ainda não sugerido).
+ */
+export type DraftItem = ImportedItem & { stock?: StockGuess | null };
+export interface DraftCategory {
+  name: string;
+  items: DraftItem[];
+}
+
 /** Rascunho do site: a loja, o cardápio e a frase de abertura. Vai junto com o teste. */
 export interface SiteDraft {
   store: ImportedStore;
-  categories: ImportedCategory[];
+  categories: DraftCategory[];
   /** Frase curta para o topo da loja ("Smash burger na brasa desde 2019"). */
   tagline: string | null;
   /** O lugar não mostrou cardápio: os itens são sugestões da IA, sem preço. */
   suggested: boolean;
+  /** Cardápio enviado no site: quantas páginas (fotos ou PDFs) já foram lidas. */
+  pages?: number;
 }
 
 export const SITE_PROMPT = `Você cria a loja online (cardápio digital) de um restaurante brasileiro a partir do que se sabe dele: a página do site, o nome e o endereço que vieram do Google Maps, ou o que o dono escreveu. As imagens da página aparecem no texto como [img N].
@@ -105,6 +119,129 @@ export function publicDraft(d: SiteDraft) {
         description: i.description,
         price: i.price,
         imageUrl: i.imageUrl ?? null,
+      })),
+    })),
+  };
+}
+
+// ------------------------------------------------------------------ cardápio enviado no site
+
+/** Páginas de um mesmo cardápio enviadas no site (foto ou PDF, uma por vez). */
+export const MENU_MAX_PAGES = 8;
+const MAX_CATEGORIES = 30;
+const MAX_MENU_ITEMS = 300;
+
+const key = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+/** Limpa a leitura de uma página do cardápio (foto ou PDF) enviada no site. */
+export function readMenuDraft(raw: string): SiteDraft {
+  const r = readImport(raw);
+  return {
+    store: { ...r.store, logoUrl: null, logoBox: null, coverUrl: null, faviconUrl: null },
+    categories: r.categories.slice(0, MAX_CATEGORIES).map((c) => ({
+      name: c.name,
+      // O arquivo não fica guardado: sem caixa de foto para recortar depois.
+      items: c.items.map(({ name, description, price }) => ({ name, description, price })),
+    })),
+    tagline: null,
+    suggested: false,
+    pages: 1,
+  };
+}
+
+/**
+ * Junta uma página nova ao cardápio já lido: categoria de mesmo nome recebe os itens, item
+ * repetido (mesmo nome) fica de fora, e os dados da loja que faltavam entram.
+ */
+export function mergeMenuDrafts(a: SiteDraft, b: SiteDraft): SiteDraft {
+  const categories = a.categories.map((c) => ({ name: c.name, items: [...c.items] }));
+  const seen = new Set(categories.flatMap((c) => c.items.map((i) => key(i.name))));
+  let total = seen.size;
+  for (const c of b.categories) {
+    let into = categories.find((x) => key(x.name) === key(c.name));
+    for (const it of c.items) {
+      if (total >= MAX_MENU_ITEMS || seen.has(key(it.name))) continue;
+      if (!into) {
+        if (categories.length >= MAX_CATEGORIES) break;
+        into = { name: c.name, items: [] };
+        categories.push(into);
+      }
+      into.items.push(it);
+      seen.add(key(it.name));
+      total++;
+    }
+  }
+  return {
+    ...a,
+    store: mergeStores(a.store, b.store),
+    categories,
+    pages: (a.pages ?? 1) + (b.pages ?? 1),
+  };
+}
+
+/** Itens que ainda não têm a sugestão de estoque (no máximo 120 por pedido à IA). */
+export function stockTargets(d: SiteDraft, max = 120): StockItemIn[] {
+  const out: StockItemIn[] = [];
+  for (const c of d.categories)
+    for (const it of c.items)
+      if (it.stock === undefined && out.length < max)
+        out.push({ name: it.name, category: c.name, price: it.price, description: it.description });
+  return out;
+}
+
+/**
+ * Põe a sugestão de estoque nos itens pelo nome (o cardápio pode ter ganhado páginas enquanto a
+ * IA pensava). O que a IA não respondeu fica sem, para pedir de novo.
+ */
+export function applyStock(
+  d: SiteDraft,
+  targets: StockItemIn[],
+  guesses: (StockGuess | null | undefined)[],
+): SiteDraft {
+  const byName = new Map<string, StockGuess | null>();
+  targets.forEach((t, i) => {
+    const g = guesses[i];
+    if (g !== undefined) byName.set(key(t.name), g);
+  });
+  return {
+    ...d,
+    categories: d.categories.map((c) => ({
+      name: c.name,
+      items: c.items.map((it) => {
+        const g = byName.get(key(it.name));
+        return it.stock === undefined && g !== undefined ? { ...it, stock: g } : it;
+      }),
+    })),
+  };
+}
+
+/** O cardápio inteiro para a janela de criar (itens, preços e o estoque sugerido). */
+export function publicMenu(d: SiteDraft) {
+  return {
+    items: draftItems(d),
+    suggested: d.suggested,
+    /** Ainda falta a sugestão de estoque de algum item. */
+    stockPending: stockTargets(d).length > 0,
+    store: {
+      name: d.store.name,
+      whatsapp: d.store.whatsapp,
+      address: d.store.address,
+      city: d.store.city,
+      hours: d.store.hours.length,
+    },
+    categories: d.categories.map((c) => ({
+      name: c.name,
+      items: c.items.map((i) => ({
+        name: i.name,
+        description: i.description,
+        price: i.price,
+        stock: i.stock,
       })),
     })),
   };

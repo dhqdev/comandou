@@ -15,11 +15,20 @@ import { one, q } from '../common/sql';
 import { open } from '../common/secret-box';
 import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
+import type { KeyKind } from '../platform/ai-keys';
+import { PlatformDb } from '../platform/platform-db.service';
+import {
+  creationKey,
+  firstStepsLeft,
+  recordCreation,
+  type FirstStep,
+} from '../platform/site/creation-ai';
 import { AI_KEY_CONTEXT } from './ai.service';
-import { availableTokens, loadAiQuota, recordAiUsage } from './ai-quota';
+import { availableTokens, loadAiQuota, recordAiUsage, type AiConfig } from './ai-quota';
 import { chatFallbacks } from './ai-models';
-import { ContentPart, OpenRouterClient, OpenRouterError } from './openrouter';
+import { ContentPart, OpenRouterClient, OpenRouterError, type Usage } from './openrouter';
 import { parseMenuText } from './menu-text';
+import type { StockGuess } from './stock-guess';
 import {
   mergeStores,
   PLACE_PROMPT,
@@ -53,6 +62,8 @@ export interface ImportedItem {
   imageUrl?: string | null;
   /** Foto do item dentro da foto do cardápio (0–1000: topo, esquerda, baixo, direita). */
   photoBox?: Box | null;
+  /** Estoque inicial sugerido pela IA na criação pelo site (null = não controlar). */
+  stock?: StockGuess | null;
 }
 export interface ImportedCategory {
   name: string;
@@ -183,11 +194,19 @@ export function readImport(
   return { categories: out, partial: parsed.partial || total >= MAX_ITEMS, store };
 }
 
+/** Quem paga a chamada nos primeiros passos de um restaurante criado pelo site. */
+interface Paid {
+  step: FirstStep;
+  key: KeyKind;
+}
+
 /**
  * Importar o cardápio com IA: a pessoa manda a foto do cardápio, a foto de um prato ou um PDF e
  * o modelo devolve categorias, itens, descrições e preços para ela conferir antes de salvar.
  * Usa a chave do OpenRouter do painel Super Admin e desconta do limite de tokens do restaurante
- * (fonte "menu_import" no extrato de uso).
+ * (fonte "menu_import" no extrato de uso). Restaurante criado pelo site (comandou.com), nos
+ * primeiros dias: a leitura do cardápio, a busca no Maps e as fotos saem da chave do sistema e
+ * não descontam do limite dele (Super Admin › Restaurante › Criação mostra o gasto por etapa).
  */
 @Injectable()
 export class MenuImportService {
@@ -196,10 +215,35 @@ export class MenuImportService {
   constructor(
     @Inject(ENV) private readonly env: Env,
     private readonly db: DatabaseService,
+    private readonly platform: PlatformDb,
   ) {}
 
-  /** A tela pergunta antes de oferecer a importação: está ligada e ainda há tokens? */
+  /**
+   * Primeiros passos de um restaurante criado pelo site, dentro dos dias e do limite de Super
+   * Admin › Site › Site com IA: a chave do sistema paga. null = segue o limite do restaurante.
+   */
+  private async creation(ctx: Ctx): Promise<{ key: string; kind: KeyKind } | null> {
+    try {
+      if (!(await firstStepsLeft(this.platform, ctx.tenantId))) return null;
+      return await creationKey(this.env, this.platform);
+    } catch (e) {
+      this.logger.warn(`criação pelo site sem a chave do sistema: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
+   * A tela pergunta antes de oferecer a importação: está ligada e ainda há tokens? Nos
+   * primeiros passos de um restaurante do site, liga pela chave do sistema (`creation`).
+   */
   async status(ctx: Ctx) {
+    const own = await this.ownStatus(ctx);
+    if (!(await this.creation(ctx))) return { ...own, creation: false };
+    return { ...own, enabled: true, reason: null, creation: true };
+  }
+
+  /** Ligada pelo restaurante: chave dos restaurantes, interruptor e limite dele. */
+  private async ownStatus(ctx: Ctx) {
     const qt = await this.db.withCentral(ctx, (tx) => loadAiQuota(tx));
     const c = qt.config;
     const reason =
@@ -223,10 +267,20 @@ export class MenuImportService {
     };
   }
 
-  /** Chave e limites da IA conferidos; o cliente pronto para chamar o OpenRouter. */
-  private async ready(ctx: Ctx) {
+  /**
+   * Chave e limites da IA conferidos; o cliente pronto para chamar o OpenRouter. Com `step`
+   * (leitura dos primeiros passos), restaurante criado pelo site usa a chave do sistema (`paid`).
+   */
+  private async ready(ctx: Ctx, step?: FirstStep) {
     const qt = await this.db.withCentral(ctx, (tx) => loadAiQuota(tx));
     const c = qt.config;
+    if (step) {
+      const sys = await this.creation(ctx);
+      if (sys) {
+        const paid: Paid = { step, key: sys.kind };
+        return { c, qt, paid, client: new OpenRouterClient(this.env.OPENROUTER_BASE_URL, sys.key) };
+      }
+    }
     if (!c.enabled || !c.api_key_enc || !this.env.INTEGRATIONS_KEY)
       throw new ServiceUnavailableException(
         'A importação com IA ainda não foi ligada pelo Comandou',
@@ -248,7 +302,34 @@ export class MenuImportService {
     } catch {
       throw new ServiceUnavailableException('A chave da IA precisa ser salva de novo no painel');
     }
-    return { c, client: new OpenRouterClient(this.env.OPENROUTER_BASE_URL, apiKey) };
+    const paid: Paid | null = null;
+    return { c, qt, paid, client: new OpenRouterClient(this.env.OPENROUTER_BASE_URL, apiKey) };
+  }
+
+  /**
+   * Grava o uso: no extrato do sistema (criação pelo site, sem tocar no limite do restaurante)
+   * ou no do restaurante. Devolve o uso do mês do restaurante.
+   */
+  private async charge(
+    ctx: Ctx,
+    r: { c: AiConfig; qt: { used: number }; paid: Paid | null },
+    model: string,
+    usage: Usage,
+    { source }: { source: string },
+  ) {
+    if (r.paid) {
+      await recordCreation(this.platform, {
+        step: r.paid.step,
+        model,
+        usage,
+        key: r.paid.key,
+        tenantId: ctx.tenantId,
+      }).catch((e: Error) => this.logger.warn(`uso da criação não gravado: ${e.message}`));
+      return { usedMonth: r.qt.used, bonusLeft: r.c.bonus_tokens };
+    }
+    return this.db.withCentral(ctx, (tx) =>
+      recordAiUsage(tx, { userId: ctx.userId, model, usage, source }),
+    );
   }
 
   /** Uma pergunta à IA que devolve JSON (com ou sem pesquisa na internet); desconta do limite. */
@@ -256,9 +337,10 @@ export class MenuImportService {
     ctx: Ctx,
     prompt: string,
     content: ContentPart[],
-    opts: { web?: number; source?: string } = {},
+    opts: { web?: number; source?: string; step?: FirstStep } = {},
   ) {
-    const { c, client } = await this.ready(ctx);
+    const r = await this.ready(ctx, opts.step);
+    const { c, client } = r;
     // Modelo de ler o cardápio (Super Admin › Tokens de IA), que lê PDF e foto.
     const model = c.import_model;
     let result: Awaited<ReturnType<OpenRouterClient['complete']>>;
@@ -284,20 +366,21 @@ export class MenuImportService {
           : 'Não deu para falar com a IA. Tente de novo em instantes.',
       );
     }
-    const used = await this.db.withCentral(ctx, (tx) =>
-      recordAiUsage(tx, {
-        userId: ctx.userId,
-        model: result.model,
-        usage: result.usage,
-        source: opts.source ?? 'menu_import',
-      }),
-    );
+    const used = await this.charge(ctx, r, result.model, result.usage, {
+      source: opts.source ?? 'menu_import',
+    });
     return { c, result, used };
   }
 
   /** Uma leitura (texto, foto ou PDF) que devolve JSON; desconta do limite do restaurante. */
-  private async read(ctx: Ctx, prompt: string, content: ContentPart[], images: string[] = []) {
-    const { c, result, used } = await this.ask(ctx, prompt, content);
+  private async read(
+    ctx: Ctx,
+    prompt: string,
+    content: ContentPart[],
+    images: string[] = [],
+    step?: FirstStep,
+  ) {
+    const { c, result, used } = await this.ask(ctx, prompt, content, { step });
     const { categories, partial, store } = readImport(result.text, images);
     return {
       categories,
@@ -319,7 +402,7 @@ export class MenuImportService {
    * Foto ou PDF do cardápio. Com `store` (primeiros passos), lê também os dados da loja, as
    * cores e onde estão o logo e a foto de cada item na imagem.
    */
-  async analyze(ctx: Ctx, file: Buffer, mime: string, store = false) {
+  async analyze(ctx: Ctx, file: Buffer, mime: string, store = false, step: FirstStep = 'arquivo') {
     if (file.length === 0 || file.length > IMPORT_MAX_BYTES)
       throw new UnprocessableEntityException('Arquivo vazio ou maior que 3 MB');
     const isPdf = mime === 'application/pdf';
@@ -329,10 +412,13 @@ export class MenuImportService {
     const attachment: ContentPart = isPdf
       ? { type: 'file', file: { filename: 'cardapio.pdf', file_data: data } }
       : { type: 'image_url', image_url: { url: data } };
-    const r = await this.read(ctx, store ? PHOTO_STORE_PROMPT : PROMPT, [
-      { type: 'text', text: 'Leia este cardápio e devolva o JSON.' },
-      attachment,
-    ]);
+    const r = await this.read(
+      ctx,
+      store ? PHOTO_STORE_PROMPT : PROMPT,
+      [{ type: 'text', text: 'Leia este cardápio e devolva o JSON.' }, attachment],
+      [],
+      step,
+    );
     if (!store) {
       // A importação do cardápio (Cardápio › Itens) segue com o formato de antes.
       const { store: _s, ...rest } = r;
@@ -358,7 +444,13 @@ export class MenuImportService {
     if (!(await this.status(ctx)).enabled) return local();
     let r;
     try {
-      r = await this.read(ctx, TEXT_PROMPT, [{ type: 'text', text: text.slice(0, 12_000) }]);
+      r = await this.read(
+        ctx,
+        TEXT_PROMPT,
+        [{ type: 'text', text: text.slice(0, 12_000) }],
+        [],
+        'texto',
+      );
     } catch (e) {
       if (e instanceof ServiceUnavailableException) return local();
       throw e;
@@ -370,7 +462,7 @@ export class MenuImportService {
    * Link do cardápio (site, cardápio digital, página do iFood): busca a página, separa texto,
    * imagens, cores e dados estruturados e pede para a IA montar a loja e os itens.
    */
-  async fromLink(ctx: Ctx, url: string) {
+  async fromLink(ctx: Ctx, url: string, step: FirstStep = 'link') {
     if (isMapsLink(url)) return this.fromPlace(ctx, { url });
     let page;
     try {
@@ -387,11 +479,17 @@ export class MenuImportService {
           : 'O site não deixou ler a página. Mande prints ou fotos do cardápio.',
       );
     if (page.contentType === 'application/pdf')
-      return this.analyze(ctx, page.body.subarray(0, IMPORT_MAX_BYTES), 'application/pdf', true);
+      return this.analyze(
+        ctx,
+        page.body.subarray(0, IMPORT_MAX_BYTES),
+        'application/pdf',
+        true,
+        step,
+      );
     if (page.contentType.startsWith('image/')) {
       const mime = sniff(page.body);
       if (!mime) throw new UnprocessableEntityException('Esse link não é de uma página nem foto');
-      return this.analyze(ctx, page.body, mime, true);
+      return this.analyze(ctx, page.body, mime, true, step);
     }
     const info = extractPage(page.body.toString('utf8'), page.url);
     if (info.text.length < 40 && !info.dataJson && !info.jsonLd)
@@ -403,6 +501,7 @@ export class MenuImportService {
       LINK_PROMPT,
       [{ type: 'text', text: pageForModel(info) }],
       info.images,
+      step,
     );
     // Sem logo apontado pela IA: o maior ícone do site (apple-touch-icon) serve.
     const store: ImportedStore = {
@@ -488,7 +587,7 @@ export class MenuImportService {
         ctx,
         PLACE_PROMPT,
         [{ type: 'text', text: placeQuestion(hint) }],
-        { web: 6, source: 'menu_place' },
+        { web: 6, source: 'menu_place', step: 'maps' },
       );
       place = readPlace(result.text, result.citations);
     } catch (e) {
@@ -506,7 +605,7 @@ export class MenuImportService {
     // O cardápio: o primeiro link que abrir com itens (cardápio digital, iFood, site).
     for (const link of place.menuLinks.slice(0, 3)) {
       try {
-        const r = await this.fromLink(ctx, link);
+        const r = await this.fromLink(ctx, link, 'maps');
         const found = 'store' in r ? r.store : null;
         if (!r.items && !found?.logoUrl) continue;
         if (found) store = mergeStores(store, found);
@@ -560,7 +659,8 @@ export class MenuImportService {
     ctx: Ctx,
     p: { name: string; description?: string | null; category?: string | null },
   ): Promise<{ mime: string; body: Buffer }> {
-    const { c, client } = await this.ready(ctx);
+    const ready = await this.ready(ctx, 'fotos');
+    const { c, client } = ready;
     const prompt = photoPrompt(p.name, p.description ?? null, p.category ?? null);
     // O mesmo modelo de imagem das fotos do item (Super Admin › Tokens de IA), pela API de
     // imagens; se ele não criar por lá, a reserva do servidor (AI_IMAGE_MODEL), pelo chat.
@@ -579,9 +679,7 @@ export class MenuImportService {
       this.logger.warn(`foto do item falhou: ${(e as Error).message}`);
       throw new ServiceUnavailableException('A IA não conseguiu criar a foto agora');
     }
-    await this.db.withCentral(ctx, (tx) =>
-      recordAiUsage(tx, { userId: ctx.userId, model, usage: r.usage, source: 'menu_photo' }),
-    );
+    await this.charge(ctx, ready, model, r.usage, { source: 'menu_photo' });
     const mime = sniff(r.bytes);
     if (!mime) throw new ServiceUnavailableException('A IA devolveu uma foto que não deu para ler');
     return { mime, body: r.bytes };
@@ -628,7 +726,7 @@ export class MenuImportService {
     const base = defaultSiteCopy(facts);
     let copy = base;
     let withAi = false;
-    if ((await this.status(ctx)).enabled) {
+    if ((await this.ownStatus(ctx)).enabled) {
       try {
         const { c, client } = await this.ready(ctx);
         // Só texto: vai pelo modelo da conversa (o mais barato), com a reserva dele.
@@ -672,35 +770,43 @@ export class MenuImportService {
   }
 
   /**
-   * O site que a IA montou no comandou.com antes do cadastro (loja e cardápio), no mesmo formato
-   * da leitura de um link. Já foi pago na geração: não desconta do limite do restaurante.
+   * O que a IA montou no comandou.com antes do cadastro, no mesmo formato da leitura de um link:
+   * a loja do site e o cardápio (o enviado em foto ou PDF vale mais que o do site), com o estoque
+   * sugerido de cada item. Já foi pago na criação: não desconta do limite do restaurante.
    */
   async siteDraft(ctx: Ctx) {
-    const r = await this.db.withCentral(ctx, (tx) =>
-      one<{ draft: Record<string, unknown> | null }>(
-        tx,
-        `SELECT draft FROM app_tenant_trial_site()`,
-      ),
-    );
-    const d = r?.draft as
-      | { store?: ImportedStore; categories?: ImportedCategory[]; suggested?: boolean }
-      | null
-      | undefined;
-    if (!d) return { found: false, store: EMPTY_STORE, categories: [], partial: false, items: 0 };
-    const categories = (d.categories ?? []).map((c) => ({
+    type Draft = {
+      store?: ImportedStore;
+      categories?: ImportedCategory[];
+      suggested?: boolean;
+    } | null;
+    const [site, menu] = await this.db.withCentral(ctx, async (tx) => [
+      (await one<{ draft: Draft }>(tx, `SELECT draft FROM app_tenant_trial_site()`))?.draft ?? null,
+      (await one<{ draft: Draft }>(tx, `SELECT draft FROM app_tenant_trial_menu()`))?.draft ?? null,
+    ]);
+    if (!site && !menu)
+      return { found: false, store: EMPTY_STORE, categories: [], partial: false, items: 0 };
+    const cats = menu?.categories?.length ? menu.categories : (site?.categories ?? []);
+    const categories = cats.map((c) => ({
       name: c.name,
       items: c.items.map((i) => ({
         name: i.name,
         description: i.description ?? null,
         price: i.price ?? null,
         imageUrl: i.imageUrl ?? null,
+        ...(i.stock !== undefined ? { stock: i.stock } : {}),
       })),
     }));
+    // A loja do site (nome, cores, logo); o cardápio enviado completa contato, endereço e horário.
+    const store = mergeStores(
+      { ...EMPTY_STORE, ...(site?.store ?? {}) },
+      { ...EMPTY_STORE, ...(menu?.store ?? {}) },
+    );
     return {
       found: true,
-      store: { ...EMPTY_STORE, ...(d.store ?? {}) },
+      store,
       categories,
-      suggested: !!d.suggested,
+      suggested: menu?.categories?.length ? false : !!site?.suggested,
       partial: false,
       items: categories.reduce((n, c) => n + c.items.length, 0),
     };
@@ -730,13 +836,17 @@ export class MenuImportService {
         `SELECT * FROM app_tenant_trial()`,
       ),
     );
-    // Site montado pela IA no comandou.com: os primeiros passos começam por ele.
-    const site = trial
-      ? await this.db.withCentral(ctx, (tx) =>
-          one<{ draft: unknown }>(tx, `SELECT draft FROM app_tenant_trial_site()`),
-        )
+    // Site montado e cardápio enviado no comandou.com: os primeiros passos começam por eles.
+    const drafts = trial
+      ? await this.db.withCentral(ctx, async (tx) => ({
+          site: !!(await one<{ draft: unknown }>(tx, `SELECT draft FROM app_tenant_trial_site()`))
+            ?.draft,
+          menu: !!(await one<{ draft: unknown }>(tx, `SELECT draft FROM app_tenant_trial_menu()`))
+            ?.draft,
+        }))
       : null;
-    if (trial) Object.assign(trial, { aiSite: !!site?.draft });
+    if (trial && drafts)
+      Object.assign(trial, { aiSite: drafts.site || drafts.menu, aiMenu: drafts.menu });
     if (row) return { ...row, trial: trial ?? null };
     return (
       row ?? {

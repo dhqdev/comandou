@@ -89,8 +89,7 @@ const Answer = z.object({
 });
 
 export type ReadAnswer =
-  | { ok: true; resposta: string; acoes: TemplateAction[] }
-  | { ok: false; error: string };
+  { ok: true; resposta: string; acoes: TemplateAction[] } | { ok: false; error: string };
 
 /** Lê o JSON da IA (tolera cerca de código em volta) e as ações dentro dele. */
 export function readAnswer(raw: string): ReadAnswer {

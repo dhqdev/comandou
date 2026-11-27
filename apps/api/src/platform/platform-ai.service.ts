@@ -121,6 +121,7 @@ const SOURCE_LABEL: Record<string, string> = {
   agent_test: 'Teste do assistente do WhatsApp',
   site_page: 'Página do restaurante',
   site_ia: 'Sites com IA (comandou.com)',
+  criacao: 'Criação pelo site (cardápio, estoque e primeiros passos)',
   photo_tune: 'Melhorar a foto do item',
   photo_clean: 'Foto do item com fundo limpo',
   photo_create: 'Foto do item criada pela IA',
@@ -132,7 +133,8 @@ const SOURCE_LABEL: Record<string, string> = {
 const MODEL_ROLES = {
   chat: {
     label: 'Conversa',
-    detail: 'Chat da equipe, IA do WhatsApp, modelo de impressão e texto da página do restaurante',
+    detail:
+      'Chat da equipe, IA do WhatsApp, modelo de impressão, texto da página do restaurante e estoque sugerido na criação pelo site',
   },
   chat_fallback: {
     label: 'Reserva da conversa',
@@ -145,10 +147,14 @@ const MODEL_ROLES = {
   },
   import: {
     label: 'Ler o cardápio',
-    detail: 'Importar o cardápio (PDF, foto, link, texto) e achar o restaurante no Google',
+    detail:
+      'Importar o cardápio (PDF, foto, link, texto), achar o restaurante no Google e ler o cardápio enviado no site',
   },
   pipeline: { label: 'Esteira de chamados', detail: 'Agentes da triagem, do código e do PR' },
-  sites: { label: 'Sites com IA', detail: 'Sites criados pelo comandou.com' },
+  sites: {
+    label: 'Sites com IA',
+    detail: 'Sites criados pelo comandou.com (pela chave do sistema)',
+  },
 } as const;
 type ModelRole = keyof typeof MODEL_ROLES;
 

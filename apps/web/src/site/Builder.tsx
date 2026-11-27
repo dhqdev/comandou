@@ -1,8 +1,10 @@
 import { ArrowRight, Check, Globe, MapPin, PencilLine, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { Button, Spinner, type PandaMood } from '../design-system';
+import { shrinkImage } from '../lib/media';
 import { CreateFlow, type Created, type CreateState, type TrialForm } from './CreateFlow';
 import type { SiteConfig } from './host';
+import type { SiteMenu } from './MenuField';
 import { calmMotion } from './motion';
 import type { Look } from './PhoneMock';
 import { looksLikeUrl, parseItems, SAMPLE_ITEMS, SAMPLE_STORE } from './site-data';
@@ -51,6 +53,12 @@ type AiState =
   | { at: 'building' }
   | { at: 'done'; claim: string; site: AiSite; value: string }
   | { at: 'failed'; message: string | null };
+
+/** Cardápio enviado na janela de criar (foto ou PDF), lido pela IA página a página. */
+type MenuState =
+  | { at: 'idle' }
+  | { at: 'reading'; file: string; prev: { claim: string; menu: SiteMenu; pages: number } | null }
+  | { at: 'done'; claim: string; menu: SiteMenu; pages: number };
 
 const brl = (p: string | null) => (p ? p.replace('.', ',') : undefined);
 
@@ -139,6 +147,38 @@ function useTypedPlaceholder(
 }
 
 const STORE_KEY = 'cm:trial';
+/** Esta visita ao site: junta os "Refazer" e o cardápio enviado ao restaurante criado no fim. */
+const SESSION_KEY = 'cm:site-session';
+const ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+function siteSession(): string {
+  const fresh = () =>
+    Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => ID_CHARS[b & 63]).join('');
+  try {
+    const saved = sessionStorage.getItem(SESSION_KEY);
+    if (saved && /^[A-Za-z0-9_-]{16,64}$/.test(saved)) return saved;
+    const id = fresh();
+    sessionStorage.setItem(SESSION_KEY, id);
+    return id;
+  } catch {
+    return fresh();
+  }
+}
+
+/** Cardápio tem letra miúda: a foto vai com até 2400 px e no máximo 3 MB (o limite da API). */
+const MENU_MAX = 3 * 1024 * 1024;
+async function menuBody(file: File): Promise<{ body: Blob; type: string }> {
+  const pdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  if (pdf) {
+    if (file.size > MENU_MAX)
+      throw new Error('O PDF tem mais de 3 MB. Mande as páginas como fotos ou um PDF menor.');
+    return { body: file, type: 'application/pdf' };
+  }
+  let img = await shrinkImage(file, 2400);
+  if (img.blob.size > MENU_MAX) img = await shrinkImage(file);
+  return { body: img.blob, type: img.blob.type };
+}
+
 const HEADERS = {
   'Content-Type': 'application/json',
   Accept: 'application/json',
@@ -146,18 +186,25 @@ const HEADERS = {
 };
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const r = await fetch(`/api/v1/public/site/${path}`, {
-    method: 'POST',
-    headers: HEADERS,
-    body: JSON.stringify(body),
-  });
+  return answer<T>(
+    await fetch(`/api/v1/public/site/${path}`, {
+      method: 'POST',
+      headers: HEADERS,
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+async function answer<T>(r: Response): Promise<T> {
   const data = (await r.json().catch(() => ({}))) as { message?: string | string[] };
   if (!r.ok) {
     const m = Array.isArray(data.message) ? data.message[0] : data.message;
     throw new Error(
       r.status === 429
         ? 'Muitas tentativas agora. Espere um pouco e tente de novo.'
-        : (m ?? 'Não deu certo agora. Tente de novo.'),
+        : r.status === 413
+          ? 'Arquivo grande demais. Mande uma foto ou um PDF menor.'
+          : (m ?? 'Não deu certo agora. Tente de novo.'),
     );
   }
   return data as T;
@@ -189,6 +236,13 @@ export function Builder({
   const [tick, setTick] = useState(0);
   const [reachable, setReachable] = useState(false);
   const [ai, setAi] = useState<AiState>({ at: 'idle' });
+  const [session] = useState(siteSession);
+  const [menu, setMenu] = useState<MenuState>({ at: 'idle' });
+  const [menuError, setMenuError] = useState<string | null>(null);
+  /** Estoque sugerido para os itens do site montado pela IA (sem cardápio enviado). */
+  const [siteMenu, setSiteMenu] = useState<{ claim: string; menu: SiteMenu } | null>(null);
+  const [stocking, setStocking] = useState(0);
+  const stockAsked = useRef(new Set<string>());
   const named = useRef(false);
   const field = useRef<HTMLInputElement>(null);
 
@@ -250,7 +304,16 @@ export function Builder({
   // O celular acompanha: a loja de exemplo até a pessoa mexer; depois o nome, a cor e a capa do
   // site dela, os itens que ela está digitando ou o site inteiro que a IA montou.
   useEffect(() => {
-    const typed = typedItems.length > 0;
+    const sent = menu.at === 'done' ? menu.menu : menu.at === 'reading' ? menu.prev?.menu : null;
+    const menuItems =
+      sent?.categories.flatMap((c) =>
+        c.items.map((i) => ({
+          name: i.name,
+          desc: i.description ?? undefined,
+          price: brl(i.price),
+        })),
+      ) ?? [];
+    const typed = typedItems.length > 0 || menuItems.length > 0;
     const touched = typed || !!preview || !!form.restaurant.trim() || ai.at !== 'idle';
     if (!touched) {
       onLook(FIRST_LOOK);
@@ -261,7 +324,7 @@ export function Builder({
       color: preview?.color ?? null,
       icon: preview?.icon ?? null,
       cover: preview?.image ?? null,
-      items: typed ? typedItems : SAMPLE_ITEMS,
+      items: menuItems.length ? menuItems : typed ? typedItems : SAMPLE_ITEMS,
       typed,
       building: ai.at === 'building',
     };
@@ -281,8 +344,8 @@ export function Builder({
         color: s.brandColor ?? base.color,
         icon: s.logoUrl ?? base.icon,
         cover: s.coverUrl ?? base.cover,
-        items: items.length ? items : base.items,
-        typed: items.length > 0 && !items.some((i) => i.photo),
+        items: menuItems.length ? menuItems : items.length ? items : base.items,
+        typed: menuItems.length > 0 || (items.length > 0 && !items.some((i) => i.photo)),
         tagline: s.tagline,
         chips: s.categories.map((c) => c.name).slice(0, 4),
         ai: true,
@@ -291,7 +354,7 @@ export function Builder({
     }
     onLook(base);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview, typedItems, form.restaurant, ai]);
+  }, [preview, typedItems, form.restaurant, ai, menu]);
 
   useEffect(() => {
     if (preview?.name && !named.current) setForm((f) => ({ ...f, restaurant: preview.name! }));
@@ -319,7 +382,7 @@ export function Builder({
     onMood('thinking');
     showPhone();
     try {
-      const r = await post<{ claim: string; site: AiSite }>('ai', src);
+      const r = await post<{ claim: string; site: AiSite }>('ai', { ...src, session });
       setAi({ at: 'done', claim: r.claim, site: r.site, value: src.value });
       if (r.site.name && !named.current) setForm((f) => ({ ...f, restaurant: r.site.name! }));
       onMood('joy');
@@ -341,6 +404,68 @@ export function Builder({
       el.scrollIntoView({ block: 'center', behavior: calmMotion() ? 'auto' : 'smooth' });
   };
 
+  /**
+   * Estoque sugerido pela IA para os itens que ainda não têm (uma vez por item; outra sugestão
+   * do mesmo rascunho em andamento devolve `busy` e tenta de novo daqui a pouco).
+   */
+  const suggestStock = async (claim: string, target: 'menu' | 'site', tries = 0) => {
+    setStocking((n) => n + 1);
+    try {
+      const r = await post<{ busy: boolean; menu: SiteMenu }>('stock', { claim });
+      // Resposta de uma sugestão anterior não volta com menos itens do que já está na tela.
+      if (target === 'menu')
+        setMenu((cur) =>
+          cur.at === 'done' && cur.claim === claim && r.menu.items >= cur.menu.items
+            ? { ...cur, menu: r.menu }
+            : cur,
+        );
+      else setSiteMenu({ claim, menu: r.menu });
+      if (r.busy && tries < 8)
+        window.setTimeout(() => void suggestStock(claim, target, tries + 1), 2500);
+    } catch {
+      /* sem a sugestão agora: os itens entram e o estoque fica para os primeiros passos */
+    } finally {
+      setStocking((n) => n - 1);
+    }
+  };
+
+  const readMenu = async (file: File) => {
+    const prev =
+      menu.at === 'done' ? { claim: menu.claim, menu: menu.menu, pages: menu.pages } : null;
+    setMenuError(null);
+    setMenu({ at: 'reading', file: file.name, prev });
+    try {
+      const { body, type } = await menuBody(file);
+      const q = new URLSearchParams({ sessao: session });
+      if (prev) q.set('rascunho', prev.claim);
+      const r = await answer<{ claim: string; menu: SiteMenu }>(
+        await fetch(`/api/v1/public/site/menu?${q}`, {
+          method: 'POST',
+          headers: { 'Content-Type': type, Accept: 'application/json', 'X-Comandou-Request': '1' },
+          body,
+        }),
+      );
+      setMenu({ at: 'done', claim: r.claim, menu: r.menu, pages: (prev?.pages ?? 0) + 1 });
+      if (r.menu.stockPending) void suggestStock(r.claim, 'menu');
+    } catch (e) {
+      setMenu(prev ? { at: 'done', ...prev } : { at: 'idle' });
+      setMenuError(
+        e instanceof TypeError
+          ? 'Sem conexão agora. Confira a internet e mande de novo.'
+          : (e as Error).message,
+      );
+    }
+  };
+
+  // Abriu a janela com o site montado pela IA e sem cardápio enviado: sugere o estoque dos itens.
+  useEffect(() => {
+    if (!open || ai.at !== 'done' || menu.at !== 'idle' || !ai.site.items) return;
+    if (stockAsked.current.has(ai.claim)) return;
+    stockAsked.current.add(ai.claim);
+    void suggestStock(ai.claim, 'site');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, ai, menu.at]);
+
   const source = () => {
     const v = value.trim();
     if (mode === 'text')
@@ -350,6 +475,7 @@ export function Builder({
   };
 
   const submit = async () => {
+    if (menu.at === 'reading') return;
     setBusy(true);
     setError(null);
     onMood('thinking');
@@ -361,6 +487,8 @@ export function Builder({
         phone: form.phone || null,
         source: source(),
         ...(ai.at === 'done' ? { aiSite: ai.claim } : {}),
+        ...(menu.at === 'done' ? { aiMenu: menu.claim } : {}),
+        session,
         company: form.company,
       });
       setState('creating');
@@ -638,6 +766,35 @@ export function Builder({
         onRetry={retry}
         look={brand}
         trialDays={config?.trialDays ?? 0}
+        menu={
+          config?.ai
+            ? {
+                reading: menu.at === 'reading' ? menu.file : null,
+                menu:
+                  menu.at === 'done'
+                    ? menu.menu
+                    : menu.at === 'reading'
+                      ? (menu.prev?.menu ?? null)
+                      : ai.at === 'done' && siteMenu?.claim === ai.claim
+                        ? siteMenu.menu
+                        : null,
+                fromSite: menu.at === 'idle' && ai.at === 'done',
+                pages:
+                  menu.at === 'done'
+                    ? menu.pages
+                    : menu.at === 'reading'
+                      ? (menu.prev?.pages ?? 0)
+                      : 0,
+                stocking: stocking > 0,
+                error: menuError,
+                onFile: (f) => void readMenu(f),
+                onClear: () => {
+                  setMenu({ at: 'idle' });
+                  setMenuError(null);
+                },
+              }
+            : null
+        }
       />
     </>
   );
