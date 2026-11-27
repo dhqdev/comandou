@@ -441,6 +441,22 @@ function FilterSheet({
 }
 
 /**
+ * Selo "Loja aberta" / "Loja fechada" no canto de cima, à direita (celular e notebook, pedido do
+ * David, 0.270). `isOpen` já vem do servidor com o horário de funcionamento e a pausa da loja.
+ * Aberta: pontinho verde com uma onda que se espalha devagar; fechada: pontinho cinza parado.
+ */
+function OpenBadge({ open }: { open: boolean }) {
+  return (
+    <span className="hm-open" data-open={open || undefined} role="status">
+      <i className="hm-open__dot" aria-hidden />
+      <span key={open ? 'a' : 'f'} className="hm-open__label">
+        {open ? 'Loja aberta' : 'Loja fechada'}
+      </span>
+    </span>
+  );
+}
+
+/**
  * Topo do app (todas as telas): a saudação com o nível e os pontos, o sino dos avisos da loja, a
  * loja (logo, nome e endereço, que abrem as informações) e a faixa do horário: "Aberta até 23h" ou
  * "Fechada. Abre hoje às 10h30". A entrega e a retirada ficam na sacola, não no início.
@@ -462,10 +478,9 @@ function AppTop({ onInfo }: { onInfo(): void }) {
   const level = acc && l?.levels?.length ? levelOf(l.levels, acc.earned ?? 0).current : null;
   const status =
     table && !s.isOpen ? 'Pedidos pelo celular pausados' : scheduleText(s.isOpen, s.schedule);
-  // Celular: o topo fica só com o "Olá, nome" (pedido do David, 0.265.2: saiu o selo
-  // "Aberta · 35–50 min"). Loja fechada continua avisando, na linha de baixo do cartão da loja.
-  const phone = useLayout() === 'phone';
-  const closedHere = phone && !s.isOpen && !table;
+  // O "aberta/fechada" é o selo do canto (0.270, celular e notebook; no notebook saiu a faixa
+  // "Aberta agora · 30–40 min"). Fechada, o horário de abrir vai na linha de baixo do cartão.
+  const closedHere = !s.isOpen && !table;
   return (
     <section className="hm-top" aria-label="Sua conta e a loja">
       <div className="hm-hello">
@@ -508,6 +523,7 @@ function AppTop({ onInfo }: { onInfo(): void }) {
           )}
         </div>
         <div className="hm-hello__tools">
+          <OpenBadge open={s.isOpen} />
           {!table && live.length > 0 && (
             <Link
               className="hm-iconbtn"
@@ -542,7 +558,7 @@ function AppTop({ onInfo }: { onInfo(): void }) {
             ) : table ? (
               <>
                 <HandPlatter size={13} aria-hidden /> Mesa {table.label}
-                {phone && !s.isOpen && ' · chame o garçom'}
+                {!s.isOpen && ' · chame o garçom'}
               </>
             ) : (
               <span className="hm-store__addr">{r.address || 'Horários, entrega e retirada'}</span>
@@ -551,21 +567,6 @@ function AppTop({ onInfo }: { onInfo(): void }) {
         </span>
         <ChevronRight size={18} aria-hidden className="hm-store__more" />
       </button>
-      {!phone && (
-        <p className="hm-status" data-open={s.isOpen || undefined} role="status">
-          {s.isOpen ? <i className="hm-status__dot" aria-hidden /> : <Moon size={15} aria-hidden />}
-          <span>
-            {status}
-            {s.isOpen && (
-              <span className="hm-status__eta">
-                {' '}
-                · <Clock size={13} aria-hidden /> {s.etaMin}–{s.etaMax} min
-              </span>
-            )}
-            {!s.isOpen && table && <span className="hm-status__eta"> · Chame o garçom</span>}
-          </span>
-        </p>
-      )}
     </section>
   );
 }

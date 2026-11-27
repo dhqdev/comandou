@@ -213,48 +213,75 @@
   color: var(--cm-text-subtle);
 }
 
-/* Faixa do horário: verde suave aberta, âmbar fechada. */
-.hm-status {
-  display: flex;
+/* Selo "Loja aberta" / "Loja fechada" do canto de cima (0.270): aberta com o pontinho verde e
+   uma onda que se espalha devagar; fechada em cinza, parado. Troca de estado entra subindo. */
+.hm-open {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  margin: 0;
-  padding: 8px 14px;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-full);
-  background: var(--cm-warning-bg);
-  color: var(--cm-warning);
-  font-size: var(--cm-text-sm);
-  font-weight: 700;
-  line-height: 1.3;
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    color 240ms ease,
+    background-color 240ms ease,
+    border-color 240ms ease;
 }
-.hm-status[data-open] {
+.hm-open[data-open] {
+  border-color: color-mix(in srgb, var(--cm-success) 28%, transparent);
   background: var(--cm-success-bg);
   color: var(--cm-success);
 }
-.hm-status > svg {
-  flex: none;
-}
-.hm-status__dot {
+.hm-open__dot {
   flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: currentColor;
-  animation: sf-ping 2.4s ease-out infinite;
+  background: var(--cm-text-subtle);
+  transition: background-color 240ms ease;
 }
-.hm-status__eta {
-  color: var(--cm-text-muted);
-  font-weight: 600;
-  white-space: nowrap;
+.hm-open[data-open] .hm-open__dot {
+  background: var(--cm-success);
+  animation: hm-open-wave 2.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
-.hm-status__eta svg {
-  vertical-align: -2px;
+.hm-open__label {
+  display: inline-block;
+  animation: hm-open-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* A onda é a sombra que cresce e clareia (sem mexer em opacidade, que pisca no iPhone). */
+@keyframes hm-open-wave {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--cm-success) 55%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--cm-success) 0%, transparent);
+  }
+}
+@keyframes hm-open-in {
+  from {
+    transform: translateY(4px);
+  }
+  to {
+    transform: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hm-status__dot {
+  .hm-open[data-open] .hm-open__dot,
+  .hm-open__label {
     animation: none;
   }
+}
+.sf:not([data-layout='phone']) .hm-open {
+  height: 36px;
+  padding: 0 14px 0 12px;
+  font-size: var(--cm-text-sm);
 }
 
 /* Banner (ou a capa) logo depois do topo, antes dos grupos. */
@@ -420,22 +447,14 @@
 }
 
 /* ================================================================ tablet e notebook */
-/* Topo numa linha: saudação e pontos, a loja e a faixa do horário. */
+/* Topo: saudação e pontos com o selo "Loja aberta" à direita e, embaixo, o cartão da loja (a
+   faixa "Aberta agora · 30–40 min" saiu na 0.270). */
 .sf:not([data-layout='phone']) .hm-top {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-  align-items: center;
   gap: 12px 16px;
   padding-top: 4px;
 }
-.sf:not([data-layout='phone']) .hm-hello {
-  grid-column: 1 / -1;
-}
 .sf:not([data-layout='phone']) .hm-hello__hi {
   font-size: var(--cm-text-2xl);
-}
-.sf:not([data-layout='phone']) .hm-status {
-  min-height: 56px;
-  border-radius: var(--sf-card-r);
 }
 /* Barra do topo (tablet) e menu lateral (notebook) já mostram a loja e o "aberta": o topo do
    início fica com o endereço e o horário completo. */
@@ -1834,8 +1853,8 @@ button.acct-tile {
 /* ================================================================ topo do celular (0.264) */
 /* O cartão da loja tem o contorno fino que gira devagar na cor da loja (exceção pedida ao "sem
    gradiente") e no celular saem a busca e o filtro. O selo "Aberta · 35–50 min" do canto saiu na
-   0.265.2 (pedido do David): o topo fica com o "Olá, nome" e o sino; loja fechada avisa na linha
-   de baixo do cartão da loja (`.hm-store__closed`). */
+   0.265.2 (pedido do David); na 0.270 voltou só o "Loja aberta/fechada" (`.hm-open`), sem o tempo.
+   Loja fechada também diz quando abre na linha de baixo do cartão da loja (`.hm-store__closed`). */
 .hm-store__closed {
   display: inline-flex;
   align-items: center;

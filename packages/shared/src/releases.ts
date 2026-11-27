@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.270.0',
+    date: '2026-11-27',
+    title: 'Loja aberta ou fechada no topo do cardápio',
+    summary:
+      'No cardápio do cliente, o canto de cima à direita mostra agora um selo "Loja aberta" ou "Loja fechada", conforme o horário de funcionamento e a pausa da loja, com um pontinho verde que pulsa de leve quando está aberta. No notebook, o selo substitui a faixa "Aberta agora · 30–40 min".',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápio do cliente (celular e notebook): selo "Loja aberta" (verde, com o pontinho pulsando devagar) ou "Loja fechada" (cinza) no canto de cima, à direita, ao lado da sua conta.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio no notebook: saiu a faixa "Aberta agora · 30–40 min" do topo; o cartão da loja ocupa a linha inteira e, com a loja fechada, diz quando abre, como no celular.',
+      },
+    ],
+  },
+  {
     version: '0.269.2',
     date: '2026-11-27',
     title: '"Fechar e imprimir" imprime direto, sem prévia',
