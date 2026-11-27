@@ -74,11 +74,13 @@ export async function recordSystemUsage(
     usage: Usage;
     adminId?: string | null;
     key: UsageKey;
+    /** Etapa da esteira que gastou (triagem, desenvolvimento...). */
+    step?: string | null;
   },
 ) {
   await db.query(
-    `INSERT INTO platform_ai_usage (source, ref, model, prompt_tokens, completion_tokens, cost_usd, admin_id, key_kind)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    `INSERT INTO platform_ai_usage (source, ref, model, prompt_tokens, completion_tokens, cost_usd, admin_id, key_kind, step)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
     [
       p.source,
       p.ref ?? null,
@@ -88,6 +90,7 @@ export async function recordSystemUsage(
       p.usage.costUsd,
       p.adminId ?? null,
       p.key,
+      p.step ?? null,
     ],
   );
 }

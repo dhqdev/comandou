@@ -31,7 +31,7 @@ nem mandar nada a ninguém, e marca no cartão "funcionando" ou "recusada" com o
 | Credencial | Como confere |
 | --- | --- |
 | Focus NFe | lista as empresas da conta (`GET /v2/empresas`) |
-| OpenRouter (restaurantes e a sua) | lê os dados da chave (`GET /key`, não gasta) |
+| OpenRouter (restaurantes e a do sistema) | lê os dados da chave (`GET /key`, não gasta) |
 | OpenRouter de gerenciamento | lê o saldo da conta (`GET /credits`) |
 | Resend | lê os domínios e confere se o do remetente está verificado; chave "só envio" (a recomendada) responde `restricted_api_key` e conta como válida |
 | Asaas | lê a conta (o mesmo Testar do cartão) |
@@ -57,7 +57,7 @@ Os aplicativos de delivery não entram: o teste de cada um é ligar a primeira l
 | --- | --- | --- |
 | **Focus NFe · Token Master** | sim (nota fiscal) | [focusnfe.com.br](https://focusnfe.com.br) › Painel API › Tokens › Token Master. A conta precisa do cadastro de empresas pela API liberado (plano para software house). [Guia da Focus](https://doc.focusnfe.com.br/docs/como-cadastrar-uma-empresa) |
 | **OpenRouter · chave dos restaurantes** | sim (assistente de IA) | [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys), com créditos em [Credits](https://openrouter.ai/settings/credits). Os sites com IA do comandou.com também gastam desta chave (desde a 0.171 não há chave própria dos sites) |
-| OpenRouter · sua chave | não | a mesma página; separa o gasto do sistema (esteira, testes) |
+| OpenRouter · chave do sistema (esteira) | não (sem ela, a esteira gasta da dos restaurantes, com aviso) | a mesma página: crie uma chave só para o Comandou (ex.: "Comandou sistema") com limite de gasto. Paga a esteira de chamados e os testes do painel, e o gasto aparece separado em Chamados › Uso de IA e na conta do OpenRouter. Os links "cadastrar a chave do sistema" de Chamados e Tokens de IA abrem o cartão com o campo piscando |
 | OpenRouter · chave de gerenciamento (saldo) | não | [Management Keys](https://openrouter.ai/settings/management-keys); só lê o saldo da conta (`/credits`), nunca chama a IA. Sem ela, Tokens mostra só o que sobra no limite da chave |
 | **Resend · chave de envio** | sim (todo e-mail) | [resend.com/domains](https://resend.com/domains) (verifique o domínio) e [API Keys](https://resend.com/api-keys) com *Sending access*. Remetente em Super Admin › E-mail |
 | **Asaas · chave da API** | sim (mensalidade) | [Integrações › Chaves de API](https://www.asaas.com/customerApiAccessToken/index) (sandbox em sandbox.asaas.com). Depois **Cadastrar webhook no Asaas** no mesmo cartão |

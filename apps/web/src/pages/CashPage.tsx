@@ -310,6 +310,7 @@ export function CashPage() {
               <Button
                 variant="secondary"
                 icon={<ArrowDownCircle size={16} />}
+                data-search-id="botao-sangria"
                 onClick={() => setMov('supply')}
               >
                 Suprimento
@@ -324,12 +325,20 @@ export function CashPage() {
             </>
           )}
           {isOpen && canClose && (
-            <Button icon={<Lock size={16} />} onClick={() => setClosing(true)}>
+            <Button
+              icon={<Lock size={16} />}
+              data-search-id="botao-fechar-caixa"
+              onClick={() => setClosing(true)}
+            >
               Fechar caixa
             </Button>
           )}
           {!viewing && terminal && !terminal.openSessionId && canOperate && (
-            <Button icon={<LockOpen size={16} />} onClick={() => setOpening(terminal)}>
+            <Button
+              icon={<LockOpen size={16} />}
+              data-search-id="botao-abrir-caixa"
+              onClick={() => setOpening(terminal)}
+            >
               Abrir caixa
             </Button>
           )}

@@ -144,7 +144,7 @@ export class ItemAiService {
       );
     }
     await this.db.withCentral(ctx, (tx) =>
-      recordAiUsage(tx, { userId: ctx.userId, model, usage: r.usage, source }),
+      recordAiUsage(tx, { userId: ctx.userId, model: r.model, usage: r.usage, source }),
     );
     return jsonOf(r.text);
   }

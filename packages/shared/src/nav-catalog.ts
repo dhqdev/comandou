@@ -281,6 +281,16 @@ const SCREENS: StaticEntry[] = [
     perms: ['plan:read'],
   },
   {
+    id: 's-uso-ia',
+    group: 'Telas',
+    title: 'Uso de IA',
+    hint: 'Conta › Uso de IA: quanto o restaurante usou de IA e em que partes do sistema',
+    words: 'uso ia inteligencia artificial tokens consumo limite gasto assistente quanto usei',
+    icon: 'ai',
+    to: '/conta/uso-ia',
+    perms: ['plan:read'],
+  },
+  {
     id: 's-chamados',
     group: 'Telas',
     title: 'Chamados',

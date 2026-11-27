@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { KeyInUse } from './credentials/KeyInUse';
-import { Gift, KeyRound, MinusCircle, RefreshCw, RotateCcw } from 'lucide-react';
+import { Bot, Gift, KeyRound, MinusCircle, RefreshCw, RotateCcw } from 'lucide-react';
 import { Alert, Button, Card, Segmented, TextField, useToast, Skeleton } from '../design-system';
 import { SidePanel } from '../features/SidePanel';
 import { api } from '../lib/api';
@@ -79,6 +80,27 @@ export interface PartUse {
 }
 
 export type AiPeriod = 'month' | 'last' | 'all';
+
+/** Cartão "Modelos em uso": para que serve o modelo, preço e uso do mês por fonte. */
+export interface ModelCard {
+  model: string;
+  name: string;
+  roles: { key: string; label: string; detail: string }[];
+  price: { promptPerM: number; completionPerM: number; from: 'openrouter' | 'referencia' } | null;
+  priceNote: string | null;
+  why: string | null;
+  month: { tokens: number; costUsd: number; calls: number };
+  /** Parte do gasto do mês (0–100). */
+  share: number;
+  sources: {
+    source: string;
+    label: string;
+    scope: 'tenant' | 'system';
+    tokens: number;
+    costUsd: number;
+    calls: number;
+  }[];
+}
 
 /** GET /platform/ai/tenants/:id/usage: o detalhe que abre ao tocar no cartão. */
 export interface TenantUsage {
@@ -161,8 +183,11 @@ export interface AiOverview {
     model3dAiEnabled: boolean;
     visionModel: string;
     imageModel: string;
+    importModel: string;
     updatedAt: string;
   };
+  /** Um cartão por modelo (configurado ou que gastou no mês). */
+  models: ModelCard[];
   account: Account | null;
   ownerAccount: Account | null;
   balance: Balance;
@@ -247,6 +272,7 @@ export function AiPage() {
       ) : (
         <>
           <KeysSection o={o} />
+          <ModelsSection o={o} />
           <SettingsSection o={o} onSaved={(n) => data.setData(n)} />
         </>
       )}
@@ -318,7 +344,7 @@ function StatusSection({ o }: { o: AiOverview }) {
             b.from === 'conta'
               ? `de ${usd(b.totalUsd)} em créditos`
               : b.from
-                ? `limite de ${usd(b.totalUsd)} na ${b.from === 'owner' ? 'sua chave' : 'chave dos restaurantes'}`
+                ? `limite de ${usd(b.totalUsd)} na ${b.from === 'owner' ? 'chave do sistema' : 'chave dos restaurantes'}`
                 : s.hasAdminKey
                   ? 'sem resposta do OpenRouter'
                   : 'cadastre a chave de gerenciamento em Credenciais'
@@ -1006,10 +1032,13 @@ function GrantBox({ t, onDone }: { t: TenantUse; onDone(): void }) {
   );
 }
 
-/** As duas chaves do OpenRouter: a sua (sistema e esteira) e a dos restaurantes. */
+/** As duas chaves do OpenRouter: a do sistema (esteira e testes) e a dos restaurantes. */
 function KeysSection({ o }: { o: AiOverview }) {
   return (
-    <Section title="Chaves de API" sub="OpenRouter · gasto de cada chave">
+    <Section
+      title="Chaves de API"
+      sub="OpenRouter · cada chave se cadastra em Credenciais e mostra o próprio gasto aqui"
+    >
       <div className="adm-ai-keys">
         <KeyCard kind="owner" o={o} />
         <KeyCard kind="clients" o={o} />
@@ -1025,7 +1054,7 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
   const readable = owner ? s.ownerKeyReadable : s.keyReadable;
   const acc = owner ? o.ownerAccount : o.account;
   // Uso no OpenRouter que não passou pelo Comandou (esteira fora do sistema, CI, scripts). O
-  // sistema sem a sua chave gasta da dos restaurantes; o OpenRouter conta o mês em UTC.
+  // sistema sem a chave dele gasta da dos restaurantes; o OpenRouter conta o mês em UTC.
   const tracked = owner ? o.system.byKey.owner : o.month.costUsd + o.system.byKey.clients;
   const outside = acc?.keyMonthUsd != null ? Math.max(0, acc.keyMonthUsd - tracked) : null;
   const level: Level = !has
@@ -1044,11 +1073,11 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
         <div className="adm-ai-key__head">
           <KeyRound size={18} aria-hidden />
           <div>
-            <strong>{owner ? 'Sua chave' : 'Chave dos restaurantes'}</strong>
+            <strong>{owner ? 'Chave do sistema' : 'Chave dos restaurantes'}</strong>
             <span className="adm-sub">
               {owner
-                ? 'Esteira de chamados, testes e o que mais o sistema fizer por você.'
-                : 'O assistente do chat e do WhatsApp de cada restaurante gasta desta chave.'}
+                ? 'Só do Comandou, separada da dos restaurantes: a esteira de chamados e os testes do painel gastam desta chave.'
+                : 'Só dos restaurantes: chat e WhatsApp, fotos e 3D, importar cardápio e os sites com IA.'}
             </span>
           </div>
           <Tag level={level}>
@@ -1061,6 +1090,16 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
                 : acc?.keyLabel || 'salva'}
           </Tag>
         </div>
+        {owner && (!has || !readable) && (
+          <Alert tone="warning">
+            {!has
+              ? 'A chave do sistema não está cadastrada, então a esteira está gastando da chave dos restaurantes. '
+              : 'A chave do sistema não abre com a chave mestra do servidor. '}
+            <Link to="/credenciais#cred-openrouter_owner" className="adm-ai-key__go">
+              {has ? 'Colar de novo' : 'Cadastrar a chave do sistema'} em Credenciais
+            </Link>
+          </Alert>
+        )}
         <dl className="adm-ai-key__stats">
           <div>
             <dt title="O OpenRouter conta o dia em UTC (vira às 21h de Brasília)">Hoje (UTC)</dt>
@@ -1096,6 +1135,104 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
   );
 }
 
+/** Preço do cartão do modelo: por 1 milhão de tokens ou por imagem. */
+function modelPrice(m: ModelCard): string {
+  if (m.price)
+    return m.price.promptPerM === 0 && m.price.completionPerM === 0
+      ? 'grátis'
+      : `US$ ${m.price.promptPerM.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} entrada · US$ ${m.price.completionPerM.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} saída por 1 mi de tokens${m.price.from === 'referencia' ? ' (referência)' : ''}`;
+  return m.priceNote ?? 'preço não informado pelo OpenRouter';
+}
+
+/**
+ * Um cartão por modelo (pedido do David, 0.269): para que serve cada um no Comandou, quanto
+ * custa, quanto foi usado no mês e em que partes, separando restaurantes e o próprio sistema.
+ */
+function ModelsSection({ o }: { o: AiOverview }) {
+  if (!o.models?.length) return null;
+  return (
+    <Section title="Modelos em uso" sub="para que serve cada modelo e quanto foi usado neste mês">
+      <div className="adm-ai-models">
+        {o.models.map((m) => (
+          <ModelCardView key={m.model} m={m} />
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function ModelCardView({ m }: { m: ModelCard }) {
+  const max = Math.max(1, ...m.sources.map((x) => (m.month.costUsd > 0 ? x.costUsd : x.tokens)));
+  return (
+    <Card>
+      <div className="adm-ai-model">
+        <div className="adm-ai-model__head">
+          <Bot size={18} aria-hidden />
+          <div>
+            <strong>{m.name}</strong>
+            <code className="adm-ai-model__id cm-selectable">{m.model}</code>
+          </div>
+          <Tag level={m.month.calls ? 'ok' : 'off'}>
+            {m.month.calls ? `${String(m.share).replace('.', ',')}% do mês` : 'sem uso no mês'}
+          </Tag>
+        </div>
+        {m.roles.length ? (
+          <ul className="adm-ai-model__roles">
+            {m.roles.map((r) => (
+              <li key={r.key}>
+                <strong>{r.label}</strong>
+                <span className="adm-sub">{r.detail}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="adm-sub">Não está configurado agora: usado antes neste mês.</p>
+        )}
+        <p className="adm-sub">
+          {modelPrice(m)}
+          {m.why ? `. ${m.why}` : ''}
+        </p>
+        <dl className="adm-ai-key__stats">
+          <div>
+            <dt>Gasto no mês</dt>
+            <dd>{usd(m.month.costUsd)}</dd>
+          </div>
+          <div>
+            <dt>Tokens</dt>
+            <dd>{compact(m.month.tokens)}</dd>
+          </div>
+          <div>
+            <dt>Chamadas</dt>
+            <dd>{int(m.month.calls)}</dd>
+          </div>
+        </dl>
+        {m.sources.length > 0 && (
+          <ul className="adm-ai-model__uses" aria-label={`Onde o ${m.name} foi usado`}>
+            {m.sources.map((x) => (
+              <li key={`${x.scope}-${x.source}`}>
+                <span className="adm-ai-model__use">
+                  <span>{x.label}</span>
+                  <small>{x.scope === 'tenant' ? 'restaurantes' : 'sistema'}</small>
+                </span>
+                <span className="adm-ai-model__bar" aria-hidden>
+                  <span
+                    style={{
+                      width: `${Math.max(3, ((m.month.costUsd > 0 ? x.costUsd : x.tokens) / max) * 100)}%`,
+                    }}
+                  />
+                </span>
+                <span className="adm-ai-model__num">
+                  {m.month.costUsd > 0 ? usd(x.costUsd, 2) : `${compact(x.tokens)} tokens`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 type Form = {
   enabled: boolean;
   apiKey: string;
@@ -1107,6 +1244,7 @@ type Form = {
   model3dAiEnabled: boolean;
   visionModel: string;
   imageModel: string;
+  importModel: string;
 };
 
 const toForm = (s: AiOverview['settings']): Form => ({
@@ -1120,6 +1258,7 @@ const toForm = (s: AiOverview['settings']): Form => ({
   model3dAiEnabled: s.model3dAiEnabled,
   visionModel: s.visionModel,
   imageModel: s.imageModel,
+  importModel: s.importModel,
 });
 
 interface TestResult {
@@ -1148,6 +1287,10 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
     () => models.find((m) => m.id === f.visionModel.trim()),
     [models, f.visionModel],
   );
+  const importer = useMemo(
+    () => models.find((m) => m.id === f.importModel.trim()),
+    [models, f.importModel],
+  );
 
   const body = () => ({
     enabled: f.enabled,
@@ -1160,6 +1303,7 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
     model3dAiEnabled: f.model3dAiEnabled,
     visionModel: f.visionModel.trim(),
     imageModel: f.imageModel.trim(),
+    importModel: f.importModel.trim(),
   });
 
   async function save(e: FormEvent) {
@@ -1198,21 +1342,32 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
   }
 
   return (
-    <Section title="Assistente" sub="modelo, nome e limite padrão (só o super admin muda)">
+    <Section title="Assistente" sub="modelos, nome e limite padrão (só o super admin muda)">
       <Card>
         <form onSubmit={save}>
           <div className="adm-backup-grid">
             <TextField
-              label="Modelo"
+              label="Modelo da conversa"
               list="adm-ai-models"
               value={f.model}
               onChange={(e) => set('model')(e.target.value)}
               hint={
                 picked
-                  ? perM(picked)
+                  ? `${perM(picked)}. Chat, WhatsApp, impressão e página; se falhar, responde o google/gemini-2.5-flash-lite`
                   : models.length
                     ? 'Modelo não encontrado na lista do OpenRouter'
-                    : 'Ex.: google/gemini-2.5-flash-lite (barato e rápido)'
+                    : 'Padrão: deepseek/deepseek-v4-flash (o mais barato que conversa bem)'
+              }
+            />
+            <TextField
+              label="Modelo que lê o cardápio"
+              list="adm-ai-models"
+              value={f.importModel}
+              onChange={(e) => set('importModel')(e.target.value)}
+              hint={
+                importer
+                  ? `${perM(importer)}. Importar cardápio (PDF, foto, link) e achar o restaurante no Google`
+                  : 'Padrão: google/gemini-2.5-flash (lê PDF e foto com precisão; uma vez por restaurante)'
               }
             />
             <datalist id="adm-ai-models">

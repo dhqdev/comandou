@@ -366,7 +366,7 @@ export const CREDENTIALS: CredDef[] = [
     title: 'OpenRouter · chave dos restaurantes',
     group: 'painel',
     purpose:
-      'O assistente do chat e do WhatsApp de cada restaurante, a importação do cardápio, a busca no Google Maps e o site montado pela IA no comandou.com gastam desta chave.',
+      'Só o uso dos restaurantes: o assistente do chat e do WhatsApp, fotos e 3D dos itens, a importação do cardápio, a busca no Google Maps e o site montado pela IA no comandou.com. O gasto aparece em Tokens de IA › Uso dos restaurantes.',
     fields: [
       {
         name: 'Colar a chave',
@@ -410,30 +410,39 @@ export const CREDENTIALS: CredDef[] = [
   },
   {
     id: 'openrouter_owner',
-    title: 'OpenRouter · sua chave (sistema e esteira)',
+    title: 'OpenRouter · chave do sistema (esteira)',
     group: 'painel',
     purpose:
-      'Opcional. Esteira de chamados, testes e o que o sistema fizer por você. Sem ela, usa a chave dos restaurantes.',
+      'A chave do próprio Comandou, separada da dos restaurantes: a esteira de chamados (os agentes da triagem ao PR) e os testes do painel gastam dela, e o gasto aparece em Chamados › Uso de IA. Sem ela, o sistema usa a chave dos restaurantes.',
     fields: [
       {
         name: 'Colar a chave',
-        text: <>outra chave do OpenRouter ({code('sk-or-v1-…')}), só para o sistema.</>,
+        text: (
+          <>
+            outra chave do OpenRouter ({code('sk-or-v1-…')}), criada só para o sistema. Não use a
+            mesma dos restaurantes: separadas, cada uma mostra o próprio gasto no OpenRouter.
+          </>
+        ),
       },
     ],
     check: (
       <>
-        O <strong>Testar</strong> responde “Funcionou”. Em Tokens de IA, o cartão Sua chave mostra o
-        gasto do sistema separado do dos restaurantes. <strong>Apagar</strong> volta a usar a chave
-        dos restaurantes.
+        O <strong>Testar</strong> responde “Funcionou”. Salva, Chamados passa a dizer “chave do
+        sistema” e Tokens de IA mostra o gasto do sistema no cartão Chave do sistema, separado do
+        dos restaurantes. <strong>Apagar</strong> volta a usar a chave dos restaurantes.
       </>
     ),
     steps: [
       <>
-        Em <strong>openrouter.ai › Settings › Keys</strong>, crie outra chave (ex.:{' '}
-        {code('Comandou sistema')}), com limite se quiser. Separar ajuda a ver quanto o sistema
-        gasta sem os restaurantes.
+        Em <strong>openrouter.ai › Settings › Keys › Create Key</strong>, crie outra chave chamada{' '}
+        {code('Comandou sistema')}. Dica: ponha um limite de gasto nela, para a esteira nunca gastar
+        além do que você quer.
       </>,
       <>Cole abaixo, teste e salve.</>,
+      <>
+        O modelo dos agentes fica em Chamados › Configurar; vazio, usa o modelo da conversa de
+        Tokens de IA.
+      </>,
     ],
     links: [{ label: 'Chaves do OpenRouter', href: 'https://openrouter.ai/settings/keys' }],
   },

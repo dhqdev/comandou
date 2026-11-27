@@ -10,7 +10,17 @@ import {
   Square,
   Users,
 } from 'lucide-react';
-import { KeyboardEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  KeyboardEvent,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { Link } from 'react-router';
+import { useCan } from '../../app/auth';
 import { LivePanda, PandaMood, useToast } from '../../design-system';
 import { ApiError } from '../../lib/api';
 import { useRealtimeEvents } from '../../lib/realtime';
@@ -185,17 +195,22 @@ export function UsageBar({
   percent,
   bonus = 0,
   compact,
+  more,
 }: {
   used: number;
   limit: number;
   percent: number | null;
   bonus?: number;
   compact?: boolean;
+  /** Link para o painel Conta › Uso de IA (só para quem vê a assinatura). */
+  more?: ReactNode;
 }) {
   if (!limit)
     return compact ? null : (
       <div className="tc-usage">
-        <small>Uso do mês: {fmtInt(used)} tokens · sem limite</small>
+        <small>
+          Uso do mês: {fmtInt(used)} tokens · sem limite{more && <> · {more}</>}
+        </small>
       </div>
     );
   const p = Math.min(100, percent ?? 0);
@@ -213,6 +228,7 @@ export function UsageBar({
           Uso do mês: <b>{p.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</b> ·{' '}
           {fmtInt(used)} de {fmtInt(limit)} tokens
           {bonus > 0 && <> · +{fmtInt(bonus)} extras</>}
+          {more && <> · {more}</>}
         </small>
       )}
     </div>
@@ -227,6 +243,7 @@ function aiBlocked(u: AiUsage) {
 
 export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () => void }) {
   const toast = useToast();
+  const canPlan = useCan('plan:read');
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [msgs, setMsgs] = useState<AiMessage[]>([]);
   const [text, setText] = useState('');
@@ -363,7 +380,18 @@ export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () 
           </button>
         )}
       </header>
-      {status && <UsageBar {...status.usage} />}
+      {status && (
+        <UsageBar
+          {...status.usage}
+          more={
+            canPlan ? (
+              <Link to="/conta/uso-ia" onClick={onNavigate} className="tc-usage__more">
+                Ver onde usou
+              </Link>
+            ) : undefined
+          }
+        />
+      )}
       <div className="tc-ai__scroll" ref={scroller}>
         {off ? (
           <div className="tc-page__empty">

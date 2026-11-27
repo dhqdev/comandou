@@ -144,7 +144,12 @@ cookie, CSRF, corpo gigante e Host estranho.
   mostra e a pessoa usa a foto ou publica o 3D pelas rotas de sempre. Foto de entrada até 3 MB,
   conferida pela assinatura; GLB montado até 12 MB.
 - O que entra no prompt respeita a permissão de quem pergunta (`roleHas` antes de montar o
-  contexto): dado que o perfil não vê na tela também não vai para a IA dele.
+  contexto): dado que o perfil não vê na tela também não vai para a IA dele. Vale para o retrato
+  (`moreLines` + `ai-snapshot.ts`) e para os achados da pergunta (`lookup` usa o `runSearch` com o
+  papel de quem pergunta). Telefone, e-mail e CPF de cliente nunca entram no contexto (`foundLine`
+  leva título, valor e link; cliente, pedido, comanda, pessoa e entregador vão sem o detalhe,
+  `NO_DETAIL`); o que a pessoa escreveu e o que veio do banco vão como dado, no
+  `contextPrompt`, separado das regras fixas do `systemPrompt`.
 - Menu do Super Admin pelo WhatsApp (`platform-whatsapp/admin-bot.service.ts`) só responde a
   número cadastrado de Super Admin ativo (`operatorFor`); opção nova que muda algo pede SIM
   (`PendingAction`), chama o serviço da tela com o `Actor` do dono do número e grava
@@ -154,7 +159,11 @@ cookie, CSRF, corpo gigante e Host estranho.
   pedidos das últimas 24 h por `AiAgentService.ordersIn`, que compara DDD + 8 últimos dígitos).
 - Link que o assistente da equipe manda só vira botão para tela que existe (`isKnownAppPath` de
   `packages/shared/src/nav-catalog.ts`, usado por `safeAppPath`); tela nova entra em
-  `APP_ROUTE_ROOTS`.
+  `APP_ROUTE_ROOTS`. O `?foco=` só faz rolar e piscar um elemento com aquele `data-search-id`
+  (busca por atributo com `CSS.escape`), nunca executa nada.
+- Chave do sistema × chave dos restaurantes: o gasto do Comandou (esteira, testes do painel) vai
+  para `platform_ai_usage` com a chave que pagou; nunca para o `ai_usage` do restaurante, que é o
+  que o limite e a tela Conta › Uso de IA somam.
 
 ### Dependência (A03 Cadeia de suprimentos)
 - Versão fixa ou `^` com lockfile; `pnpm audit --prod --audit-level high` no CI.

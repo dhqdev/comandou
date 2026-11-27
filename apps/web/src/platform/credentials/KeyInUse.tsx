@@ -17,7 +17,7 @@ export interface CredentialItem {
 const NAMES: Record<string, string> = {
   focus_master: 'Focus NFe · Token Master',
   openrouter_clients: 'OpenRouter · chave dos restaurantes',
-  openrouter_owner: 'OpenRouter · sua chave',
+  openrouter_owner: 'OpenRouter · chave do sistema',
   openrouter_admin: 'OpenRouter · chave de gerenciamento',
   resend: 'Resend',
   asaas: 'Asaas',

@@ -42,6 +42,7 @@ import {
 import { api } from '../lib/api';
 import { KeyInUse } from './credentials/KeyInUse';
 import { useLoad } from './OverviewPages';
+import { PipelineUsage } from './PipelineUsage';
 import type { TenantRow } from './types';
 import { ago, PageHead, Tabs, useInterval } from './ui';
 
@@ -80,6 +81,9 @@ export interface PipelineSettings {
   model: string;
   effectiveModel: string;
   aiReady: boolean;
+  /** Chave que a esteira usa: a do sistema, a dos restaurantes (falta a do sistema) ou nenhuma. */
+  aiKey?: 'owner' | 'clients' | null;
+  hasOwnerKey?: boolean;
   githubRepo: string;
   githubBase: string;
   hasGithubToken: boolean;
@@ -203,6 +207,9 @@ export function TicketsBoardPage() {
   );
   const [creating, setCreating] = useState(false);
   const [config, setConfig] = useState(false);
+  const [view, setView] = useState<'board' | 'usage'>(() =>
+    new URLSearchParams(window.location.search).get('aba') === 'uso' ? 'usage' : 'board',
+  );
   const [notify, setNotify] = useState(() => {
     try {
       return localStorage.getItem('cm:tk-notify') === '1';
@@ -294,10 +301,23 @@ export function TicketsBoardPage() {
           </>
         }
       />
-      {(!s.hasGithubToken || !s.aiReady || !s.enabled) && (
+      {(!s.hasGithubToken || !s.aiReady || !s.enabled || s.aiKey === 'clients') && (
         <Alert tone="warning">
           {!s.enabled ? 'Agentes desligados: os chamados entram e esperam você mover à mão. ' : ''}
-          {!s.aiReady ? 'Falta a chave do OpenRouter (Super Admin › Credenciais). ' : ''}
+          {!s.aiReady ? (
+            <>
+              Falta a chave do OpenRouter, então os agentes trabalham sem IA:{' '}
+              <Link to="/credenciais#cred-openrouter_owner">cadastre a chave do sistema</Link>.{' '}
+            </>
+          ) : s.aiKey === 'clients' ? (
+            <>
+              A esteira está gastando da chave dos restaurantes:{' '}
+              <Link to="/credenciais#cred-openrouter_owner">cadastre a chave do sistema</Link> para
+              separar o gasto.{' '}
+            </>
+          ) : (
+            ''
+          )}
           {!s.hasGithubToken ? (
             <>
               Falta o token do GitHub para criar branch e PR (repositório privado):{' '}
@@ -308,94 +328,116 @@ export function TicketsBoardPage() {
           )}
         </Alert>
       )}
-      <div className="tk-toolbar">
-        <div className="tk-search">
-          <TextField
-            ref={searchRef}
-            label="Buscar"
-            placeholder="Título, cliente ou #número  ( / )"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
-        <label className="tk-switch">
-          <input type="checkbox" checked={closed} onChange={(e) => setClosed(e.target.checked)} />
-          Mostrar encerradas
-        </label>
-        <span className="tk-toolbar__spacer" />
-        <span className="tk-toolbar__count">
-          <b>{b.waiting}</b> esperando você · <b>{b.running}</b> rodando
-        </span>
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={notify ? <Bell size={15} /> : <BellOff size={15} />}
-          onClick={() => void toggleNotify()}
-        >
-          {notify ? 'Avisando no navegador' : 'Avisar no navegador'}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<Play size={15} />}
-          loading={running}
-          onClick={() => void runNow()}
-        >
-          Rodar agora
-        </Button>
-      </div>
-      <div className="tk-board" role="list" aria-label="Etapas">
-        {TICKET_STAGES.map((st, i) => {
-          const list = cards
-            .filter((c) => c.stage === st.id)
-            .sort(
-              (a, z) =>
-                Number(z.state === 'approval' || z.state === 'waiting') -
-                  Number(a.state === 'approval' || a.state === 'waiting') ||
-                (LEVEL_N[z.priority ?? ''] ?? 0) - (LEVEL_N[a.priority ?? ''] ?? 0) ||
-                z.updatedAt.localeCompare(a.updatedAt),
-            );
-          return (
-            <section
-              key={st.id}
-              className="tk-col"
-              role="listitem"
-              style={{ '--tk-c': st.color } as React.CSSProperties}
+      <Tabs
+        value={view}
+        onChange={setView}
+        items={[
+          ['board', 'Esteira'],
+          ['usage', 'Uso de IA'],
+        ]}
+      />
+      {view === 'usage' ? (
+        <PipelineUsage onOpen={(id) => setOpen(id)} />
+      ) : (
+        <>
+          <div className="tk-toolbar">
+            <div className="tk-search">
+              <TextField
+                ref={searchRef}
+                label="Buscar"
+                placeholder="Título, cliente ou #número  ( / )"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+            <label className="tk-switch">
+              <input
+                type="checkbox"
+                checked={closed}
+                onChange={(e) => setClosed(e.target.checked)}
+              />
+              Mostrar encerradas
+            </label>
+            <span className="tk-toolbar__spacer" />
+            <span className="tk-toolbar__count">
+              <b>{b.waiting}</b> esperando você · <b>{b.running}</b> rodando
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={notify ? <Bell size={15} /> : <BellOff size={15} />}
+              onClick={() => void toggleNotify()}
             >
-              <header className="tk-col__head">
-                <div className="tk-col__title">
-                  {st.label}
-                  <span className="tk-col__n">{list.length}</span>
-                  <span className="tk-col__step">
-                    {i + 1}/{TICKET_STAGES.length}
-                  </span>
-                </div>
-                <div className="tk-col__agent">
-                  <AgentAvatar stage={st.id} size={24} />
-                  <span>
-                    <b>{st.agent}</b> · {st.role}
-                  </span>
-                </div>
-              </header>
-              <div className="tk-col__body">
-                {list.length === 0 ? (
-                  <div className="tk-col__empty">
-                    <AgentAvatar stage={st.id} size={40} />
-                    Nada com {st.agent} agora.
+              {notify ? 'Avisando no navegador' : 'Avisar no navegador'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Play size={15} />}
+              loading={running}
+              onClick={() => void runNow()}
+            >
+              Rodar agora
+            </Button>
+          </div>
+          <div className="tk-board" role="list" aria-label="Etapas">
+            {TICKET_STAGES.map((st, i) => {
+              const list = cards
+                .filter((c) => c.stage === st.id)
+                .sort(
+                  (a, z) =>
+                    Number(z.state === 'approval' || z.state === 'waiting') -
+                      Number(a.state === 'approval' || a.state === 'waiting') ||
+                    (LEVEL_N[z.priority ?? ''] ?? 0) - (LEVEL_N[a.priority ?? ''] ?? 0) ||
+                    z.updatedAt.localeCompare(a.updatedAt),
+                );
+              return (
+                <section
+                  key={st.id}
+                  className="tk-col"
+                  role="listitem"
+                  style={{ '--tk-c': st.color } as React.CSSProperties}
+                >
+                  <header className="tk-col__head">
+                    <div className="tk-col__title">
+                      {st.label}
+                      <span className="tk-col__n">{list.length}</span>
+                      <span className="tk-col__step">
+                        {i + 1}/{TICKET_STAGES.length}
+                      </span>
+                    </div>
+                    <div className="tk-col__agent">
+                      <AgentAvatar stage={st.id} size={24} />
+                      <span>
+                        <b>{st.agent}</b> · {st.role}
+                      </span>
+                    </div>
+                  </header>
+                  <div className="tk-col__body">
+                    {list.length === 0 ? (
+                      <div className="tk-col__empty">
+                        <AgentAvatar stage={st.id} size={40} />
+                        Nada com {st.agent} agora.
+                      </div>
+                    ) : (
+                      list.map((c) => <CardView key={c.id} c={c} onOpen={() => setOpen(c.id)} />)
+                    )}
+                    {st.id === 'inicio' && (
+                      <button
+                        type="button"
+                        className="tk-col__add"
+                        onClick={() => setCreating(true)}
+                      >
+                        <Plus size={15} /> Criar demanda
+                      </button>
+                    )}
                   </div>
-                ) : (
-                  list.map((c) => <CardView key={c.id} c={c} onOpen={() => setOpen(c.id)} />)
-                )}
-                {st.id === 'inicio' && (
-                  <button type="button" className="tk-col__add" onClick={() => setCreating(true)}>
-                    <Plus size={15} /> Criar demanda
-                  </button>
-                )}
-              </div>
-            </section>
-          );
-        })}
-      </div>
+                </section>
+              );
+            })}
+          </div>
+        </>
+      )}
       {open && (
         <TicketDrawer
           id={open}
@@ -1314,12 +1356,19 @@ function PipelineConfig({
         </label>
         <TextField
           label="Modelo dos agentes no OpenRouter"
-          placeholder={`vazio = o mesmo do assistente (${s.effectiveModel || 'Super Admin › Tokens de IA'})`}
-          hint="Para mexer em código, prefira um modelo forte (ex.: anthropic/claude-sonnet-4.5). A chave é a sua, em Super Admin › Credenciais (ou a dos restaurantes, se você não colocou a sua)."
+          placeholder={`vazio = o modelo da conversa (${s.effectiveModel || 'Super Admin › Tokens de IA'})`}
+          hint="Vazio usa o modelo da conversa de Tokens de IA (barato). Para os agentes mexerem em código com mais acerto, coloque um modelo forte de programação do OpenRouter; o gasto aparece na aba Uso de IA."
           value={f.model}
           onChange={(e) => set('model', e.target.value)}
         />
         <KeyInUse ids={['openrouter_owner', 'openrouter_clients']} label="Chave da IA" />
+        {s.aiKey === 'clients' && (
+          <p className="adm-sub">
+            Usando a chave dos restaurantes.{' '}
+            <Link to="/credenciais#cred-openrouter_owner">Cadastre a chave do sistema</Link> para a
+            esteira gastar só dela.
+          </p>
+        )}
 
         <h3 className="tk-block__label" style={{ margin: '6px 0 0' }}>
           GitHub (repositório privado)

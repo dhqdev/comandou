@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { levelLabel, nextStage, stageInfo, kindLabel } from '@comandou/shared';
 import type { PoolClient } from 'pg';
+import { chatFallbacks } from '../chat/ai-models';
 import { ChatTurn, OpenRouterClient } from '../chat/openrouter';
 import { KeyKind, KeyRow, recordSystemUsage, systemKey } from '../platform/ai-keys';
 import { ENV, Env } from '../config/env';
@@ -180,14 +181,18 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
     } catch (e) {
       const msg = (e as Error).message.slice(0, 900);
       this.logger.warn(`${code(t.number)} ${t.stage}: ${msg}`);
-      await this.fail(t, msg);
+      await this.fail(t, msg, ctx);
       return true;
     }
     await this.finish(ctx, outcome);
     return true;
   }
 
-  private async fail(t: TicketRow, msg: string) {
+  /**
+   * Etapa que deu erro: tenta de novo mais tarde (até 3 vezes) e soma no chamado o que a IA já
+   * gastou antes do erro (o OpenRouter cobrou; sem isso o custo do chamado ficava menor).
+   */
+  private async fail(t: TicketRow, msg: string, ctx?: Ctx) {
     await this.db.tx(async (c) => {
       const give = t.attempts >= 3;
       const r = await c.query(
@@ -195,7 +200,8 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
             SET locked_until = NULL, last_error = $3,
                 state = CASE WHEN $4 THEN 'waiting' ELSE state END,
                 waiting_reason = CASE WHEN $4 THEN $5 ELSE waiting_reason END,
-                run_after = now() + make_interval(secs => $6)
+                run_after = now() + make_interval(secs => $6),
+                ai_tokens = ai_tokens + $7, ai_cost_usd = ai_cost_usd + $8
           WHERE id = $1 AND stage = $2 AND state = 'running'`,
         [
           t.id,
@@ -204,6 +210,8 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
           give,
           `Erro na etapa ${stageInfo(t.stage).label}: ${msg}`.slice(0, 500),
           60 * t.attempts,
+          ctx?.tokens ?? 0,
+          ctx?.cost ?? 0,
         ],
       );
       if (r.rowCount)
@@ -363,7 +371,10 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
   }
 
   // ------------------------------------------------------------------ IA
-  /** A esteira usa a chave do dono (Super Admin › Tokens); sem ela, a dos restaurantes. */
+  /**
+   * A esteira usa a chave do sistema (Super Admin › Credenciais › "OpenRouter · chave do
+   * sistema"); sem ela, a dos restaurantes, e o uso grava qual pagou (Chamados › Uso de IA).
+   */
   private async ai(): Promise<{
     client: OpenRouterClient;
     model: string;
@@ -392,15 +403,17 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
     const res = await ai.client.stream(ai.model, messages, () => undefined, {
       maxTokens,
       signal: AbortSignal.timeout(180_000),
+      fallbacks: chatFallbacks(ai.model),
     });
     ctx.tokens += res.usage.promptTokens + res.usage.completionTokens;
     ctx.cost += res.usage.costUsd;
     await recordSystemUsage(this.db, {
       source: 'esteira',
       ref: code(ctx.t.number),
-      model: ai.model,
+      model: res.model,
       usage: res.usage,
       key: ai.key,
+      step: ctx.t.stage,
     }).catch((e: Error) => this.logger.warn(`Uso da esteira não registrado: ${e.message}`));
     const j = parseJson(res.text);
     if (!j) throw new Error('A IA não respondeu no formato combinado; tento de novo');

@@ -20,6 +20,10 @@ const AccountPage = lazyPage(
   () => import('../pages/AccountPage'),
   (m) => m.AccountPage,
 );
+const AiUsagePage = lazyPage(
+  () => import('../pages/AiUsagePage'),
+  (m) => m.AiUsagePage,
+);
 const AgendaPage = lazyPage(
   () => import('../pages/agenda/AgendaPage'),
   (m) => m.AgendaPage,
@@ -388,6 +392,8 @@ function Gate() {
           <Route path="novidades" element={<ReleasesPage />} />
           {/* Conta: assinatura, ajustes, ajuda, tema, instalar, senha e sair (cada um pela permissão). */}
           <Route path="conta" element={<AccountPage />} />
+          {/* Conta › Uso de IA: quanto o restaurante usou e onde (dono e gerente). */}
+          <Route path="conta/uso-ia" element={<AiUsagePage />} />
           {/* Agenda pessoal: todo mundo da equipe tem a sua (sem permissão especial). */}
           <Route path="agenda" element={<AgendaPage />} />
           <Route

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import './spotlight.css';
 
 /** Tira um parâmetro da URL atual sem criar entrada no histórico. */
 function useDropParam() {
@@ -32,8 +33,10 @@ export function useLinkParam(name: string, onValue: (value: string) => void, rea
 }
 
 /**
- * Destaca o item pedido em "?foco=": espera ele aparecer (a tela pode estar carregando),
- * rola até ele e acende um contorno por alguns segundos. Fica no AppShell, vale para todas as telas.
+ * Destaca o item pedido em "?foco=": espera ele aparecer (a tela pode estar carregando), rola até
+ * ele e faz ele piscar (três toques de contorno, ~2 s). Campo de formulário pisca com o rótulo
+ * junto (o bloco `.cm-field`); dentro de um `<details>` fechado, abre antes. Fica no AppShell,
+ * vale para todas as telas: a busca do topo e os links do assistente de IA usam o mesmo caminho.
  */
 export function useSearchSpotlight() {
   const location = useLocation();
@@ -44,19 +47,30 @@ export function useSearchSpotlight() {
     let tries = 0;
     const timer = setInterval(() => {
       tries += 1;
-      const el = document.querySelector<HTMLElement>(`[data-search-id="${CSS.escape(target)}"]`);
-      if (!el && tries < 60) return;
+      const found = document.querySelector<HTMLElement>(`[data-search-id="${CSS.escape(target)}"]`);
+      if (!found && tries < 60) return;
       clearInterval(timer);
       drop('foco');
-      if (!el) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.remove('cm-spotlight');
-      void el.offsetWidth; // reinicia a animação
-      el.classList.add('cm-spotlight');
-      el.addEventListener('animationend', () => el.classList.remove('cm-spotlight'), {
-        once: true,
-      });
+      if (!found) return;
+      spotlight(found);
     }, 100);
     return () => clearInterval(timer);
   }, [target]);
+}
+
+/** Rola até o elemento e faz ele piscar. */
+export function spotlight(found: HTMLElement) {
+  const el =
+    found.matches('input, select, textarea') && found.closest('.cm-field')
+      ? (found.closest('.cm-field') as HTMLElement)
+      : found;
+  for (let d = el.closest('details'); d; d = d.parentElement?.closest('details') ?? null)
+    d.open = true;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.remove('cm-spotlight');
+  void el.offsetWidth; // reinicia a animação
+  el.classList.add('cm-spotlight');
+  el.addEventListener('animationend', () => el.classList.remove('cm-spotlight'), {
+    once: true,
+  });
 }

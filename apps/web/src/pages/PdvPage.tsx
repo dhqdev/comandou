@@ -910,7 +910,11 @@ export function PdvPage() {
           <span className="pdv__mute-text">{sound.enabled ? 'Silenciar' : 'Silenciado'}</span>
         </button>
         {store && (
-          <label className="switch pdv__store" data-open={store.isOpen}>
+          <label
+            className="switch pdv__store"
+            data-open={store.isOpen}
+            data-search-id="botao-loja-aberta"
+          >
             <input
               type="checkbox"
               checked={store.isOpen}
@@ -970,6 +974,7 @@ export function PdvPage() {
         {canSell && (
           <button
             className="hbtn hbtn--primary pdv__new"
+            data-search-id="botao-nova-venda"
             onClick={() => setSelling(true)}
             title="Atalho: F2"
           >

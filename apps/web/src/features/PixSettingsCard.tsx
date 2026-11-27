@@ -147,6 +147,7 @@ export function PixSettingsCard({ canManage }: { canManage: boolean }) {
             </SelectField>
             <TextField
               label="Chave Pix"
+              data-search-id="campo-chave-pix"
               wrapClass="pix-set__key"
               value={form.key}
               placeholder={PLACEHOLDER[form.keyType]}

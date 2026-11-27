@@ -411,36 +411,3 @@
     min-height: 56px;
   }
 }
-
-/* ---------------------------------------------------------------- destaque do item encontrado */
-/* Cards e blocos ganham um anel laranja; linhas de tabela, um fundo suave nas células. */
-@keyframes cm-spotlight-ring {
-  0%,
-  40% {
-    box-shadow:
-      0 0 0 2px var(--cm-brand-400),
-      0 0 0 7px color-mix(in oklab, var(--cm-brand-500) 18%, transparent);
-  }
-  100% {
-    box-shadow: 0 0 0 2px transparent;
-  }
-}
-@keyframes cm-spotlight-fill {
-  0%,
-  40% {
-    background-color: color-mix(in oklab, var(--cm-brand-500) 16%, transparent);
-  }
-  100% {
-    background-color: transparent;
-  }
-}
-.cm-spotlight {
-  animation: cm-spotlight-ring 2.4s var(--cm-ease);
-  scroll-margin: 96px;
-}
-tr.cm-spotlight {
-  animation: none;
-}
-tr.cm-spotlight > td {
-  animation: cm-spotlight-fill 2.4s var(--cm-ease);
-}

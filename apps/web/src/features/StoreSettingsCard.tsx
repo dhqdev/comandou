@@ -177,6 +177,7 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
           >
             <TextField
               label="Taxa de entrega"
+              data-search-id="campo-taxa-entrega"
               inputMode="decimal"
               value={form.deliveryFee}
               onChange={set('deliveryFee')}
@@ -185,6 +186,7 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
             />
             <TextField
               label="Pedido mínimo"
+              data-search-id="campo-pedido-minimo"
               inputMode="decimal"
               value={form.minOrder}
               onChange={set('minOrder')}
@@ -234,7 +236,7 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
         </div>
       </Card>
 
-      <Card title="Horário de funcionamento">
+      <Card title="Horário de funcionamento" searchId="secao-horarios">
         <HoursEditor
           key={JSON.stringify(s.hours) + s.hoursEnabled}
           settings={s}

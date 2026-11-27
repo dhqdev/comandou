@@ -320,12 +320,14 @@ export function ItemsTab() {
                 <Button
                   variant="secondary"
                   icon={<Sparkles size={16} />}
+                  data-search-id="botao-importar-cardapio"
                   onClick={() => setImporting(true)}
                 >
                   Importar com IA
                 </Button>
                 <Button
                   icon={<Plus size={16} />}
+                  data-search-id="botao-novo-item"
                   onClick={() => newItem(selected ?? categories?.[0]?.id)}
                 >
                   Adicionar item

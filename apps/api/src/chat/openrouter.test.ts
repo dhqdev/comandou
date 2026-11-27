@@ -1,7 +1,8 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { IMAGE_FALLBACK_TOKENS, imageUsage, OpenRouterClient } from './openrouter';
+import { chatFallbacks, CHAT_FALLBACK_MODEL, CHAT_MODEL } from './ai-models';
+import { IMAGE_FALLBACK_TOKENS, imageUsage, OpenRouterClient, servedModel } from './openrouter';
 
 describe('OpenRouter: resposta em pedaços', () => {
   // IA que começa a responder e nunca termina.
@@ -60,5 +61,77 @@ describe('OpenRouter: uso das imagens', () => {
       completionTokens: IMAGE_FALLBACK_TOKENS,
       costUsd: 0,
     });
+  });
+});
+
+describe('OpenRouter: modelo de reserva', () => {
+  // IA falsa que guarda o pedido e responde como se a reserva tivesse atendido.
+  const bodies: Record<string, unknown>[] = [];
+  const srv = createServer((req, res) => {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    req.on('end', () => {
+      const body = JSON.parse(raw) as Record<string, unknown>;
+      bodies.push(body);
+      const served = Array.isArray(body.models) ? String(body.models[1]) : String(body.model);
+      if (body.stream) {
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        res.write(
+          `data: ${JSON.stringify({ model: served, choices: [{ delta: { content: 'Oi' } }] })}\n\n`,
+        );
+        res.write(
+          `data: ${JSON.stringify({ model: served, choices: [], usage: { prompt_tokens: 10, completion_tokens: 2, cost: 0.00001 } })}\n\n`,
+        );
+        res.end('data: [DONE]\n\n');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          model: served,
+          choices: [{ message: { content: 'Oi' } }],
+          usage: { prompt_tokens: 10, completion_tokens: 2, cost: 0.00001 },
+        }),
+      );
+    });
+  });
+  let base = '';
+  beforeAll(async () => {
+    await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+    base = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+  });
+  afterAll(() => {
+    srv.closeAllConnections();
+    srv.close();
+  });
+
+  it('a conversa manda o modelo e a reserva; o uso fica com o que respondeu', async () => {
+    const client = new OpenRouterClient(base, 'chave-de-teste');
+    const r = await client.stream(CHAT_MODEL, [{ role: 'user', content: 'oi' }], () => undefined, {
+      fallbacks: chatFallbacks(CHAT_MODEL),
+    });
+    expect(bodies.at(-1)!.models).toEqual([CHAT_MODEL, CHAT_FALLBACK_MODEL]);
+    expect(r.model).toBe(CHAT_FALLBACK_MODEL);
+    expect(r.text).toBe('Oi');
+    const c = await client.complete(CHAT_MODEL, [{ role: 'user', content: 'oi' }], {
+      fallbacks: chatFallbacks(CHAT_MODEL),
+    });
+    expect(c.model).toBe(CHAT_FALLBACK_MODEL);
+  });
+
+  it('sem reserva, não manda a lista (e a reserva não tem reserva de si mesma)', async () => {
+    const client = new OpenRouterClient(base, 'chave-de-teste');
+    await client.complete(CHAT_FALLBACK_MODEL, [{ role: 'user', content: 'oi' }], {
+      fallbacks: chatFallbacks(CHAT_FALLBACK_MODEL),
+    });
+    expect(bodies.at(-1)!.models).toBeUndefined();
+    expect(bodies.at(-1)!.model).toBe(CHAT_FALLBACK_MODEL);
+  });
+
+  it('nome do modelo servido: variação do mesmo modelo conta como ele; lixo não entra', () => {
+    expect(servedModel('a/b', 'a/b-2026-11-01')).toBe('a/b');
+    expect(servedModel('a/b', 'outro/modelo')).toBe('outro/modelo');
+    expect(servedModel('a/b', '')).toBe('a/b');
+    expect(servedModel('a/b', '<script>')).toBe('a/b');
   });
 });

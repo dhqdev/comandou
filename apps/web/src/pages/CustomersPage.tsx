@@ -538,7 +538,12 @@ export function CustomersPage() {
           searchHint="nome, celular ou e-mail"
           actions={
             <>
-              <Button variant="secondary" icon={<Cake size={16} />} onClick={() => setBday(true)}>
+              <Button
+                variant="secondary"
+                icon={<Cake size={16} />}
+                data-search-id="botao-aniversarios"
+                onClick={() => setBday(true)}
+              >
                 Aniversários
               </Button>
               {me?.permissions.includes('customers:manage') && (

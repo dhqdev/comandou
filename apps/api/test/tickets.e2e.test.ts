@@ -487,6 +487,39 @@ describe('Chamado do cliente pela esteira', () => {
     expect(full.body.events.some((e: { kind: string }) => e.kind === 'activity')).toBe(true);
     expect(full.body.aiTokens).toBeGreaterThan(0);
   });
+
+  it('Uso de IA da esteira: por agente, modelo e chamado, separado dos restaurantes', async () => {
+    const full = (await aget(`/${id}`).expect(200)).body;
+    const u = (await aget('/ai-usage?period=month').expect(200)).body;
+    // Sem a chave do sistema, a esteira gasta da dos restaurantes, e a tela avisa.
+    expect(u).toMatchObject({ aiKey: 'clients', hasOwnerKey: false, model: 'teste/modelo' });
+    expect(u.total.calls).toBeGreaterThanOrEqual(5);
+    expect(u.total.tickets).toBeGreaterThanOrEqual(1);
+    const step = (s: string) => u.steps.find((x: { id: string }) => x.id === s);
+    expect(step('inicio')).toMatchObject({ agent: 'Lia' });
+    expect(step('inicio').calls).toBeGreaterThanOrEqual(1);
+    expect(step('desenvolvimento').calls).toBeGreaterThanOrEqual(1);
+    expect(step('concluido').calls).toBeGreaterThanOrEqual(1);
+    const mine = u.tickets.find((t: { id: string | null }) => t.id === id);
+    expect(mine).toMatchObject({ ref: full.code, title: full.title });
+    expect(u.models[0]).toMatchObject({ model: 'teste/modelo' });
+    expect(u.keys).toEqual([expect.objectContaining({ key: 'clients' })]);
+    expect(u.days).toHaveLength(30);
+    expect(u.recent[0]).toMatchObject({ ref: full.code, key: 'clients' });
+    // O quadro diz qual chave está em uso (o aviso com o link para cadastrar a do sistema).
+    expect((await aget('/settings').expect(200)).body).toMatchObject({
+      aiReady: true,
+      aiKey: 'clients',
+      hasOwnerKey: false,
+    });
+    // O restaurante não chega nas métricas da esteira.
+    await tget(HOST_A, ownerA, '/platform/tickets/ai-usage').expect(404);
+    // Nada disso entra no uso de IA dos restaurantes.
+    const [n] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM ai_usage WHERE source = 'esteira'`,
+    );
+    expect(n!.n).toBe(0);
+  });
 });
 
 describe('Recusa e conversa', () => {

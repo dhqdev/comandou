@@ -1048,3 +1048,82 @@ button.tk-chip {
 .tk-board--client .tk-col__empty {
   min-height: 96px;
 }
+
+/* Chamados › Uso de IA (0.269): o gasto da esteira, separado do uso dos restaurantes. */
+.tk-usage {
+  display: grid;
+  gap: 16px;
+  margin-top: 12px;
+}
+.tk-usage__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.tk-usage__model {
+  font-size: 13px;
+  color: var(--cm-text-subtle);
+}
+.tk-usage__model code {
+  color: var(--cm-text);
+}
+.tk-usage__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.tk-usage__steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.tk-usage__steps li[data-off] {
+  color: var(--cm-text-subtle);
+}
+.tk-usage__noavatar {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px dashed var(--cm-border-strong);
+}
+.tk-usage__who,
+.tk-usage__num {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.tk-usage__who {
+  flex: 1;
+}
+.tk-usage__num {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tk-usage__who small,
+.tk-usage__num small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--cm-text-subtle);
+}
+.tk-usage__rows > :first-child {
+  border-top: 0;
+}
+.tk-usage__side {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tk-usage__side b {
+  color: var(--cm-text);
+}
+.tk-usage__foot {
+  margin: 0;
+}

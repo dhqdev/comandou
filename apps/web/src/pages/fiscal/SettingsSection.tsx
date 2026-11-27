@@ -27,6 +27,7 @@ type Save = (json: Record<string, unknown>, ok?: string) => Promise<boolean>;
 function tabFromUrl(): Tab {
   const f = new URLSearchParams(window.location.search).get('foco') ?? '';
   if (f === 'secao-saida') return 'geral';
+  if (f === 'campo-csc') return 'nfce';
   return 'empresa';
 }
 
@@ -594,7 +595,7 @@ function NfceTab({
               <span className="cm-hint">Cadastre a empresa na aba Empresa primeiro.</span>
             )}
           </Sub>
-          <div className="fi-fields">
+          <div className="fi-fields" data-search-id="campo-csc">
             <TextField
               label="ID do CSC de homologação"
               inputMode="numeric"

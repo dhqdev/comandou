@@ -547,6 +547,7 @@ export function ReservationsPage() {
                   variant="primary"
                   icon={<Plus size={18} />}
                   className="rv-head__new"
+                  data-search-id="botao-nova-reserva"
                   aria-label="Nova reserva"
                   title="Nova reserva"
                   onClick={() => create()}

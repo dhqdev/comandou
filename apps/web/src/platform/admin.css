@@ -1451,6 +1451,107 @@ details.adm-fieldset[open] > summary::before {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+.adm-ai-key__go {
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* Modelos em uso: um cartão por modelo, com para que serve e onde foi usado no mês. */
+.adm-ai-models {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 12px;
+}
+.adm-ai-model {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.adm-ai-model .adm-sub {
+  white-space: normal;
+  margin: 0;
+}
+.adm-ai-model__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.adm-ai-model__head > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--a-subtle);
+}
+.adm-ai-model__head > div {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.adm-ai-model__id {
+  font-size: 12px;
+  color: var(--a-subtle);
+  overflow-wrap: anywhere;
+}
+.adm-ai-model__roles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.adm-ai-model__roles li {
+  display: grid;
+  gap: 1px;
+  padding-left: 10px;
+  border-left: 1px solid var(--a-line);
+}
+.adm-ai-model .adm-ai-key__stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.adm-ai-model__uses {
+  list-style: none;
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--a-line);
+  display: grid;
+  gap: 8px;
+}
+.adm-ai-model__uses li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(60px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.adm-ai-model__use {
+  display: grid;
+  min-width: 0;
+}
+.adm-ai-model__use > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adm-ai-model__use small {
+  color: var(--a-subtle);
+  font-size: 11px;
+}
+.adm-ai-model__bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--a-line);
+  overflow: hidden;
+}
+.adm-ai-model__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--a-accent);
+}
+.adm-ai-model__num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .adm-ai-grant {
   display: grid;
   gap: 10px;

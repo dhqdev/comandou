@@ -9,6 +9,7 @@ import {
 import { parsePrintLines, PRINT_BIG_WIDTH, printLineColumns } from '@comandou/shared';
 import { z } from 'zod';
 import { AI_KEY_CONTEXT } from '../chat/ai.service';
+import { chatFallbacks } from '../chat/ai-models';
 import { loadAiQuota, recordAiUsage } from '../chat/ai-quota';
 import { OpenRouterClient, OpenRouterError, type Usage } from '../chat/openrouter';
 import type { Ctx } from '../common/context';
@@ -159,6 +160,8 @@ export class TemplateAiService {
       { role: 'user', content: templateAiUserTurn(last.content, body, text) },
     ];
     const total: Usage = { promptTokens: 0, completionTokens: 0, costUsd: 0 };
+    // O modelo que respondeu de fato (a reserva entra se o escolhido falhar): é o que fica no uso.
+    let served = model;
     const call = async () => {
       let r: Awaited<ReturnType<OpenRouterClient['complete']>>;
       try {
@@ -166,6 +169,7 @@ export class TemplateAiService {
           json: true,
           maxTokens: 6000,
           signal: AbortSignal.timeout(90_000),
+          fallbacks: chatFallbacks(model),
         });
       } catch (e) {
         this.logger.warn(`IA do modelo de impressão falhou: ${(e as Error).message}`);
@@ -178,6 +182,7 @@ export class TemplateAiService {
       total.promptTokens += r.usage.promptTokens;
       total.completionTokens += r.usage.completionTokens;
       total.costUsd += r.usage.costUsd;
+      served = r.model;
       return r.text;
     };
     try {
@@ -223,7 +228,7 @@ export class TemplateAiService {
           .withCentral(ctx, (tx) =>
             recordAiUsage(tx, {
               userId: ctx.userId,
-              model,
+              model: served,
               usage: total,
               source: 'print_template',
             }),

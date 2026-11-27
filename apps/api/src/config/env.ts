@@ -104,9 +104,9 @@ const schema = z.object({
   WHATSAPP_GRAPH_URL: z.string().url().default('https://graph.facebook.com/v25.0'),
   /** OpenRouter (assistente de IA). A chave fica no painel Super Admin, cifrada no banco. */
   OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
-  // Modelo que lê foto e PDF na importação do cardápio (precisa aceitar imagem).
-  AI_IMPORT_MODEL: z.string().min(3).max(120).default('google/gemini-2.5-flash'),
-  // Modelo que cria a foto ilustrativa de um item sem foto (primeiros passos).
+  // Os modelos de cada tarefa ficam no Super Admin › Tokens de IA (platform_ai_settings). Este é
+  // só a reserva das fotos: se o modelo de imagem escolhido lá não criar pela API de imagens do
+  // OpenRouter, a foto sai por este, pelo chat.
   AI_IMAGE_MODEL: z.string().min(3).max(120).default('google/gemini-2.5-flash-image'),
   /**
    * Integração com o iFood (cardápio). Credenciais do aplicativo do Comandou no Portal do

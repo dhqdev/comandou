@@ -330,7 +330,12 @@ function ItemsTab({
       title="Insumos"
       actions={
         canWrite && (
-          <Button size="lg" icon={<Plus size={18} />} onClick={() => setEditing('new')}>
+          <Button
+            size="lg"
+            icon={<Plus size={18} />}
+            data-search-id="botao-novo-insumo"
+            onClick={() => setEditing('new')}
+          >
             Novo insumo
           </Button>
         )

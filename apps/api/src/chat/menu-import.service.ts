@@ -17,6 +17,7 @@ import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
 import { AI_KEY_CONTEXT } from './ai.service';
 import { availableTokens, loadAiQuota, recordAiUsage } from './ai-quota';
+import { chatFallbacks } from './ai-models';
 import { ContentPart, OpenRouterClient, OpenRouterError } from './openrouter';
 import { parseMenuText } from './menu-text';
 import {
@@ -258,7 +259,8 @@ export class MenuImportService {
     opts: { web?: number; source?: string } = {},
   ) {
     const { c, client } = await this.ready(ctx);
-    const model = this.env.AI_IMPORT_MODEL;
+    // Modelo de ler o cardápio (Super Admin › Tokens de IA), que lê PDF e foto.
+    const model = c.import_model;
     let result: Awaited<ReturnType<OpenRouterClient['complete']>>;
     try {
       result = await client.complete(
@@ -285,7 +287,7 @@ export class MenuImportService {
     const used = await this.db.withCentral(ctx, (tx) =>
       recordAiUsage(tx, {
         userId: ctx.userId,
-        model,
+        model: result.model,
         usage: result.usage,
         source: opts.source ?? 'menu_import',
       }),
@@ -558,11 +560,21 @@ export class MenuImportService {
     ctx: Ctx,
     p: { name: string; description?: string | null; category?: string | null },
   ): Promise<{ mime: string; body: Buffer }> {
-    const { client } = await this.ready(ctx);
-    const model = this.env.AI_IMAGE_MODEL;
+    const { c, client } = await this.ready(ctx);
+    const prompt = photoPrompt(p.name, p.description ?? null, p.category ?? null);
+    // O mesmo modelo de imagem das fotos do item (Super Admin › Tokens de IA), pela API de
+    // imagens; se ele não criar por lá, a reserva do servidor (AI_IMAGE_MODEL), pelo chat.
+    let model = c.image_model;
     let r: Awaited<ReturnType<OpenRouterClient['image']>>;
     try {
-      r = await client.image(model, photoPrompt(p.name, p.description ?? null, p.category ?? null));
+      try {
+        r = await client.editImage(model, prompt, null);
+      } catch (e) {
+        if (!(e instanceof OpenRouterError) || ![400, 404, 405, 422].includes(e.status)) throw e;
+        this.logger.warn(`criar pela API de imagens recusado (${e.message}); tentando o outro`);
+        model = this.env.AI_IMAGE_MODEL;
+        r = await client.image(model, prompt);
+      }
     } catch (e) {
       this.logger.warn(`foto do item falhou: ${(e as Error).message}`);
       throw new ServiceUnavailableException('A IA não conseguiu criar a foto agora');
@@ -618,20 +630,25 @@ export class MenuImportService {
     let withAi = false;
     if ((await this.status(ctx)).enabled) {
       try {
-        const { client } = await this.ready(ctx);
-        const model = this.env.AI_IMPORT_MODEL;
+        const { c, client } = await this.ready(ctx);
+        // Só texto: vai pelo modelo da conversa (o mais barato), com a reserva dele.
         const result = await client.complete(
-          model,
+          c.model,
           [
             { role: 'system', content: SITE_PAGE_PROMPT },
             { role: 'user', content: JSON.stringify(facts) },
           ],
-          { json: true, maxTokens: 1200, signal: AbortSignal.timeout(60_000) },
+          {
+            json: true,
+            maxTokens: 1200,
+            signal: AbortSignal.timeout(60_000),
+            fallbacks: chatFallbacks(c.model),
+          },
         );
         await this.db.withCentral(ctx, (tx) =>
           recordAiUsage(tx, {
             userId: ctx.userId,
-            model,
+            model: result.model,
             usage: result.usage,
             source: 'site_page',
           }),

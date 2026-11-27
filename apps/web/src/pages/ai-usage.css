@@ -1,0 +1,51 @@
+/* Conta › Uso de IA (0.269). Os gráficos são os do Financeiro (finance.css). */
+.aiu {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.aiu-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: var(--cm-text-subtle);
+  text-decoration: none;
+}
+.aiu-back:hover {
+  color: var(--cm-text);
+}
+.aiu-limit {
+  display: grid;
+  gap: 10px;
+}
+.aiu-limit__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  color: var(--cm-text-subtle);
+}
+.aiu-limit__pct {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--cm-text);
+  font-variant-numeric: tabular-nums;
+}
+.aiu-limit__pct[data-level='warn'] {
+  color: var(--cm-warning);
+}
+.aiu-limit__pct[data-level='bad'] {
+  color: var(--cm-danger);
+}
+.aiu-note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--cm-text-subtle);
+}
+.aiu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+}

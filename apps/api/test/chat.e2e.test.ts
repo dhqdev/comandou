@@ -605,7 +605,7 @@ describe('Assistente de IA', () => {
 
   it('responde em pedaços, grava a conversa e o uso do restaurante', async () => {
     const res = await send('waiterA', 'post', '/chat/ai/messages', {
-      content: 'Como abro o caixa?',
+      content: 'Como abro o caixa para o X-Burguer?',
       screen: '/caixa',
     })
       .buffer(true)
@@ -625,20 +625,49 @@ describe('Assistente de IA', () => {
     expect(done.usage).toMatchObject({ used: 660, limit: 1000 });
     const call = orCalls.find((c) => c.path === '/chat/completions' && c.body?.max_tokens !== 30)!;
     const msgs = call.body!.messages as { role: string; content: string }[];
+    // Duas mensagens de sistema: a fixa (igual em toda pergunta, vai para o cache do provedor) e a
+    // do momento (quem pergunta, tela, estado e o que a busca achou).
     expect(msgs[0].role).toBe('system');
-    expect(msgs[0].content).toContain('Tela aberta agora: Caixa');
-    expect(msgs[0].content).toContain('Garçom A');
+    expect(msgs[1].role).toBe('system');
+    expect(msgs[0].content).not.toContain('Garçom A');
+    expect(msgs[1].content).toContain('Tela aberta agora: Caixa');
+    expect(msgs[1].content).toContain('Quem pergunta: Garçom A');
     // Conhece os links das telas, os impedimentos e o estado da loja.
     expect(msgs[0].content).toContain('/garcom/mesas');
     expect(msgs[0].content).toContain('Caixa fechado ao receber');
-    expect(msgs[0].content).toMatch(/Caixa: (nenhum aberto|\d+ aberto)/);
-    expect(msgs[0].content).toContain('Impressão:');
+    expect(msgs[1].content).toMatch(/Caixa: (nenhum aberto|\d+ aberto)/);
+    expect(msgs[1].content).toContain('Impressão:');
+    // Achou o item citado no cadastro do restaurante (do B, não: cada um vê o seu); o garçom
+    // fica no app dele, então o achado vai sem o link da tela do cardápio.
+    expect(msgs[1].content).toContain('"X-Burguer A"');
+    expect(msgs[1].content).toContain('R$ 25,90');
+    expect(msgs[1].content).not.toContain('/cardapio?');
+    expect(msgs[1].content).not.toContain('Pizza B');
+    // O modelo salvo neste teste já é a reserva da conversa: vai sozinho, sem lista de reserva.
+    expect(call.body!.model).toBe('google/gemini-2.5-flash-lite');
+    expect(call.body!.models).toBeUndefined();
     const s = (await get('waiterA', '/chat/ai').expect(200)).body;
     expect(s.messages.map((m: { role: string }) => m.role)).toEqual(['user', 'assistant']);
     expect(s.usage).toMatchObject({ used: 660, limit: 1000, percent: 66 });
     // A conversa é de cada pessoa.
     expect((await get('adminA', '/chat/ai').expect(200)).body.messages).toEqual([]);
     expect((await get('adminB', '/chat/ai').expect(200)).body.usage.used).toBe(0);
+  });
+
+  it('Conta › Uso de IA: onde e quem usou, só para dono e gerente, sem dinheiro', async () => {
+    await get('waiterA', '/chat/ai/usage').expect(403);
+    const u = (await get('adminA', '/chat/ai/usage?period=month').expect(200)).body;
+    expect(u.total).toMatchObject({ tokens: 660, calls: 1 });
+    expect(u.parts).toEqual([
+      expect.objectContaining({ key: 'chat', label: 'Chat com a IA', tokens: 660, percent: 100 }),
+    ]);
+    expect(u.people).toEqual([expect.objectContaining({ name: 'Garçom A', tokens: 660 })]);
+    expect(u.days).toHaveLength(30);
+    expect(u.quota).toMatchObject({ used: 660, limit: 1000 });
+    expect(JSON.stringify(u)).not.toMatch(/cost|usd/i);
+    // Outro restaurante não vê o uso do A; período inválido vira o mês.
+    const b = (await get('adminB', '/chat/ai/usage?period=xyz').expect(200)).body;
+    expect(b).toMatchObject({ period: 'month', total: { tokens: 0, calls: 0 }, parts: [] });
   });
 
   it('passou do limite: avisa os gestores e para de responder', async () => {
@@ -837,7 +866,7 @@ describe('Assistente de IA', () => {
     expect(t.ok).toBe(true);
     o = (await pget('/ai').expect(200)).body;
     expect(o.system.calls).toBeGreaterThanOrEqual(1);
-    expect(o.log[0]).toMatchObject({ key: 'owner', source: 'teste', ref: 'sua chave' });
+    expect(o.log[0]).toMatchObject({ key: 'owner', source: 'teste', ref: 'chave do sistema' });
     expect(o.log[0]).toMatchObject({ via: 'owner' });
     expect(o.system.byKey.owner).toBeGreaterThan(0);
     o = (await psend('put', '/ai/settings', { ...base, clearOwnerKey: true }).expect(200)).body;
@@ -849,6 +878,49 @@ describe('Assistente de IA', () => {
     o = (await pget('/ai').expect(200)).body;
     expect(o.log[0]).toMatchObject({ key: 'owner', via: 'clients' });
     expect(o.system.byKey.clients).toBeGreaterThan(before);
+  });
+
+  it('um cartão por modelo: para que serve, preço e onde foi usado no mês', async () => {
+    const base = {
+      enabled: true,
+      model: 'google/gemini-2.5-flash-lite',
+      assistantName: 'Comandinho',
+      defaultMonthlyTokens: 1000,
+      lowBalanceUsd: 2,
+    };
+    await psend('put', '/ai/settings', { ...base, importModel: 'x' }).expect(400);
+    const o = (
+      await psend('put', '/ai/settings', {
+        ...base,
+        importModel: 'google/gemini-2.5-flash',
+      }).expect(200)
+    ).body;
+    expect(o.settings.importModel).toBe('google/gemini-2.5-flash');
+    const card = (id: string) => o.models.find((m: { model: string }) => m.model === id);
+    // O modelo da conversa (aqui o mesmo da reserva e o que olha a foto) vira um cartão só.
+    const chat = card('google/gemini-2.5-flash-lite');
+    expect(chat.roles.map((r: { key: string }) => r.key)).toEqual(
+      expect.arrayContaining(['chat', 'chat_fallback', 'vision', 'pipeline']),
+    );
+    expect(chat.month.calls).toBeGreaterThanOrEqual(2);
+    // Uso dos restaurantes e do próprio sistema, separados.
+    const scopes = new Set(chat.sources.map((x: { scope: string }) => x.scope));
+    expect(scopes).toEqual(new Set(['tenant', 'system']));
+    expect(chat.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'chat', scope: 'tenant', label: 'Chat da equipe' }),
+        expect.objectContaining({ source: 'teste', scope: 'system' }),
+      ]),
+    );
+    expect(card('google/gemini-2.5-flash').roles.map((r: { key: string }) => r.key)).toContain(
+      'import',
+    );
+    expect(card('openai/gpt-image-2')).toMatchObject({ priceNote: '~US$ 0,014 por foto' });
+    // O restaurante lê o modelo do cardápio pela função (não enxerga a tabela do painel).
+    const [cfg] = await ownerQuery<{ import_model: string }>(
+      `SELECT import_model FROM platform_ai_settings WHERE id`,
+    );
+    expect(cfg!.import_model).toBe('google/gemini-2.5-flash');
   });
 
   it('chave de gerenciamento mostra o saldo de verdade da conta no OpenRouter', async () => {

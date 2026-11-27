@@ -59,8 +59,34 @@ O servidor só aceita chamado do mesmo restaurante; sem texto, a mensagem vira "
   `pnpm-lock.yaml` nem em migrações. Edição que não acha o trecho exato é descartada (fica no
   arquivo do chamado como "não aplicado").
 - O token do GitHub fica cifrado com a `INTEGRATIONS_KEY` (contexto `pipeline:github`) e nunca volta
-  para o navegador. A chave do OpenRouter é a de **Super Admin › Credenciais** (a sua, ou a dos restaurantes); o uso da esteira fica
-  no próprio chamado e não conta no limite de IA do restaurante.
+  para o navegador. A chave do OpenRouter é a **chave do sistema** de **Super Admin › Credenciais**
+  (sem ela, a dos restaurantes, com aviso na tela); o uso da esteira fica no próprio chamado e em
+  **Chamados › Uso de IA**, e não conta no limite de IA do restaurante.
+
+## Uso de IA da esteira
+
+Aba **Uso de IA** em Chamados (ao lado de Esteira; abre direto por `?aba=uso`), pedida pelo David
+na 0.269 para o gasto do Comandou ficar separado do gasto dos restaurantes:
+
+- **Números do período** (este mês, mês passado ou desde o início): gasto em US$ (como o OpenRouter
+  cobrou), chamadas de IA, chamados atendidos com a média por chamado e de qual chave saiu.
+- **Gasto por dia** nos últimos 30 dias, **por agente** (Lia, Bento, Caio, Vera, Paulo, Íris e
+  Nina, com o avatar), **por modelo**, os **chamados que mais gastaram** (tocar abre o chamado) e
+  as **últimas chamadas** (chamado, agente, modelo e chave).
+- Os números saem de `platform_ai_usage` (fonte `esteira`, com a etapa em `step`, migração 0129),
+  nunca do `ai_usage` dos restaurantes: a esteira não entra no limite, na pizza nem em Tokens de IA ›
+  Uso dos restaurantes. O que foi gasto antes da 0.269 aparece como "Sem etapa".
+- **Chave:** a esteira usa a **chave do sistema** (Super Admin › Credenciais › **OpenRouter · chave
+  do sistema (esteira)**). Crie no OpenRouter uma chave só para o Comandou, com limite de gasto: a
+  conta do OpenRouter passa a mostrar o gasto do sistema separado do dos restaurantes. Sem ela, a
+  esteira usa a chave dos restaurantes e o quadro, a aba Uso de IA e Tokens de IA avisam, com o link
+  que abre o cartão em Credenciais e faz o campo da chave piscar.
+- **Modelo:** Chamados › Configurar › Modelo. Vazio usa o modelo da conversa de Tokens de IA
+  (DeepSeek V4 Flash, barato); se o modelo falhar, o OpenRouter responde com a reserva (Gemini 2.5
+  Flash Lite) na mesma chamada. Cada chamada grava o modelo que respondeu de verdade.
+- **Etapa com erro também conta:** o que a IA já cobrou entra no total do chamado (`ai_tokens`,
+  `ai_cost_usd`) mesmo quando a etapa falha e vai tentar de novo (antes da 0.269 só entrava quando
+  dava certo, e o cartão mostrava menos do que o OpenRouter cobrou).
 
 ## Token do GitHub (repositório privado)
 
@@ -82,7 +108,10 @@ etapa Testes acompanhar os PRs, acrescente `pull_request` ao gatilho do workflow
   `platform_tickets`, `platform_ticket_events`, `platform_ticket_files` (prefixo `platform_`: não
   saem do central ao mover um restaurante para banco próprio).
 - API do restaurante: `/api/v1/support/tickets*` (permissão `plan:read`, funciona com o
-  restaurante bloqueado pela cobrança). Painel: `/api/v1/platform/tickets*`.
+  restaurante bloqueado pela cobrança). Painel: `/api/v1/platform/tickets*`; o uso de IA em
+  `GET /api/v1/platform/tickets/ai-usage?period=month|last|all` (`tickets/pipeline-usage.ts`, tela
+  `platform/PipelineUsage.tsx`) e a chave em uso no `GET …/settings` (`aiKey`: `owner`, `clients`
+  ou nenhuma).
 - O laço da esteira roda na API a cada `TICKETS_PIPELINE_SECONDS` (padrão 10; 0 para). Réplicas
   não pegam o mesmo chamado (`FOR UPDATE SKIP LOCKED` + `locked_until`). **Rodar agora** no painel
   roda uma volta na hora.

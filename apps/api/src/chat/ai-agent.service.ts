@@ -48,6 +48,7 @@ import {
   customerPrompt,
   hoursText,
 } from './ai-agent-prompt';
+import { chatFallbacks } from './ai-models';
 import { loadAiQuota, recordAiUsage } from './ai-quota';
 import { AI_KEY_CONTEXT } from './ai.service';
 import { ChatService } from './chat.service';
@@ -591,9 +592,12 @@ export class AiAgentService implements OnModuleInit {
 
   private async complete(client: OpenRouterClient, model: string, turns: ChatTurn[]) {
     try {
+      // Com a reserva da conversa: se o modelo escolhido falhar, o OpenRouter responde com ela
+      // na mesma chamada (o cliente no WhatsApp nem percebe) e o uso fica com o nome dela.
       return await client.stream(model, turns, () => undefined, {
         maxTokens: MAX_REPLY_TOKENS,
         signal: AbortSignal.timeout(60_000),
+        fallbacks: chatFallbacks(model),
       });
     } catch (e) {
       if (e instanceof OpenRouterError) {
@@ -780,7 +784,7 @@ export class AiAgentService implements OnModuleInit {
       { role: 'system', content: p.system },
       ...b.messages.slice(-HISTORY).map((m) => ({ ...m, content: cleanInbound(m.content) })),
     ]);
-    await this.recordUsage(ctx, c.model, r.usage, 'agent_test');
+    await this.recordUsage(ctx, r.model, r.usage, 'agent_test');
     const out = this.finish(parseActions(r.text), p.storeHost);
     const actions: string[] = [];
     let text = out.text;
@@ -942,7 +946,7 @@ export class AiAgentService implements OnModuleInit {
       ...state.history,
       { role: 'user', content: text },
     ]);
-    await this.recordUsage(ctx, ai.c.model, r.usage, 'whatsapp');
+    await this.recordUsage(ctx, r.model, r.usage, 'whatsapp');
     const out = this.finish(parseActions(r.text), p.storeHost);
     const tokens = r.usage.promptTokens + r.usage.completionTokens;
 
@@ -1173,9 +1177,9 @@ export class AiAgentService implements OnModuleInit {
           content: `Resumo anterior:\n${st.memory?.trim() || '(nenhum)'}\n\nMensagens novas:\n${transcript}`,
         },
       ],
-      { maxTokens: 400, signal: AbortSignal.timeout(60_000) },
+      { maxTokens: 400, signal: AbortSignal.timeout(60_000), fallbacks: chatFallbacks(ai.c.model) },
     );
-    await this.recordUsage(ctx, ai.c.model, r.usage, 'whatsapp');
+    await this.recordUsage(ctx, r.model, r.usage, 'whatsapp');
     let memory = r.text
       .replace(/\[\[|\]\]/g, '')
       .trim()

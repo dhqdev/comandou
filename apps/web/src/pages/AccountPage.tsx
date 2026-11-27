@@ -1,4 +1,5 @@
 import {
+  ChartPie,
   ChevronRight,
   CircleCheck,
   Compass,
@@ -70,6 +71,16 @@ function noticeStatus(n: Notice | null): Action['status'] {
   return { tone: 'success', text: 'Em dia' };
 }
 
+/** Bolinha do cartão Uso de IA: quanto do limite do mês já foi. */
+function aiStatus(percent: number | null): Action['status'] {
+  if (percent === null) return undefined;
+  const p = Math.round(percent);
+  return {
+    tone: p >= 100 ? 'danger' : p >= 80 ? 'warning' : 'success',
+    text: p >= 100 ? 'Limite do mês acabou' : `${p}% do limite do mês`,
+  };
+}
+
 const initialsOf = (name?: string) =>
   (name ?? '?')
     .split(' ')
@@ -92,11 +103,16 @@ export function AccountPage() {
   const seesPlan = can('plan:read');
 
   const [notice, setNotice] = useState<Notice | null>(null);
+  // Quanto do limite de IA do mês já foi usado (a bolinha do cartão Uso de IA).
+  const [aiPercent, setAiPercent] = useState<number | null>(null);
   useEffect(() => {
     if (!seesPlan) return;
     let alive = true;
     api<Notice>('/subscription/notice')
       .then((r) => alive && setNotice(r))
+      .catch(() => undefined);
+    api<{ usage: { percent: number | null } }>('/chat/ai')
+      .then((r) => alive && setAiPercent(r.usage?.percent ?? null))
       .catch(() => undefined);
     return () => {
       alive = false;
@@ -134,6 +150,14 @@ export function AccountPage() {
                 icon: <CreditCard />,
                 to: '/plano',
                 status: noticeStatus(notice),
+              },
+              {
+                key: 'uso-ia',
+                title: 'Uso de IA',
+                text: 'Quanto o restaurante já usou de IA e em que partes do sistema usa mais.',
+                icon: <ChartPie />,
+                to: '/conta/uso-ia',
+                status: aiStatus(aiPercent),
               },
             ]
           : []),
@@ -336,20 +360,22 @@ function ActionCard({ action: a }: { action: Action }) {
       {!a.done && <ChevronRight className="acc-card__chev" aria-hidden />}
     </>
   );
+  // O assistente de IA aponta cada bloco por "/conta?foco=conta-<key>" (o bloco pisca).
+  const focus = `conta-${a.key}`;
   if (a.done)
     return (
-      <div className="acc-card" data-done>
+      <div className="acc-card" data-done data-search-id={focus}>
         {body}
       </div>
     );
   if (a.to)
     return (
-      <Link to={a.to} className="acc-card">
+      <Link to={a.to} className="acc-card" data-search-id={focus}>
         {body}
       </Link>
     );
   return (
-    <button type="button" className="acc-card" onClick={a.onClick}>
+    <button type="button" className="acc-card" data-search-id={focus} onClick={a.onClick}>
       {body}
     </button>
   );

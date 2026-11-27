@@ -463,15 +463,27 @@ export interface DayBar {
   details?: { label: string; value: string }[];
 }
 
+/** Como escrever os números do gráfico (padrão: em reais). */
+export interface BarFormat {
+  /** Valor inteiro (dica e leitor de tela). */
+  full: (n: number) => string;
+  /** Valor curto do eixo e do melhor dia. */
+  short: (n: number) => string;
+}
+const MONEY_FORMAT: BarFormat = { full: (n) => money(n), short: (n) => shortMoney(n) };
+
 /** Uma barra por dia, com a linha da média e o melhor dia marcado. */
 export function DayBars({
   items,
   label,
   height = 240,
+  format = MONEY_FORMAT,
 }: {
   items: DayBar[];
   label: string;
   height?: number;
+  /** Outra unidade (ex.: tokens de IA); sem isso, reais. */
+  format?: BarFormat;
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
@@ -504,19 +516,19 @@ export function DayBars({
         width={width}
         height={H}
         role="img"
-        aria-label={`${label}: média de ${money(avg)} por dia, melhor dia ${dm(items[best]!.day)} com ${money(items[best]!.value)}`}
+        aria-label={`${label}: média de ${format.full(avg)} por dia, melhor dia ${dm(items[best]!.day)} com ${format.full(items[best]!.value)}`}
       >
         {[top, top / 2].map((t) => (
           <g key={t}>
             <line className="fin-grid" x1={pad.l} x2={width - pad.r} y1={y(t)} y2={y(t)} />
             <text className="fin-axis" x={pad.l - 8} y={y(t) + 4} textAnchor="end">
-              {shortMoney(t)}
+              {format.short(t)}
             </text>
           </g>
         ))}
         <line className="fin-zero" x1={pad.l} x2={width - pad.r} y1={y(0)} y2={y(0)} />
         <text className="fin-axis" x={pad.l - 8} y={y(0) + 4} textAnchor="end">
-          R$ 0
+          {format.short(0)}
         </text>
         {items.map((it, i) =>
           it.value > 0 ? (
@@ -536,7 +548,7 @@ export function DayBars({
           <g>
             <line className="fin-avg" x1={pad.l} x2={width - pad.r} y1={y(avg)} y2={y(avg)} />
             <text className="fin-axis" x={width - pad.r - 2} y={y(avg) - 4} textAnchor="end">
-              média {shortMoney(avg)}
+              média {format.short(avg)}
             </text>
           </g>
         )}
@@ -547,7 +559,7 @@ export function DayBars({
             y={y(items[best]!.value) - 6}
             textAnchor={best < n * 0.12 ? 'start' : best > n * 0.88 ? 'end' : 'middle'}
           >
-            {shortMoney(items[best]!.value)}
+            {format.short(items[best]!.value)}
           </text>
         )}
         {items.map((it, i) =>
@@ -572,7 +584,7 @@ export function DayBars({
         <Tip x={xc(hover)} width={width}>
           <strong>{longDay(h.day)}</strong>
           <span>
-            <i className="fin-sw fin-sw--in" /> {money(h.value)}
+            <i className="fin-sw fin-sw--in" /> {format.full(h.value)}
           </span>
           {h.details?.map((d) => (
             <span key={d.label} className="fin-tip__muted">

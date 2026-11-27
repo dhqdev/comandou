@@ -1,4 +1,10 @@
-import { ROLE_LABELS, type OrderStatus, type Role } from '@comandou/shared';
+import {
+  hitHref,
+  ROLE_LABELS,
+  type OrderStatus,
+  type Role,
+  type SearchHit,
+} from '@comandou/shared';
 import {
   CircleUserRound,
   Bot,
@@ -62,70 +68,10 @@ import {
 } from './search-catalog';
 import './global-search.css';
 
-/** Resultado que vem do servidor (GET /search). */
-export interface SearchHit {
-  kind:
-    | 'order'
-    | 'tab'
-    | 'table'
-    | 'customer'
-    | 'product'
-    | 'category'
-    | 'option'
-    | 'stock_item'
-    | 'member'
-    | 'courier'
-    | 'finance_entry'
-    | 'cash_register'
-    | 'cash_session'
-    | 'sector'
-    | 'print_agent';
-  id: string;
-  title: string;
-  detail: string | null;
-  ref: string | null;
-  amount: string | null;
-  status: string | null;
-  at: string | null;
-}
+/** Resultado da busca e o link de cada um: o mesmo do assistente de IA (compartilhado). */
+export { hitHref, type SearchHit };
 
 type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'brand';
-
-/** Para onde cada resultado leva. A tela de destino abre o item ou o destaca. */
-export function hitHref(h: SearchHit): string {
-  switch (h.kind) {
-    case 'order':
-      return `/pedidos?abrir=${h.id}`;
-    case 'tab':
-      return `/mesas?comanda=${h.id}`;
-    case 'table':
-      return h.ref ? `/mesas?comanda=${h.ref}` : `/mesas?foco=mesa-${h.id}`;
-    case 'customer':
-      return `/clientes?abrir=${h.id}`;
-    case 'product':
-      return `/cardapio?categoria=${h.ref}&foco=produto-${h.id}`;
-    case 'category':
-      return `/cardapio?categoria=${h.id}`;
-    case 'option':
-      return `/cardapio/complementos?foco=grupo-${h.id}`;
-    case 'stock_item':
-      return `/estoque?foco=insumo-${h.id}`;
-    case 'member':
-      return `/equipe?foco=membro-${h.id}`;
-    case 'courier':
-      return `/entregas?foco=entregador-${h.id}`;
-    case 'finance_entry':
-      return `/financeiro?conta=${h.id}&foco=conta-${h.id}`;
-    case 'cash_register':
-      return h.ref ? `/caixa?sessao=${h.ref}&foco=sessao-${h.ref}` : `/caixa?foco=caixa-${h.id}`;
-    case 'cash_session':
-      return `/caixa?sessao=${h.id}&foco=sessao-${h.id}`;
-    case 'sector':
-      return `/configuracoes?foco=setor-${h.id}`;
-    case 'print_agent':
-      return `/impressao?foco=agente-${h.id}`;
-  }
-}
 
 const KIND_LABEL: Record<SearchHit['kind'], string> = {
   order: 'Pedidos',

@@ -32,6 +32,7 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { Alert, canAnimate, Modal, Skeleton } from '../../design-system';
 import { api } from '../../lib/api';
+import { spotlight } from '../../lib/deep-link';
 import { useLoad } from '../OverviewPages';
 import { ago, Dot, Level, PageHead, Section, Tile } from '../ui';
 import { CREDENTIALS, CredDef, CredGroup, TENANT_CREDENTIALS } from './catalog';
@@ -249,6 +250,22 @@ export function CredentialsPage() {
     if (isCard && hash !== arrivedWith.current) return;
     arrivedWith.current = '';
     document.getElementById(target)?.scrollIntoView({ block: isCard ? 'center' : 'start' });
+    if (!isCard) return;
+    // Chegou de outra tela para cadastrar (ex.: "Cadastrar a chave do sistema" em Tokens de IA ou
+    // Chamados): a janela abre e o campo da chave pisca. O formulário carrega depois da janela,
+    // então procura por até 3 s.
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      const box = document.querySelector('dialog.adm-cred-modal[open]');
+      const field =
+        box?.querySelector<HTMLElement>('[data-search-id="cred-campo"]') ??
+        box?.querySelector<HTMLElement>('input[type="password"], input[type="text"], textarea');
+      if (field || ++tries > 20) {
+        window.clearInterval(timer);
+        if (field) spotlight(field);
+      }
+    }, 150);
+    return () => window.clearInterval(timer);
   }, [loaded, hash]);
   // Cartão aberto = o do endereço (#cred-<id>). O último aberto segue na janela enquanto ela fecha.
   const openId = hash.startsWith('#cred-') ? decodeURIComponent(hash.slice('#cred-'.length)) : '';
@@ -548,7 +565,7 @@ export function CredentialsPage() {
               <div className="adm-cred__jumps">
                 {jump('backblaze', 'Backblaze B2')}
                 {jump('pagbank', 'PagBank')}
-                {jump('openrouter_owner', 'Sua chave do OpenRouter')}
+                {jump('openrouter_owner', 'Chave do sistema no OpenRouter')}
                 {jump('openrouter_admin', 'Saldo do OpenRouter')}
                 {jump('github_pipeline', 'GitHub da esteira')}
                 {jump('channel_ifood', 'iFood')}

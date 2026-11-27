@@ -31,6 +31,7 @@ import type { Actor } from '../platform/platform.service';
 import { checkFile, sendFile } from '../store-chat/store-chat.controller';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { PipelineService } from './pipeline.service';
+import { PipelinePeriod } from './pipeline-usage';
 import {
   AdminTicketBody,
   DecideBody,
@@ -194,6 +195,12 @@ export class PlatformTicketsController {
     @Res() res: Response,
   ) {
     sendFile(req, res, await this.svc.file(fid, null));
+  }
+
+  /** Uso de IA da esteira (separado do uso dos restaurantes, que fica em Tokens de IA). */
+  @Get('ai-usage')
+  aiUsage(@Query('period') period?: string) {
+    return this.svc.aiUsage(PipelinePeriod.parse(period));
   }
 
   @Get(':id')

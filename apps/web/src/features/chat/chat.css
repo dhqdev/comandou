@@ -2347,6 +2347,14 @@
   color: var(--cm-text-muted);
   font-size: 11.5px;
 }
+.tc-usage__more {
+  color: var(--cm-brand-700);
+  font-weight: 600;
+  text-decoration: none;
+}
+.tc-usage__more:hover {
+  text-decoration: underline;
+}
 .tc-usage__bar {
   height: 6px;
   border-radius: 999px;

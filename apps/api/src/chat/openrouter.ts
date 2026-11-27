@@ -52,6 +52,16 @@ export function imageUsage(u: Record<string, unknown> | undefined): Usage {
   return { promptTokens, completionTokens, costUsd };
 }
 
+/**
+ * Corpo do pedido com o modelo e, se houver, os modelos de reserva: o OpenRouter tenta o próximo
+ * da lista quando o principal está fora do ar, sem saldo no provedor ou recusa a resposta
+ * ("models", Model Fallbacks). A resposta diz qual respondeu (`model`).
+ */
+function withModels(model: string, fallbacks: readonly string[] | undefined) {
+  const rest = (fallbacks ?? []).filter((m) => m && m !== model);
+  return rest.length ? { model, models: [model, ...rest] } : { model };
+}
+
 function friendly(status: number, body: string): string {
   if (status === 401) return 'A chave do OpenRouter foi recusada';
   if (status === 402) return 'Sem saldo no OpenRouter';
@@ -89,15 +99,21 @@ export class OpenRouterClient {
     model: string,
     messages: ChatTurn[],
     onDelta: (text: string) => void,
-    opts: { maxTokens?: number; signal?: AbortSignal; timeoutMs?: number } = {},
-  ): Promise<{ text: string; usage: Usage }> {
+    opts: {
+      maxTokens?: number;
+      signal?: AbortSignal;
+      timeoutMs?: number;
+      /** Modelos de reserva, na ordem, se o principal falhar. */
+      fallbacks?: readonly string[];
+    } = {},
+  ): Promise<{ text: string; usage: Usage; model: string }> {
     // O prazo vale sempre, mesmo com o sinal de quem chamou (ex.: a pessoa fechou a tela).
     const timeout = AbortSignal.timeout(opts.timeoutMs ?? 90_000);
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({
-        model,
+        ...withModels(model, opts.fallbacks),
         messages,
         stream: true,
         max_tokens: opts.maxTokens ?? 900,
@@ -114,6 +130,7 @@ export class OpenRouterClient {
     const dec = new TextDecoder();
     let buf = '';
     let text = '';
+    let served = model;
     const usage: Usage = { promptTokens: 0, completionTokens: 0, costUsd: 0 };
     for (;;) {
       const { done, value } = await reader.read();
@@ -128,6 +145,7 @@ export class OpenRouterClient {
         const data = line.slice(5).trim();
         if (data === '[DONE]') continue;
         let j: {
+          model?: string;
           choices?: { delta?: { content?: string } }[];
           usage?: Record<string, unknown>;
           error?: { message?: string };
@@ -138,6 +156,7 @@ export class OpenRouterClient {
           continue;
         }
         if (j.error) throw new OpenRouterError(`OpenRouter: ${j.error.message ?? 'erro'}`);
+        if (typeof j.model === 'string' && j.model) served = j.model;
         const d = j.choices?.[0]?.delta?.content;
         if (d) {
           text += d;
@@ -150,7 +169,7 @@ export class OpenRouterClient {
         }
       }
     }
-    return { text, usage };
+    return { text, usage, model: servedModel(model, served) };
   }
 
   /**
@@ -166,13 +185,15 @@ export class OpenRouterClient {
       signal?: AbortSignal;
       /** Pesquisa na internet antes de responder (plugin "web" do OpenRouter): quantos resultados. */
       web?: number;
+      /** Modelos de reserva, na ordem, se o principal falhar. */
+      fallbacks?: readonly string[];
     } = {},
-  ): Promise<{ text: string; usage: Usage; citations: string[] }> {
+  ): Promise<{ text: string; usage: Usage; citations: string[]; model: string }> {
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({
-        model,
+        ...withModels(model, opts.fallbacks),
         messages,
         max_tokens: opts.maxTokens ?? 4000,
         temperature: 0.1,
@@ -185,6 +206,7 @@ export class OpenRouterClient {
     const body = await res.text().catch(() => '');
     if (!res.ok) throw new OpenRouterError(friendly(res.status, body), res.status);
     let j: {
+      model?: string;
       choices?: {
         message?: {
           content?: string | null;
@@ -206,6 +228,7 @@ export class OpenRouterClient {
       .filter((u): u is string => typeof u === 'string' && /^https?:\/\//.test(u));
     return {
       citations: [...new Set(citations)].slice(0, 20),
+      model: servedModel(model, j.model),
       text: j.choices?.[0]?.message?.content ?? '',
       usage: {
         promptTokens: num(j.usage?.prompt_tokens) ?? 0,
@@ -383,6 +406,17 @@ export class OpenRouterClient {
       out.error = (key.reason as Error).message || 'Não consegui consultar o OpenRouter';
     return out;
   }
+}
+
+/**
+ * Qual modelo respondeu, para o registro de uso. O OpenRouter às vezes devolve o nome com a
+ * versão do dia ("deepseek/deepseek-v4-flash-0423"): se começa com o pedido, fica o pedido (o
+ * cartão do modelo no Super Admin soma tudo junto); se foi a reserva, fica a reserva.
+ */
+export function servedModel(asked: string, served: string | null | undefined): string {
+  const s = (served ?? '').trim();
+  if (!s || s === asked || s.startsWith(`${asked}-`) || s.startsWith(`${asked}:`)) return asked;
+  return /^[A-Za-z0-9._:/-]{3,120}$/.test(s) ? s : asked;
 }
 
 export interface ModelInfo {

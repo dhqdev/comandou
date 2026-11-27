@@ -18,7 +18,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { ctxOf } from '../common/context';
-import { CurrentTenant, CurrentUser } from '../common/decorators';
+import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { one } from '../common/sql';
 import { uuid } from '../common/schemas';
 import { ZodPipe } from '../common/zod.pipe';
@@ -32,6 +32,7 @@ import {
 } from '../store/store.controller';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { AiService } from './ai.service';
+import { UsagePeriod } from './ai-usage';
 import { ChatService, REACTIONS } from './chat.service';
 
 const name = z.string().trim().min(1).max(60);
@@ -411,6 +412,17 @@ export class ChatController {
   @Get('ai')
   aiStatus(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
     return this.ai.status(ctxOf(t, u));
+  }
+
+  /** Conta › Uso de IA: quanto o restaurante usou de IA, em que partes e por quem. */
+  @Get('ai/usage')
+  @RequirePermission('plan:read')
+  aiUsage(
+    @Query('period') period: string | undefined,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.ai.usage(ctxOf(t, u), UsagePeriod.parse(period));
   }
 
   @Delete('ai/messages')

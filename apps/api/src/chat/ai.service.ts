@@ -6,16 +6,22 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { roleHas, type Role } from '@comandou/shared';
+import { roleHas, type Role, type SearchHit } from '@comandou/shared';
 import { Ctx } from '../common/context';
 import { open } from '../common/secret-box';
 import { one, q } from '../common/sql';
 import { ENV, Env } from '../config/env';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService, type Tx } from '../database/database.service';
 import { financeSnapshot } from '../finance/finance-ai';
+import { groupParts } from '../platform/ai-parts';
 import { RealtimeService } from '../realtime/realtime.service';
-import { systemPrompt } from './ai-guide';
-import { availableTokens, loadAiQuota, recordAiUsage } from './ai-quota';
+import { parseTerm, runSearch } from '../search/search';
+import { contextPrompt, systemPrompt } from './ai-guide';
+import { lookupQueries } from './ai-lookup';
+import { registryLines, salesLines, stockLines, todayLines } from './ai-snapshot';
+import { chatFallbacks } from './ai-models';
+import { availableTokens, loadAiQuota, MONTH_START, recordAiUsage } from './ai-quota';
+import { tenantAiUsage, type UsagePeriod } from './ai-usage';
 import { ChatService } from './chat.service';
 import { ChatTurn, OpenRouterClient, OpenRouterError } from './openrouter';
 
@@ -25,6 +31,8 @@ export const AI_KEY_CONTEXT = 'ai:openrouter';
 const HISTORY = 10;
 /** Avisa os gestores quando o restaurante passa destas porcentagens do limite do mês. */
 const WARN_AT = [80, 100];
+/** Itens achados pela busca com as palavras da pergunta que vão para o assistente. */
+const FOUND_MAX = 12;
 
 export interface Prepared {
   ctx: Ctx;
@@ -144,18 +152,26 @@ export class AiService {
       );
       return rows;
     });
-    const state = await this.snapshot(ctx);
+    const role = ctx.user.role as Role;
+    const [state, found, usageLine] = await Promise.all([
+      this.snapshot(ctx),
+      this.lookup(ctx, content),
+      this.usageLine(ctx, role, used, c.monthly_tokens),
+    ]);
+    // Duas mensagens de sistema: a fixa (regras, telas, campos) vai igual em toda pergunta e o
+    // provedor guarda em cache; a segunda muda a cada pergunta (quem, tela, estado, achados).
     const turns: ChatTurn[] = [
+      { role: 'system', content: systemPrompt({ assistantName: c.assistant_name, role }) },
       {
         role: 'system',
-        content: systemPrompt({
-          assistantName: c.assistant_name,
+        content: contextPrompt({
           userName: ctx.user.name,
-          role: ctx.user.role,
+          role,
           tenantName,
           screen,
           now: new Date(),
-          state,
+          state: usageLine ? [...state, usageLine] : state,
+          found,
         }),
       },
       ...history,
@@ -219,8 +235,11 @@ export class AiService {
         ),
       );
       if (!r) return [];
-      const costs = await this.costLines(ctx);
-      const finance = await this.financeLines(ctx);
+      const [more, costs, finance] = await Promise.all([
+        this.moreLines(ctx),
+        this.costLines(ctx),
+        this.financeLines(ctx),
+      ]);
       const out = [
         r.cash_open
           ? `Caixa: ${r.cash_open} aberto(s).`
@@ -238,6 +257,7 @@ export class AiService {
           ? `Impressão: ${r.printers_online} de ${r.printers} computador(es) de impressão online.`
           : 'Impressão: nenhum computador de impressão conectado.',
         `WhatsApp: ${r.whatsapp ? 'ligado' : 'desligado'}.`,
+        ...more,
         ...costs,
         ...finance,
       ];
@@ -246,6 +266,132 @@ export class AiService {
       this.logger.warn(`Retrato da operação falhou: ${(e as Error).message}`);
       return [];
     }
+  }
+
+  /**
+   * Procura no cadastro do restaurante o que a pergunta cita ("onde fica o X-Salada?", "mesa 12",
+   * "insumo queijo"): a mesma busca do topo, com as permissões de quem pergunta. O assistente
+   * recebe os achados com o link que leva até eles e faz piscar. Se falhar, segue sem.
+   */
+  async lookup(ctx: Ctx, question: string): Promise<SearchHit[]> {
+    const role = ctx.user?.role as Role | undefined;
+    const queries = lookupQueries(question);
+    if (!role || !queries.length) return [];
+    try {
+      return await this.db.withTenant(ctx, async (tx) => {
+        const seen = new Set<string>();
+        const out: SearchHit[] = [];
+        for (const raw of queries) {
+          const term = parseTerm(raw);
+          if (!term) continue;
+          for (const h of await runSearch(tx, role, term)) {
+            const key = `${h.kind}:${h.id}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(h);
+            if (out.length >= FOUND_MAX) return out;
+          }
+        }
+        return out;
+      });
+    } catch (e) {
+      this.logger.warn(`Busca para o assistente falhou: ${(e as Error).message}`);
+      return [];
+    }
+  }
+
+  /**
+   * O resto do retrato, cada parte só para quem pode ver aquilo na tela: vendas de hoje, mais
+   * vendidos, estoque baixo, reservas e entregas de hoje, clientes, equipe e a IA do WhatsApp.
+   * Sem nome nem telefone de cliente (a IA não precisa e não deve repetir dado pessoal).
+   */
+  private async moreLines(ctx: Ctx): Promise<string[]> {
+    const role = ctx.user?.role as Role | undefined;
+    if (!role) return [];
+    const has = (...p: Parameters<typeof roleHas>[1][]) => p.some((x) => roleHas(role, x));
+    const part = async (name: string, fn: (tx: Tx) => Promise<string[]>) => {
+      try {
+        return await this.db.withTenant(ctx, fn);
+      } catch (e) {
+        this.logger.warn(`${name} para o assistente falhou: ${(e as Error).message}`);
+        return [];
+      }
+    };
+    const groups = await Promise.all([
+      has('reports:read', 'cash:close')
+        ? part('Vendas', (tx) => salesLines(tx, has('reports:read')))
+        : [],
+      has('stock:read') ? part('Estoque', stockLines) : [],
+      has('tables:operate', 'settings:manage', 'delivery:manage')
+        ? part('Reservas e entregas', (tx) =>
+            todayLines(tx, has('tables:operate', 'settings:manage'), has('delivery:manage')),
+          )
+        : [],
+      has('customers:read', 'users:manage', 'settings:manage')
+        ? part('Cadastros', (tx) =>
+            registryLines(tx, {
+              customers: has('customers:read'),
+              team: has('users:manage'),
+              agent: has('settings:manage'),
+            }),
+          )
+        : [],
+    ]);
+    return groups.flat();
+  }
+
+  /**
+   * Uso de IA do mês para quem vê a assinatura (dono e gerente): quanto usou do limite e a parte
+   * do sistema que mais gasta, com o link do painel de uso.
+   */
+  private async usageLine(ctx: Ctx, role: Role, used: number, limit: number) {
+    if (!roleHas(role, 'plan:read')) return null;
+    try {
+      const rows = await this.db.withCentral(ctx, (tx) =>
+        q<{ source: string; tokens: number; calls: number }>(
+          tx,
+          `SELECT source, sum(prompt_tokens + completion_tokens)::float8 AS tokens, count(*)::int AS calls
+             FROM ai_usage WHERE created_at >= ${MONTH_START} GROUP BY 1`,
+        ),
+      );
+      const parts = groupParts(rows.map((r) => ({ ...r, costUsd: 0 })));
+      const top = [...parts].sort((a, b) => b.tokens - a.tokens)[0];
+      const n = (v: number) => Math.round(v).toLocaleString('pt-BR');
+      return `Uso de IA no mês: ${n(used)} tokens${limit > 0 ? ` de ${n(limit)} (${Math.round((used / limit) * 100)}% do limite)` : ' (sem limite)'}${top ? `; a parte que mais usa é ${top.label} (${String(top.percent).replace('.', ',')}%)` : ''}. Painel completo em /conta/uso-ia.`;
+    } catch (e) {
+      this.logger.warn(`Uso de IA para o assistente falhou: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
+  /** Painel Conta › Uso de IA: quanto o restaurante usou, onde e por quem (sem valores em US$). */
+  async usage(ctx: Ctx, period: UsagePeriod) {
+    const { c, used, blocked } = await this.config(ctx);
+    const data = await this.db.withCentral(ctx, (tx) => tenantAiUsage(tx, period));
+    const ids = data.people.map((p) => p.userId).filter((x): x is string => !!x);
+    const names = ids.length
+      ? await this.db.withTenant(ctx, (tx) =>
+          q<{ id: string; name: string }>(
+            tx,
+            `SELECT id, name FROM users WHERE id = ANY($1::uuid[])`,
+            [ids],
+          ),
+        )
+      : [];
+    const nameOf = new Map(names.map((n) => [n.id, n.name]));
+    return {
+      ...data,
+      people: data.people.map((p) => ({
+        ...p,
+        name: p.userId ? (nameOf.get(p.userId) ?? 'Pessoa removida') : null,
+      })),
+      quota: {
+        ...this.usageView(used, c.monthly_tokens, c.bonus_tokens),
+        enabled: c.enabled && c.tenant_enabled,
+        blocked,
+      },
+      assistantName: c.assistant_name,
+    };
   }
 
   /**
@@ -326,6 +472,7 @@ export class AiService {
     const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, p.apiKey);
     let text = '';
     let usage = { promptTokens: 0, completionTokens: 0, costUsd: 0 };
+    let served = p.model;
     let partial = '';
     try {
       const r = await client.stream(
@@ -335,10 +482,11 @@ export class AiService {
           partial += d;
           onDelta(d);
         },
-        { signal },
+        { signal, fallbacks: chatFallbacks(p.model) },
       );
       text = r.text;
       usage = r.usage;
+      served = r.model;
     } catch (e) {
       const name = (e as Error)?.name;
       if (name === 'AbortError' || name === 'TimeoutError') {
@@ -386,7 +534,7 @@ export class AiService {
       ),
     );
     const rec = await this.db.withCentral(p.ctx, (tx) =>
-      recordAiUsage(tx, { userId: p.ctx.userId, model: p.model, usage, source: 'chat' }),
+      recordAiUsage(tx, { userId: p.ctx.userId, model: served, usage, source: 'chat' }),
     );
     const usedAfter = Math.max(rec.usedMonth, p.usedBefore + tokens);
     await this.warnIfCrossed(p, usedAfter, rec.bonusLeft);

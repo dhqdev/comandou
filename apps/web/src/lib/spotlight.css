@@ -1,0 +1,56 @@
+/* Piscada do "?foco=" (busca do topo, links do assistente de IA e do Super Admin). Importado por
+   lib/deep-link.ts, então vale no app do restaurante e no painel. */
+/* Cards e blocos ganham um anel laranja; linhas de tabela, um fundo suave nas células. */
+/* "?foco=": o item pisca três vezes (busca do topo e links do assistente de IA). Só contorno e
+   fundo, nada de opacidade nem de mexer no tamanho (não empurra a tela). */
+@keyframes cm-spotlight-ring {
+  0%,
+  22%,
+  44%,
+  66% {
+    box-shadow:
+      0 0 0 2px var(--cm-brand-500),
+      0 0 0 7px color-mix(in oklab, var(--cm-brand-500) 22%, transparent);
+  }
+  11%,
+  33%,
+  55% {
+    box-shadow:
+      0 0 0 2px color-mix(in oklab, var(--cm-brand-500) 35%, transparent),
+      0 0 0 4px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+@keyframes cm-spotlight-fill {
+  0%,
+  22%,
+  44%,
+  66% {
+    background-color: color-mix(in oklab, var(--cm-brand-500) 18%, transparent);
+  }
+  11%,
+  33%,
+  55%,
+  100% {
+    background-color: transparent;
+  }
+}
+.cm-spotlight {
+  animation: cm-spotlight-ring 2.2s linear;
+  border-radius: var(--cm-radius-md);
+  scroll-margin: 96px;
+}
+/* Campo de formulário: o contorno vai um pouco para fora do rótulo e do campo. */
+.cm-field.cm-spotlight,
+fieldset.cm-spotlight {
+  outline: 6px solid transparent;
+  outline-offset: 2px;
+}
+tr.cm-spotlight {
+  animation: none;
+}
+tr.cm-spotlight > td {
+  animation: cm-spotlight-fill 2.2s linear;
+}

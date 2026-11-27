@@ -74,6 +74,7 @@ function ColorChoice({
   fallback,
   disabled,
   onChange,
+  focusId,
 }: {
   label: string;
   value: string | null;
@@ -81,13 +82,15 @@ function ColorChoice({
   fallback: string;
   disabled?: boolean;
   onChange(v: string | null): void;
+  /** Alvo do "?foco=" (o assistente de IA leva até aqui e faz piscar). */
+  focusId?: string;
 }) {
   const current = value ?? fallback;
   const [text, setText] = useState(current);
   useEffect(() => setText(current), [current]);
   const custom = !presets.some((p) => p.hex === current);
   return (
-    <fieldset className="bc-color" disabled={disabled}>
+    <fieldset className="bc-color" disabled={disabled} data-search-id={focusId}>
       <legend className="cm-label">{label}</legend>
       <div className="bc-swatches" role="radiogroup" aria-label={label}>
         {presets.map((p) => (
@@ -259,6 +262,7 @@ export function BrandingCard({
       <div className="bc">
         <ColorChoice
           label="Cor principal"
+          focusId="campo-cor-loja"
           value={draft.brandColor}
           presets={BRAND_PRESETS}
           fallback={COMANDOU_BRAND}

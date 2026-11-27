@@ -20,6 +20,47 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.269.0',
+    date: '2026-11-27',
+    title: 'Assistente de IA que leva até o campo e Uso de IA na Conta',
+    summary:
+      'O assistente do botão IA agora responde com os números do restaurante na hora e manda o link que leva até a tela certa, com o botão ou campo piscando. Em Conta › Uso de IA você vê quanto já usou e em que partes do sistema. E a IA ficou mais barata.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Conta › Uso de IA: quanto do limite do mês já foi, as partes do sistema que mais usam IA (chat, WhatsApp, fotos, impressão, cardápio), quem mais usou e o uso dos últimos 30 dias, para este mês, o mês passado ou desde o início. Só administrador e gerente veem; a aba IA do chat tem o atalho Ver onde usou.',
+      },
+      {
+        tag: 'novo',
+        text: 'Assistente de IA: pergunte "onde abro o caixa?" ou "onde fica o X-Burguer?" e ele manda o link que abre a tela e faz o botão, o campo ou a linha do item piscar. Garçom, cozinha e entregador recebem a explicação, sem link.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Assistente de IA: responde com os números de agora, conforme a permissão de quem pergunta: vendas de hoje e de ontem, mais vendidos da semana, estoque baixo, reservas de hoje, entregas na rua, clientes, equipe e o uso de IA do mês. Telefone, e-mail e CPF de cliente não vão para a IA.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'IA mais barata: a conversa (assistente, IA do WhatsApp e modelo de impressão) usa o DeepSeek V4 Flash, e se ele falhar outro modelo responde na mesma hora, sem a pessoa perceber.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Tokens de IA › Chaves e assistente: um cartão por modelo em uso, com para que serve, o preço, por que foi escolhido, o gasto do mês e onde foi usado (restaurantes e sistema). O modelo que lê o cardápio também pode ser trocado ali.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Chamados › Uso de IA: o gasto da esteira de desenvolvimento separado dos restaurantes, por dia, por agente, por modelo e por chamado, e de qual chave saiu.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Super Admin › Credenciais: o cartão OpenRouter · chave do sistema (esteira) explica que é a chave do próprio Comandou, separada da dos restaurantes. Sem ela, Chamados e Tokens de IA avisam e o link abre o cartão com o campo da chave piscando.',
+      },
+      {
+        tag: 'correção',
+        text: 'Super Admin › Chamados: o que a IA já cobrou numa etapa que deu erro passa a contar no total do chamado, e cada chamada guarda a etapa e o modelo que respondeu de verdade.',
+      },
+    ],
+  },
+  {
     version: '0.268.0',
     date: '2026-11-26',
     title: 'Zerar o uso de IA de um restaurante',

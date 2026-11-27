@@ -16,9 +16,11 @@ import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import { open, seal } from '../common/secret-box';
 import { ENV, Env } from '../config/env';
+import { openKey, type KeyRow } from '../platform/ai-keys';
 import type { Actor } from '../platform/platform.service';
 import { PlatformDb, platformAudit } from '../platform/platform-db.service';
 import { GitHubClient, GitHubError } from './github';
+import { pipelineAiUsage, type PipelinePeriod } from './pipeline-usage';
 
 /** Contexto do token do GitHub no secret-box. */
 export const GITHUB_KEY_CONTEXT = 'pipeline:github';
@@ -216,18 +218,35 @@ export class TicketsService {
     return token ? new GitHubClient(token, repo, this.env.GITHUB_API_URL) : null;
   }
 
+  /**
+   * Qual chave do OpenRouter a esteira usa agora: a do sistema (Credenciais › "OpenRouter · chave
+   * do sistema"); sem ela, a dos restaurantes; null = nenhuma (a esteira roda sem IA).
+   */
+  private async aiKey() {
+    const [ai] = await this.db.query<KeyRow & { model: string }>(
+      `SELECT model, api_key_enc, owner_api_key_enc FROM platform_ai_settings WHERE id`,
+    );
+    const owner = !!ai && !!openKey(this.env.INTEGRATIONS_KEY, ai, 'owner');
+    const clients = !!ai && !!openKey(this.env.INTEGRATIONS_KEY, ai, 'clients');
+    return {
+      model: ai?.model ?? '',
+      hasOwnerKey: !!ai?.owner_api_key_enc,
+      aiKey: owner ? ('owner' as const) : clients ? ('clients' as const) : null,
+    };
+  }
+
   async settings() {
     this.need();
     const s = await this.settingsRow();
-    const [ai] = await this.db.query<{ model: string; has_key: boolean; enabled: boolean }>(
-      `SELECT model, (api_key_enc IS NOT NULL OR owner_api_key_enc IS NOT NULL) AS has_key, enabled
-         FROM platform_ai_settings WHERE id`,
-    );
+    const ai = await this.aiKey();
     return {
       enabled: s.enabled,
       model: s.model,
-      effectiveModel: s.model || ai?.model || '',
-      aiReady: !!ai?.has_key,
+      effectiveModel: s.model || ai.model,
+      aiReady: ai.aiKey !== null,
+      /** 'owner' = chave do sistema; 'clients' = usando a dos restaurantes (falta a do sistema). */
+      aiKey: ai.aiKey,
+      hasOwnerKey: ai.hasOwnerKey,
       githubRepo: s.github_repo,
       githubBase: s.github_base,
       hasGithubToken: !!s.github_token_enc,
@@ -238,6 +257,17 @@ export class TicketsService {
       autoAdvance: s.auto_advance,
       updatedAt: s.updated_at,
     };
+  }
+
+  /** Chamados › Uso de IA: o que a esteira gastou, separado do uso dos restaurantes. */
+  async aiUsage(period: PipelinePeriod) {
+    this.need();
+    const [usage, ai, s] = await Promise.all([
+      pipelineAiUsage(this.db, period),
+      this.aiKey(),
+      this.settingsRow(),
+    ]);
+    return { ...usage, aiKey: ai.aiKey, hasOwnerKey: ai.hasOwnerKey, model: s.model || ai.model };
   }
 
   async saveSettings(b: z.infer<typeof PipelineSettingsBody>, a: Actor) {

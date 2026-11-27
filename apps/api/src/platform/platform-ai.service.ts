@@ -1,5 +1,6 @@
 import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { z } from 'zod';
+import { CHAT_FALLBACK_MODEL, MODEL_NOTES } from '../chat/ai-models';
 import { MONTH_START } from '../chat/ai-quota';
 import { listModels, ModelInfo, OpenRouterClient } from '../chat/openrouter';
 import { open, seal } from '../common/secret-box';
@@ -20,9 +21,9 @@ export const AiSettingsBody = z.object({
   enabled: z.boolean(),
   /** Chave dos restaurantes. Vazio mantém a salva. */
   apiKey: z.string().trim().max(300).optional(),
-  /** Sua chave (sistema e esteira). Vazio mantém a salva. */
+  /** Chave do sistema (esteira e testes do painel). Vazio mantém a salva. */
   ownerApiKey: z.string().trim().max(300).optional(),
-  /** Apaga a sua chave (o sistema volta a usar a dos restaurantes). */
+  /** Apaga a chave do sistema (a esteira volta a usar a dos restaurantes). */
   clearOwnerKey: z.boolean().optional(),
   /** Chave de gerenciamento (só para ler o saldo da conta). Vazio mantém a salva. */
   adminApiKey: z.string().trim().max(300).optional(),
@@ -49,6 +50,12 @@ export const AiSettingsBody = z.object({
     .string()
     .trim()
     .regex(/^[A-Za-z0-9._:/-]{3,120}$/, 'Modelo inválido (ex.: openai/gpt-image-2)')
+    .optional(),
+  /** Modelo que lê o cardápio (PDF, foto, link, texto) e acha o restaurante no Google. */
+  importModel: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9._:/-]{3,120}$/, 'Modelo inválido (ex.: google/gemini-2.5-flash)')
     .optional(),
 });
 export type AiSettingsInput = z.infer<typeof AiSettingsBody>;
@@ -90,6 +97,7 @@ interface Row {
   model3d_ai_enabled: boolean;
   vision_model: string;
   image_model: string;
+  import_model: string;
   updated_at: Date;
 }
 
@@ -123,6 +131,30 @@ const SOURCE_LABEL: Record<string, string> = {
   print_template: 'Modelo de impressão',
 };
 
+/** O que cada modelo faz no Comandou (os cartões "Modelos em uso" da aba Chaves e assistente). */
+const MODEL_ROLES = {
+  chat: {
+    label: 'Conversa',
+    detail: 'Chat da equipe, IA do WhatsApp, modelo de impressão e texto da página do restaurante',
+  },
+  chat_fallback: {
+    label: 'Reserva da conversa',
+    detail: 'Entra sozinho quando o modelo da conversa falha ou está fora do ar',
+  },
+  vision: { label: 'Olhar a foto', detail: 'Melhorar a foto do item e fazer o 3D pela foto' },
+  image: {
+    label: 'Fazer a foto',
+    detail: 'Foto com fundo limpo, foto criada pela IA e fotos da importação do cardápio',
+  },
+  import: {
+    label: 'Ler o cardápio',
+    detail: 'Importar o cardápio (PDF, foto, link, texto) e achar o restaurante no Google',
+  },
+  pipeline: { label: 'Esteira de chamados', detail: 'Agentes da triagem, do código e do PR' },
+  sites: { label: 'Sites com IA', detail: 'Sites criados pelo comandou.com' },
+} as const;
+type ModelRole = keyof typeof MODEL_ROLES;
+
 /** Período do detalhe de um restaurante na aba Tokens. */
 export const AiPeriod = z.enum(['month', 'last', 'all']).catch('month');
 export type AiPeriod = z.infer<typeof AiPeriod>;
@@ -138,7 +170,7 @@ const PERIOD_SQL: Record<AiPeriod, { from: string; to: string }> = {
 };
 
 /**
- * Aba Tokens do Super Admin: as duas chaves do OpenRouter (a sua, para o sistema e a esteira, e
+ * Aba Tokens do Super Admin: as duas chaves do OpenRouter (a do sistema, para a esteira e os testes do painel, e
  * a dos restaurantes), cifradas e que nunca voltam para o navegador; modelo; limite do mês de
  * cada restaurante e os tokens extras que só o Super Admin doa; extrato de uso e o inventário de
  * todas as outras chaves do sistema.
@@ -248,30 +280,41 @@ export class PlatformAiService {
     const models = this.modelsCache?.value ?? [];
     const accountOf = (kind: KeyKind) =>
       this.account(r, fresh, kind).catch((e: Error) => ({ error: e.message }) as Account);
-    const [account, ownerAccount, tenants, month, system, days, log, grants, parts] =
-      await Promise.all([
-        accountOf('clients'),
-        accountOf('owner'),
-        this.db.query<{
-          id: string;
-          name: string;
-          slug: string;
-          status: string;
-          enabled: boolean | null;
-          override: number | null;
-          bonus: number;
-          tokens: number;
-          prompt: number;
-          completion: number;
-          bonusUsed: number;
-          cost: string;
-          calls: number;
-          users: number;
-          lastAt: Date | null;
-          totalTokens: number;
-          granted: number;
-        }>(
-          `SELECT t.id, t.name, t.slug, t.status, s.enabled, s.monthly_tokens AS override,
+    const [
+      account,
+      ownerAccount,
+      tenants,
+      month,
+      system,
+      days,
+      log,
+      grants,
+      parts,
+      byModel,
+      others,
+    ] = await Promise.all([
+      accountOf('clients'),
+      accountOf('owner'),
+      this.db.query<{
+        id: string;
+        name: string;
+        slug: string;
+        status: string;
+        enabled: boolean | null;
+        override: number | null;
+        bonus: number;
+        tokens: number;
+        prompt: number;
+        completion: number;
+        bonusUsed: number;
+        cost: string;
+        calls: number;
+        users: number;
+        lastAt: Date | null;
+        totalTokens: number;
+        granted: number;
+      }>(
+        `SELECT t.id, t.name, t.slug, t.status, s.enabled, s.monthly_tokens AS override,
                   coalesce(s.bonus_tokens, 0)::float8 AS bonus,
                   coalesce(m.tokens, 0)::float8 AS tokens, coalesce(m.prompt, 0)::float8 AS prompt,
                   coalesce(m.completion, 0)::float8 AS completion,
@@ -296,27 +339,27 @@ export class PlatformAiService {
                  FROM platform_ai_token_grants GROUP BY tenant_id) g ON g.tenant_id = t.id
             WHERE t.status <> 'deleting'
             ORDER BY coalesce(m.tokens, 0) DESC, t.name`,
-        ),
-        this.db.query<{ tokens: number; cost: string; calls: number }>(
-          `SELECT coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
+      ),
+      this.db.query<{ tokens: number; cost: string; calls: number }>(
+        `SELECT coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
                   coalesce(sum(cost_usd), 0) AS cost, count(*)::int AS calls
              FROM ai_usage WHERE created_at >= ${MONTH_START}`,
-        ),
-        this.db.query<{
-          source: string;
-          key: string;
-          tokens: number;
-          cost: string;
-          calls: number;
-        }>(
-          `SELECT source, coalesce(key_kind, 'owner') AS key,
+      ),
+      this.db.query<{
+        source: string;
+        key: string;
+        tokens: number;
+        cost: string;
+        calls: number;
+      }>(
+        `SELECT source, coalesce(key_kind, 'owner') AS key,
                   coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
                   coalesce(sum(cost_usd), 0) AS cost, count(*)::int AS calls
              FROM platform_ai_usage WHERE created_at >= ${MONTH_START}
             GROUP BY 1, 2 ORDER BY 3 DESC`,
-        ),
-        this.db.query<{ day: string; tokens: number; cost: string; system: number }>(
-          `SELECT to_char(d, 'YYYY-MM-DD') AS day,
+      ),
+      this.db.query<{ day: string; tokens: number; cost: string; system: number }>(
+        `SELECT to_char(d, 'YYYY-MM-DD') AS day,
                   coalesce((SELECT sum(u.prompt_tokens + u.completion_tokens) FROM ai_usage u
                              WHERE (u.created_at AT TIME ZONE 'America/Sao_Paulo')::date = d), 0)::float8 AS tokens,
                   coalesce((SELECT sum(u.cost_usd) FROM ai_usage u
@@ -326,41 +369,64 @@ export class PlatformAiService {
              FROM generate_series((now() AT TIME ZONE 'America/Sao_Paulo')::date - 29,
                                   (now() AT TIME ZONE 'America/Sao_Paulo')::date, '1 day') d
             ORDER BY d`,
-        ),
-        this.usageLog(),
-        this.db.query<{
-          id: string;
-          tenantId: string;
-          tenantName: string;
-          delta: number;
-          balanceAfter: number;
-          note: string | null;
-          adminName: string | null;
-          at: Date;
-        }>(
-          `SELECT g.id::text, g.tenant_id AS "tenantId", t.name AS "tenantName",
+      ),
+      this.usageLog(),
+      this.db.query<{
+        id: string;
+        tenantId: string;
+        tenantName: string;
+        delta: number;
+        balanceAfter: number;
+        note: string | null;
+        adminName: string | null;
+        at: Date;
+      }>(
+        `SELECT g.id::text, g.tenant_id AS "tenantId", t.name AS "tenantName",
                   g.delta::float8 AS delta, g.balance_after::float8 AS "balanceAfter", g.note,
                   a.name AS "adminName", g.created_at AS at
              FROM platform_ai_token_grants g
              JOIN tenants t ON t.id = g.tenant_id
              LEFT JOIN platform_admins a ON a.id = g.admin_id
             ORDER BY g.created_at DESC, g.id DESC LIMIT 30`,
-        ),
-        // Uso do mês de cada restaurante por fonte: vira as partes do cartão (IA do WhatsApp...).
-        this.db.query<{
-          tenantId: string;
-          source: string;
-          tokens: number;
-          cost: string;
-          calls: number;
-        }>(
-          `SELECT tenant_id AS "tenantId", source,
+      ),
+      // Uso do mês de cada restaurante por fonte: vira as partes do cartão (IA do WhatsApp...).
+      this.db.query<{
+        tenantId: string;
+        source: string;
+        tokens: number;
+        cost: string;
+        calls: number;
+      }>(
+        `SELECT tenant_id AS "tenantId", source,
                   sum(prompt_tokens + completion_tokens)::float8 AS tokens,
                   sum(cost_usd) AS cost, count(*)::int AS calls
              FROM ai_usage WHERE created_at >= ${MONTH_START}
             GROUP BY 1, 2`,
-        ),
-      ]);
+      ),
+      // Uso do mês por modelo e fonte: restaurantes (ai_usage) e o próprio sistema (esteira…).
+      this.db.query<{
+        scope: 'tenant' | 'system';
+        model: string;
+        source: string;
+        tokens: number;
+        cost: string;
+        calls: number;
+      }>(
+        `SELECT 'tenant' AS scope, model, source,
+                  sum(prompt_tokens + completion_tokens)::float8 AS tokens,
+                  sum(cost_usd) AS cost, count(*)::int AS calls
+             FROM ai_usage WHERE created_at >= ${MONTH_START} GROUP BY 2, 3
+           UNION ALL
+           SELECT 'system', model, source,
+                  sum(prompt_tokens + completion_tokens)::float8,
+                  sum(cost_usd), count(*)::int
+             FROM platform_ai_usage WHERE created_at >= ${MONTH_START} GROUP BY 2, 3`,
+      ),
+      this.db.query<{ pipeline: string | null; sites: string | null }>(
+        `SELECT (SELECT nullif(model, '') FROM platform_pipeline_settings WHERE id) AS pipeline,
+                  (SELECT model FROM platform_site_ai_settings WHERE id) AS sites`,
+      ),
+    ]);
     const partsOf = new Map<string, SourceUse[]>();
     for (const x of parts) {
       const list = partsOf.get(x.tenantId) ?? [];
@@ -409,8 +475,11 @@ export class PlatformAiService {
         model3dAiEnabled: r.model3d_ai_enabled,
         visionModel: r.vision_model,
         imageModel: r.image_model,
+        importModel: r.import_model,
         updatedAt: r.updated_at,
       },
+      /** Um cartão por modelo: para que serve, preço e quanto foi usado no mês e onde. */
+      models: this.modelCards(r, models, byModel, others[0] ?? { pipeline: null, sites: null }),
       account,
       ownerAccount,
       balance,
@@ -472,6 +541,110 @@ export class PlatformAiService {
       log,
       grants,
     };
+  }
+
+  /**
+   * Cartões "Modelos em uso": cada modelo configurado (conversa, reserva, foto, cardápio, esteira,
+   * sites) e todo modelo que gastou no mês, com o preço do OpenRouter (ou o de referência) e o uso
+   * do mês por fonte, separando restaurantes e o próprio sistema.
+   */
+  private modelCards(
+    r: Row,
+    prices: ModelInfo[],
+    usage: {
+      scope: 'tenant' | 'system';
+      model: string;
+      source: string;
+      tokens: number;
+      cost: string;
+      calls: number;
+    }[],
+    other: { pipeline: string | null; sites: string | null },
+  ) {
+    const roleModels: [ModelRole, string][] = [
+      ['chat', r.model],
+      ['chat_fallback', CHAT_FALLBACK_MODEL],
+      ['vision', r.vision_model],
+      ['image', r.image_model],
+      ['import', r.import_model],
+      ['pipeline', other.pipeline || r.model],
+      ['sites', other.sites || ''],
+    ];
+    const cards = new Map<
+      string,
+      {
+        model: string;
+        roles: { key: ModelRole; label: string; detail: string }[];
+        sources: {
+          source: string;
+          label: string;
+          scope: 'tenant' | 'system';
+          tokens: number;
+          costUsd: number;
+          calls: number;
+        }[];
+      }
+    >();
+    const card = (model: string) => {
+      let c = cards.get(model);
+      if (!c) {
+        c = { model, roles: [], sources: [] };
+        cards.set(model, c);
+      }
+      return c;
+    };
+    for (const [key, model] of roleModels)
+      if (model) card(model).roles.push({ key, ...MODEL_ROLES[key] });
+    for (const u of usage)
+      card(u.model).sources.push({
+        source: u.source,
+        label: SOURCE_LABEL[u.source] ?? u.source,
+        scope: u.scope,
+        tokens: u.tokens,
+        costUsd: Number(u.cost),
+        calls: u.calls,
+      });
+    const totalCost = usage.reduce((n, u) => n + Number(u.cost), 0);
+    const totalTokens = usage.reduce((n, u) => n + u.tokens, 0);
+    const out = [...cards.values()].map((c) => {
+      const tokens = c.sources.reduce((n, x) => n + x.tokens, 0);
+      const costUsd = Math.round(c.sources.reduce((n, x) => n + x.costUsd, 0) * 1e6) / 1e6;
+      const calls = c.sources.reduce((n, x) => n + x.calls, 0);
+      const live = prices.find((m) => m.id === c.model);
+      const note = MODEL_NOTES[c.model];
+      return {
+        model: c.model,
+        name: live?.name ?? note?.name ?? c.model,
+        roles: c.roles,
+        /** US$ por 1 milhão de tokens (do OpenRouter; sem a lista, o de referência). */
+        price: live
+          ? { promptPerM: live.promptPerM, completionPerM: live.completionPerM, from: 'openrouter' }
+          : note?.promptPerM != null
+            ? {
+                promptPerM: note.promptPerM,
+                completionPerM: note.completionPerM ?? 0,
+                from: 'referencia',
+              }
+            : null,
+        /** Preço que não é por token (imagem), quando houver. */
+        priceNote: note?.priceNote ?? null,
+        why: note?.why ?? null,
+        month: { tokens, costUsd, calls },
+        /** Parte do gasto do mês (US$; sem custo, pelos tokens), 0–100. */
+        share:
+          totalCost > 0
+            ? Math.round((costUsd / totalCost) * 1000) / 10
+            : totalTokens > 0
+              ? Math.round((tokens / totalTokens) * 1000) / 10
+              : 0,
+        sources: c.sources.sort((a, b) => b.costUsd - a.costUsd || b.tokens - a.tokens),
+      };
+    });
+    const order = (x: (typeof out)[number]) => {
+      const i = roleModels.findIndex(([, m]) => m === x.model);
+      return i < 0 ? 100 : i;
+    };
+    return out.sort((a, b) => order(a) - order(b) || b.month.costUsd - a.month.costUsd);
   }
 
   /**
@@ -645,7 +818,7 @@ export class PlatformAiService {
                 assistant_name = $4, default_monthly_tokens = $5, low_balance_usd = $6,
                 owner_api_key_enc = $8, admin_api_key_enc = $9,
                 photo_ai_enabled = $10, model3d_ai_enabled = $11, vision_model = $12,
-                image_model = $13, updated_at = now(), updated_by = $7
+                image_model = $13, import_model = $14, updated_at = now(), updated_by = $7
           WHERE id`,
         [
           b.enabled,
@@ -661,6 +834,7 @@ export class PlatformAiService {
           b.model3dAiEnabled ?? current.model3d_ai_enabled,
           b.visionModel ?? current.vision_model,
           b.imageModel ?? current.image_model,
+          b.importModel ?? current.import_model,
         ],
       );
       const { apiKey: _k, ownerApiKey: _o, adminApiKey: _a, ...safe } = b;
@@ -866,7 +1040,7 @@ export class PlatformAiService {
         ref: b.apiKey
           ? 'chave digitada'
           : b.key === 'owner'
-            ? 'sua chave'
+            ? 'chave do sistema'
             : 'chave dos restaurantes',
         model: b.model,
         usage: out.usage,

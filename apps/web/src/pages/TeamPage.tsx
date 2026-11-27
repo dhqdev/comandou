@@ -123,7 +123,11 @@ export function TeamPage() {
             Pagamentos
           </Button>
         )}
-        <Button icon={<UserPlus size={18} />} onClick={() => setAdding(true)}>
+        <Button
+          icon={<UserPlus size={18} />}
+          data-search-id="botao-nova-pessoa"
+          onClick={() => setAdding(true)}
+        >
           Adicionar pessoa
         </Button>
       </div>

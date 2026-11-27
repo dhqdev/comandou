@@ -96,7 +96,7 @@ interface Draft {
 
 const SOURCE: Record<Kind, string> = { site: 'Site', maps: 'Google Maps', text: 'Descrição' };
 const KEY_LABEL = {
-  owner: 'a sua chave (falta a dos restaurantes)',
+  owner: 'a chave do sistema (falta a dos restaurantes)',
   clients: 'a chave dos restaurantes',
 };
 const OFF_TEXT: Record<Exclude<Off, null>, string> = {

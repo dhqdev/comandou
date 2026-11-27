@@ -250,12 +250,24 @@ function MonthBar({
           </Button>
         )}
         {canWrite && (
-          <Button variant="secondary" size="sm" icon={<Percent size={16} />} onClick={onTerms}>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Percent size={16} />}
+            data-search-id="botao-taxas-prazos"
+            onClick={onTerms}
+          >
             Taxas e prazos
           </Button>
         )}
         {canWrite && (
-          <Button variant="secondary" size="sm" icon={<CalendarDays size={16} />} onClick={onEdit}>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<CalendarDays size={16} />}
+            data-search-id="botao-inicio-mes"
+            onClick={onEdit}
+          >
             Dia de início do mês
           </Button>
         )}

@@ -24,6 +24,8 @@ export interface AiConfig {
   vision_model: string;
   /** Modelo que edita a foto (fundo limpo), pela API de imagens. */
   image_model: string;
+  /** Modelo que lê o cardápio (PDF, foto, link, texto) e acha o restaurante no Google. */
+  import_model: string;
 }
 
 export interface AiQuota {
