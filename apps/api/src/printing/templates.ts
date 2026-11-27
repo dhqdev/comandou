@@ -123,6 +123,27 @@ engine.registerFilter('quebra', (v: unknown, indent?: unknown, n?: unknown) =>
   wrapText(v, Number(indent) || 0, widthOf(n)).join('\n'),
 );
 /**
+ * Texto longo com as linhas de baixo recuadas (a primeira fica na margem): "2x Hambúrguer
+ * artesanal…" | recuo: 3 → a continuação começa na coluna 3, embaixo do nome. Quantidade maior
+ * que o recuo ("0,350kg") empurra o recuo até o fim dela, como na tabela de itens.
+ */
+engine.registerFilter('recuo', (v: unknown, indent?: unknown, n?: unknown) => {
+  const w = widthOf(n);
+  // Espaços do começo da linha ficam (coluna da quantidade: "2x    Nome").
+  const l = str(v)
+    .replace(/\s+/g, (s) => (s.includes('\n') ? ' ' : s))
+    .trimEnd();
+  if (l.length <= w) return l;
+  const want = Math.max(0, Math.min(10, Number(indent) || 0, w - 1));
+  let r = want;
+  while (r > 0 && r < Math.min(10, l.length) && l[r - 1] !== ' ') r++;
+  // Primeira palavra comprida demais (link, código): fica o recuo pedido.
+  if (r > 0 && l[r - 1] !== ' ') r = want;
+  const first = wrapText(l.slice(r), 0, w - r);
+  const rest = wrapText(first.slice(1).join(' '), r, w);
+  return [l.slice(0, r) + (first[0] ?? ''), ...rest].join('\n');
+});
+/**
  * Rótulo e valor em colunas, como no cupom: {{ "DATA:" | campo: pedido.data }} →
  * "DATA:      03/11/2026 19:42". Valor longo quebra alinhado. Rótulo com 11 colunas (ou o número dado).
  */
@@ -286,30 +307,32 @@ export const DEFAULT_TEMPLATES: Record<TemplateKind, string> = {
 {% for op in item.opcoes %}{{ "+ " | append: op | quebra: 6 }}
 {% endfor %}{% if item.observacao %}{{ "OBS: " | append: item.observacao | quebra: 6 }}
 {% endif %}{% endfor %}{{ "-" | traco }}
-{{ "SUBTOTAL:" | linha: totais.subtotal_formatado }}
-{% if totais.desconto > 0 %}{% assign desc = "-" | append: totais.desconto_formatado %}{{ "DESCONTO:" | linha: desc }}
+{% if totais.tem_extras %}{{ "SUBTOTAL:" | linha: totais.subtotal_formatado }}
+{% endif %}{% if totais.desconto > 0 %}{% assign desc = "-" | append: totais.desconto_formatado %}{{ "DESCONTO:" | linha: desc }}
 {% endif %}{% if totais.acrescimo > 0 %}{{ "ACRÉSCIMO:" | linha: totais.acrescimo_formatado }}
 {% endif %}{% if totais.entrega > 0 %}{{ "TAXA DE ENTREGA:" | linha: totais.entrega_formatado }}
 {% endif %}{% if pedido.pago %}{{ "TOTAL:" | linha: totais.total_formatado, 21 | grande }}
 {{ "*** PAGO - NÃO COBRAR ***" | centro | negrito }}
 {% for p in pagamentos %}{{ "PAGO COM:" | campo: p.forma }}
-{% endfor %}{% else %}{{ "A COBRAR:" | linha: pedido.cobrar_formatado, 21 | grande }}
+{% endfor %}{% else %}{% if pagamentos.size > 0 %}{{ "TOTAL:" | linha: totais.total_formatado }}
+{% assign ja = totais.total | minus: pedido.cobrar | dinheiro %}{{ "JÁ PAGO:" | linha: ja }}
+{% endif %}{{ "A COBRAR:" | linha: pedido.cobrar_formatado, 21 | grande }}
 {% if pedido.pagar_na_entrega %}{{ "PAGAMENTO:" | campo: pedido.pagar_na_entrega }}
 {% endif %}{% if pedido.levar_de_troco > 0 %}{{ "TROCO PARA:" | linha: pedido.troco_para_formatado }}
 {{ "LEVAR DE TROCO:" | linha: pedido.levar_de_troco_formatado | negrito }}
 {% endif %}{% endif %}{{ "=" | traco }}`,
   kitchen_ticket: `{{ setor | upcase | grande: "centro" }}
 {{ "=" | traco }}
-{{ "PEDIDO #" | append: pedido.numero | grande }}
+{% assign num = "PEDIDO #" | append: pedido.numero %}{{ num | grande: "centro" }}
+{{ pedido.local | upcase | grande: "centro" }}
 {{ "HORA:" | campo: pedido.hora }}
-{{ "TIPO:" | campo: pedido.local | upcase }}
 {% if pedido.cliente %}{{ "CLIENTE:" | campo: pedido.cliente }}
 {% endif %}{% if pedido.observacao %}{{ "-" | traco }}
 {{ "OBSERVAÇÃO:" | negrito }}
-{{ pedido.observacao | quebra }}
+{{ pedido.observacao | quebra | negrito }}
 {% endif %}{{ "-" | traco }}
 {% for g in grupos %}{% if grupos.size > 1 %}{{ "-- " | append: g.nome | append: " --" | upcase | centro | negrito }}
-{% endif %}{% for item in g.itens %}{{ item.quantidade_formatada | append: " " | append: item.nome | quebra | negrito }}
+{% endif %}{% for item in g.itens %}{{ item.quantidade_formatada | append: " " | append: item.nome | recuo: 3 | negrito }}
 {% for op in item.opcoes %}{{ "+ " | append: op | quebra: 3 }}
 {% endfor %}{% if item.observacao %}{{ "OBS: " | append: item.observacao | quebra: 3 | negrito }}
 {% endif %}{% endfor %}{% endfor %}{{ "=" | traco }}`,
@@ -405,7 +428,14 @@ export function sampleData(kind: TemplateKind, storeName: string): Record<string
     };
     return { ...base, pedido: entrega, itens, totais, pagamentos: [] };
   }
-  if (kind === 'fiscal_footer') return { ...base, pedido, nota: { numero: '1234', serie: '1' } };
+  // O rodapé da NFC-e enxerga só a loja (sem logo: o cupom fiscal tem o cabeçalho próprio) e a nota,
+  // igual à impressão de verdade (`fiscalReceipt` em printing.service.ts).
+  if (kind === 'fiscal_footer')
+    return {
+      ...base,
+      loja: { nome: base.loja.nome, endereco: base.loja.endereco, telefone: base.loja.telefone },
+      nota: { numero: '1234', serie: '1' },
+    };
   return {
     ...base,
     pedido,

@@ -80,7 +80,12 @@ export const PRINT_TEMPLATE_VARS: Record<PrintTemplateKind, [string, string][]> 
       'g.nome e g.itens: os itens separados por setor (pedido de entrega junta vários)',
     ],
   ],
-  fiscal_footer: [...LOJA, ['nota.numero / nota.serie', 'número e série da NFC-e']],
+  // Sem a logo: o cupom da NFC-e já tem o cabeçalho próprio (a impressão não manda a logo aqui).
+  fiscal_footer: [
+    ['loja.nome', 'nome do restaurante'],
+    ['loja.endereco / loja.telefone', 'endereço e telefone (WhatsApp) da Loja online'],
+    ['nota.numero / nota.serie', 'número e série da NFC-e'],
+  ],
 };
 
 /** Ajudantes (filtros) próprios do Comandou, além dos do Liquid (upcase, append, size…). */
@@ -91,6 +96,7 @@ export const PRINT_TEMPLATE_FILTERS: [string, string][] = [
   ['{{ "texto" | centro }}', 'centraliza na bobina'],
   ['{{ "-" | traco }}', 'linha separadora'],
   ['{{ texto | quebra }}', 'quebra texto longo em linhas'],
+  ['{{ texto | recuo: 3 }}', 'quebra com as linhas de baixo recuadas (nome do item)'],
   ['{{ "texto" | negrito }}', 'linha em negrito'],
   ['{{ loja.nome | grande: "centro" }}', 'letra grande (21 colunas)'],
   ['{{ x | coluna: 6 }}', 'coluna de largura fixa (tabela)'],

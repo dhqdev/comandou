@@ -128,10 +128,69 @@ describe('OpenRouter: modelo de reserva', () => {
     expect(bodies.at(-1)!.model).toBe(CHAT_FALLBACK_MODEL);
   });
 
+  it('pedido rápido: sem raciocínio e nos provedores mais rápidos', async () => {
+    const client = new OpenRouterClient(base, 'chave-de-teste');
+    const r = await client.complete(CHAT_MODEL, [{ role: 'user', content: 'oi' }], {
+      reasoning: false,
+      fast: true,
+    });
+    expect(bodies.at(-1)!.reasoning).toEqual({ enabled: false });
+    expect(bodies.at(-1)!.provider).toEqual({ sort: 'throughput' });
+    expect(r.text).toBe('Oi');
+    await client.complete(CHAT_MODEL, [{ role: 'user', content: 'oi' }]);
+    expect(bodies.at(-1)!.reasoning).toBeUndefined();
+    expect(bodies.at(-1)!.provider).toBeUndefined();
+  });
+
   it('nome do modelo servido: variação do mesmo modelo conta como ele; lixo não entra', () => {
     expect(servedModel('a/b', 'a/b-2026-11-01')).toBe('a/b');
     expect(servedModel('a/b', 'outro/modelo')).toBe('outro/modelo');
     expect(servedModel('a/b', '')).toBe('a/b');
     expect(servedModel('a/b', '<script>')).toBe('a/b');
+  });
+});
+
+describe('OpenRouter: modelo que só responde pensando', () => {
+  // Recusa o pedido com o raciocínio desligado (como um modelo que só pensa) e corta a resposta.
+  const bodies: Record<string, unknown>[] = [];
+  const srv = createServer((req, res) => {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    req.on('end', () => {
+      const body = JSON.parse(raw) as Record<string, unknown>;
+      bodies.push(body);
+      if (body.reasoning) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Reasoning is mandatory for this endpoint' } }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          choices: [{ finish_reason: 'length', message: { content: '{"resposta": "Pron' } }],
+          usage: { prompt_tokens: 10, completion_tokens: 2 },
+        }),
+      );
+    });
+  });
+  let base = '';
+  beforeAll(async () => {
+    await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+    base = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+  });
+  afterAll(() => {
+    srv.closeAllConnections();
+    srv.close();
+  });
+
+  it('pede de novo sem o campo e conta que a resposta veio cortada', async () => {
+    const client = new OpenRouterClient(base, 'chave-de-teste');
+    const r = await client.complete('outro/modelo', [{ role: 'user', content: 'oi' }], {
+      reasoning: false,
+    });
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]!.reasoning).toEqual({ enabled: false });
+    expect(bodies[1]!.reasoning).toBeUndefined();
+    expect(r.finish).toBe('length');
   });
 });

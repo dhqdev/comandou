@@ -1916,6 +1916,26 @@ button.pay-part {
 .paper-text__qr {
   opacity: 0.7;
 }
+/* Linha que acabou de mudar (prévia dos Modelos de impressão): fundo laranja suave que some. A
+   linha inteira, para achar de relance o que a IA mexeu. */
+.paper-text__flash {
+  display: inline-block;
+  min-width: 100%;
+  background: transparent;
+  color: inherit;
+  border-radius: 3px;
+  scroll-margin: 96px 0;
+  animation: paper-flash 2s ease-out;
+}
+@keyframes paper-flash {
+  0%,
+  35% {
+    background-color: color-mix(in oklab, var(--cm-brand-500) 30%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
 
 /* "Vai pagar com": quanto separar de troco, numa linha própria logo abaixo da forma. */
 .od-change {

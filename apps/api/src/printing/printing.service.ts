@@ -352,26 +352,39 @@ export class PrintingService {
 
   /**
    * Prévia do modelo com um pedido de verdade (o último, ou o escolhido) ou com dados de exemplo.
+   * `order` diz qual pedido foi usado (null = exemplo), para a tela contar de onde vem o papel.
    */
   async previewTemplate(ctx: Ctx, kind: TemplateKind, body: string, orderId?: string | null) {
     return this.db.withTenant(ctx, async (tx) => {
       let data: Record<string, unknown> | null = null;
+      let order: number | null = null;
       if (kind !== 'fiscal_footer') {
         const o = orderId
-          ? await one<{ id: string }>(tx, `SELECT id FROM orders WHERE id = $1`, [orderId])
-          : await one<{ id: string }>(
+          ? await one<{ id: string; number: number }>(
               tx,
-              `SELECT id FROM orders WHERE status <> 'cancelled' AND ($1::boolean IS FALSE OR channel = 'delivery')
+              `SELECT id, number FROM orders WHERE id = $1`,
+              [orderId],
+            )
+          : await one<{ id: string; number: number }>(
+              tx,
+              `SELECT id, number FROM orders WHERE status <> 'cancelled' AND ($1::boolean IS FALSE OR channel = 'delivery')
                 ORDER BY created_at DESC LIMIT 1`,
               [kind === 'delivery_slip'],
             );
-        if (o) data = await this.templateData(tx, kind, o.id);
+        if (o) {
+          data = await this.templateData(tx, kind, o.id);
+          order = o.number;
+        }
       }
       if (!data) {
         const t = await one<{ name: string }>(tx, `SELECT name FROM tenants LIMIT 1`);
         data = sampleData(kind, t?.name ?? 'Restaurante');
         const store = await this.storeInfo(tx);
-        data.loja = { ...(data.loja as object), ...store };
+        // O rodapé da NFC-e não tem logo (o cupom fiscal tem o cabeçalho próprio).
+        data.loja =
+          kind === 'fiscal_footer'
+            ? { ...(data.loja as object), endereco: store.endereco, telefone: store.telefone }
+            : { ...(data.loja as object), ...store };
       }
       const logoUrl = await this.logoUrl(tx);
       try {
@@ -379,6 +392,7 @@ export class PrintingService {
           text: await renderTemplate(body, { largura: WIDTH, ...data }),
           width: WIDTH,
           logoUrl,
+          order,
         };
       } catch (err) {
         if (err instanceof TemplateError) throw new UnprocessableEntityException(err.message);
@@ -949,9 +963,11 @@ export class PrintingService {
           center,
         ),
       );
-    // Rodapé livre do restaurante (modelo), depois de todos os campos obrigatórios.
+    // Rodapé livre do restaurante (modelo), depois de todos os campos obrigatórios. Enxerga o
+    // endereço e o telefone da Loja online (a prévia já mostrava; a impressão saía sem eles).
+    const store = await this.storeInfo(tx);
     const footer = await this.custom(tx, 'fiscal_footer', {
-      loja: { nome: d.store_name },
+      loja: { nome: d.store_name, endereco: store.endereco, telefone: store.telefone },
       nota: { numero: d.number, serie: d.series, chave: key, contingencia: d.contingency },
     });
     if (footer) out.push(line(), footer);

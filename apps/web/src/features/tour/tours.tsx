@@ -852,7 +852,12 @@ export const PRINT_STOPS: TourStop[] = [
     path: '/impressao',
     title: 'Modelos de impressão',
     text: 'O que sai em cada papel: comanda da cozinha, conferência de conta e cupom.',
-    steps: [<>Escolha o que mostrar e veja a prévia ao lado antes de salvar.</>],
+    steps: [
+      <>
+        Peça a mudança para a <b>IA</b> (escolha o papel e diga o que quer) ou mexa no modelo: a
+        prévia ao lado muda na hora. Só vale na impressora depois de <b>Salvar</b>.
+      </>,
+    ],
     targets: [{ css: '[data-search-id="secao-modelos"]' }],
   },
 ];

@@ -187,27 +187,53 @@ export class OpenRouterClient {
       web?: number;
       /** Modelos de reserva, na ordem, se o principal falhar. */
       fallbacks?: readonly string[];
+      /**
+       * false = sem raciocínio ("pensar antes de responder"). O DeepSeek V4 Flash pensa por padrão:
+       * a resposta demora e o pensamento conta no max_tokens (a resposta chegava cortada). Para
+       * tarefa curta e com formato fixo, desligar deixa rápido. Modelo que não aceita desligar
+       * recebe o pedido de novo sem esse campo.
+       */
+      reasoning?: false;
+      /** Prefere os provedores mais rápidos do modelo (`provider.sort` do OpenRouter). */
+      fast?: boolean;
     } = {},
-  ): Promise<{ text: string; usage: Usage; citations: string[]; model: string }> {
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: this.headers(),
-      body: JSON.stringify({
-        ...withModels(model, opts.fallbacks),
-        messages,
-        max_tokens: opts.maxTokens ?? 4000,
-        temperature: 0.1,
-        usage: { include: true },
-        ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
-        ...(opts.web ? { plugins: [{ id: 'web', max_results: opts.web }] } : {}),
-      }),
-      signal: opts.signal ?? AbortSignal.timeout(120_000),
-    });
-    const body = await res.text().catch(() => '');
+  ): Promise<{
+    text: string;
+    usage: Usage;
+    citations: string[];
+    model: string;
+    /** Por que a resposta parou ("stop", "length" = cortada no limite de tokens…). */
+    finish: string | null;
+  }> {
+    const send = (noReasoning: boolean) =>
+      fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: this.headers(),
+        body: JSON.stringify({
+          ...withModels(model, opts.fallbacks),
+          messages,
+          max_tokens: opts.maxTokens ?? 4000,
+          temperature: 0.1,
+          usage: { include: true },
+          ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
+          ...(opts.web ? { plugins: [{ id: 'web', max_results: opts.web }] } : {}),
+          ...(noReasoning ? { reasoning: { enabled: false } } : {}),
+          ...(opts.fast ? { provider: { sort: 'throughput' } } : {}),
+        }),
+        signal: opts.signal ?? AbortSignal.timeout(120_000),
+      });
+    let res = await send(opts.reasoning === false);
+    let body = await res.text().catch(() => '');
+    // O modelo escolhido no painel só responde pensando: pede de novo do jeito dele.
+    if (!res.ok && res.status === 400 && opts.reasoning === false && /reason/i.test(body)) {
+      res = await send(false);
+      body = await res.text().catch(() => '');
+    }
     if (!res.ok) throw new OpenRouterError(friendly(res.status, body), res.status);
     let j: {
       model?: string;
       choices?: {
+        finish_reason?: string | null;
         message?: {
           content?: string | null;
           annotations?: { type?: string; url_citation?: { url?: string } }[];
@@ -229,6 +255,7 @@ export class OpenRouterClient {
     return {
       citations: [...new Set(citations)].slice(0, 20),
       model: servedModel(model, j.model),
+      finish: j.choices?.[0]?.finish_reason ?? null,
       text: j.choices?.[0]?.message?.content ?? '',
       usage: {
         promptTokens: num(j.usage?.prompt_tokens) ?? 0,

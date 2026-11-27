@@ -106,23 +106,40 @@ e total grande):
 
 - `{{ ... }}` mostra um dado e `{% for %}` / `{% if %}` fazem listas e condições.
 - Ajudantes da bobina: `dinheiro`, `linha` (texto à esquerda e valor à direita, com largura e recuo
-  opcionais), `campo` (rótulo e valor em coluna), `coluna`, `centro`, `traco`, `quebra` e `qtd`.
+  opcionais), `campo` (rótulo e valor em coluna), `coluna`, `centro`, `traco`, `quebra`, `recuo`
+  (quebra com as linhas de baixo recuadas, para nome comprido de item; 0.274) e `qtd`.
 - Estilo (a linha inteira): `negrito`, `grande` (largura e altura duplas, 21 colunas) e a logo da
   Loja online por `loja.logo`. No texto saem como marcas no começo da linha (`@@N@@`, `@@G@@`,
   `@@LOGO@@`, além do `@@QR@@` da NFC-e), definidas em `packages/shared/src/print-marks.ts`; o
   aplicativo Comandou Impressão 1.11+ troca por ESC/POS (`ESC E`, `GS !`, `GS v 0`). Aplicativo
   mais antigo recebe o papel sem as marcas (`plainPrintText` no `claim`). Texto que vem do cliente
   tem o `@@` desfeito antes de montar o papel, para ninguém imprimir QR Code pela observação.
-- **Ver prévia** monta o papel com o último pedido de verdade antes de salvar, já com negrito,
-  letra grande e logo. **Voltar ao padrão** desfaz.
+- **Prévia em tempo real** (0.274): o papel ao lado do editor muda enquanto se digita (espera
+  0,35 s depois da última tecla), com o último pedido de verdade (diz qual: "Com o último pedido
+  (#123)") e já com negrito, letra grande e logo. Modelo com erro mostra o erro e deixa a última
+  prévia boa apagada embaixo. Papel com mudança não salva ganha uma bolinha na aba; o Salvar só
+  acende quando há o que salvar; **Voltar ao padrão** desfaz.
 - **Conversa com a IA** no canto da tela (botão "Montar o papel com IA" e "Montar com IA" no
-  cartão; uma conversa por papel; `printing/template-ai.service.ts`, instruções em
-  `template-ai-prompt.ts` e a "skill" de pedidos comuns em `template-ai-skill.ts`, com cada trecho
-  conferido no teste). Com a IA desligada, a conversa abre dizendo o porquê (sem chave no painel,
-  desligada para o restaurante ou limite do mês), em vez de sumir. A pessoa pede a mudança em palavras, a IA devolve o modelo inteiro
-  alterado, o servidor confere sintaxe e largura (uma segunda chance para a IA corrigir) e a tela
-  põe no editor com a prévia e o botão Desfazer. Nada é salvo pela IA. Usa a chave, o modelo e o
-  limite do assistente do restaurante (uso gravado como `print_template`).
+  cartão; `features/PrintTemplates.tsx`). Primeiro a pessoa escolhe o papel (Conferência, Via de
+  entrega, Cozinha, Rodapé fiscal) e ele fica marcado na conversa; trocar a aba do editor troca o
+  papel da conversa junto. A mudança aparece **só na aba Prévia**, com as linhas que mudaram
+  piscando (`paper-diff.ts`); a conversa não repete o papel, e a mensagem traz **Salvar** e
+  **Desfazer**/**Refazer**. No celular e no tablet a conversa é uma folha embaixo (dá para
+  diminuir) e a prévia vem antes do código. Com a IA desligada, a conversa abre dizendo o porquê.
+- **Como a IA trabalha (0.274)**: ela não escreve o modelo inteiro. Responde um JSON curto com
+  **ações** (`adicionar_texto`, `remover` um dado ou um texto, `logo`, `trocar` um trecho, `padrao`
+  e, só para refazer tudo, `reescrever`) e o servidor executa (`printing/template-actions.ts`),
+  confere sintaxe e largura e devolve o modelo novo já com a prévia. Resposta que não serve volta
+  para a IA com o problema (uma segunda chance, `template-ai-flow.ts`). As instruções ficam em
+  `apps/api/assets/ai/impressao/instrucoes.md` e as **skills** (pedidos comuns: frase no fim,
+  Wi-Fi, tirar dado, destaques, itens grandes, sem preço, endereço do motoboy…) em
+  `apps/api/assets/ai/impressao/skills/*.md`, um arquivo por skill, com o exemplo de ação que o
+  teste `template-skills.test.ts` aplica nos modelos padrão. Pedido que a IA errou vira skill
+  nova. Raciocínio desligado e provedores mais rápidos (`reasoning: false`, `fast` no
+  `OpenRouterClient.complete`): antes o DeepSeek pensava antes de responder, o pensamento comia o
+  limite de tokens e a resposta chegava cortada ("Não consegui montar a mudança agora"). Nada é
+  salvo pela IA. Usa a chave, o modelo e o limite do assistente do restaurante (uso gravado como
+  `print_template`).
 - Um modelo com erro não chega a ser salvo. Se mesmo assim algo der errado na hora de imprimir, sai
   o modelo padrão, para o caixa nunca ficar sem papel.
 - Liquid foi escolhida no lugar do Jinja de verdade (que é do Python) porque roda no nosso servidor

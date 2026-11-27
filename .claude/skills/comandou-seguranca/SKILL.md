@@ -140,7 +140,10 @@ cookie, CSRF, corpo gigante e Host estranho.
   confirmada pela pessoa (`pending` + SIM); a IA nunca grava direto.
 - Saída da IA validada por Zod e mostrada como texto (nada de HTML ou link de fora).
 - IA que mexe em código do restaurante (modelos de impressão, `printing/template-ai.service.ts`) só
-  propõe: o servidor confere a proposta (sintaxe, largura) e a pessoa aplica e salva.
+  manda ações curtas que o servidor executa (`template-actions.ts`: texto fixo vira texto entre
+  aspas, sem `@@` nem chaves do Liquid; `trocar` só acha trecho que existe; `reescrever` passa pela
+  mesma conferência); o servidor confere o resultado (sintaxe, largura, sem marcas `@@`) e a pessoa
+  salva pelo caminho de sempre, que valida de novo.
 - IA das fotos dos itens (`catalog/item-ai.*`): o nome do item vai entre aspas sem aspas nem
   quebras (`itemName`); a resposta passa por `readTips` (números presos em faixas, textos curtos)
   e a foto que volta é conferida por `sniff`. Nada é gravado pela IA: a tela mostra e a pessoa usa

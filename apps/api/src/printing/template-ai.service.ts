@@ -6,8 +6,6 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { parsePrintLines, PRINT_BIG_WIDTH, printLineColumns } from '@comandou/shared';
-import { z } from 'zod';
 import { AI_KEY_CONTEXT } from '../chat/ai.service';
 import { chatFallbacks } from '../chat/ai-models';
 import { loadAiQuota, recordAiUsage } from '../chat/ai-quota';
@@ -17,55 +15,30 @@ import { open } from '../common/secret-box';
 import { one } from '../common/sql';
 import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
-import { templateAiPrompt, templateAiUserTurn } from './template-ai-prompt';
-import {
-  checkTemplate,
-  renderTemplate,
-  sampleData,
-  TEMPLATE_MAX,
-  TemplateKind,
-  WIDTH,
-} from './templates';
+import { PrintingService } from './printing.service';
+import { runTemplateAi } from './template-ai-flow';
+import { renderTemplate, sampleData, TemplateKind } from './templates';
 
-/** Conversa que a tela manda: as últimas falas (a última é o pedido novo). */
+/** Conversa que a tela manda: as últimas falas do papel (a última é o pedido novo). */
 export interface TemplateAiTurn {
   role: 'user' | 'assistant';
   content: string;
 }
 
-const Answer = z.object({
-  resposta: z.string().trim().min(1).max(2000),
-  modelo: z.string().max(TEMPLATE_MAX).nullable().optional(),
-});
-
-/** Linhas que passam da bobina no papel de exemplo (a letra grande conta em dobro). */
-export function overflowLines(text: string): string[] {
-  return parsePrintLines(text)
-    .filter((l) => printLineColumns(l) > WIDTH)
-    .map((l) =>
-      'text' in l ? `${l.kind === 'big' ? `(grande, máx. ${PRINT_BIG_WIDTH}) ` : ''}${l.text}` : '',
-    );
-}
-
-/** Lê o JSON da IA (tolera cerca de código em volta). */
-export function readAnswer(raw: string) {
-  const t = raw.trim();
-  const start = t.indexOf('{');
-  const end = t.lastIndexOf('}');
-  if (start < 0 || end <= start) return null;
-  try {
-    const r = Answer.safeParse(JSON.parse(t.slice(start, end + 1)));
-    return r.success ? { resposta: r.data.resposta, modelo: r.data.modelo?.trim() || null } : null;
-  } catch {
-    return null;
-  }
-}
+/** As ações são curtas; "reescrever" (raro) é o que mais gasta. */
+const MAX_TOKENS = 3000;
 
 /**
- * IA que ajuda a ajustar o modelo de impressão (conversa ao lado do editor). Ela só propõe: a
- * proposta volta para a tela, a pessoa aplica no editor, vê a prévia e salva pelo caminho de
- * sempre (que valida de novo). Nada é salvo aqui. Usa a mesma chave, modelo e limite do
- * assistente do restaurante; o gasto entra como "print_template".
+ * IA que ajuda a ajustar o modelo de impressão (conversa no canto da tela Impressão). Ela não
+ * escreve o modelo inteiro: responde com ações curtas (as skills de `template-actions.ts`, com os
+ * exemplos em assets/ai/impressao/skills) e o servidor muda o modelo, confere sintaxe e largura e
+ * devolve o modelo novo já com a prévia, que a tela troca na hora. Raciocínio desligado e
+ * provedores rápidos: o DeepSeek pensava antes de responder, o pensamento comia o limite de tokens
+ * e o modelo inteiro chegava cortado ("demorou muito e deu erro", 0.274). A conversa em si
+ * (tentativa, segunda chance) mora em `template-ai-flow.ts`, testada sem rede.
+ *
+ * Nada é salvo aqui: a pessoa salva pelo caminho de sempre (que valida de novo). Usa a mesma
+ * chave, modelo e limite do assistente do restaurante; o gasto entra como "print_template".
  */
 @Injectable()
 export class TemplateAiService {
@@ -74,6 +47,7 @@ export class TemplateAiService {
   constructor(
     @Inject(ENV) private readonly env: Env,
     private readonly db: DatabaseService,
+    private readonly printing: PrintingService,
   ) {}
 
   /** A tela pergunta antes de mostrar a conversa: está ligada? */
@@ -122,7 +96,7 @@ export class TemplateAiService {
       one<{ name: string }>(tx, `SELECT name FROM tenants LIMIT 1`),
     );
     const data = sampleData(kind, t?.name ?? 'Restaurante');
-    data.loja = { ...(data.loja as object), logo: true };
+    if (kind !== 'fiscal_footer') data.loja = { ...(data.loja as object), logo: true };
     try {
       return { data, text: await renderTemplate(body, data) };
     } catch {
@@ -130,98 +104,61 @@ export class TemplateAiService {
     }
   }
 
-  /** O modelo proposto é válido? Devolve o problema em palavras (para a IA corrigir) ou null. */
-  private async problem(body: string, data: Record<string, unknown>) {
-    if (body.includes('@@'))
-      return 'O modelo tem marcas "@@" escritas à mão. Use os filtros negrito e grande e a variável loja.logo.';
-    try {
-      checkTemplate(body);
-      const out = await renderTemplate(body, data);
-      const wide = overflowLines(out);
-      if (wide.length)
-        return `Estas linhas passam de 42 colunas no papel (letra grande conta em dobro): ${wide
-          .slice(0, 5)
-          .map((l) => JSON.stringify(l))
-          .join('; ')}`;
-      return null;
-    } catch (e) {
-      return (e as Error).message;
-    }
-  }
-
   async ask(ctx: Ctx, kind: TemplateKind, body: string, turns: TemplateAiTurn[]) {
     const { model, client } = await this.ready(ctx);
     const { data, text } = await this.sample(ctx, kind, body);
-    const history = turns.slice(-8);
-    const last = history.pop()!;
-    const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-      { role: 'system', content: templateAiPrompt(kind) },
-      ...history.map((t) => ({ role: t.role, content: t.content })),
-      { role: 'user', content: templateAiUserTurn(last.content, body, text) },
-    ];
     const total: Usage = { promptTokens: 0, completionTokens: 0, costUsd: 0 };
     // O modelo que respondeu de fato (a reserva entra se o escolhido falhar): é o que fica no uso.
     let served = model;
-    const call = async () => {
-      let r: Awaited<ReturnType<OpenRouterClient['complete']>>;
-      try {
-        r = await client.complete(model, messages, {
-          json: true,
-          maxTokens: 6000,
-          signal: AbortSignal.timeout(90_000),
-          fallbacks: chatFallbacks(model),
-        });
-      } catch (e) {
-        this.logger.warn(`IA do modelo de impressão falhou: ${(e as Error).message}`);
-        throw new ServiceUnavailableException(
-          e instanceof OpenRouterError
-            ? 'A IA não respondeu agora. Tente de novo em instantes.'
-            : 'Não deu para falar com a IA. Tente de novo em instantes.',
-        );
-      }
-      total.promptTokens += r.usage.promptTokens;
-      total.completionTokens += r.usage.completionTokens;
-      total.costUsd += r.usage.costUsd;
-      served = r.model;
-      return r.text;
-    };
     try {
-      let raw = await call();
-      let answer = readAnswer(raw);
-      let issue = answer?.modelo ? await this.problem(answer.modelo, data) : null;
-      // Uma segunda chance: a IA recebe o erro (ou a resposta que não deu para ler) e corrige.
-      if (!answer || issue) {
-        messages.push(
-          { role: 'assistant', content: raw.slice(0, TEMPLATE_MAX + 2000) },
-          {
-            role: 'user',
-            content: answer
-              ? `O modelo que você mandou tem um problema: ${issue}\nCorrija e mande de novo o JSON completo.`
-              : 'Sua resposta não veio no formato pedido. Mande só o JSON {"resposta": "...", "modelo": "..." ou null}.',
-          },
-        );
-        raw = await call();
-        const again = readAnswer(raw);
-        if (again) {
-          answer = again;
-          issue = again.modelo ? await this.problem(again.modelo, data) : null;
-        }
-      }
-      if (!answer)
+      const r = await runTemplateAi({
+        kind,
+        body,
+        turns,
+        data,
+        preview: text,
+        complete: async (messages, ms) => {
+          try {
+            const res = await client.complete(model, messages, {
+              json: true,
+              maxTokens: MAX_TOKENS,
+              reasoning: false,
+              fast: true,
+              signal: AbortSignal.timeout(ms),
+              fallbacks: chatFallbacks(model),
+            });
+            total.promptTokens += res.usage.promptTokens;
+            total.completionTokens += res.usage.completionTokens;
+            total.costUsd += res.usage.costUsd;
+            served = res.model;
+            return res;
+          } catch (e) {
+            this.logger.warn(`IA do modelo de impressão falhou: ${(e as Error).message}`);
+            throw new ServiceUnavailableException(
+              (e as Error).name === 'TimeoutError'
+                ? 'A IA demorou demais para responder. Tente de novo em instantes.'
+                : e instanceof OpenRouterError
+                  ? 'A IA não respondeu agora. Tente de novo em instantes.'
+                  : 'Não deu para falar com a IA. Tente de novo em instantes.',
+            );
+          }
+        },
+      });
+      if (!r.ok) {
+        this.logger.warn(`IA do modelo de impressão: mudança recusada (${r.error})`);
         return {
-          resposta: 'Não consegui montar a mudança agora. Pode pedir de outro jeito?',
+          resposta:
+            'Não consegui fazer essa mudança sem quebrar o papel. Tente pedir de um jeito mais simples, uma coisa por vez.',
           modelo: null,
           aviso: null,
+          previa: null,
         };
-      // Erro de sintaxe não vai para o editor; linha comprida vai, com o aviso (a prévia mostra).
-      const broken = !!issue && !issue.startsWith('Estas linhas');
-      return {
-        resposta: answer.resposta,
-        modelo: broken ? null : answer.modelo,
-        aviso: broken
-          ? `A mudança proposta tinha um erro e não foi aplicada (${issue}). Tente pedir de outro jeito.`
-          : issue,
-      };
+      }
+      // A prévia do modelo novo vem junto (mesmos dados da aba Prévia): a tela troca na hora.
+      const previa = r.modelo
+        ? await this.printing.previewTemplate(ctx, kind, r.modelo).catch(() => null)
+        : null;
+      return { resposta: r.resposta, modelo: r.modelo, aviso: r.aviso, previa };
     } finally {
       if (total.promptTokens || total.completionTokens)
         await this.db

@@ -20,6 +20,47 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.274.0',
+    date: '2026-11-27',
+    title: 'IA da impressão rápida, com skills e prévia na hora',
+    summary:
+      'A IA que monta o papel da impressora responde em poucos segundos e não dá mais o erro "Não consegui montar a mudança". Na conversa você escolhe primeiro o papel (Conferência de conta, Via de entrega, Comanda da cozinha ou Rodapé do cupom fiscal) e depois diz o que quer. A mudança aparece na hora na prévia ao lado, com as linhas que mudaram piscando, e Salvar e Desfazer ficam na própria mensagem. No celular a conversa vira uma folha embaixo, com a prévia à vista em cima.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'IA da impressão sem demora e sem erro: ela pensava antes de responder e ainda escrevia o modelo inteiro, a resposta chegava cortada e caía no "Não consegui montar a mudança agora". Agora responde direto, só com a mudança, e o servidor confere antes de mostrar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Skills da IA da impressão: frase no fim, Wi-Fi, Instagram, tirar um dado (CPF, data, telefone, cliente), logo, número e mesa em destaque, itens grandes na cozinha, itens sem preço, endereço grande para o motoboy, quanto cobrar na porta e mais. Cada uma já foi testada na bobina, então a mudança sai certa de primeira.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Conversa da IA: primeiro você escolhe o papel que quer mudar, e o papel fica marcado na conversa (trocar de papel no editor troca na conversa também). Sem a foto do cupom repetida no chat: a mudança aparece na aba Prévia, piscando o que mudou.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Prévia em tempo real: o papel ao lado muda enquanto você digita no editor, sem o botão "Ver prévia", e diz de qual pedido vem. Papel com mudança não salva ganha uma bolinha, e o Salvar só acende quando há o que salvar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No celular e no tablet a conversa da IA é uma folha embaixo (dá para diminuir), a prévia vem antes do código e as 42 colunas cabem na largura da tela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Comanda da cozinha: número do pedido e mesa (ou Delivery, Retirada) em letra grande no meio, observação do pedido em negrito e nome comprido do item com recuo, sem parecer outro item.',
+      },
+      {
+        tag: 'correção',
+        text: 'Via de entrega paga em parte: mostra o total, o que já foi pago e quanto cobrar na porta (antes só aparecia o "A COBRAR"). O subtotal só sai quando tem taxa ou desconto.',
+      },
+      {
+        tag: 'correção',
+        text: 'Rodapé do cupom fiscal: o endereço e o telefone da Loja online saem na impressão como já saíam na prévia; a cola não oferece mais a logo, que o cupom da NFC-e não leva.',
+      },
+    ],
+  },
+  {
     version: '0.273.0',
     date: '2026-11-27',
     title: 'Sua foto na conversa com o Comandinho',

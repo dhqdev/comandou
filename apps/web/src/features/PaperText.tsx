@@ -4,24 +4,28 @@ import { Fragment } from 'react';
 /**
  * Papel da bobina na tela, igual ao que sai na térmica: linhas com negrito, letra grande (largura
  * e altura duplas) e a logo do restaurante, lidas das marcas do texto (`@@N@@`, `@@G@@`,
- * `@@LOGO@@`). Sem `logoUrl`, a logo aparece como um quadro "LOGO" no lugar.
+ * `@@LOGO@@`). Sem `logoUrl`, a logo aparece como um quadro "LOGO" no lugar. `flash` são as linhas
+ * que acabaram de mudar (a prévia dos Modelos de impressão pisca o que a IA mexeu).
  */
 export function PaperText({
   text,
   logoUrl,
   className = 'receipt-paper',
   label = 'Prévia do papel',
+  flash,
 }: {
   text: string;
   logoUrl?: string | null;
   className?: string;
   label?: string;
+  flash?: readonly number[];
 }) {
+  const lit = new Set(flash ?? []);
   return (
     <pre className={`${className} paper-text`} aria-label={label}>
-      {parsePrintLines(text).map((l, i) => (
-        <Fragment key={i}>
-          {l.kind === 'logo' ? (
+      {parsePrintLines(text).map((l, i) => {
+        const line =
+          l.kind === 'logo' ? (
             <span className="paper-text__logo">
               {logoUrl ? <img src={logoUrl} alt="Logo do restaurante" /> : <span>LOGO</span>}
             </span>
@@ -33,10 +37,20 @@ export function PaperText({
             <b className="paper-text__big">{l.text}</b>
           ) : (
             l.text
-          )}
-          {l.kind !== 'logo' && '\n'}
-        </Fragment>
-      ))}
+          );
+        return (
+          <Fragment key={i}>
+            {lit.has(i) && l.kind !== 'logo' ? (
+              <mark className="paper-text__flash" data-flash>
+                {line}
+              </mark>
+            ) : (
+              line
+            )}
+            {l.kind !== 'logo' && '\n'}
+          </Fragment>
+        );
+      })}
     </pre>
   );
 }

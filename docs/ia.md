@@ -15,7 +15,7 @@ limite de restaurante nenhum.
 | --- | --- | --- | --- |
 | Chat com a IA | Assistente da equipe (botão **IA** do topo) | conversa | `chat` |
 | IA do WhatsApp | Responde os clientes, faz e cancela reservas | conversa | `whatsapp`, `agent_test` |
-| Modelo de impressão | Monta o papel da comanda na conversa da tela Impressão | conversa | `print_template` |
+| Modelo de impressão | Monta o papel da comanda na conversa da tela Impressão (ações curtas + skills, sem raciocínio) | conversa | `print_template` |
 | Fotos dos itens | Melhorar a foto (olhar), fundo limpo, foto criada e fotos da importação (fazer a foto) | olhar a foto + fazer a foto | `photo_tune`, `photo_clean`, `photo_create`, `menu_photo` |
 | Cardápio e página | Importar o cardápio, achar o restaurante no Google e o texto da página | ler o cardápio (página: conversa) | `menu_import`, `menu_place`, `site_page` |
 | Esteira de chamados (Comandou) | Os agentes da esteira, da triagem ao PR | o de Chamados › Configurar, vazio = conversa | `platform_ai_usage`, fonte `esteira` |
@@ -37,6 +37,15 @@ um em **Tokens de IA › Chaves e assistente**.
 | Olhar a foto (melhorar) | Gemini 2.5 Flash Lite | 0,10 / 0,40 | O mais barato que lê imagem e devolve JSON confiável |
 | Fazer a foto (fundo limpo, criar) | GPT Image 2 (`openai/gpt-image-2`) | ~US$ 0,014 por foto | Boa qualidade pelo menor preço por imagem |
 | Ler o cardápio e achar no Google | Gemini 2.5 Flash (`google/gemini-2.5-flash`) | 0,30 / 2,50 | Mais caro, mas é uma vez por restaurante, e errar o preço do cardápio inteiro sai mais caro |
+
+**Raciocínio (0.274):** o DeepSeek V4 Flash pensa antes de responder por padrão, e o pensamento
+conta no `max_tokens`. Para tarefa curta com formato fixo, `OpenRouterClient.complete` aceita
+`reasoning: false` (manda `reasoning: { enabled: false }`; modelo que só responde pensando recebe o
+pedido de novo sem o campo) e `fast` (`provider.sort: "throughput"`), e devolve `finish`
+("length" = cortada no limite). A IA dos Modelos de impressão usa os dois: antes ela pensava e ainda
+escrevia o modelo inteiro, e a resposta chegava cortada. Hoje ela responde ações curtas que o
+servidor executa (`printing/template-actions.ts`, skills em `apps/api/assets/ai/impressao/`; guia
+em [fiscal-guia.md](fiscal-guia.md), seção Modelos de impressão).
 
 A migração 0129 trocou o padrão da conversa (quem estava no Gemini 2.5 Flash Lite padrão passou
 para o DeepSeek; modelo escolhido à mão ficou) e criou `platform_ai_settings.import_model` (antes

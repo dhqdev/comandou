@@ -5,29 +5,24 @@ import {
   PRINT_TEMPLATE_VARS,
   type PrintTemplateKind,
 } from '@comandou/shared';
-import { Eye, RotateCcw, Save, Send, Sparkles, Undo2, X } from 'lucide-react';
 import {
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from 'react';
+  ChevronDown,
+  ChevronUp,
+  Check,
+  Redo2,
+  RotateCcw,
+  Save,
+  Send,
+  Sparkles,
+  Square,
+  Undo2,
+  X,
+} from 'lucide-react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Segmented,
-  Skeleton,
-  Spinner,
-  useToast,
-} from '../design-system';
+import { Alert, Badge, Button, Card, Segmented, Skeleton, Spinner } from '../design-system';
 import { api } from '../lib/api';
-import { Tabs } from './forms';
+import { changedLines } from './paper-diff';
 import { PaperText } from './PaperText';
 
 type Kind = PrintTemplateKind;
@@ -37,55 +32,186 @@ interface Template {
   updatedAt: string | null;
   default: string;
 }
+interface Preview {
+  text: string;
+  logoUrl: string | null;
+  /** Número do pedido usado na prévia (null = pedido de exemplo). */
+  order: number | null;
+}
+interface PreviewReply {
+  text: string;
+  logoUrl?: string | null;
+  order?: number | null;
+}
+interface AiStatus {
+  enabled: boolean;
+  reason: string | null;
+  name: string;
+}
+interface AiReply {
+  resposta: string;
+  modelo: string | null;
+  aviso: string | null;
+  /** Prévia do modelo novo (mesmos dados da aba Prévia), para trocar na hora. */
+  previa?: PreviewReply | null;
+}
+
+type ChangeState = 'applied' | 'undone' | 'saved';
+interface Change {
+  before: string;
+  after: string;
+  state: ChangeState;
+  /** A mudança não aparece no pedido da prévia (ex.: tirou o CPF e o pedido não tem CPF). */
+  hidden: boolean;
+  saving?: boolean;
+  error?: string | null;
+}
+type Entry =
+  | { id: number; type: 'paper'; kind: Kind }
+  | { id: number; type: 'user'; kind: Kind; text: string }
+  | {
+      id: number;
+      type: 'ai';
+      kind: Kind;
+      text: string;
+      aviso: string | null;
+      change: Change | null;
+    }
+  | { id: number; type: 'error'; kind: Kind; text: string; ask: string };
+
+/** Omit que vale para cada tipo da união (o Omit comum só guarda os campos em comum). */
+type OmitEach<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+type NewEntry = OmitEach<Entry, 'id'>;
+
+type Side = 'preview' | 'help';
 
 const LABEL = PRINT_TEMPLATE_LABELS;
 const HELP = PRINT_TEMPLATE_HELP;
 const VARS = PRINT_TEMPLATE_VARS;
 const FILTERS = PRINT_TEMPLATE_FILTERS;
+const KINDS = Object.keys(LABEL) as Kind[];
+/** Espera depois da última tecla para montar a prévia (tempo real sem pedir a cada letra). */
+const PREVIEW_DELAY = 350;
+/** Conversa e folha da IA: largura do computador (abaixo disso, folha embaixo). */
+const DOCK_WIDE = 1100;
 
-type Side = 'preview' | 'help';
+function byKind<T>(v: T): Record<Kind, T> {
+  return { receipt: v, delivery_slip: v, kitchen_ticket: v, fiscal_footer: v };
+}
+
+/** Próximo quadro da tela (com reserva onde não há requestAnimationFrame). Devolve o cancelar. */
+function nextFrame(cb: () => void) {
+  if (typeof requestAnimationFrame !== 'function') {
+    const t = setTimeout(cb, 0);
+    return () => clearTimeout(t);
+  }
+  const id = requestAnimationFrame(cb);
+  return () => cancelAnimationFrame(id);
+}
+
+/** O papel em uma linha curta, para a escolha na conversa. */
+const PAPER_HINT: Record<Kind, string> = {
+  receipt: 'O cliente confere antes de pagar',
+  delivery_slip: 'Vai com o motoboy',
+  kitchen_ticket: 'Sai na cozinha e no bar',
+  fiscal_footer: 'O fim do cupom da NFC-e',
+};
+
+/** De onde vem o pedido da prévia. */
+function previewSource(kind: Kind, p: Preview) {
+  if (kind === 'fiscal_footer') return 'Com uma nota de exemplo';
+  if (p.order === null) return 'Com um pedido de exemplo';
+  return kind === 'delivery_slip'
+    ? `Com o último delivery (#${p.order})`
+    : `Com o último pedido (#${p.order})`;
+}
+
+/** Na tela larga a conversa fica ao lado; na estreita, folha embaixo. */
+function useWideDock() {
+  const query = `(min-width: ${DOCK_WIDE}px)`;
+  const [wide, setWide] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(query).matches : true,
+  );
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const m = window.matchMedia(query);
+    const on = () => setWide(m.matches);
+    on();
+    m.addEventListener?.('change', on);
+    return () => m.removeEventListener?.('change', on);
+  }, [query]);
+  return wide;
+}
 
 /**
  * Modelos de impressão em Liquid (a mesma ideia do Jinja): o restaurante muda o que sai na
- * conferência, na via de entrega, na comanda da cozinha e no rodapé do cupom fiscal, com prévia
- * antes de salvar. No canto da tela fica a conversa com a IA, que muda o código pelo restaurante
- * (pedido do David, 0.233): ela aparece sempre, e quando a IA está desligada diz o porquê.
+ * conferência, na via de entrega, na comanda da cozinha e no rodapé do cupom fiscal. A prévia
+ * acompanha em tempo real (o que se digita no editor e o que a IA muda, piscando as linhas que
+ * mudaram). No canto da tela fica a conversa com a IA (pedido do David, 0.233; refeita na 0.274):
+ * primeiro se escolhe o papel, depois se pede; a mudança aparece só na Prévia (a conversa não
+ * repete o papel) e Salvar/Desfazer ficam na própria mensagem. No celular a conversa é uma folha
+ * embaixo e a prévia fica à vista em cima.
  */
 export function PrintTemplatesCard() {
-  const toast = useToast();
   const areaId = useId();
+  const wide = useWideDock();
   const [list, setList] = useState<Template[] | null>(null);
-  const [kind, setKind] = useState<Kind>('receipt');
-  const [draft, setDraft] = useState<Record<Kind, string>>({
-    receipt: '',
-    delivery_slip: '',
-    kitchen_ticket: '',
-    fiscal_footer: '',
-  });
-  const [preview, setPreview] = useState<{ text: string; logoUrl: string | null } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [kind, setKindState] = useState<Kind>('receipt');
+  const [draft, setDraft] = useState<Record<Kind, string>>(byKind(''));
+  const [preview, setPreview] = useState<Partial<Record<Kind, Preview>>>({});
+  const [previewErr, setPreviewErr] = useState<Partial<Record<Kind, string>>>({});
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [flash, setFlash] = useState<{ kind: Kind; lines: number[]; key: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<'preview' | 'save' | 'reset' | null>(null);
+  const [busy, setBusy] = useState<'save' | 'reset' | null>(null);
+  const [savedNote, setSavedNote] = useState<{ kind: Kind; text: string } | null>(null);
+  const [side, setSide] = useState<Side>('preview');
+  // IA
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
-  const [chats, setChats] = useState<Record<Kind, ChatMsg[]>>({
-    receipt: [],
-    delivery_slip: [],
-    kitchen_ticket: [],
-    fiscal_footer: [],
-  });
-  const [side, setSide] = useState<Side>('preview');
+  const [small, setSmall] = useState(false);
+  const [chatKind, setChatKind] = useState<Kind | null>(null);
+  const [thread, setThread] = useState<Entry[]>([]);
+  const [asking, setAsking] = useState<{ kind: Kind; since: number } | null>(null);
 
-  const load = useCallback(async () => {
-    const r = await api<Template[]>('/printing/templates');
-    setList(r);
-    setDraft(
-      Object.fromEntries(r.map((t) => [t.kind, t.body ?? t.default])) as Record<Kind, string>,
-    );
-  }, []);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const previewRef = useRef(preview);
+  previewRef.current = preview;
+  const chatKindRef = useRef(chatKind);
+  chatKindRef.current = chatKind;
+  /** Texto do modelo da última prévia pedida (ou recebida da IA), por papel. */
+  const asked = useRef<Partial<Record<Kind, string>>>({});
+  /** Prévias já montadas (papel + modelo): desfazer volta na hora, sem pedir de novo. */
+  const cache = useRef(new Map<string, Preview>());
+  const seq = useRef(0);
+  const nextId = useRef(1);
+  const stop = useRef<AbortController | null>(null);
+  const previewBox = useRef<HTMLDivElement>(null);
+
+  const saved = (k: Kind) => {
+    const t = list?.find((x) => x.kind === k);
+    return t ? (t.body ?? t.default) : '';
+  };
+  const dirty = (k: Kind) => !!list && draft[k] !== saved(k);
+  const anyDirty = KINDS.some(dirty);
+
   useEffect(() => {
-    load().catch((e: Error) => setError(e.message));
-  }, [load]);
+    api<Template[]>('/printing/templates')
+      .then((r) => {
+        setList(r);
+        setDraft({
+          ...byKind(''),
+          ...(Object.fromEntries(r.map((t) => [t.kind, t.body ?? t.default])) as Record<
+            Kind,
+            string
+          >),
+        });
+      })
+      .catch((e: Error) => setLoadError(e.message));
+  }, []);
 
   const loadAi = useCallback(() => {
     setAiError(null);
@@ -98,42 +224,175 @@ export function PrintTemplatesCard() {
   }, []);
   useEffect(loadAi, [loadAi]);
 
-  function openAi() {
-    setAiOpen(true);
-    if (!ai) loadAi();
-    document
-      .querySelector('[data-search-id="secao-modelos"]')
-      ?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
-  }
+  // Fechar a aba com mudança não salva: o navegador pergunta antes.
+  useEffect(() => {
+    if (!anyDirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [anyDirty]);
 
-  const cur = list?.find((t) => t.kind === kind);
-  const body = draft[kind];
+  const remember = (k: Kind, body: string, p: Preview) => {
+    const key = `${k}\n${body}`;
+    cache.current.delete(key);
+    cache.current.set(key, p);
+    if (cache.current.size > 30) cache.current.delete(cache.current.keys().next().value!);
+  };
 
-  const showPreview = useCallback(async (k: Kind, text: string) => {
-    const r = await api<{ text: string; logoUrl?: string | null }>('/printing/templates/preview', {
-      method: 'POST',
-      json: { kind: k, body: text },
-    });
-    setPreview({ text: r.text, logoUrl: r.logoUrl ?? null });
+  /** Troca a prévia do papel e pisca as linhas que mudaram. */
+  const showPreview = useCallback((k: Kind, body: string, p: Preview, blink: boolean) => {
+    const old = previewRef.current[k]?.text;
+    asked.current[k] = body;
+    remember(k, body, p);
+    setPreview((cur) => ({ ...cur, [k]: p }));
+    setPreviewErr((cur) => ({ ...cur, [k]: undefined }));
+    if (blink && old !== undefined) {
+      const lines = changedLines(old, p.text);
+      setFlash({ kind: k, lines, key: Date.now() });
+      return lines.length > 0;
+    }
+    return true;
   }, []);
 
-  async function run(what: 'preview' | 'save' | 'reset') {
-    setBusy(what);
+  const fetchPreview = useCallback(
+    async (k: Kind, body: string) => {
+      const my = ++seq.current;
+      asked.current[k] = body;
+      setPreviewBusy(true);
+      try {
+        const r = await api<PreviewReply>('/printing/templates/preview', {
+          method: 'POST',
+          json: { kind: k, body },
+        });
+        if (my !== seq.current) return;
+        showPreview(
+          k,
+          body,
+          { text: r.text, logoUrl: r.logoUrl ?? null, order: r.order ?? null },
+          false,
+        );
+      } catch (e) {
+        if (my !== seq.current) return;
+        setPreviewErr((cur) => ({ ...cur, [k]: (e as Error).message }));
+      } finally {
+        if (my === seq.current) setPreviewBusy(false);
+      }
+    },
+    [showPreview],
+  );
+
+  // Prévia em tempo real: o que muda no editor aparece no papel ao lado.
+  useEffect(() => {
+    if (!list) return;
+    const body = draft[kind];
+    if (!body.trim() || asked.current[kind] === body) return;
+    const hit = cache.current.get(`${kind}\n${body}`);
+    if (hit) {
+      seq.current++;
+      setPreviewBusy(false);
+      showPreview(kind, body, hit, false);
+      return;
+    }
+    const t = window.setTimeout(
+      () => void fetchPreview(kind, body),
+      previewRef.current[kind] ? PREVIEW_DELAY : 0,
+    );
+    return () => window.clearTimeout(t);
+  }, [list, kind, draft, fetchPreview, showPreview]);
+
+  // A linha que mudou aparece na tela (no celular, acima da folha da conversa).
+  useEffect(() => {
+    if (!flash) return;
+    return nextFrame(() => {
+      const box = previewBox.current;
+      const target = box?.querySelector('[data-flash]') ?? box;
+      target?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    });
+  }, [flash]);
+
+  // Conversa aberta: a tela abre espaço para ela (ao lado no computador, embaixo no celular).
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('tpl-ai-open', aiOpen);
+    root.classList.toggle('tpl-ai-small', aiOpen && small && !wide);
+    return () => root.classList.remove('tpl-ai-open', 'tpl-ai-small');
+  }, [aiOpen, small, wide]);
+
+  const push = (e: NewEntry) => {
+    const entry = { ...e, id: nextId.current++ } as Entry;
+    setThread((t) => [...t, entry]);
+    return entry.id;
+  };
+  const patchChange = (id: number, up: Partial<Change>) =>
+    setThread((t) =>
+      t.map((e) =>
+        e.id === id && e.type === 'ai' && e.change ? { ...e, change: { ...e.change, ...up } } : e,
+      ),
+    );
+
+  /** Papel da conversa: muda junto o papel do editor e marca na conversa. */
+  function choosePaper(k: Kind) {
+    if (chatKindRef.current !== k) push({ type: 'paper', kind: k });
+    setChatKind(k);
+    setKindState(k);
+    setSide('preview');
+    setError(null);
+  }
+
+  /** Aba do editor: se a conversa já tem papel, ela acompanha. */
+  function setKind(k: Kind) {
+    setKindState(k);
+    setError(null);
+    if (chatKindRef.current && chatKindRef.current !== k) {
+      push({ type: 'paper', kind: k });
+      setChatKind(k);
+    }
+  }
+
+  function openAi() {
+    setAiOpen(true);
+    setSmall(false);
+    setSide('preview');
+    if (!ai) loadAi();
+    nextFrame(() => previewBox.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }));
+  }
+
+  /** Grava o modelo do papel. Devolve o erro (ou null). */
+  async function persist(k: Kind): Promise<string | null> {
+    const body = draftRef.current[k];
+    try {
+      await api(`/printing/templates/${k}`, { method: 'PUT', json: { body } });
+      setList((l) =>
+        l
+          ? l.map((t) => (t.kind === k ? { ...t, body, updatedAt: new Date().toISOString() } : t))
+          : l,
+      );
+      setSavedNote({ kind: k, text: 'Modelo salvo: as próximas impressões já saem assim.' });
+      return null;
+    } catch (e) {
+      return (e as Error).message;
+    }
+  }
+
+  async function save() {
+    setBusy('save');
+    setError(null);
+    const err = await persist(kind);
+    if (err) setError(err);
+    setBusy(null);
+  }
+
+  async function reset() {
+    setBusy('reset');
     setError(null);
     try {
-      if (what === 'preview') {
-        await showPreview(kind, body);
-        setSide('preview');
-      } else if (what === 'save') {
-        await api(`/printing/templates/${kind}`, { method: 'PUT', json: { body } });
-        toast('Modelo salvo: as próximas impressões já saem assim', 'success');
-        await load();
-      } else {
-        await api(`/printing/templates/${kind}`, { method: 'DELETE' });
-        toast('Voltou para o modelo padrão do Comandou', 'success');
-        setPreview(null);
-        await load();
-      }
+      await api(`/printing/templates/${kind}`, { method: 'DELETE' });
+      const t = list?.find((x) => x.kind === kind);
+      setList((l) =>
+        l ? l.map((x) => (x.kind === kind ? { ...x, body: null, updatedAt: null } : x)) : l,
+      );
+      if (t) setDraft((d) => ({ ...d, [kind]: t.default }));
+      setSavedNote({ kind, text: 'Voltou ao modelo padrão do Comandou.' });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -141,26 +400,104 @@ export function PrintTemplatesCard() {
     }
   }
 
-  /** A IA mandou o modelo novo: entra no editor (sem salvar) e a prévia já atualiza. */
-  function applyFromAi(next: string) {
-    setDraft((d) => ({ ...d, [kind]: next }));
-    setError(null);
+  /** Põe um modelo no editor e mostra a prévia (a que veio da IA, a guardada ou pede uma nova). */
+  function putModel(k: Kind, body: string, given: Preview | null) {
+    setDraft((d) => ({ ...d, [k]: body }));
+    setKindState(k);
     setSide('preview');
-    showPreview(kind, next).catch((e: Error) => setError(e.message));
+    setSavedNote(null);
+    const p = given ?? cache.current.get(`${k}\n${body}`) ?? null;
+    if (p) {
+      seq.current++;
+      setPreviewBusy(false);
+      return showPreview(k, body, p, true);
+    }
+    return true;
   }
 
-  // Abre já com a prévia do papel do lado do editor.
-  useEffect(() => {
-    if (list && side === 'preview' && !preview && body.trim())
-      showPreview(kind, body).catch((e: Error) => setError(e.message));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [list, kind]);
+  async function ask(text: string, k: Kind) {
+    const q = text.trim();
+    if (!q || asking) return;
+    const userId = push({ type: 'user', kind: k, text: q });
+    const history = [...thread, { id: userId, type: 'user' as const, kind: k, text: q }]
+      .filter(
+        (e): e is Extract<Entry, { type: 'user' | 'ai' }> =>
+          (e.type === 'user' || e.type === 'ai') && e.kind === k,
+      )
+      .slice(-7)
+      .map((e) => ({
+        role: e.type === 'user' ? ('user' as const) : ('assistant' as const),
+        content: e.text,
+      }));
+    const body = draftRef.current[k];
+    const ctrl = new AbortController();
+    stop.current = ctrl;
+    setAsking({ kind: k, since: Date.now() });
+    try {
+      const r = await api<AiReply>('/printing/templates/ai', {
+        method: 'POST',
+        json: { kind: k, body, messages: history },
+        signal: ctrl.signal,
+      });
+      if (ctrl.signal.aborted) return;
+      const changed = !!r.modelo && r.modelo !== body;
+      let shown = true;
+      if (changed)
+        shown = putModel(
+          k,
+          r.modelo!,
+          r.previa
+            ? {
+                text: r.previa.text,
+                logoUrl: r.previa.logoUrl ?? null,
+                order: r.previa.order ?? null,
+              }
+            : null,
+        );
+      push({
+        type: 'ai',
+        kind: k,
+        text: r.resposta,
+        aviso: r.aviso,
+        change: changed
+          ? { before: body, after: r.modelo!, state: 'applied', hidden: !shown }
+          : null,
+      });
+    } catch (e) {
+      push({
+        type: 'error',
+        kind: k,
+        text: ctrl.signal.aborted ? 'Você parou o pedido.' : (e as Error).message,
+        ask: q,
+      });
+    } finally {
+      if (stop.current === ctrl) stop.current = null;
+      setAsking(null);
+    }
+  }
 
-  const sides: [Side, string][] = [
-    ['preview', 'Prévia'],
-    ['help', 'O que dá para usar'],
-  ];
+  function undo(e: Extract<Entry, { type: 'ai' }>) {
+    if (!e.change) return;
+    putModel(e.kind, e.change.before, null);
+    patchChange(e.id, { state: 'undone', error: null });
+  }
+  function redo(e: Extract<Entry, { type: 'ai' }>) {
+    if (!e.change) return;
+    putModel(e.kind, e.change.after, null);
+    patchChange(e.id, { state: 'applied', error: null });
+  }
+  async function saveFromChat(e: Extract<Entry, { type: 'ai' }>) {
+    patchChange(e.id, { saving: true, error: null });
+    const err = await persist(e.kind);
+    patchChange(e.id, err ? { saving: false, error: err } : { saving: false, state: 'saved' });
+  }
+
+  const cur = list?.find((t) => t.kind === kind);
+  const body = draft[kind];
+  const pv = preview[kind];
+  const pvErr = previewErr[kind];
   const aiName = ai?.name || 'IA';
+  const lockEditor = asking?.kind === kind;
 
   return (
     <Card
@@ -179,21 +516,24 @@ export function PrintTemplatesCard() {
       }
     >
       {list === null ? (
-        error ? (
-          <Alert tone="danger">{error}</Alert>
+        loadError ? (
+          <Alert tone="danger">{loadError}</Alert>
         ) : (
           <Skeleton variant="grid" />
         )
       ) : (
         <div className="print-tpl">
-          <Tabs
+          <Segmented
+            label="Papel"
             value={kind}
-            onChange={(k) => {
-              setKind(k);
-              setPreview(null);
-              setError(null);
-            }}
-            items={(Object.keys(LABEL) as Kind[]).map((k) => [k, LABEL[k]])}
+            onChange={setKind}
+            options={KINDS.map((k) => ({
+              value: k,
+              label: LABEL[k],
+              icon: dirty(k) ? (
+                <span className="print-tpl__dirty" role="img" aria-label="não salvo" />
+              ) : undefined,
+            }))}
           />
           <p className="cm-hint">
             {HELP[kind]}{' '}
@@ -211,38 +551,52 @@ export function PrintTemplatesCard() {
                 rows={22}
                 maxLength={8000}
                 value={body}
-                onChange={(e) => setDraft((d) => ({ ...d, [kind]: e.target.value }))}
+                readOnly={lockEditor}
+                aria-busy={lockEditor || undefined}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDraft((d) => ({ ...d, [kind]: v }));
+                  setSavedNote(null);
+                }}
               />
               <span className="cm-hint">
-                Use {'{{ variável }}'} para mostrar um dado e {'{% if %}'} / {'{% for %}'} para
-                condições e listas. A bobina tem 42 colunas; a letra grande, 21.
+                {lockEditor
+                  ? `${aiName} está mudando este papel…`
+                  : 'Use {{ variável }} para mostrar um dado e {% if %} / {% for %} para condições e listas. A bobina tem 42 colunas; a letra grande, 21. A prévia muda enquanto você digita.'}
               </span>
             </div>
             <div className="print-tpl__side">
               <Segmented
                 label="Ao lado do editor"
                 value={side}
-                onChange={(v) => {
-                  setSide(v);
-                  if (v === 'preview' && !preview && body.trim())
-                    showPreview(kind, body).catch((e: Error) => setError(e.message));
-                }}
-                options={sides.map(([value, label]) => ({ value, label }))}
+                onChange={setSide}
+                options={[
+                  { value: 'preview', label: 'Prévia' },
+                  { value: 'help', label: 'O que dá para usar' },
+                ]}
               />
               {side === 'preview' ? (
-                preview ? (
-                  <PaperText
-                    text={preview.text}
-                    logoUrl={preview.logoUrl}
-                    className="print-tpl__paper"
-                    label="Prévia do modelo"
-                  />
-                ) : (
-                  <p className="cm-hint">
-                    Clique em Ver prévia para ver como sai no papel, ou peça uma mudança para a IA
-                    no canto da tela.
-                  </p>
-                )
+                <div className="print-tpl__preview" ref={previewBox}>
+                  <div className="print-tpl__src">
+                    <span className="cm-hint">
+                      {pv ? previewSource(kind, pv) : 'Montando a prévia…'}
+                    </span>
+                    {(previewBusy || lockEditor) && <Spinner inline label="Atualizando a prévia" />}
+                  </div>
+                  {pvErr && <Alert tone="danger">{pvErr}</Alert>}
+                  {pv ? (
+                    <PaperText
+                      key={flash?.kind === kind ? flash.key : 0}
+                      text={pv.text}
+                      logoUrl={pv.logoUrl}
+                      flash={flash?.kind === kind ? flash.lines : undefined}
+                      className={`print-tpl__paper${pvErr ? ' is-stale' : ''}`}
+                      label="Prévia do modelo"
+                    />
+                  ) : pvErr ? null : (
+                    <Skeleton variant="list" rows={8} label="Montando a prévia" />
+                  )}
+                </div>
               ) : (
                 <>
                   <strong>O que dá para usar</strong>
@@ -266,21 +620,12 @@ export function PrintTemplatesCard() {
             </div>
           </div>
           {error && <Alert tone="danger">{error}</Alert>}
-          <div className="actions-row">
-            <Button
-              variant="secondary"
-              icon={<Eye size={16} />}
-              loading={busy === 'preview'}
-              disabled={!body.trim()}
-              onClick={() => void run('preview')}
-            >
-              Ver prévia
-            </Button>
+          <div className="print-tpl__actions">
             <Button
               icon={<Save size={16} />}
               loading={busy === 'save'}
-              disabled={!body.trim()}
-              onClick={() => void run('save')}
+              disabled={!body.trim() || !dirty(kind) || lockEditor}
+              onClick={() => void save()}
             >
               Salvar modelo
             </Button>
@@ -289,71 +634,50 @@ export function PrintTemplatesCard() {
                 variant="ghost"
                 icon={<RotateCcw size={16} />}
                 loading={busy === 'reset'}
-                onClick={() => void run('reset')}
+                disabled={lockEditor}
+                onClick={() => void reset()}
               >
                 Voltar ao padrão
               </Button>
             )}
+            <span className="print-tpl__state" role="status">
+              {dirty(kind) ? (
+                <>
+                  <span className="print-tpl__dirty" aria-hidden />
+                  Não salvo: as impressões ainda saem com o modelo anterior.
+                </>
+              ) : savedNote?.kind === kind ? (
+                <>
+                  <Check size={15} aria-hidden /> {savedNote.text}
+                </>
+              ) : null}
+            </span>
           </div>
         </div>
       )}
       {list !== null &&
         createPortal(
           aiOpen ? (
-            <section
-              className="tpl-ai-dock"
-              role="dialog"
-              aria-label={`Montar o papel com ${aiName}`}
-            >
-              <header className="tpl-ai-dock__head">
-                <Sparkles size={18} aria-hidden className="tpl-ai-dock__icon" />
-                <div className="tpl-ai-dock__title">
-                  <strong>Montar o papel com {aiName}</strong>
-                  <span className="cm-hint">Mexendo em: {LABEL[kind]}</span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={<X size={16} />}
-                  aria-label="Fechar a conversa"
-                  onClick={() => setAiOpen(false)}
-                />
-              </header>
-              {ai?.enabled ? (
-                <TemplateAiChat
-                  key={kind}
-                  kind={kind}
-                  body={body}
-                  name={aiName}
-                  preview={preview}
-                  msgs={chats[kind]}
-                  setMsgs={(up) =>
-                    setChats((c) => ({
-                      ...c,
-                      [kind]: typeof up === 'function' ? up(c[kind]) : up,
-                    }))
-                  }
-                  onApply={applyFromAi}
-                />
-              ) : (
-                <div className="tpl-ai-dock__off">
-                  {ai ? (
-                    <Alert tone="warning">
-                      {AI_OFF[ai.reason ?? 'platform'] ?? AI_OFF.platform}
-                    </Alert>
-                  ) : aiError ? (
-                    <>
-                      <Alert tone="danger">Não deu para abrir a IA agora: {aiError}</Alert>
-                      <Button variant="secondary" size="sm" onClick={loadAi}>
-                        Tentar de novo
-                      </Button>
-                    </>
-                  ) : (
-                    <Skeleton variant="chat" />
-                  )}
-                </div>
-              )}
-            </section>
+            <AiDock
+              name={aiName}
+              ai={ai}
+              aiError={aiError}
+              onRetryStatus={loadAi}
+              editorKind={kind}
+              chatKind={chatKind}
+              thread={thread}
+              asking={asking}
+              wide={wide}
+              small={small}
+              onSmall={setSmall}
+              onClose={() => setAiOpen(false)}
+              onChoose={choosePaper}
+              onAsk={(t, k) => void ask(t, k)}
+              onStop={() => stop.current?.abort()}
+              onUndo={undo}
+              onRedo={redo}
+              onSave={(e) => void saveFromChat(e)}
+            />
           ) : (
             <button type="button" className="tpl-ai-fab" onClick={openAi}>
               <Sparkles size={18} aria-hidden />
@@ -374,35 +698,21 @@ const AI_OFF: Record<string, string> = {
   limit: 'O limite de uso da IA neste mês acabou. Fale com o suporte do Comandou.',
 };
 
-interface AiStatus {
-  enabled: boolean;
-  reason: string | null;
-  name: string;
-}
-
-interface ChatMsg {
-  role: 'user' | 'assistant';
-  content: string;
-  /** Modelo que estava no editor antes desta resposta mudar (para desfazer). */
-  before?: string;
-  aviso?: string | null;
-}
-
 const SUGGESTIONS: Record<Kind, string[]> = {
   receipt: [
-    'Deixe o nome da loja maior e o total em destaque',
-    'Tire o CPF/CNPJ e a data de impressão',
-    'Coloque "Volte sempre!" no final',
+    'Coloque "Obrigado e volte sempre!" no final',
+    'Tire o CPF/CNPJ do cliente',
+    'Deixe o número do pedido bem grande',
   ],
   delivery_slip: [
     'Deixe o endereço e o telefone bem grandes',
-    'Coloque "Confira o pedido na entrega" no final',
     'Tire os preços dos itens',
+    'Coloque "Confira seu pedido na entrega" no final',
   ],
   kitchen_ticket: [
     'Deixe os itens em letra grande',
-    'Mostre a observação do pedido logo no topo',
     'Tire o nome do cliente',
+    'Deixe a observação do pedido bem grande',
   ],
   fiscal_footer: [
     'Coloque a senha do Wi-Fi: cliente123',
@@ -411,174 +721,369 @@ const SUGGESTIONS: Record<Kind, string[]> = {
   ],
 };
 
-/**
- * Conversa com a IA no canto da tela (uma por papel). Cada pedido vai com o modelo que está no editor; a
- * resposta com modelo novo entra no editor (dá para desfazer) e a prévia atualiza. Salvar continua
- * sendo da pessoa.
- */
-function TemplateAiChat({
-  kind,
-  body,
-  name,
-  preview,
-  msgs,
-  setMsgs,
-  onApply,
+/** Escolha do papel na conversa: os quatro, com uma linha do que é cada um. */
+function PaperPicker({
+  current,
+  hint,
+  onChoose,
+  compact,
 }: {
-  kind: Kind;
-  body: string;
+  current: Kind | null;
+  hint: Kind;
+  onChoose(k: Kind): void;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`tpl-ai__papers${compact ? ' tpl-ai__papers--compact' : ''}`}
+      role="group"
+      aria-label="Papel que vai mudar"
+    >
+      {KINDS.map((k) => (
+        <button
+          key={k}
+          type="button"
+          className="tpl-ai__paper-opt"
+          aria-pressed={current === k}
+          onClick={() => onChoose(k)}
+        >
+          <strong>{LABEL[k]}</strong>
+          {!compact && (
+            <span>
+              {PAPER_HINT[k]}
+              {current === null && k === hint ? ' · aberto no editor' : ''}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Conversa com a IA no canto da tela (folha embaixo no celular). Uma conversa só, com o papel de
+ * cada pedido marcado nela. A mudança não é desenhada aqui: ela aparece na aba Prévia, ao lado.
+ */
+function AiDock({
+  name,
+  ai,
+  aiError,
+  onRetryStatus,
+  editorKind,
+  chatKind,
+  thread,
+  asking,
+  wide,
+  small,
+  onSmall,
+  onClose,
+  onChoose,
+  onAsk,
+  onStop,
+  onUndo,
+  onRedo,
+  onSave,
+}: {
   name: string;
-  preview: { text: string; logoUrl: string | null } | null;
-  msgs: ChatMsg[];
-  setMsgs: Dispatch<SetStateAction<ChatMsg[]>>;
-  onApply(next: string): void;
+  ai: AiStatus | null;
+  aiError: string | null;
+  onRetryStatus(): void;
+  editorKind: Kind;
+  chatKind: Kind | null;
+  thread: Entry[];
+  asking: { kind: Kind; since: number } | null;
+  wide: boolean;
+  small: boolean;
+  onSmall(v: boolean): void;
+  onClose(): void;
+  onChoose(k: Kind): void;
+  onAsk(text: string, k: Kind): void;
+  onStop(): void;
+  onUndo(e: Extract<Entry, { type: 'ai' }>): void;
+  onRedo(e: Extract<Entry, { type: 'ai' }>): void;
+  onSave(e: Extract<Entry, { type: 'ai' }>): void;
 }) {
   const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const scroller = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
   const inputId = useId();
 
+  // Desce até a última fala (no começo fica a pergunta do papel à vista).
   useEffect(() => {
     const el = scroller.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [msgs, busy]);
+    if (el && (thread.length || asking)) el.scrollTop = el.scrollHeight;
+  }, [thread, asking, chatKind]);
 
-  async function send(ask: string) {
-    const q = ask.trim();
-    if (!q || busy) return;
-    const next: ChatMsg[] = [...msgs, { role: 'user', content: q }];
-    setMsgs(next);
+  // Relógio do "mexendo no papel" (aparece depois de alguns segundos).
+  useEffect(() => {
+    if (!asking) return;
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [asking]);
+
+  useEffect(() => {
+    if (chatKind && wide) input.current?.focus();
+  }, [chatKind, wide]);
+
+  const asked = chatKind ? thread.some((e) => e.type === 'user' && e.kind === chatKind) : false;
+  const seconds = asking ? Math.max(0, Math.round((now - asking.since) / 1000)) : 0;
+
+  function submit(q = text) {
+    if (!chatKind || !q.trim() || asking) return;
+    onAsk(q, chatKind);
     setText('');
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await api<{ resposta: string; modelo: string | null; aviso: string | null }>(
-        '/printing/templates/ai',
-        {
-          method: 'POST',
-          json: {
-            kind,
-            body,
-            messages: next.slice(-12).map((m) => ({ role: m.role, content: m.content })),
-          },
-        },
-      );
-      setMsgs((m) => [
-        ...m,
-        {
-          role: 'assistant',
-          content: r.resposta,
-          before: r.modelo ? body : undefined,
-          aviso: r.aviso,
-        },
-      ]);
-      if (r.modelo) onApply(r.modelo);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    setPicking(false);
+    // No celular o teclado fecha e a prévia (em cima da folha) aparece.
+    if (!wide) input.current?.blur();
   }
 
-  return (
-    <div className="tpl-ai">
-      <div className="tpl-ai__scroll" ref={scroller}>
-        {msgs.length === 0 && (
-          <div className="tpl-ai__hello">
-            <Sparkles size={18} aria-hidden />
+  let body: ReactNode;
+  if (!ai?.enabled)
+    body = (
+      <div className="tpl-ai-dock__off">
+        {ai ? (
+          <Alert tone="warning">{AI_OFF[ai.reason ?? 'platform'] ?? AI_OFF.platform}</Alert>
+        ) : aiError ? (
+          <>
+            <Alert tone="danger">Não deu para abrir a IA agora: {aiError}</Alert>
+            <Button variant="secondary" size="sm" onClick={onRetryStatus}>
+              Tentar de novo
+            </Button>
+          </>
+        ) : (
+          <Skeleton variant="chat" />
+        )}
+      </div>
+    );
+  else
+    body = (
+      <div className="tpl-ai">
+        <div className="tpl-ai__scroll" ref={scroller} aria-live="polite">
+          <div className="tpl-ai__msg">
+            <span className="tpl-ai__who">{name}</span>
             <p>
-              Diga como quer o papel e eu mudo o modelo para você. A mudança entra no editor com a
-              prévia; nada é salvo até você clicar em Salvar modelo.
+              Qual papel você quer mudar? Depois é só dizer o que quer: a mudança aparece na hora na
+              prévia, ao lado do editor. Nada vale na impressora até você salvar.
             </p>
-            <div className="tpl-ai__chips">
-              {SUGGESTIONS[kind].map((s) => (
-                <button key={s} type="button" className="tpl-ai__chip" onClick={() => void send(s)}>
+            {!chatKind && <PaperPicker current={null} hint={editorKind} onChoose={onChoose} />}
+          </div>
+          {thread.map((e) => {
+            if (e.type === 'paper')
+              return (
+                <div key={e.id} className="tpl-ai__divider">
+                  Papel: <strong>{LABEL[e.kind]}</strong>
+                </div>
+              );
+            if (e.type === 'user')
+              return (
+                <div key={e.id} className="tpl-ai__msg is-mine">
+                  <p>{e.text}</p>
+                </div>
+              );
+            if (e.type === 'error')
+              return (
+                <div key={e.id} className="tpl-ai__msg is-error">
+                  <span className="tpl-ai__who">{name}</span>
+                  <p>Não deu certo: {e.text}</p>
+                  <div className="tpl-ai__actions">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={!!asking}
+                      onClick={() => onAsk(e.ask, e.kind)}
+                    >
+                      Tentar de novo
+                    </Button>
+                  </div>
+                </div>
+              );
+            const c = e.change;
+            return (
+              <div key={e.id} className="tpl-ai__msg">
+                <span className="tpl-ai__who">{name}</span>
+                <p>{e.text}</p>
+                {e.aviso && <span className="tpl-ai__warn">{e.aviso}</span>}
+                {c && (
+                  <div className="tpl-ai__change" data-state={c.state}>
+                    <span className="tpl-ai__change-what">
+                      {c.state === 'undone'
+                        ? 'Mudança desfeita.'
+                        : c.state === 'saved'
+                          ? 'Salvo: já vale na impressora.'
+                          : c.hidden
+                            ? `Mudou o modelo de ${LABEL[e.kind]}, mas não aparece no pedido da prévia.`
+                            : `Mudou na prévia de ${LABEL[e.kind]}.`}
+                    </span>
+                    {c.error && <span className="tpl-ai__warn">Não salvou: {c.error}</span>}
+                    <div className="tpl-ai__actions">
+                      {c.state === 'applied' && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            icon={<Save size={14} />}
+                            loading={c.saving}
+                            onClick={() => onSave(e)}
+                          >
+                            Salvar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            icon={<Undo2 size={14} />}
+                            disabled={c.saving}
+                            onClick={() => onUndo(e)}
+                          >
+                            Desfazer
+                          </Button>
+                        </>
+                      )}
+                      {c.state === 'undone' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={<Redo2 size={14} />}
+                          onClick={() => onRedo(e)}
+                        >
+                          Refazer
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {asking && (
+            <div className="tpl-ai__msg">
+              <span className="tpl-ai__who">{name}</span>
+              <p className="tpl-ai__typing">
+                <Spinner inline label="Mudando o papel" /> Mudando {LABEL[asking.kind]}…
+                {seconds >= 5 ? ` ${seconds} s` : ''}
+              </p>
+              <div className="tpl-ai__actions">
+                <Button size="sm" variant="ghost" icon={<Square size={12} />} onClick={onStop}>
+                  Parar
+                </Button>
+              </div>
+            </div>
+          )}
+          {chatKind && !asked && !asking && (
+            <div className="tpl-ai__chips" aria-label="Ideias">
+              {SUGGESTIONS[chatKind].map((s) => (
+                <button key={s} type="button" className="tpl-ai__chip" onClick={() => submit(s)}>
                   {s}
                 </button>
               ))}
             </div>
-          </div>
-        )}
-        {msgs.map((m, i) => (
-          <div key={i} className={`tpl-ai__msg ${m.role === 'user' ? 'is-mine' : ''}`}>
-            {m.role === 'assistant' && <span className="tpl-ai__who">{name}</span>}
-            <p>{m.content}</p>
-            {m.aviso && <span className="tpl-ai__warn">{m.aviso}</span>}
-            {m.before !== undefined && (
-              <div className="tpl-ai__actions">
-                <span className="cm-hint">Mudança aplicada no editor.</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<Undo2 size={14} />}
-                  onClick={() => {
-                    onApply(m.before!);
-                    setMsgs((all) =>
-                      all.map((x, j) => (j === i ? { ...x, before: undefined } : x)),
-                    );
-                  }}
-                >
-                  Desfazer
-                </Button>
-              </div>
+          )}
+        </div>
+        {chatKind && (
+          <form
+            className="tpl-ai__form"
+            onSubmit={(ev) => {
+              ev.preventDefault();
+              submit();
+            }}
+          >
+            <div className="tpl-ai__target">
+              <button
+                type="button"
+                className="tpl-ai__target-btn"
+                aria-expanded={picking}
+                aria-label={`Trocar o papel (agora: ${LABEL[chatKind]})`}
+                onClick={() => setPicking((v) => !v)}
+              >
+                Mudando: <strong>{LABEL[chatKind]}</strong>
+                {picking ? (
+                  <ChevronUp size={14} aria-hidden />
+                ) : (
+                  <ChevronDown size={14} aria-hidden />
+                )}
+              </button>
+            </div>
+            {picking && (
+              <PaperPicker
+                current={chatKind}
+                hint={editorKind}
+                compact
+                onChoose={(k) => {
+                  onChoose(k);
+                  setPicking(false);
+                }}
+              />
             )}
-          </div>
-        ))}
-        {busy && (
-          <div className="tpl-ai__msg">
-            <span className="tpl-ai__who">{name}</span>
-            <p className="tpl-ai__typing">
-              <Spinner inline label="Mexendo no modelo" /> Mexendo no modelo…
-            </p>
-          </div>
-        )}
-        {preview && msgs.length > 0 && !busy && (
-          <PaperText
-            text={preview.text}
-            logoUrl={preview.logoUrl}
-            className="print-tpl__paper tpl-ai__paper"
-            label="Prévia do modelo"
-          />
+            <div className="tpl-ai__row">
+              <label className="cm-sr-only" htmlFor={inputId}>
+                O que mudar no papel
+              </label>
+              <textarea
+                id={inputId}
+                ref={input}
+                className="cm-input tpl-ai__input"
+                rows={2}
+                maxLength={1500}
+                placeholder={'Ex.: coloque "Volte sempre!" no final'}
+                value={text}
+                onChange={(ev) => setText(ev.target.value)}
+                onKeyDown={(ev) => {
+                  if (ev.key === 'Enter' && !ev.shiftKey) {
+                    ev.preventDefault();
+                    submit();
+                  }
+                }}
+              />
+              <Button
+                type="submit"
+                size="sm"
+                icon={<Send size={14} />}
+                loading={!!asking}
+                disabled={!text.trim()}
+                aria-label="Enviar"
+              >
+                Enviar
+              </Button>
+            </div>
+          </form>
         )}
       </div>
-      {error && <Alert tone="danger">{error}</Alert>}
-      <form
-        className="tpl-ai__form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void send(text);
-        }}
-      >
-        <label className="cm-sr-only" htmlFor={inputId}>
-          O que mudar no papel
-        </label>
-        <textarea
-          id={inputId}
-          className="cm-input tpl-ai__input"
-          rows={2}
-          maxLength={1500}
-          placeholder="Ex.: deixe o total maior e tire o telefone"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              void send(text);
-            }
-          }}
-        />
+    );
+
+  return (
+    <section
+      className="tpl-ai-dock"
+      role="dialog"
+      aria-label={`Montar o papel com ${name}`}
+      data-size={small && !wide ? 'small' : undefined}
+    >
+      <header className="tpl-ai-dock__head">
+        <Sparkles size={18} aria-hidden className="tpl-ai-dock__icon" />
+        <div className="tpl-ai-dock__title">
+          <strong>Montar o papel com {name}</strong>
+          <span className="cm-hint">
+            {chatKind ? `Mudando: ${LABEL[chatKind]}` : 'Escolha o papel para começar'}
+          </span>
+        </div>
+        {!wide && (
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={small ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            aria-label={small ? 'Aumentar a conversa' : 'Diminuir a conversa'}
+            onClick={() => onSmall(!small)}
+          />
+        )}
         <Button
-          type="submit"
+          variant="ghost"
           size="sm"
-          icon={<Send size={14} />}
-          loading={busy}
-          disabled={!text.trim() || !body.trim()}
-          aria-label="Enviar"
-        >
-          Enviar
-        </Button>
-      </form>
-    </div>
+          icon={<X size={16} />}
+          aria-label="Fechar a conversa"
+          onClick={onClose}
+        />
+      </header>
+      {body}
+    </section>
   );
 }

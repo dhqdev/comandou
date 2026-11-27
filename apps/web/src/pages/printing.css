@@ -152,7 +152,7 @@
   }
 }
 
-/* Modelos de impressão (Liquid) */
+/* Modelos de impressão (Liquid): editor à esquerda, prévia em tempo real à direita. */
 .print-tpl {
   display: grid;
   gap: var(--cm-space-3);
@@ -170,11 +170,28 @@
   white-space: pre;
   overflow-x: auto;
 }
+.print-tpl__area[readonly] {
+  opacity: 0.7;
+}
 .print-tpl__side {
   display: grid;
   align-content: start;
   gap: var(--cm-space-2);
   min-width: 0;
+}
+.print-tpl__preview {
+  display: grid;
+  gap: var(--cm-space-2);
+  justify-items: start;
+  min-width: 0;
+  /* A linha que mudou rola até ficar à vista sem encostar no topo. */
+  scroll-margin: var(--cm-space-6) 0;
+}
+.print-tpl__src {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  min-height: 20px;
 }
 .print-tpl__paper {
   margin: 0;
@@ -191,6 +208,10 @@
   overflow-x: auto;
   white-space: pre;
 }
+/* Modelo com erro: fica a última prévia boa, apagada, embaixo do aviso. */
+.print-tpl__paper.is-stale {
+  opacity: 0.5;
+}
 .print-tpl__vars {
   margin: 0;
   padding-left: 1.1em;
@@ -201,15 +222,51 @@
 .print-tpl__vars code {
   overflow-wrap: anywhere;
 }
+.print-tpl__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cm-space-2) var(--cm-space-3);
+}
+.print-tpl__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+/* Papel com mudança que ainda não foi salva: bolinha âmbar (na aba e ao lado do Salvar). */
+.print-tpl__dirty {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-warning);
+}
 @media (max-width: 760px) {
   .print-tpl__grid {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* No celular a prévia vem antes do código: é ela que o dono olha enquanto conversa com a IA. */
+  .print-tpl__side {
+    order: -1;
+  }
+  /* As 42 colunas cabem na largura do celular (a letra encolhe um pouco em vez de rolar de lado). */
+  .print-tpl__paper {
+    padding: var(--cm-space-2);
+    font-size: clamp(9px, calc((100vw - 96px) / 25.5), 12px);
+  }
+  .print-tpl__actions > .cm-btn {
+    flex: 1 1 auto;
+  }
 }
 
-/* IA do layout de impressão: botão e conversa no canto da tela (0.233, pedido do David).
-   Fica no body (portal) para nunca herdar transform da moldura; acima do conteúdo e abaixo das
-   janelas (z 1000). No celular sobe acima da barra de abas. */
+/* IA do layout de impressão: botão e conversa no canto da tela (0.233, pedido do David; refeita
+   na 0.274). Fica no body (portal) para nunca herdar transform da moldura; acima do conteúdo e
+   abaixo das janelas (z 1000). No computador largo a tela abre espaço à direita para ela
+   (html.tpl-ai-open); abaixo de 1100px vira uma folha embaixo e a página ganha folga para a
+   prévia ficar à vista em cima dela. */
 .tpl-ai-fab,
 .tpl-ai-dock {
   position: fixed;
@@ -241,10 +298,11 @@
   outline-offset: 3px;
 }
 .tpl-ai-dock {
+  --tpl-ai-w: 400px;
   display: flex;
   flex-direction: column;
-  width: min(400px, calc(100vw - 40px));
-  height: min(640px, calc(100dvh - 120px));
+  width: min(var(--tpl-ai-w), calc(100vw - 40px));
+  height: min(680px, calc(100dvh - 96px));
   border: 1px solid var(--cm-border-strong);
   border-radius: var(--cm-radius-lg);
   background: var(--cm-surface);
@@ -262,6 +320,11 @@
 @media (prefers-reduced-motion: reduce) {
   .tpl-ai-dock {
     animation: none;
+  }
+}
+@media (min-width: 1100px) {
+  html.tpl-ai-open .cm-frame__content {
+    padding-right: calc(400px + 20px + var(--cm-space-5));
   }
 }
 .tpl-ai-dock__head {
@@ -293,20 +356,70 @@
   gap: var(--cm-space-3);
   padding: var(--cm-space-4);
 }
-@media (max-width: 860px) {
-  .tpl-ai-fab,
+/* Tablet e celular: folha embaixo, na largura da tela; a prévia fica em cima dela. */
+@media (max-width: 1099px) {
   .tpl-ai-dock {
+    --tpl-ai-sheet: min(46dvh, 440px);
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
+    max-width: 640px;
+    margin-inline: auto;
+    height: var(--tpl-ai-sheet);
+    border-radius: 20px;
+    transform-origin: bottom center;
+  }
+  .tpl-ai-dock[data-size='small'] {
+    height: auto;
+  }
+  .tpl-ai-dock[data-size='small'] .tpl-ai__scroll {
+    display: none;
+  }
+  html.tpl-ai-open .cm-frame__content {
+    padding-bottom: calc(min(46dvh, 440px) + var(--cm-space-6));
+  }
+  html.tpl-ai-small .cm-frame__content {
+    padding-bottom: calc(180px + var(--cm-space-6));
+  }
+  /* A linha que mudou rola para cima da folha, não para trás dela. */
+  html.tpl-ai-open .cm-frame__panel {
+    scroll-padding-bottom: calc(min(46dvh, 440px) + var(--cm-space-4));
+  }
+  html.tpl-ai-small .cm-frame__panel {
+    scroll-padding-bottom: calc(180px + var(--cm-space-4));
+  }
+}
+/* Celular: acima da barra de abas. */
+@media (max-width: 860px) {
+  .tpl-ai-fab {
     right: 12px;
     bottom: calc(64px + 10px + env(safe-area-inset-bottom) * 0.3 + 12px);
   }
   .tpl-ai-dock {
-    width: calc(100vw - 24px);
-    height: min(560px, calc(100dvh - 180px));
+    bottom: calc(64px + 10px + env(safe-area-inset-bottom) * 0.3 + 6px);
+  }
+  html.tpl-ai-open .cm-frame__content {
+    padding-bottom: calc(min(46dvh, 440px) + 64px + var(--cm-space-8));
+  }
+  html.tpl-ai-small .cm-frame__content {
+    padding-bottom: calc(180px + 64px + var(--cm-space-8));
+  }
+  html.tpl-ai-open .cm-frame__panel {
+    scroll-padding-bottom: calc(min(46dvh, 440px) + 64px + var(--cm-space-6));
+  }
+  html.tpl-ai-small .cm-frame__panel {
+    scroll-padding-bottom: calc(180px + 64px + var(--cm-space-6));
   }
 }
+/* Teclado aberto (viewport.ts): a folha fica logo acima dele, sem a barra de abas. */
+html.cm-kb-open .tpl-ai-dock {
+  bottom: calc(var(--cm-kb, 0px) + 6px);
+  max-height: calc(var(--cm-vvh, 100dvh) - 12px);
+}
 .tpl-ai {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-direction: column;
   gap: var(--cm-space-2);
   flex: 1;
   min-height: 0;
@@ -316,44 +429,14 @@
   display: flex;
   flex-direction: column;
   gap: var(--cm-space-2);
+  flex: 1;
   overflow-y: auto;
   min-height: 0;
   overscroll-behavior: contain;
 }
-.tpl-ai__hello {
-  display: grid;
-  gap: var(--cm-space-2);
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
-}
-.tpl-ai__hello p {
-  margin: 0;
-}
-.tpl-ai__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.tpl-ai__chip {
-  border: 1px solid var(--cm-border-strong);
-  background: var(--cm-surface);
-  color: var(--cm-text);
-  border-radius: 999px;
-  padding: 6px 12px;
-  font: inherit;
-  font-size: var(--cm-text-sm);
-  cursor: pointer;
-  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
-}
-.tpl-ai__chip:hover {
-  border-color: var(--cm-brand-600);
-}
-.tpl-ai__chip:active {
-  transform: scale(0.97);
-}
 .tpl-ai__msg {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   max-width: 92%;
   padding: var(--cm-space-2) var(--cm-space-3);
   border-radius: var(--cm-radius-md);
@@ -364,10 +447,14 @@
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  user-select: text;
 }
 .tpl-ai__msg.is-mine {
   align-self: flex-end;
   background: color-mix(in oklab, var(--cm-brand-600) 12%, var(--cm-surface));
+}
+.tpl-ai__msg.is-error {
+  background: var(--cm-danger-bg);
 }
 .tpl-ai__who {
   font-weight: 600;
@@ -390,10 +477,136 @@
   gap: 6px;
   color: var(--cm-text-muted);
 }
-.tpl-ai__paper {
+/* Marca de troca de papel no meio da conversa. */
+.tpl-ai__divider {
   align-self: center;
+  padding: 2px 10px;
+  border-radius: var(--cm-radius-full);
+  border: 1px solid var(--cm-border);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.tpl-ai__divider strong {
+  color: var(--cm-text);
+}
+/* O que mudou: uma linha e Salvar/Desfazer (o papel em si aparece na prévia, não aqui). */
+.tpl-ai__change {
+  display: grid;
+  gap: 6px;
+  padding-top: var(--cm-space-2);
+  border-top: 1px solid var(--cm-border);
+}
+.tpl-ai__change-what {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.tpl-ai__change[data-state='saved'] .tpl-ai__change-what {
+  color: var(--cm-success);
+  font-weight: 600;
+}
+.tpl-ai__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tpl-ai__chip {
+  border: 1px solid var(--cm-border-strong);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  border-radius: var(--cm-radius-full);
+  padding: 6px 12px;
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.tpl-ai__chip:hover {
+  border-color: var(--cm-brand-600);
+}
+.tpl-ai__chip:active {
+  transform: scale(0.97);
+}
+/* Escolha do papel: os quatro numa lista (no começo da conversa) ou em grade de dois, só com o
+   nome (no "Mudando: …" de cima do campo). */
+.tpl-ai__papers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+.tpl-ai__papers--compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.tpl-ai__paper-opt {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  min-height: 44px;
+  padding: var(--cm-space-2) var(--cm-space-3);
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.tpl-ai__paper-opt span {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.tpl-ai__paper-opt:hover {
+  border-color: var(--cm-brand-600);
+}
+.tpl-ai__paper-opt:active {
+  transform: scale(0.97);
+}
+.tpl-ai__paper-opt:focus-visible,
+.tpl-ai__chip:focus-visible,
+.tpl-ai__target-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.tpl-ai__paper-opt[aria-pressed='true'] {
+  border-color: var(--cm-brand-600);
+  background: color-mix(in oklab, var(--cm-brand-600) 8%, var(--cm-surface));
+}
+.tpl-ai__papers--compact .tpl-ai__paper-opt {
+  min-height: 38px;
+  justify-content: start;
+  align-content: center;
 }
 .tpl-ai__form {
+  display: grid;
+  gap: var(--cm-space-2);
+}
+.tpl-ai__target {
+  display: flex;
+}
+.tpl-ai__target-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  max-width: 100%;
+  padding: 2px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  cursor: pointer;
+}
+.tpl-ai__target-btn strong {
+  color: var(--cm-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tpl-ai__row {
   display: flex;
   gap: var(--cm-space-2);
   align-items: flex-end;

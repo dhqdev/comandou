@@ -788,15 +788,37 @@ círculo branco de linha fina (`tc-ai__bot`) e o texto corrido, sem balão (resp
 assim). Com o chat ampliado a conversa fica numa coluna de 760px no meio (`tc-ai__thread`). Nunca
 volte com o "VO" (iniciais de "Você") nem com o panda solto sem círculo.
 
-## IA do layout de impressão (0.233)
+## IA do layout de impressão (0.233; refeita na 0.274)
 
 Conversa no canto da tela, pedido do David (`features/PrintTemplates.tsx`, classes `tpl-ai-fab` e
 `tpl-ai-dock` em `pages/printing.css`). Fechada é uma pílula laranja "Montar o papel com IA" presa
 no canto de baixo à direita (no celular, acima da barra de abas); aberta é uma janela solta de
-400px com cabeçalho (ícone, nome da IA, "Mexendo em: <papel>" e fechar), a conversa e o campo
+400px com cabeçalho (ícone, nome da IA, "Mudando: <papel>" e fechar), a conversa e o campo
 embaixo. Vai pelo `createPortal` no `body` (z 50: acima do conteúdo, abaixo das janelas). Nunca
-esconda a conversa quando a IA está desligada: ela abre dizendo o porquê. A prévia do papel fica
-ao lado do editor (aba Prévia, que já abre selecionada) e também na conversa depois de uma mudança.
+esconda a conversa quando a IA está desligada: ela abre dizendo o porquê.
+
+**0.274 (pedido do David: "antes de enviar, coloque no chat qual modelo quero modificar"; "mude em
+tempo real na prévia, não precisa aparecer a foto do cupom no chat"):**
+- A conversa começa perguntando o papel: lista dos quatro (`tpl-ai__papers`, nome + uma linha do
+  que é, "aberto no editor" no atual). Sem papel escolhido não há campo de pedir. Escolhido, o
+  papel vira a pílula "Mudando: <papel>" em cima do campo (tocar troca, grade compacta de dois) e
+  uma marca "Papel: …" no meio da conversa (`tpl-ai__divider`); a aba do editor e o papel da
+  conversa andam juntos.
+- **Nada de papel desenhado na conversa.** A mudança aparece só na aba Prévia, com as linhas que
+  mudaram piscando (`.paper-text__flash`: linha inteira, laranja suave a 30% que some em 2 s, em
+  `app/ops.css`), e a tela rola até a primeira linha que mudou. A mensagem da IA traz uma linha do
+  que mudou (ou "não aparece no pedido da prévia") e Salvar (secondary) + Desfazer (ghost), depois
+  Refazer; salvo vira texto verde. Sem toast (ele cairia em cima da conversa).
+- Prévia em tempo real ao digitar (0,35 s), com "Com o último pedido (#N)" em cima e o spinner
+  pequeno enquanto atualiza; erro no modelo deixa a última prévia boa apagada (opacidade fixa).
+  Papel não salvo: bolinha âmbar na aba e ao lado do Salvar ("Não salvo: …"); Salvar só acende
+  com mudança. Sem botão "Ver prévia".
+- No computador largo (≥ 1100px) a tela abre espaço para a conversa (`html.tpl-ai-open` dá
+  `padding-right` ao `.cm-frame__content`): a prévia nunca fica atrás dela. Abaixo disso é uma
+  folha embaixo (46dvh, até 640px no tablet, centrada; botão para diminuir), a página ganha folga
+  embaixo e `scroll-padding-bottom` no `.cm-frame__panel` para a linha que mudou parar acima da
+  folha; teclado aberto (`cm-kb-open`) leva a folha para cima dele. No celular a prévia vem antes do
+  código (`order: -1`) e as 42 colunas cabem na largura (a letra encolhe até 9px).
 
 ## Chat em balões (0.249)
 

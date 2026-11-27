@@ -50,8 +50,8 @@ function typing() {
 }
 
 /** Campos de conversa que ganham o teclado previsto (painel do chat, conversa do cardápio,
- *  conversas do Super Admin). */
-const CHAT = '.tc-panel, .sfchat, .adm-support, .scx';
+ *  conversas do Super Admin, conversa da IA dos Modelos de impressão). */
+const CHAT = '.tc-panel, .sfchat, .adm-support, .scx, .tpl-ai-dock';
 const KB_KEY = 'cm-kb-h';
 /** Quanto tempo a previsão espera o teclado de verdade aparecer (teclado físico: não aparece). */
 const PREDICT_MS = 2500;

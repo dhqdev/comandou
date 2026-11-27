@@ -44,6 +44,66 @@ describe('modelos de impressão (Liquid)', () => {
     expect(out).toMatch(/^PAGAMENTO: Dinheiro$/m);
   });
 
+  it('via de entrega paga em parte: total, já pago e o que cobrar na porta', async () => {
+    const data = sampleData('delivery_slip', 'Fumaça');
+    Object.assign(data.pedido as object, {
+      cobrar: 53.8,
+      cobrar_formatado: 'R$ 53,80',
+      levar_de_troco: 0,
+      pagar_na_entrega: 'Cartão de débito',
+    });
+    data.pagamentos = [{ forma: 'Pix', valor: 20, valor_formatado: 'R$ 20,00' }];
+    const out = await renderTemplate(DEFAULT_TEMPLATES.delivery_slip, data);
+    expect(out).toMatch(/^TOTAL:\s+R\$ 73,80$/m);
+    expect(out).toMatch(/^JÁ PAGO:\s+R\$ 20,00$/m);
+    expect(out).toMatch(/^@@G@@A COBRAR:\s+R\$ 53,80$/m);
+    // Sem taxa nem desconto, o subtotal seria igual ao total: não sai.
+    const plain = sampleData('delivery_slip', 'Fumaça');
+    Object.assign(plain.totais as object, { entrega: 0, tem_extras: false });
+    expect(await renderTemplate(DEFAULT_TEMPLATES.delivery_slip, plain)).not.toContain('SUBTOTAL');
+  });
+
+  it('comanda da cozinha: número e mesa grandes no meio, nome comprido com recuo', async () => {
+    const data = sampleData('kitchen_ticket', 'Fumaça');
+    const long = {
+      nome: 'Hambúrguer artesanal duplo com cheddar cremoso e bacon crocante',
+      quantidade_formatada: '0,350kg',
+      opcoes: [],
+      observacao: null,
+    };
+    data.grupos = [{ nome: 'Cozinha', itens: [...(data.itens as object[]), long] }];
+    const out = await renderTemplate(DEFAULT_TEMPLATES.kitchen_ticket, data);
+    expect(out).toMatch(/^@@G@@ {5}PEDIDO #128$/m);
+    expect(out).toMatch(/^@@G@@ +MESA 7$/m);
+    expect(out).toMatch(/^@@N@@Sem cebola em tudo$/m);
+    expect(out).toMatch(/^@@N@@0,350kg Hambúrguer/m);
+    expect(out).toMatch(/^@@N@@ {8}\S/m);
+    for (const l of parsePrintLines(out)) expect(printLineColumns(l)).toBeLessThanOrEqual(WIDTH);
+  });
+
+  it('rodapé do cupom fiscal enxerga a loja sem logo, como na impressão', async () => {
+    const data = sampleData('fiscal_footer', 'Fumaça');
+    expect((data.loja as Record<string, unknown>).logo).toBeUndefined();
+    expect(data.pedido).toBeUndefined();
+    expect(await renderTemplate('{% if loja.logo %}{{ loja.logo }}{% endif %}x', data)).toBe('x');
+  });
+
+  it('recuo: a primeira linha na margem, as de baixo recuadas', async () => {
+    const out = await renderTemplate(`{{ t | recuo: 3 }}`, {
+      t: '2x Hambúrguer artesanal duplo com cheddar cremoso e bacon crocante',
+    });
+    const [first, ...rest] = out.split('\n');
+    expect(first).toMatch(/^2x Hambúrguer/);
+    expect(rest.length).toBeGreaterThan(0);
+    for (const l of rest) expect(l).toMatch(/^ {3}\S/);
+    for (const l of out.split('\n')) expect(l.length).toBeLessThanOrEqual(WIDTH);
+    expect(await renderTemplate(`{{ "curto" | recuo: 3 }}`, {})).toBe('curto');
+    // Palavra enorme no começo (link): não estoura nem vira uma letra por linha.
+    const link = await renderTemplate(`{{ t | recuo: 3 }}`, { t: `${'x'.repeat(60)} fim` });
+    expect(link.split('\n').length).toBeLessThan(4);
+    for (const l of link.split('\n')) expect(l.length).toBeLessThanOrEqual(WIDTH);
+  });
+
   it('filtros: dinheiro, linha, centro, qtd e quebra', async () => {
     const out = await renderTemplate(
       `{{ 1234.5 | dinheiro }}|{{ "A" | linha: "B" }}|{{ "2.500" | qtd }}|{{ "oi" | centro }}`,
