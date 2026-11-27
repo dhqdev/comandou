@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.269.1',
+    date: '2026-11-27',
+    title: 'Tokens de IA cabendo na tela do celular',
+    summary:
+      'No Super Admin › Tokens de IA, o quadro de Fotos e 3D do cardápio e o interruptor do assistente passavam da largura da tela no celular. Agora tudo fica numa coluna, com os textos quebrando a linha.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Super Admin › Tokens de IA no celular: o quadro Fotos e 3D do cardápio, os interruptores e os campos de modelo não passam mais da tela; os dois modelos das fotos ficam um embaixo do outro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Super Admin › Tokens de IA no celular: o texto ao lado do título de cada parte e embaixo dos números aparece inteiro, sem cortar em "…", e no cartão de cada chave a situação desce para baixo da explicação.',
+      },
+    ],
+  },
+  {
     version: '0.269.0',
     date: '2026-11-27',
     title: 'Assistente de IA que leva até o campo e Uso de IA na Conta',

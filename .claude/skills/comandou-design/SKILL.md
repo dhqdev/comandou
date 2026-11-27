@@ -586,6 +586,15 @@ regra "só tokens":** as cores das partes são cores de dado fixas por parte (na
 valores próprios do escuro; a tabela sempre mostra nome e número (a cor nunca é a única pista).
 Parte nova ganha cor nova nos dois blocos de `admin.css`. Sem extrato de chamadas na tela.
 
+**No celular (0.269.1, print do David com a tela estourando):** a página fica dentro de
+`.adm-ai-page` (`display: contents`, só gancho do CSS): até 640px o texto ao lado do título da
+seção e embaixo dos números desce e quebra a linha, e no cartão da chave a situação desce para
+baixo da explicação. Cuidados que valem para todo o Super Admin: `.adm-sub` é **uma linha só**
+(`nowrap` + "…"), então explicação de várias linhas precisa de `white-space: normal` (dentro de
+`.adm-check` já quebra); `fieldset` nasce com `min-inline-size: min-content` e cresce até a frase
+mais larga (ponha `min-width: 0`); link ou texto com `nowrap` dentro de aviso empurra o cartão no
+celular de 360px. Confira a tela em 360 e 430 px antes de entregar.
+
 ## Super Admin › Credenciais
 
 `platform/credentials/` (`credentials.css`, prefixos `adm-cred`, `adm-cred-tile`, `adm-cred-detail`),

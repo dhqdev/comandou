@@ -234,7 +234,8 @@ export function AiPage() {
   if (data.error) return <Alert tone="danger">{data.error}</Alert>;
   if (!o) return <Skeleton variant="page" />;
   return (
-    <>
+    // `adm-ai-page` não desenha caixa (display: contents): só dá o gancho do CSS do celular.
+    <div className="adm-ai-page">
       <PageHead
         page
         title="Tokens de IA"
@@ -276,7 +277,7 @@ export function AiPage() {
           <SettingsSection o={o} onSaved={(n) => data.setData(n)} />
         </>
       )}
-    </>
+    </div>
   );
 }
 
