@@ -134,8 +134,10 @@
     transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
     border-color 0.15s;
 }
-.pv-preset:hover:not(:disabled) {
-  border-color: var(--cm-border-strong);
+@media (hover: hover) {
+  .pv-preset:hover:not(:disabled) {
+    border-color: var(--cm-border-strong);
+  }
 }
 .pv-preset:active:not(:disabled) {
   transform: scale(0.97);
@@ -277,8 +279,10 @@
   text-align: left;
   cursor: pointer;
 }
-.pv-add__opt:hover {
-  background: var(--cm-surface-muted);
+@media (hover: hover) {
+  .pv-add__opt:hover {
+    background: var(--cm-surface-muted);
+  }
 }
 .pv-add__opt > svg {
   flex: none;
@@ -311,8 +315,10 @@
   padding-left: 2px;
   border-radius: var(--cm-radius-sm);
 }
-.pv-row:hover {
-  background: var(--cm-surface-muted);
+@media (hover: hover) {
+  .pv-row:hover {
+    background: var(--cm-surface-muted);
+  }
 }
 .pv-row[data-sel] {
   background: color-mix(in oklab, var(--cm-brand-500) 11%, transparent);
@@ -378,8 +384,10 @@
   color: var(--cm-text-muted);
   cursor: pointer;
 }
-.pv-row__eye:hover {
-  color: var(--cm-text);
+@media (hover: hover) {
+  .pv-row__eye:hover {
+    color: var(--cm-text);
+  }
 }
 
 /* Barra de formatação em cima do papel (presa no topo enquanto o papel rola). */
@@ -451,8 +459,10 @@
   cursor: pointer;
   transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
-.pv-tool:hover:not(:disabled) {
-  background: var(--cm-surface-muted);
+@media (hover: hover) {
+  .pv-tool:hover:not(:disabled) {
+    background: var(--cm-surface-muted);
+  }
 }
 .pv-tool:active:not(:disabled) {
   transform: scale(0.94);
@@ -472,8 +482,10 @@
   font-weight: 800;
   font-size: var(--cm-text-md);
 }
-.pv-tool--danger:hover:not(:disabled) {
-  color: var(--cm-danger);
+@media (hover: hover) {
+  .pv-tool--danger:hover:not(:disabled) {
+    color: var(--cm-danger);
+  }
 }
 .pv-tool--select {
   padding: 0;
@@ -523,8 +535,11 @@
 .pv-blk.is-free {
   cursor: default;
 }
-.pv-blk:not(.is-free):hover {
-  outline-color: color-mix(in oklab, var(--cm-brand-500) 60%, transparent);
+/* Só com mouse: no toque o :hover fica preso na última parte tocada. */
+@media (hover: hover) {
+  .pv-blk:not(.is-free):hover {
+    outline-color: color-mix(in oklab, var(--cm-brand-500) 60%, transparent);
+  }
 }
 .pv-blk[data-sel='true'] {
   outline: 2px solid var(--cm-brand-500);

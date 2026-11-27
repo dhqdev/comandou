@@ -310,6 +310,11 @@ export function VisualEditor({
     </button>
   );
 
+  // Na comanda da cozinha os itens não têm preço nem cabeçalho (nem a linha dele).
+  const kitchen = kind === 'kitchen_ticket';
+  const opts = (info?.opts ?? []).filter(
+    (o) => !(kitchen && block?.type === 'itens' && (o === 'header' || o === 'prices')),
+  );
   const limit = block?.size === 'grande' ? PRINT_BIG_WIDTH : PRINT_WIDTH;
   const longest =
     block?.type === 'texto' ? Math.max(0, ...block.text.split('\n').map((l) => l.length)) : 0;
@@ -542,7 +547,7 @@ export function VisualEditor({
                   {alignBtn(block, 'direita', AlignRight, 'Alinhar à direita')}
                 </div>
               )}
-              {info.char && charPicker(block)}
+              {info.char && !(kitchen && block.type === 'itens') && charPicker(block)}
               <div className="pv-tools pv-tools--end" role="group" aria-label="Parte">
                 <button
                   type="button"
@@ -734,9 +739,9 @@ export function VisualEditor({
                 </span>
               </div>
             )}
-            {info.opts?.length ? (
+            {opts.length ? (
               <div className="pv-opts">
-                {info.opts.map((o) => (
+                {opts.map((o) => (
                   <label key={o} className="pv-opt">
                     <span>{LAYOUT_OPT_LABELS[o]}</span>
                     <span className="pv-switch">
