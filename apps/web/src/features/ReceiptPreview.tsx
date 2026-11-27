@@ -32,6 +32,29 @@ function browserPrint(text: string, logoUrl?: string | null) {
 }
 
 /**
+ * Imprime o comprovante na hora, sem prévia: manda para o app de impressão se estiver ligado,
+ * senão abre a impressora do navegador. Devolve onde foi parar, para o aviso da tela.
+ */
+export async function printReceiptNow(target: ReceiptTarget): Promise<'agent' | 'browser'> {
+  const base = `/${target.kind === 'tab' ? 'tabs' : 'orders'}/${target.id}`;
+  const delivery = target.kind === 'order' && target.doc === 'delivery';
+  const data = await api<{ text: string; agent: boolean; logoUrl?: string | null }>(
+    `${base}/${delivery ? 'delivery-slip' : 'receipt'}`,
+  );
+  if (!data.agent) {
+    browserPrint(data.text, data.logoUrl);
+    return 'browser';
+  }
+  if (target.kind === 'tab') await api(`${base}/print`, { method: 'POST' });
+  else
+    await api(`${base}/print`, {
+      method: 'POST',
+      json: { kind: delivery ? 'delivery' : 'receipt' },
+    });
+  return 'agent';
+}
+
+/**
  * Comprovante de fechamento (conferência de conta): mostra como vai sair, no modelo do
  * restaurante (Impressão > Modelos), e imprime na térmica do caixa ou pelo navegador.
  */

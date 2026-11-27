@@ -55,7 +55,7 @@ describe('Fechar conta', () => {
     expect(screen.queryByLabelText('Frete (R$)')).toBeNull();
   });
 
-  it('comprovante só depois de fechar a conta', async () => {
+  it('"Fechar e imprimir" imprime direto, sem prévia do comprovante', async () => {
     render(
       <CloseOrderPanel
         order={order({ channel: 'counter' })}
@@ -65,9 +65,9 @@ describe('Fechar conta', () => {
       />,
     );
     await act(async () => {});
-    const print = screen.getAllByText('Imprimir').map((e) => e.closest('button'));
-    expect(print.length).toBeGreaterThan(0);
-    for (const b of print) expect(b).toBeDisabled();
+    expect(screen.getByText('Fechar e imprimir').closest('button')).toBeTruthy();
+    expect(screen.queryByText('Comprovante de fechamento')).toBeNull();
+    expect(screen.queryByText('Imprimir')).toBeNull();
     expect(screen.getByLabelText('Taxa de serviço (%)')).toBeTruthy();
   });
 });

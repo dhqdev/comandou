@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.269.2',
+    date: '2026-11-27',
+    title: '"Fechar e imprimir" imprime direto, sem prévia',
+    summary:
+      'Na tela Fechar conta (mesas, comandas e para levar), o botão "Fechar e imprimir" agora fecha a conta e manda o comprovante direto para a impressora, sem abrir a pré-visualização.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: '"Fechar e imprimir" imprime o comprovante de fechamento na hora: vai para o app de impressão quando ele está ligado, senão abre a impressora do navegador. A prévia continua no botão Comprovante do pedido e da mesa.',
+      },
+    ],
+  },
+  {
     version: '0.269.1',
     date: '2026-11-27',
     title: 'Tokens de IA cabendo na tela do celular',

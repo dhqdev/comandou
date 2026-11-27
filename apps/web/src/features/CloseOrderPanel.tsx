@@ -29,7 +29,7 @@ import {
 import { PAYMENT_METHOD_LABELS } from './format';
 import { PAYMENT_FISCAL_HELP } from './help/fiscal-help';
 import { useOpenSessions } from './PaymentModal';
-import { ReceiptPreview } from './ReceiptPreview';
+import { printReceiptNow } from './ReceiptPreview';
 import { SidePanel } from './SidePanel';
 import './close-order.css';
 
@@ -87,7 +87,6 @@ export function CloseOrderPanel({
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState(false);
   /**
    * Pedido como ficou depois de fechar a conta. O comprovante só é liberado aqui: antes disso ele
    * sairia sem a taxa, o frete, o desconto e os pagamentos que ainda não foram gravados.
@@ -117,7 +116,6 @@ export function CloseOrderPanel({
     setError(null);
     setClosed(null);
     setChange(0);
-    setPreview(false);
     typed.current = false;
     // Só ao abrir: o pedido em tempo real não apaga o que está sendo digitado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -303,8 +301,8 @@ export function CloseOrderPanel({
         });
       }
       // Fechar a conta já conclui: sem o clique a mais em "Concluir". O painel some e o aviso
-      // (com o troco) aparece no pedido. "Fechar e imprimir" abre o comprovante, já com tudo
-      // gravado, e o painel fecha junto com ele.
+      // (com o troco) aparece no pedido. "Fechar e imprimir" imprime o comprovante direto (app de
+      // impressão ou impressora do navegador), sem prévia, já com tudo gravado.
       const troco = when === 'now' ? plan.change : 0;
       setChange(troco);
       setClosed(current);
@@ -316,8 +314,15 @@ export function CloseOrderPanel({
             : 'Conta fechada',
         'success',
       );
-      if (print) setPreview(true);
-      else onDone(current);
+      if (print) {
+        try {
+          const where = await printReceiptNow({ kind: 'order', id: order.id });
+          if (where === 'agent') toast('Comprovante enviado para a impressora do caixa', 'success');
+        } catch (e) {
+          toast(`Conta fechada, mas o comprovante não imprimiu: ${(e as Error).message}`, 'danger');
+        }
+      }
+      onDone(current);
     } catch (e) {
       setError(
         e instanceof ApiError && e.status === 0
@@ -416,7 +421,7 @@ export function CloseOrderPanel({
                 variant="secondary"
                 icon={<Printer size={15} />}
                 disabled={!ready}
-                title="Fecha a conta e abre o comprovante, já com taxa, frete, desconto e pagamentos"
+                title="Fecha a conta e imprime o comprovante na hora, já com taxa, frete, desconto e pagamentos"
                 onClick={() => void finish(true)}
               >
                 Fechar e imprimir
@@ -690,14 +695,6 @@ export function CloseOrderPanel({
           </section>
         </div>
       </SidePanel>
-      <ReceiptPreview
-        target={preview ? { kind: 'order', id: order.id } : null}
-        onClose={() => {
-          setPreview(false);
-          // Conta já fechada pelo "Fechar e imprimir": o painel sai junto com o comprovante.
-          if (closed) onDone(closed);
-        }}
-      />
     </HelpScope>
   );
 }
