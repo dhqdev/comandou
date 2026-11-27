@@ -10,6 +10,7 @@ import { NoAccess } from './NoAccess';
 import { WaiterEntry } from './WaiterEntry';
 import { TeamChat } from '../features/chat/TeamChat';
 import { lazyPage, preloadPages } from '../lib/lazy-page';
+import { inSandbox } from '../lib/sandbox';
 
 /*
  * Sistema da equipe (login, painel, garçom, entregador e cozinha). Fica num arquivo à parte do
@@ -488,8 +489,9 @@ function Gate() {
           <Route path="*" element={<ComingSoonPage title="Página não encontrada" />} />
         </Route>
       </Routes>
-      {/* Chat da equipe em todas as telas (painel e app do garçom aberto pelo gestor). */}
-      <TeamChat variant={pathname.startsWith('/garcom') ? 'waiter' : 'shell'} />
+      {/* Chat da equipe em todas as telas (painel e app do garçom aberto pelo gestor). No exemplo
+          do site não há equipe para conversar. */}
+      {!inSandbox() && <TeamChat variant={pathname.startsWith('/garcom') ? 'waiter' : 'shell'} />}
     </>
   );
 }

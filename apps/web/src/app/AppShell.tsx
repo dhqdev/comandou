@@ -83,6 +83,7 @@ import { StoreBrand } from './StoreBrand';
 import { ROLE_HOME } from './role-home';
 import { ErrorBoundary, ErrorFallback } from '../lib/error-boundary';
 import { ChatTopButtons } from '../features/chat/ChatTopButtons';
+import { inSandbox, SANDBOX_SCREENS } from '../lib/sandbox';
 import './shell.css';
 import './ops.css';
 
@@ -252,6 +253,12 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
   },
 ];
 
+/**
+ * Exemplo do site (comandou.com/experimente): só as telas que o exemplo tem dados para mostrar.
+ * Conversas, suporte, conta, apresentação e o resto ficam para o teste grátis.
+ */
+const SANDBOX_PATHS = new Set(Object.values(SANDBOX_SCREENS));
+
 /** Telas abertas pela Conta (antes ficavam em Sistema): acendem a Conta no menu. */
 const ACCOUNT_PAGES: (FrameLink & { perms?: string[] })[] = [
   { to: '/plano', label: 'Assinatura', icon: <CreditCard />, perms: ['plan:read'] },
@@ -268,6 +275,7 @@ const TAB_PREFERENCE = ['/', '/pedidos', '/mesas', '/cozinha', '/caixa', '/entre
 
 export function AppShell() {
   const { me, logout } = useAuth();
+  const demo = inSandbox();
   /** Encerra a sessão de suporte e volta para o painel admin (mesma porta em dev). */
   const endSupport = async () => {
     const host = me?.support?.adminHost;
@@ -295,7 +303,7 @@ export function AppShell() {
     (list?: string[]) => !list || list.some((p) => perms?.includes(p)),
     [perms],
   );
-  const can = (item: NavItem) => allowed(item.perms);
+  const can = (item: NavItem) => allowed(item.perms) && (!demo || SANDBOX_PATHS.has(item.to));
   useSearchHotkey(() => setSearchOpen(true));
   useSearchSpotlight();
   // Painel aberto: o QR da mesa lido pela câmera deste aparelho volta a abrir no Salão.
@@ -303,7 +311,7 @@ export function AppShell() {
   // Primeiro acesso deste usuário neste aparelho: apresenta as telas (não no acesso de suporte).
   // Quem administra uma loja ainda sem itens começa pela conversa de primeiros passos.
   useEffect(() => {
-    if (!me || me.support || tourSeen(me.tenant.id, me.user.id)) return;
+    if (!me || me.support || demo || tourSeen(me.tenant.id, me.user.id)) return;
     if (!me.permissions.includes('settings:manage') || onboardingSeen(me.tenant.id, me.user.id)) {
       setTourOpen(true);
       return;
@@ -396,15 +404,19 @@ export function AppShell() {
         brand={<StoreBrand name={me?.tenant.name ?? 'Comandou'} />}
         brandCompact={<StoreBrand name={me?.tenant.name ?? 'Comandou'} compact />}
         items={[...main, ...groups]}
-        footer={[
-          {
-            key: 'agenda',
-            to: '/agenda',
-            label: 'Agenda pessoal',
-            icon: <CalendarDays />,
-          },
-          accountItem,
-        ]}
+        footer={
+          demo
+            ? []
+            : [
+                {
+                  key: 'agenda',
+                  to: '/agenda',
+                  label: 'Agenda pessoal',
+                  icon: <CalendarDays />,
+                },
+                accountItem,
+              ]
+        }
         tabs={tabs}
         account={
           me
@@ -432,26 +444,30 @@ export function AppShell() {
         }
         linksTitle="Operação"
         moreActionsTitle="Conversas"
-        moreActions={[
-          {
-            key: 'conversas',
-            label: 'Conversas',
-            icon: <MessagesSquare />,
-            badge: chatUnread,
-            onClick: () => openTeamChat(),
-          },
-          ...(allowed(['orders:manage'])
-            ? [
+        moreActions={
+          demo
+            ? []
+            : [
                 {
-                  key: 'clientes-chat',
-                  label: 'Mensagens de clientes',
-                  icon: <MessageCircle />,
-                  badge: support.chats,
-                  onClick: () => openSupportInbox(),
+                  key: 'conversas',
+                  label: 'Conversas',
+                  icon: <MessagesSquare />,
+                  badge: chatUnread,
+                  onClick: () => openTeamChat(),
                 },
+                ...(allowed(['orders:manage'])
+                  ? [
+                      {
+                        key: 'clientes-chat',
+                        label: 'Mensagens de clientes',
+                        icon: <MessageCircle />,
+                        badge: support.chats,
+                        onClick: () => openSupportInbox(),
+                      },
+                    ]
+                  : []),
               ]
-            : []),
-        ]}
+        }
         contentKey={location.pathname}
         top={
           <>
@@ -460,19 +476,19 @@ export function AppShell() {
             <GlobalSearchTrigger onOpen={() => setSearchOpen(true)} />
             <div className="topbar__spacer" />
             {/* Sinal da conexão (barrinhas): mede o tempo de resposta e o tempo real. */}
-            <ConnectionSignal />
+            {!demo && <ConnectionSignal />}
             {allowed(['printing:manage']) && <PrintStatus />}
             <GlobalSearchTrigger icon onOpen={() => setSearchOpen(true)} />
-            <SupportButton className="topbar__support" />
-            <ChatTopButtons />
-            <NewsBell />
+            {!demo && <SupportButton className="topbar__support" />}
+            {!demo && <ChatTopButtons />}
+            {!demo && <NewsBell />}
             {/* Sons de aviso: ajustes na tela Conta › Este aparelho (o PDV tem o Silenciar). */}
             <ThemeToggle className="topbar__theme" />
           </>
         }
         banners={
           <>
-            <BillingBanner />
+            {!demo && <BillingBanner />}
             {me?.support && (
               <div className="offline-banner support-banner" role="status">
                 Acesso de suporte: {me.support.adminName} entrou como {me.user.name}. Tudo fica
@@ -496,8 +512,8 @@ export function AppShell() {
       </AppFrame>
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
       {install.modal}
-      <SupportChatHost />
-      {me && (
+      {!demo && <SupportChatHost />}
+      {me && !demo && (
         <OnboardingChat
           open={onbOpen}
           onClose={closeOnboarding}
@@ -510,7 +526,7 @@ export function AppShell() {
           canImport={me.permissions.includes('catalog:write')}
         />
       )}
-      {me && (
+      {me && !demo && (
         <WelcomeTour
           open={tourOpen}
           onClose={() => setTourOpen(false)}
@@ -522,7 +538,7 @@ export function AppShell() {
           tabs={tabs}
         />
       )}
-      {me && <PageTourHost items={tourItems} tabs={tabs} />}
+      {me && !demo && <PageTourHost items={tourItems} tabs={tabs} />}
       <GlobalSearch
         open={searchOpen}
         onClose={() => setSearchOpen(false)}

@@ -1,7 +1,7 @@
 # Site público e teste grátis pelo site
 
 O domínio base (`comandou.com` e `www.comandou.com`) mostra o site público: o que o sistema faz,
-com telas de verdade da demonstração, o preço (vem de Super Admin › Planos) e o cadastro em que o
+com o sistema de exemplo para clicar (`/experimente`), o preço (vem de Super Admin › Planos) e o cadastro em que o
 dono cria o próprio restaurante de teste.
 
 ## Desenho, 3D e movimento (0.245, refeito na 0.253)
@@ -18,6 +18,7 @@ cardápio de verdade no celular do topo e a lanchonete de demonstração. O cód
 | `PhoneMock.tsx` | O celular do topo: a loja de exemplo (Fumaça Burger, `SAMPLE_STORE`/`SAMPLE_ITEMS` de `site-data.ts`) ou o que a pessoa digita. |
 | `Shuffle.tsx` | Shuffle do React Bits (MIT + Commons Clause, créditos no arquivo), passado do GSAP para Web Animations. |
 | `DemoStore.tsx` + `demo-data.ts` + `demo.css` | A lanchonete de demonstração (`/demo`), num arquivo à parte que só baixa quando alguém abre. |
+| `../sandbox/` + `../lib/sandbox.ts` | O sistema de exemplo (`/experimente`, seção abaixo): o app da equipe com um servidor de mentira no navegador. |
 | `fx.tsx` | Número que rola (`RollingValue`, `RollIn`) e a navegação entre o site e a `/demo`. |
 | `site.css` / `landing.css` | Menu, cartão de criar, janela de criar, celular e efeitos / as seções. |
 
@@ -27,11 +28,11 @@ cardápio de verdade no celular do topo e a lanchonete de demonstração. O cód
   celular com a loja de exemplo (capa, logo, categorias, dois destaques com foto grande e
   linhas), o cartão "Pedidos agora" (um pedido de um canal diferente a cada 3,4 s), as vendas do
   dia rolando como contador e o "Pix aprovado", em camadas (`translateZ`), girando de leve com o
-  mouse (`useTilt`). Embaixo do celular, "Testar esta lanchonete" leva para a `/demo`. Enquanto
+  mouse (`useTilt`). Enquanto
   a pessoa mexe (link, Maps, itens digitados, nome), o celular vira a loja dela.
-- **Seções, em ordem**: a faixa "Recebe os pedidos de" (nomes com Shuffle), **O sistema** (telas
-  de verdade numa moldura que se endireita com a rolagem), **Módulos** (grade de linhas finas; uma
-  luz fraca segue o mouse e acende só as linhas por perto), **convite da lanchonete** (leque de fotos que abre ao chegar), **Aplicativos**, **três passos**,
+- **Seções, em ordem**: a faixa "Recebe os pedidos de" (nomes com Shuffle), **O sistema** (o
+  sistema de exemplo numa moldura que se endireita com a rolagem), **Módulos** (grade de linhas
+  finas; uma luz fraca segue o mouse e acende só as linhas por perto), **Aplicativos**, **três passos**,
   **preço** (o valor rola até o certo ao aparecer), **perguntas** e o fim.
 - **Prato em 3D**: saiu na 0.272 junto com o 3D dos itens do cardápio (`Dish3D.tsx`,
   `depth-photo.ts` e `public/site/3d` estão no git na 0.271.1).
@@ -41,7 +42,44 @@ cardápio de verdade no celular do topo e a lanchonete de demonstração. O cód
   na escolha Site/Maps/Descrever. Tudo com transform e opacity; com "reduzir movimento", parado
   no estado final.
 
-## Lanchonete de demonstração (`/demo`)
+## Sistema de exemplo (`/experimente`, 0.277)
+
+Na seção **O sistema** do site roda o Comandou de verdade (`StaffApp`, o mesmo menu, telas e
+botões), com os dados da Fumaça Burger respondidos **dentro do navegador**: nada vai para a API,
+nada fica salvo e recarregar zera. Pedido do dono: "deixe o cliente clicar, como se fosse dentro
+do sistema, cada tela mesmo".
+
+- **Como liga**: `main.tsx` vê `/experimente` (`isSandboxPath` de `lib/sandbox.ts`) e baixa só
+  então `sandbox/boot.tsx`, que troca o `window.fetch` das chamadas `/api/` pelo servidor de
+  mentira (`sandbox/server/http.ts`: `on(método, caminho, resposta)`) e desenha o app num
+  `MemoryRouter` (`SandboxApp.tsx`; trocar de tela não mexe no endereço de fora). `?tela=` escolhe
+  a tela inicial (`SANDBOX_SCREENS`: pdv, pedidos, mesas, cozinha, caixa, cardapio, entregas,
+  estoque, financeiro, relatorios).
+- **Dados**: `server/state.ts` (loja, cardápio de `site/demo-data.ts`, clientes, mesas, caixas,
+  motoboys), `seed.ts` (o dia de hoje: pedidos em cada etapa, mesas abertas, caixa aberto),
+  `routes-ops.ts` (pedidos, mesas, cozinha, caixa), `routes-back.ts` (cardápio, estoque com fichas,
+  entregas: o motoboy anda no mapa por `delivery.location` a cada 4 s) e `routes-reports.ts`
+  (histórico sorteado e repetível por dia para Relatórios, Análise, Calendário, Financeiro, DRE e
+  Acerto dos motoboys; hoje sai dos pedidos de verdade do exemplo). Fotos `demo:<chave>` viram
+  `/site/food/<chave>.webp` (`mediaUrl`).
+- **O que o app faz diferente no exemplo** (`inSandbox()`): sem conexão do tempo real (os avisos
+  vêm do servidor de mentira por `emitLocal`), sem modo offline, a marca fica só na memória
+  (`brand.ts`), e o menu mostra só as telas do exemplo, sem conversas, suporte, novidades,
+  tutoriais e primeiros passos (`AppShell.tsx`, `StaffApp.tsx`).
+- **Chamada que o exemplo não conhece**: GET responde 404 "Disponível no teste grátis" e o resto
+  403; a lista fica em `window.__cmSandbox.unknown`. **Tela nova no app**: abra
+  `/experimente?tela=…`, clique por ela e registre o que aparecer ali (o e2e
+  `e2e/sandbox.spec.ts` falha com chamada desconhecida, erro na página ou pedido à API).
+- **Na página** (`Tour` em `SiteApp.tsx`): no computador o exemplo roda num iframe desenhado em
+  1280 × 800 e encolhido para a moldura, só carrega perto da seção e precisa de um clique para
+  pegar o mouse (antes disso a rolagem passa por cima); as abas mandam `{source:'comandou-site',
+  go}` e o exemplo responde `{source:'comandou-sandbox', at}` para acender a aba. No celular, a
+  foto da tela e "Abrir e mexer no sistema" abrem o exemplo em tela cheia (`<dialog>`).
+- **Moldura**: o Nginx serve `/experimente` com `security-headers-frame-self.conf` (só o próprio
+  site emoldura) e o service worker não guarda essa página (`navigateFallbackDenylist`), senão
+  viria o `index.html` com `X-Frame-Options: DENY`.
+
+## Lanchonete de demonstração (`/demo`, fora do menu desde a 0.277)
 
 `comandou.com/demo` abre a Fumaça Burger como o cliente vê (cardápio de `demo-data.ts`, com os
 mesmos nomes, preços e fotos da demonstração do sistema): destaques, categorias que acompanham a

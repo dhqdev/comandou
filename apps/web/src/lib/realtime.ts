@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { emitRealtimeReady } from './realtime-ready';
+import { inSandbox } from './sandbox';
 import { checkCacheEpoch, wipeTenantCache } from './tenant-cache';
 
 export { onRealtimeReady } from './realtime-ready';
@@ -82,6 +83,11 @@ function setStatus(s: RealtimeStatus) {
 
 function ensureSocket() {
   if (socket || typeof window === 'undefined') return;
+  // Exemplo do site: sem servidor; os avisos vêm do servidor de mentira (emitLocal).
+  if (inSandbox()) {
+    if (status !== 'live') setStatus('live');
+    return;
+  }
   socket = io({ path: '/api/ws', transports: ['websocket', 'polling'], withCredentials: true });
   socket.on('ready', (r?: { cacheEpoch?: string | null }) => {
     if (checkCacheEpoch(r?.cacheEpoch)) return;
@@ -95,6 +101,11 @@ function ensureSocket() {
     if (e.type === 'cache.clear') return void wipeTenantCache(e.at);
     listeners.forEach((l) => l(e));
   });
+}
+
+/** Exemplo do site (src/sandbox): o servidor de mentira avisa as telas como o de verdade. */
+export function emitLocal(e: RealtimeEvent) {
+  listeners.forEach((l) => l(e));
 }
 
 export function closeRealtime() {

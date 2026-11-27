@@ -8,7 +8,20 @@ export { sizedMedia, type MediaWidth } from './media-size';
  * px): use em cartão, grade e lista; a original só onde a foto aparece grande.
  */
 export const mediaUrl = (id: string | null | undefined, w?: MediaWidth) =>
-  id ? (w ? sizedMedia(`/api/v1/media/${id}`, w) : `/api/v1/media/${id}`) : null;
+  !id
+    ? null
+    : id.startsWith('demo:')
+      ? demoPhoto(id.slice(5), w)
+      : w
+        ? sizedMedia(`/api/v1/media/${id}`, w)
+        : `/api/v1/media/${id}`;
+
+/**
+ * Fotos do exemplo do site (/experimente, src/sandbox): a Fumaça Burger usa as fotos do próprio
+ * site (public/site/food), em duas larguras.
+ */
+const demoPhoto = (key: string, w?: MediaWidth) =>
+  /^[a-z0-9-]{1,60}$/.test(key) ? `/site/food/${key}${w === 320 ? '-sm' : ''}.webp` : null;
 
 const MAX_SIDE = 1600;
 const MAX_INPUT_BYTES = 25 * 1024 * 1024;

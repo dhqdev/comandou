@@ -259,6 +259,10 @@ exceções, só no site:
   celular da loja e os cartões "Pedidos agora", vendas do dia e "Pix aprovado" em camadas com
   `translateZ`, girando de leve com o mouse por `useTilt`; no celular só o celular e o Pix, este
   em cima da capa) e a **moldura das telas do sistema**, que chega deitada (`rotateX` pelo `--p`).
+  Desde a 0.277 essa moldura tem o **sistema de exemplo para clicar** (`/experimente` num iframe
+  encolhido, `.st-tour__view`; sem troca automática de aba): o botão "Clique para mexer" cobre o
+  exemplo até o primeiro clique (a rolagem da página não fica presa nele) e, no celular, a foto da
+  tela com "Abrir e mexer no sistema" abre o exemplo em tela cheia. Nada de "Demonstração" no menu.
   O **Prato em 3D** saiu na 0.272 junto com o 3D dos itens do cardápio. Nada de three.js
   nem biblioteca nova para 3D. Cartão flutuante do palco balança com a propriedade `translate` (a
   `transform` é a camada 3D).

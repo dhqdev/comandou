@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { newIdempotencyKey } from './idempotency';
 import { offlineStore } from './offline-store';
+import { inSandbox } from './sandbox';
 
 /**
  * Modo offline do painel, do garçom, da cozinha e do entregador.
@@ -279,6 +280,8 @@ const onVisible = () => {
 
 /** Chamado com o funcionário logado. Carrega a fila guardada e tenta enviar. */
 export async function enableOffline(userId: string): Promise<void> {
+  // Exemplo do site: nada fica guardado no aparelho (os dados são de mentira).
+  if (inSandbox()) return;
   const first = enabledUser === null;
   enabledUser = userId;
   if (first && typeof window !== 'undefined') {

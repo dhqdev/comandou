@@ -7,6 +7,7 @@
  * até o contraste passar de 4.5:1 onde há texto: o lojista escolhe qualquer cor sem quebrar a
  * leitura. Sem cor escolhida, valem as cores do Comandou (tokens.css).
  */
+import { inSandbox } from '../lib/sandbox';
 import { setBarColor } from './theme';
 
 export type FontStyle = 'padrao' | 'sistema' | 'classica' | 'arredondada';
@@ -314,7 +315,14 @@ export function applyManifest(path = window.location.pathname) {
 }
 
 /** Última identidade vista neste navegador: pinta antes do primeiro desenho, sem piscar laranja. */
+/**
+ * Exemplo do site (/experimente): a marca da loja de exemplo fica só na memória. Ele mora no
+ * endereço do próprio site, e guardar no aparelho vestiria o site com ela na próxima visita.
+ */
+let sandboxBranding: Branding | null = null;
+
 export function cachedBranding(): Branding | null {
+  if (inSandbox()) return sandboxBranding;
   try {
     const raw = localStorage.getItem(CACHE);
     return raw ? { ...DEFAULT_BRANDING, ...(JSON.parse(raw) as Partial<Branding>) } : null;
@@ -323,11 +331,13 @@ export function cachedBranding(): Branding | null {
   }
 }
 export function cacheBranding(b: Branding) {
-  try {
-    localStorage.setItem(CACHE, JSON.stringify(b));
-  } catch {
-    /* modo privado: só não guarda */
-  }
+  if (inSandbox()) sandboxBranding = b;
+  else
+    try {
+      localStorage.setItem(CACHE, JSON.stringify(b));
+    } catch {
+      /* modo privado: só não guarda */
+    }
   window.dispatchEvent(new Event(BRAND_CACHED_EVENT));
 }
 /** A identidade guardada mudou (a logo do menu lateral escuta para se atualizar). */

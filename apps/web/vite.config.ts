@@ -78,8 +78,9 @@ export default defineConfig({
         // O panda dos e-mails (email/) é para o cliente de e-mail, não para o app.
         globIgnores: ['email/**'],
         navigateFallback: '/index.html',
-        // A prévia da Loja online (/pedir?previa=1) vem sempre do servidor, que permite a moldura.
-        navigateFallbackDenylist: [/^\/api\//, /[?&]previa=1(&|$)/],
+        // A prévia da Loja online (/pedir?previa=1) e o sistema de exemplo do site (/experimente)
+        // vêm sempre do servidor, que permite a moldura do próprio site.
+        navigateFallbackDenylist: [/^\/api\//, /[?&]previa=1(&|$)/, /^\/experimente(\/|$)/],
         runtimeCaching: [
           // Exceção: as fotos (GET /api/v1/media/<id>) são públicas e nunca mudam (trocar a foto
           // gera outro id). Guardadas no aparelho, o cardápio, o PDV e o garçom mostram as fotos

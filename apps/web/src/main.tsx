@@ -16,6 +16,7 @@ import { isMenuPath, storeTheme } from './lib/menu-boot';
 import { ErrorBoundary, ErrorFallback } from './lib/error-boundary';
 import { applyPosMode } from './lib/pos-device';
 import { applyAdminPwa, listenInstallPrompt } from './platform/pwa';
+import { isSandboxPath } from './lib/sandbox';
 
 // admin.<domínio>: manifesto, ícone e tema do painel antes do primeiro desenho.
 if (isPlatformHost()) applyAdminPwa();
@@ -48,11 +49,16 @@ installModalScrollLock();
 // Maquininha (Smart POS): botões maiores para o dedo, antes do primeiro desenho.
 applyPosMode();
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    {/* Último recurso: um erro fora das telas não deixa o app em branco. */}
-    <ErrorBoundary fallback={ErrorFallback}>
-      <App />
-    </ErrorBoundary>
-  </StrictMode>,
-);
+const root = document.getElementById('root')!;
+// comandou.com/experimente: o sistema de exemplo do site (dados de mentira, nada sai daqui).
+if (isSandboxPath(window.location.pathname))
+  void import('./sandbox/boot').then((m) => m.bootSandbox(root));
+else
+  createRoot(root).render(
+    <StrictMode>
+      {/* Último recurso: um erro fora das telas não deixa o app em branco. */}
+      <ErrorBoundary fallback={ErrorFallback}>
+        <App />
+      </ErrorBoundary>
+    </StrictMode>,
+  );

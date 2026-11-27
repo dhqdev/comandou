@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.277.0',
+    date: '2026-11-27',
+    title: 'O sistema de verdade para clicar no site',
+    summary:
+      'Na página inicial do comandou.com, as telas do sistema deixaram de ser fotos: agora é o próprio Comandou rodando com os dados da Fumaça Burger, para clicar à vontade. Dá para lançar uma venda, mandar para a cozinha, despachar com o motoboy e abrir os relatórios, sem cadastro e sem nada ir para o servidor.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Sistema de exemplo em comandou.com/experimente: PDV, Pedidos, Salão, Cozinha, Caixa, Cardápio, Entregas (com os motoboys andando no mapa), Estoque, Financeiro e Relatórios com um dia de movimento e dois meses de histórico. Tudo responde dentro do navegador e some ao fechar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Na seção "Tudo numa tela só", as abas trocam a tela do exemplo e o menu de dentro acende a aba certa. No computador ele roda na moldura (o primeiro clique libera o mouse lá dentro); no celular abre em tela cheia pelo botão "Abrir e mexer no sistema".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Saiu a Demonstração do menu do site, a seção "Entre numa lanchonete de verdade" e o "Testar esta lanchonete" do topo: o exemplo do sistema faz esse papel.',
+      },
+    ],
+  },
+  {
     version: '0.276.0',
     date: '2026-11-27',
     title: 'Cardápio e estoque já na criação pelo site',

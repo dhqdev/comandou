@@ -11,6 +11,7 @@ import {
   Menu,
   MessageCircle,
   Monitor,
+  MousePointerClick,
   Package,
   PiggyBank,
   Printer,
@@ -42,6 +43,7 @@ import {
   type PandaMood,
 } from '../design-system';
 import { lazyPage } from '../lib/lazy-page';
+import { SANDBOX_MSG, sandboxScreenOf, SITE_MSG } from '../lib/sandbox';
 import { brl } from '../lib/money';
 import { contactHref, INCLUDED_IN_ALL, type PublicPlan } from '../pages/pricing-data';
 import { Builder, FIRST_LOOK } from './Builder';
@@ -329,54 +331,126 @@ function Stage({ look, mood }: { look: Look; mood: PandaMood }) {
   );
 }
 
-const TOUR_MS = 5200;
+/** Tamanho em que o exemplo é desenhado dentro da moldura (depois encolhe para caber). */
+const TOUR_W = 1280;
+const TOUR_H = 800;
+
+/** Celular: o exemplo abre em tela cheia por cima do site (na moldura ficaria pequeno demais). */
+function useNarrow(query = '(max-width: 760px)') {
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia?.(query);
+    if (!mq) return;
+    const on = () => setNarrow(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [query]);
+  return narrow;
+}
+
+/** O exemplo do sistema (`/experimente`) num iframe, conversando com as abas de fora. */
+function useSandboxFrame(tab: string, setTab: (k: string) => void) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [ready, setReady] = useState(false);
+  const want = useRef(tab);
+  want.current = tab;
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin || e.source !== frame.current?.contentWindow) return;
+      const d = e.data as { source?: string; ready?: boolean; at?: string } | null;
+      if (d?.source !== SANDBOX_MSG) return;
+      if (d.ready) setReady(true);
+      if (typeof d.at === 'string') {
+        const key = sandboxScreenOf(d.at);
+        if (key && TOUR.some((x) => x.key === key)) setTab(key);
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [setTab]);
+  const go = (key: string) =>
+    frame.current?.contentWindow?.postMessage(
+      { source: SITE_MSG, go: key },
+      window.location.origin,
+    );
+  // Abriu numa aba e a pessoa já trocou antes do exemplo terminar de carregar.
+  useEffect(() => {
+    if (ready) go(want.current);
+  }, [ready]);
+  return { frame, ready, go, reset: () => setReady(false) };
+}
 
 /**
- * As telas de verdade passam sozinhas (a barrinha da aba mostra quanto falta). A moldura chega
- * deitada em 3D e se endireita conforme a seção sobe (`--p`). Para quando a pessoa escolhe uma
- * aba, passa o mouse em cima ou a seção sai da tela.
+ * O sistema de verdade, para clicar: as abas trocam a tela do exemplo (`/experimente`, com os dados
+ * da Fumaça Burger respondidos dentro do navegador, nada vai para o servidor). No computador ele
+ * roda dentro da moldura, desenhado em 1280 × 800 e encolhido para caber; o primeiro clique libera
+ * o mouse lá dentro (antes disso a rolagem da página passa por cima). No celular, a foto da tela e
+ * um botão que abre o exemplo em tela cheia. A moldura chega deitada em 3D e se endireita conforme
+ * a seção sobe (`--p`).
  */
 function Tour() {
   const [tab, setTab] = useState(TOUR[0]!.key);
-  const [auto, setAuto] = useState(true);
-  const [hold, setHold] = useState(false);
-  const [seen, setSeen] = useState(false);
+  const [near, setNear] = useState(false);
+  const [live, setLive] = useState(false);
+  const [full, setFull] = useState(false);
+  const [scale, setScale] = useState(0);
+  const narrow = useNarrow();
   const root = useRef<HTMLDivElement>(null);
+  const view = useRef<HTMLDivElement>(null);
+  const sheet = useRef<HTMLDialogElement>(null);
   const rise = useScrollProgress<HTMLDivElement>('enter', 0.3);
   const t = TOUR.find((x) => x.key === tab)!;
-  const running = auto && !hold && seen && !calmMotion();
+  const sandbox = useSandboxFrame(tab, setTab);
+  // A tela em que o exemplo abre; depois as abas trocam lá dentro, sem recarregar.
+  const start = useRef<string | null>(null);
+  const embedded = near && !narrow;
 
+  // Só baixa o exemplo quando a seção chega perto; saiu da tela, devolve a rolagem para a página.
   useEffect(() => {
     const el = root.current;
-    if (!el || !('IntersectionObserver' in window)) return;
-    const io = new IntersectionObserver(([e]) => setSeen(!!e?.isIntersecting), { threshold: 0.3 });
+    if (!el || !('IntersectionObserver' in window)) {
+      setNear(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e?.isIntersecting) setNear(true);
+        else setLive(false);
+      },
+      { rootMargin: '600px 0px' },
+    );
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!running) return;
-    const id = window.setTimeout(() => {
-      const i = TOUR.findIndex((x) => x.key === tab);
-      setTab(TOUR[(i + 1) % TOUR.length]!.key);
-    }, TOUR_MS);
-    return () => window.clearTimeout(id);
-  }, [running, tab]);
+  useLayoutEffect(() => {
+    const el = view.current;
+    if (!el) return;
+    const fit = () => setScale(el.clientWidth / TOUR_W);
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
-  // Pré-carrega a próxima tela para a troca não piscar.
   useEffect(() => {
-    const i = TOUR.findIndex((x) => x.key === tab);
-    const img = new Image();
-    img.src = `/site/${TOUR[(i + 1) % TOUR.length]!.key}-light.webp`;
-  }, [tab]);
+    const d = sheet.current;
+    if (!d) return;
+    if (full && !d.open) d.showModal();
+    if (!full && d.open) d.close();
+  }, [full]);
+
+  const pick = (key: string) => {
+    setTab(key);
+    if (sandbox.ready) sandbox.go(key);
+  };
+  const src = `/experimente?tela=${tab}`;
 
   return (
-    <div
-      className="st-tour"
-      ref={root}
-      onMouseEnter={() => setHold(true)}
-      onMouseLeave={() => setHold(false)}
-    >
+    <div className="st-tour" ref={root}>
       <div className="st-tour__tabs" role="tablist" aria-label="Telas do sistema">
         {TOUR.map((x) => (
           <button
@@ -385,45 +459,92 @@ function Tour() {
             role="tab"
             aria-selected={x.key === tab}
             className={x.key === tab ? 'is-on' : ''}
-            onClick={() => {
-              setAuto(false);
-              setTab(x.key);
-            }}
+            onClick={() => pick(x.key)}
           >
             {x.label}
-            {x.key === tab && running && (
-              <i
-                className="st-tour__time"
-                key={tab}
-                style={{ animationDuration: `${TOUR_MS}ms` }}
-              />
-            )}
           </button>
         ))}
       </div>
       <div className="st-tour__scene" ref={rise}>
         <div className="st-tour__frame">
-          <div className="st-tour__bar" aria-hidden>
-            <i />
-            <i />
-            <i />
+          <div className="st-tour__bar">
+            <i aria-hidden />
+            <i aria-hidden />
+            <i aria-hidden />
             <span>fumaca.comandou.com</span>
+            <em className="st-tour__note">Exemplo: clique à vontade, nada fica salvo</em>
           </div>
-          <img
-            key={tab}
-            src={`/site/${tab}-light.webp`}
-            width={1600}
-            height={1000}
-            alt={`Tela ${t.label} do Comandou: ${t.text}`}
-            loading="lazy"
-            decoding="async"
-          />
+          <div className="st-tour__view" ref={view} data-ready={sandbox.ready || undefined}>
+            <img
+              src={`/site/${tab}-light.webp`}
+              width={1600}
+              height={1000}
+              alt={`Tela ${t.label} do Comandou: ${t.text}`}
+              loading="lazy"
+              decoding="async"
+            />
+            {embedded && scale > 0 && (
+              <iframe
+                ref={sandbox.frame}
+                src={`/experimente?tela=${(start.current ??= tab)}`}
+                title="Sistema Comandou de exemplo"
+                width={TOUR_W}
+                height={TOUR_H}
+                style={{ transform: `scale(${scale})` }}
+                tabIndex={live ? 0 : -1}
+              />
+            )}
+            {(!embedded || !live) && (
+              <button
+                type="button"
+                className="st-tour__start"
+                onClick={() => (narrow ? setFull(true) : setLive(true))}
+                aria-label={`Mexer no sistema de exemplo: ${t.label}`}
+              >
+                <span className="cm-btn cm-btn--primary st-press">
+                  <MousePointerClick size={16} aria-hidden />
+                  {narrow ? 'Abrir e mexer no sistema' : 'Clique para mexer'}
+                </span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
       <div className="st-tour__caption" key={`${tab}-cap`}>
         <strong>{t.title}</strong>
-        <span>{t.text}</span>
+        <span>
+          {t.text}{' '}
+          {!narrow && (
+            <a href={src} target="_blank" rel="noreferrer" className="st-tour__open">
+              Abrir em tela cheia
+            </a>
+          )}
+        </span>
       </div>
+      {narrow && (
+        <dialog
+          ref={sheet}
+          className="st-tour__sheet"
+          aria-label="Sistema Comandou de exemplo"
+          onClose={() => {
+            setFull(false);
+            sandbox.reset();
+          }}
+        >
+          <div className="st-tour__sheet-bar">
+            <span>Exemplo: nada fica salvo</span>
+            <button
+              type="button"
+              className="cm-btn cm-btn--secondary"
+              onClick={() => setFull(false)}
+            >
+              <X size={16} aria-hidden />
+              Fechar
+            </button>
+          </div>
+          {full && <iframe ref={sandbox.frame} src={src} title="Sistema Comandou de exemplo" />}
+        </dialog>
+      )}
     </div>
   );
 }
@@ -547,62 +668,9 @@ function Apps() {
   );
 }
 
-/** Fotos que se abrem em leque no convite da lanchonete de demonstração. */
-const DEMO_FAN = [
-  { src: '/site/food/combo-fumaca.webp', name: 'Combo Fumaça' },
-  { src: '/site/food/burger-smash.webp', name: 'Smash duplo' },
-  { src: '/site/food/shake-chocolate.webp', name: 'Milk-shake de chocolate' },
-  { src: '/site/food/porcao-cheddar-bacon.webp', name: 'Batata com cheddar e bacon' },
-];
-
-/**
- * Convite para a lanchonete de demonstração: o leque de fotos (no jeito do "Bounce Cards" do React
- * Bits, só com CSS) se abre quando a seção chega e se espalha mais ao passar o mouse.
- */
-function DemoInvite() {
-  return (
-    <div className="st-demo st-reveal">
-      <div className="st-demo__text">
-        <h2>
-          <Shuffle text="Entre numa lanchonete de verdade." />
-        </h2>
-        <p>
-          A Fumaça Burger é uma loja de exemplo, com cardápio, fotos e preços de verdade. Peça um
-          lanche como cliente e veja o pedido chegar na cozinha, andar até pronto e sair para
-          entrega.
-        </p>
-        <ul className="st-demo__facts">
-          <li>
-            <Check size={16} aria-hidden /> Sem cadastro e sem pagar nada
-          </li>
-          <li>
-            <Check size={16} aria-hidden /> No celular e no computador
-          </li>
-          <li>
-            <Check size={16} aria-hidden /> Cliente e cozinha lado a lado
-          </li>
-        </ul>
-        <SiteLink to="/demo" className="cm-btn cm-btn--primary cm-btn--lg st-press st-arrow">
-          Testar a lanchonete
-          <ArrowRight size={16} className="st-arrow__i" aria-hidden />
-        </SiteLink>
-      </div>
-      <SiteLink to="/demo" className="st-fan" aria-label="Abrir a lanchonete de demonstração">
-        {DEMO_FAN.map((f, i) => (
-          <span key={f.src} className="st-fan__card" style={{ '--i': i } as CSSProperties}>
-            <img src={f.src} alt="" width={640} height={480} loading="lazy" decoding="async" />
-            <span>{f.name}</span>
-          </span>
-        ))}
-      </SiteLink>
-    </div>
-  );
-}
-
 /** Links do menu (e do rodapé). */
 const NAV: [string, string][] = [
   ['#sistema', 'O sistema'],
-  ['/demo', 'Demonstração'],
   ['#preco', 'Preço'],
   ['#perguntas', 'Perguntas'],
 ];
@@ -779,11 +847,6 @@ function Landing() {
           </div>
           <div className="st-hero__art">
             <Stage look={look} mood={mood} />
-            <SiteLink to="/demo" className="st-hero__try">
-              <span className="st-hero__try-dot" aria-hidden />
-              Testar esta lanchonete
-              <ArrowRight size={14} aria-hidden />
-            </SiteLink>
           </div>
         </section>
 
@@ -816,10 +879,6 @@ function Landing() {
             text="Um preço, um login, um cardápio. Mudou aqui, muda no PDV, no garçom, na loja e no iFood."
           />
           <Modules />
-        </section>
-
-        <section className="st-sec" id="demo">
-          <DemoInvite />
         </section>
 
         <section className="st-sec" id="aplicativos">
@@ -921,9 +980,9 @@ function Landing() {
               <CtaButton size="lg" arrow onClick={toBuilder}>
                 Criar meu restaurante
               </CtaButton>
-              <SiteLink to="/demo" className="cm-btn cm-btn--secondary cm-btn--lg">
-                Testar a lanchonete
-              </SiteLink>
+              <a href="#sistema" className="cm-btn cm-btn--secondary cm-btn--lg">
+                Mexer no sistema
+              </a>
             </div>
           </div>
         </section>
@@ -945,7 +1004,7 @@ function Landing() {
             <h3>Produto</h3>
             <a href="#sistema">O sistema</a>
             <a href="#aplicativos">Aplicativos</a>
-            <SiteLink to="/demo">Lanchonete de demonstração</SiteLink>
+            <a href="#sistema">Sistema de exemplo</a>
           </nav>
           <nav className="st-foot__col" aria-label="Ajuda">
             <h3>Ajuda</h3>
