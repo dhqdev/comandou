@@ -14,7 +14,13 @@ export interface WAMessageLike {
   message?: Record<string, unknown> | null;
   pushName?: string | null;
   messageTimestamp?: number | { toNumber(): number } | null;
+  /** 2 = CIPHERTEXT: o Baileys não conseguiu abrir a mensagem (motivo em messageStubParameters) */
+  messageStubType?: number | null;
+  messageStubParameters?: (string | null | undefined)[] | null;
 }
+
+/** proto.WebMessageInfo.StubType.CIPHERTEXT */
+const CIPHERTEXT = 2;
 
 export type InboundKind =
   'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contact' | 'other';
@@ -61,6 +67,18 @@ function unwrap(m: Record<string, unknown> | null | undefined): Content | null {
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
 const PERSONAL = /^([0-9]{5,20})(?::[0-9]+)?@(s\.whatsapp\.net|lid)$/;
+
+/**
+ * Mensagem de cliente que chegou mas não abriu (o WhatsApp não entregou a chave a este aparelho,
+ * comum logo depois de ler o QR Code). O Baileys já pede ao celular do cliente para mandar de
+ * novo; aqui só serve para o log dizer o que aconteceu, em vez de a mensagem sumir calada.
+ * Devolve o motivo, ou null se a mensagem abriu (ou não é de cliente).
+ */
+export function unreadableReason(raw: WAMessageLike): string | null {
+  if (raw.messageStubType !== CIPHERTEXT || raw.message || raw.key?.fromMe) return null;
+  if (!PERSONAL.test(raw.key?.remoteJid ?? '')) return null;
+  return String(raw.messageStubParameters?.[0] ?? 'sem motivo').slice(0, 120);
+}
 
 /**
  * Converte a mensagem do Baileys no formato da API. Só conversas individuais de clientes:

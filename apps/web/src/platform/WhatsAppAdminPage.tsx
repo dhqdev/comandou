@@ -170,7 +170,9 @@ function ConnectPanel({
           <li>
             Toque em <strong>Aparelhos conectados</strong> › <strong>Conectar um aparelho</strong>.
           </li>
-          <li>Aponte a câmera para o código ao lado.</li>
+          <li>
+            Aponte a câmera para o código ao lado. Na lista de aparelhos ele aparece como Mac OS.
+          </li>
         </ol>
         {s.error && s.status !== 'qr' && <Alert tone="warning">{s.error}</Alert>}
         <p className="wadm-connect__note">

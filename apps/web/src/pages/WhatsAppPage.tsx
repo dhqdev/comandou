@@ -256,12 +256,15 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
   useEffect(() => {
     if (s.gatewayConfigured) void refresh();
   }, [refresh, s.gatewayConfigured]);
-  // Enquanto espera o QR Code ou a conexão, consulta a cada 3 s.
+  // Esperando o QR Code ou a conexão: consulta a cada 3 s. Conectado: a cada 30 s, para a tela
+  // não seguir dizendo "Conectado" depois que a conexão cai.
+  const status = session?.status;
   useEffect(() => {
-    if (session?.status !== 'qr' && session?.status !== 'connecting') return;
-    const t = setInterval(() => void refresh(), 3000);
+    const fast = status === 'qr' || status === 'connecting';
+    if (!fast && status !== 'connected') return;
+    const t = setInterval(() => !document.hidden && void refresh(), fast ? 3000 : 30_000);
     return () => clearInterval(t);
-  }, [session?.status, refresh]);
+  }, [status, refresh]);
   useEffect(() => {
     if (session?.status === 'qr' && session.qr)
       QRCode.toDataURL(session.qr, { margin: 1, width: 264 })
@@ -308,13 +311,29 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
             <Alert tone="warning">{session.error}</Alert>
           )}
           {session?.status === 'connected' && (
-            <p style={{ margin: 0 }}>Número conectado: +{session.phone}</p>
+            <div style={{ display: 'grid', gap: 4 }}>
+              <p style={{ margin: 0 }}>Número conectado: +{session.phone}</p>
+              {session.lastInboundAt && (
+                <p className="cm-hint" style={{ margin: 0 }}>
+                  Última mensagem de cliente recebida: {dateTime(session.lastInboundAt)}
+                </p>
+              )}
+            </div>
+          )}
+          {session?.status === 'connected' && !!session.unreadable && (
+            <Alert tone="warning">
+              {session.unreadable === 1
+                ? 'Uma mensagem de cliente chegou sem abrir neste aparelho.'
+                : `${session.unreadable} mensagens de cliente chegaram sem abrir neste aparelho.`}{' '}
+              O WhatsApp pede de novo ao celular do cliente. Se continuar, toque em Desconectar e
+              leia o QR Code de novo.
+            </Alert>
           )}
           {session?.status === 'qr' && (
             <div style={{ display: 'grid', gap: 8, justifyItems: 'start' }}>
               <p style={{ margin: 0 }}>
                 No celular do restaurante: WhatsApp &gt; Aparelhos conectados &gt; Conectar um
-                aparelho, e aponte para o código.
+                aparelho, e aponte para o código. Na lista de aparelhos ele aparece como Mac OS.
               </p>
               {qrImg ? (
                 <img src={qrImg} alt="QR Code para conectar o WhatsApp" width={264} height={264} />

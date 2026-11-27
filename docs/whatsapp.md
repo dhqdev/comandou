@@ -16,6 +16,21 @@ cliente no WhatsApp ──► gateway (1 socket por restaurante) ──► API (
   conexões do mesmo número e o WhatsApp derrubaria uma com o código 440).
 - As credenciais ficam cifradas em `comandou_wadata` (uma pasta por restaurante).
 
+## Como aparece no celular
+
+Em **Aparelhos conectados** o Comandou aparece como **Mac OS**, um computador, igual ao WhatsApp
+para Mac e às integrações comuns do Baileys (`Browsers.macOS('Desktop')`, em
+`apps/whatsapp-gateway/src/device.ts`). Vale para o WhatsApp de cada restaurante e para o do
+Super Admin, que passam pelo mesmo gateway.
+
+- O WhatsApp só lê esse nome **no pareamento** (quando o QR Code é lido). Quem já estava conectado
+  antes da 0.278.1 segue com o nome antigo ("Ubuntu") até tocar em Desconectar e ler o QR de novo;
+  a conexão em si não muda (o login de todo dia não manda o nome).
+- Até a 0.278.0 era `Browsers.ubuntu('Comandou')`: o nome ia "Ubuntu" e o tipo ("Comandou", que o
+  Baileys não reconhece) já caía em computador. Só o nome mudou; o jeito de conectar é o mesmo.
+- O teste `gateway.test.ts` monta o mesmo pedido de pareamento do Baileys e confere "Mac OS" +
+  computador. Só existe conexão por QR Code (sem código de pareamento por número).
+
 ## O que já protege a operação com muitos clientes
 
 | Situação | O que o gateway faz |
@@ -28,6 +43,10 @@ cliente no WhatsApp ──► gateway (1 socket por restaurante) ──► API (
 | Reinício do serviço | As sessões salvas reabrem uma de cada vez, com 250 ms entre elas (300 restaurantes ≈ 75 s). |
 | Conexão meio-aberta (NAT derrubou sem avisar) | Ping a cada 20 s; vigia a cada 15 s derruba e religa socket mudo há mais de 90 s; envio com a conexão parada manda um ping antes. |
 | Erro de um restaurante | Exceção sem tratamento é registrada e não derruba o processo (o WhatsApp dos outros continua). |
+| Logo depois de ler o QR Code | O WhatsApp pede para reiniciar (515) na hora; a religação **espera a gravação das credenciais** novas antes de reabrir (sem isso, um disco lento trazia as de antes do pareamento e a tela pedia outro QR). |
+| QR Code recusado (ex.: 405) | Sessão ainda não pareada tenta 3 vezes e para com "Tente de novo em alguns minutos", em vez de ficar em "Conectando..." para sempre. |
+| WhatsApp recusa a versão (405) | Além da busca a cada 12 h, o gateway busca a versão atual do WhatsApp Web logo depois de um 405 (no máximo uma vez a cada 10 min). |
+| Mensagem de cliente que não abriu | O Baileys pede de novo ao celular do cliente; o gateway registra no log ("chegou sem abrir") e a tela WhatsApp avisa. Comum nos primeiros minutos depois de ler o QR Code. |
 
 ## Monitorar
 
@@ -43,6 +62,12 @@ cliente no WhatsApp ──► gateway (1 socket por restaurante) ──► API (
 ```
 
 `inbound.pending` subindo e não descendo = a API não está dando conta (ou está fora).
+
+Por restaurante, a situação da sessão (`GET /v1/sessions/<id>`, a mesma que a tela WhatsApp mostra
+e recarrega a cada 30 s quando conectada) traz `lastInboundAt` (última mensagem de cliente
+repassada à API, desde que o serviço subiu) e `unreadable` (mensagens seguidas que chegaram sem
+abrir). "Conectado" sem `lastInboundAt` depois de um cliente escrever = a mensagem não chegou a este
+aparelho; com `lastInboundAt` e sem resposta = olhe os logs da **api** (IA).
 
 ## Capacidade e quando crescer
 

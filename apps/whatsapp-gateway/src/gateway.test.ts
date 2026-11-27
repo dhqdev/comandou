@@ -3,8 +3,10 @@ import { mkdtempSync, readdirSync, readFileSync, existsSync, cpSync, writeFileSy
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { generateRegistrationNode, initAuthCreds, proto, type SocketConfig } from 'baileys';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { tenantDir, useEncryptedAuthState } from './auth-store.js';
+import { DEVICE_BROWSER } from './device.js';
 import { InboundForwarder } from './forwarder.js';
 import { createGatewayServer } from './server.js';
 import {
@@ -104,6 +106,25 @@ class FakeSocket implements SocketLike {
     this.ended = true;
   }
 }
+
+describe('como o Comandou aparece no celular', () => {
+  it('pareia como "Mac OS", aparelho de computador (Aparelhos conectados)', () => {
+    // O mesmo pedido de pareamento que o Baileys manda ao ler o QR Code.
+    const node = generateRegistrationNode(initAuthCreds(), {
+      version: [2, 3000, 1],
+      browser: DEVICE_BROWSER,
+      syncFullHistory: false,
+      countryCode: 'BR',
+    } as unknown as SocketConfig);
+    const props = proto.DeviceProps.decode(node.devicePairingData!.deviceProps!);
+    expect(props.os).toBe('Mac OS');
+    expect(props.platformType).toBe(proto.DeviceProps.PlatformType.DESKTOP);
+    // Sem histórico completo: o login continua o de navegador (nada muda nas sessões já pareadas).
+    expect(node.webInfo?.webSubPlatform).toBe(
+      proto.ClientPayload.WebInfo.WebSubPlatform.WEB_BROWSER,
+    );
+  });
+});
 
 describe('sessão cifrada em disco', () => {
   it('guarda credenciais cifradas, sem nomes legíveis, e não abre em outro restaurante', async () => {
@@ -349,6 +370,33 @@ describe('sessões e API interna', () => {
     await call(`/v1/sessions/${t5}/logout`, 'POST');
   });
 
+  it('depois de ler o QR Code, reabre com as credenciais já gravadas (sem pedir outro QR)', async () => {
+    const dir2 = mkdtempSync(join(tmpdir(), 'wa-'));
+    const opened: (string | undefined)[] = [];
+    const list: FakeSocket[] = [];
+    const m2 = new SessionManager(dir2, key, (state) => {
+      opened.push(state.creds.me?.id);
+      const s = new FakeSocket();
+      // O Baileys muda as credenciais no lugar e avisa por creds.update.
+      (s as unknown as { creds: typeof state.creds }).creds = state.creds;
+      list.push(s);
+      return s;
+    });
+    const t7 = randomUUID();
+    await m2.start(t7);
+    const a = list[0];
+    a.emit({ qr: 'QR' });
+    // Pareou: credenciais novas e, logo em seguida, o pedido de reiniciar (515).
+    (a as unknown as { creds: { me?: { id: string } } }).creds.me = {
+      id: '5511999990000:7@s.whatsapp.net',
+    };
+    for (const h of a.handlers['creds.update'] ?? []) (h as () => void)();
+    close(a, 515);
+    for (let i = 0; i < 100 && list.length < 2; i++) await wait(5);
+    expect(opened).toEqual([undefined, '5511999990000:7@s.whatsapp.net']);
+    m2.close();
+  });
+
   it('logout durante a espera da reconexão cancela a reconexão', async () => {
     const t6 = randomUUID();
     await call(`/v1/sessions/${t6}/start`, 'POST');
@@ -404,6 +452,7 @@ describe('religação e recursos do Baileys', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wa-'));
   const socks: FakeSocket[] = [];
   const inbound: InboundMessage[] = [];
+  let versionRejected = 0;
   const mgr = new SessionManager(
     dir,
     key,
@@ -428,6 +477,7 @@ describe('religação e recursos do Baileys', () => {
         sendTimeoutMs: 300,
       },
       onInbound: (m) => inbound.push(m),
+      onVersionRejected: () => versionRejected++,
     },
   );
   const server = createGatewayServer(mgr, TOKEN);
@@ -557,6 +607,66 @@ describe('religação e recursos do Baileys', () => {
     expect(pings).toBe(1);
     expect(s2.sent).toHaveLength(1);
     await mgr.logout(t);
+  });
+
+  it('QR Code recusado de novo e de novo: para e avisa, em vez de ficar "Conectando..."', async () => {
+    const t = randomUUID();
+    const first = socks.length;
+    versionRejected = 0;
+    await mgr.start(t);
+    // O WhatsApp derruba antes de mostrar o QR Code (405: versão recusada).
+    for (let i = 0; i < 10 && mgr.status(t).status === 'connecting'; i++) {
+      const sock = socks.at(-1)!;
+      close(sock, 405);
+      for (let j = 0; j < 100 && socks.at(-1) === sock; j++) {
+        if (mgr.status(t).status !== 'connecting') break;
+        await wait(5);
+      }
+    }
+    const st = mgr.status(t);
+    expect(st.status).toBe('disconnected');
+    expect(st.error).toMatch(/Tente de novo em alguns minutos/);
+    expect(socks.length - first).toBe(4); // a primeira + 3 tentativas
+    expect(versionRejected).toBe(4); // cada 405 pede a versão atual (main.ts limita a frequência)
+    await wait(50);
+    expect(existsSync(tenantDir(dir, t))).toBe(false); // sessão incompleta apagada
+    // Gerar o QR Code de novo volta a tentar.
+    expect((await mgr.start(t)).status).toBe('connecting');
+    await mgr.logout(t);
+  });
+
+  it('mensagem de cliente que não abriu: não vai para a API e aparece na situação', async () => {
+    const { t, sock } = await connected();
+    inbound.length = 0;
+    sock.emitUpsert([
+      {
+        key: { remoteJid: '5511987654321@s.whatsapp.net', id: 'X1' },
+        messageStubType: 2,
+        messageStubParameters: ['No session record'],
+      },
+      // De grupo ou nossa: não conta.
+      { key: { remoteJid: '120363000000000000@g.us', id: 'X2' }, messageStubType: 2 },
+      {
+        key: { remoteJid: '5511987654321@s.whatsapp.net', id: 'X3', fromMe: true },
+        messageStubType: 2,
+      },
+    ]);
+    expect(inbound).toHaveLength(0);
+    expect(mgr.status(t)).toMatchObject({ status: 'connected', unreadable: 1 });
+    expect(mgr.status(t).lastInboundAt).toBeUndefined();
+    // O celular do cliente mandou de novo e abriu: zera o aviso e marca a hora.
+    sock.emitUpsert([
+      {
+        key: { remoteJid: '5511987654321@s.whatsapp.net', id: 'X1' },
+        message: { conversation: 'oi' },
+      },
+    ]);
+    expect(inbound.map((m) => m.text)).toEqual(['oi']);
+    const st = mgr.status(t);
+    expect(st.unreadable).toBeUndefined();
+    expect(Date.parse(st.lastInboundAt!)).toBeGreaterThan(Date.now() - 5000);
+    await mgr.logout(t);
+    expect(mgr.status(t).lastInboundAt).toBeUndefined();
   });
 
   it('QR Code ainda não lido: enviar responde 409 na hora', async () => {

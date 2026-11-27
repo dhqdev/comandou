@@ -11,6 +11,10 @@ export interface GatewaySession {
   reconnecting?: boolean;
   /** conectado: último sinal recebido do WhatsApp (ISO) */
   lastActivityAt?: string;
+  /** última mensagem de cliente que chegou e foi repassada à API (ISO) */
+  lastInboundAt?: string;
+  /** mensagens de cliente seguidas que chegaram sem abrir neste aparelho */
+  unreadable?: number;
 }
 
 /**

@@ -1,5 +1,11 @@
 import { removeAuthState, savedTenants, useEncryptedAuthState } from './auth-store.js';
-import { parseInbound, type InboundMessage, type WAMessageLike, type WAKey } from './inbound.js';
+import {
+  parseInbound,
+  unreadableReason,
+  type InboundMessage,
+  type WAMessageLike,
+  type WAKey,
+} from './inbound.js';
 
 export type { InboundMessage, WAMessageLike, WAKey } from './inbound.js';
 
@@ -125,6 +131,8 @@ export interface ManagerOptions {
   timings?: Partial<Timings>;
   /** Mensagem de cliente que chegou (só conversas individuais; grupos e status ficam de fora). */
   onInbound?: (msg: InboundMessage) => void;
+  /** O WhatsApp recusou a versão anunciada (405): quem montou o socket busca a atual. */
+  onVersionRejected?: () => void;
 }
 
 interface Session {
@@ -146,8 +154,18 @@ interface Session {
   registered: boolean;
   /** Último quadro recebido do servidor (ping, mensagem, qualquer coisa). */
   lastRecvAt: number;
+  /** Última mensagem de cliente repassada à API (mostrada na tela, para saber se chega). */
+  lastInboundAt?: number;
+  /** Mensagens de cliente seguidas que chegaram sem abrir (ver unreadableReason); zera na próxima que abre. */
+  unreadable: number;
   /** Remoção da sessão em disco em andamento (um start novo espera terminar). */
   removing?: Promise<void>;
+  /**
+   * Gravação das credenciais em andamento. Reabrir a conexão espera por ela: logo depois de ler o
+   * QR Code o WhatsApp pede para reiniciar, e ler o arquivo antes de gravar traria as credenciais
+   * de antes do pareamento (o celular conectado e a tela pedindo outro QR Code).
+   */
+  saving?: Promise<void>;
   /** Número → JID confirmado no WhatsApp. */
   jids: Map<string, string | null>;
   /** Últimas mensagens enviadas (id → texto), para reenvio a pedido do destino. */
@@ -171,7 +189,12 @@ const R = {
   multideviceMismatch: 411,
   connectionReplaced: 440,
   restartRequired: 515,
+  /** "Connection Failure": em geral a versão do WhatsApp Web ficou velha */
+  versionRejected: 405,
 } as const;
+
+/** Tentativas seguidas de abrir o QR Code (sessão ainda não pareada) antes de parar e avisar. */
+const QR_MAX_RETRIES = 3;
 
 const RECENT_MAX = 300;
 const JID_CACHE_MAX = 2000;
@@ -295,6 +318,8 @@ export class SessionManager {
       ...(s?.status === 'connected' && s.sock
         ? { lastActivityAt: new Date(s.lastRecvAt).toISOString() }
         : {}),
+      ...(s?.lastInboundAt ? { lastInboundAt: new Date(s.lastInboundAt).toISOString() } : {}),
+      ...(s?.unreadable ? { unreadable: s.unreadable } : {}),
     };
   }
 
@@ -308,6 +333,7 @@ export class SessionManager {
       retries: 0,
       registered: false,
       lastRecvAt: Date.now(),
+      unreadable: 0,
       jids: new Map(),
       recent: new Map(),
       waiters: new Set(),
@@ -318,6 +344,7 @@ export class SessionManager {
     s.status = 'connecting';
     s.error = undefined;
     s.retries = 0;
+    s.unreadable = 0;
     this.sessions.set(tenantId, s);
     await s.removing;
     try {
@@ -336,6 +363,7 @@ export class SessionManager {
     s.opening = true;
     let auth: Awaited<ReturnType<typeof useEncryptedAuthState>>;
     try {
+      await s.saving; // credenciais da conexão anterior gravadas antes de ler (ver `saving`)
       auth = await useEncryptedAuthState(this.dataDir, tenantId, this.key);
     } finally {
       s.opening = false;
@@ -380,7 +408,8 @@ export class SessionManager {
     s.openTimer.unref();
     sock.ev.on('creds.update', () => {
       if (!current()) return; // socket antigo não grava por cima (nem recria pasta apagada)
-      void saveCreds().catch((e: Error) => this.log(`creds: ${e.message}`));
+      // As gravações saem na ordem (uma trava por arquivo): esperar a última espera todas.
+      s.saving = saveCreds().catch((e: Error) => this.log(`creds: ${e.message}`));
     });
     sock.ev.on('connection.update', (u) => {
       if (!current()) return; // evento de um socket antigo
@@ -411,8 +440,18 @@ export class SessionManager {
       s.lastRecvAt = Date.now();
       if (type !== 'notify' || !this.opts.onInbound) return;
       for (const raw of messages) {
+        const why = unreadableReason(raw);
+        if (why) {
+          s.unreadable++;
+          this.log(
+            `restaurante ${tenantId}: mensagem de cliente chegou sem abrir (${why}); o WhatsApp vai pedir de novo ao celular dele`,
+          );
+          continue;
+        }
         const msg = parseInbound(tenantId, raw);
         if (!msg) continue;
+        s.lastInboundAt = Date.now();
+        s.unreadable = 0;
         try {
           this.opts.onInbound(msg);
         } catch (e) {
@@ -505,10 +544,15 @@ export class SessionManager {
       if (wipe) {
         s.phone = undefined;
         s.registered = false;
+        s.lastInboundAt = undefined;
+        s.unreadable = 0;
         s.jids.clear();
-        s.removing = removeAuthState(this.dataDir, tenantId).catch((e: Error) =>
-          this.log(`restaurante ${tenantId}: sessão não apagada (${e.message})`),
-        );
+        const saving = s.saving;
+        s.removing = Promise.resolve(saving)
+          .then(() => removeAuthState(this.dataDir, tenantId))
+          .catch((e: Error) =>
+            this.log(`restaurante ${tenantId}: sessão não apagada (${e.message})`),
+          );
       }
       this.log(`restaurante ${tenantId}: ${error}`);
       this.wake(s);
@@ -525,6 +569,19 @@ export class SessionManager {
       );
     if (!registered && code === R.timedOut)
       return stop('disconnected', 'O QR Code expirou sem ser lido. Gere outro.', true);
+    if (code === R.versionRejected) this.opts.onVersionRejected?.();
+    // Ainda sem parear (esperando o QR Code): não fica em "Conectando..." para sempre se o
+    // WhatsApp recusar de novo e de novo; para, apaga a sessão incompleta e diz o que fazer.
+    if (!registered && !s.registered && code !== R.restartRequired && s.retries >= QR_MAX_RETRIES) {
+      this.log(
+        `restaurante ${tenantId}: QR Code recusado ${s.retries + 1} vezes (código ${code ?? '?'})`,
+      );
+      return stop(
+        'disconnected',
+        'O WhatsApp não abriu a conexão para o QR Code. Tente de novo em alguns minutos.',
+        true,
+      );
+    }
     if (code !== R.restartRequired)
       this.log(`restaurante ${tenantId}: conexão caiu (código ${code ?? '?'}); reconectando`);
     // Depois de ler o QR Code o WhatsApp pede para reiniciar a conexão: na hora, sem espera.
@@ -658,6 +715,8 @@ export class SessionManager {
       s.status = 'logged_out';
       s.registered = false;
       s.phone = undefined;
+      s.lastInboundAt = undefined;
+      s.unreadable = 0;
       s.qr = undefined;
       s.error = undefined;
       s.jids.clear();
@@ -669,6 +728,7 @@ export class SessionManager {
     } catch {
       sock?.end();
     }
+    await s?.saving;
     await s?.removing;
     await removeAuthState(this.dataDir, tenantId);
     return this.status(tenantId);

@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.278.1',
+    date: '2026-11-27',
+    title: 'WhatsApp aparece como Mac OS no celular',
+    summary:
+      'Ao ler o QR Code, o Comandou agora aparece em Aparelhos conectados como Mac OS, um computador, igual às outras integrações do WhatsApp. A conexão ficou mais firme logo depois de ler o QR, e a tela WhatsApp mostra quando chegou a última mensagem de cliente.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Em Aparelhos conectados, o celular mostra "Mac OS" (antes aparecia "Ubuntu"), no WhatsApp do restaurante e no do Super Admin. Quem já estava conectado vê o nome novo depois de tocar em Desconectar e ler o QR Code de novo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Logo depois de ler o QR Code, a conexão só reabre com os dados novos já guardados. Num servidor lento, a tela podia pedir outro QR Code com o celular já conectado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'QR Code que o WhatsApp recusa três vezes seguidas para com o aviso "Tente de novo em alguns minutos", em vez de ficar em "Conectando..." para sempre. Quando o WhatsApp recusa a versão, o Comandou busca a atual na hora.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A tela WhatsApp se atualiza sozinha a cada 30 segundos com a conexão aberta (se cair, aparece), mostra a hora da última mensagem de cliente recebida e avisa quando uma mensagem chegou sem abrir no aparelho.',
+      },
+    ],
+  },
+  {
     version: '0.278.0',
     date: '2026-11-27',
     title: 'Editor visual dos modelos de impressão',

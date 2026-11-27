@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import makeWASocket, {
-  Browsers,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
   type WAVersion,
 } from 'baileys';
 import pino from 'pino';
+import { DEVICE_BROWSER } from './device.js';
 import { InboundForwarder } from './forwarder.js';
 import { createGatewayServer } from './server.js';
 import { DEFAULT_TIMINGS, SessionManager, type SocketLike } from './sessions.js';
@@ -37,9 +37,12 @@ process.on('unhandledRejection', (reason) => {
 const baileysLogger = logger.child({ module: 'baileys' }, { level: 'error' });
 
 // Versão do WhatsApp Web anunciada na conexão. A que vem no pacote envelhece e o WhatsApp passa
-// a recusar (erro 405): busca a atual ao iniciar e a cada 12 h; sem rede, fica a do pacote.
+// a recusar (erro 405): busca a atual ao iniciar, a cada 12 h e logo depois de um 405 (no máximo
+// uma vez a cada 10 min); sem rede, fica a do pacote.
 let waVersion: WAVersion | undefined;
+let versionAt = 0;
 async function refreshVersion() {
+  versionAt = Date.now();
   const r = await fetchLatestBaileysVersion({ timeout: 5000 }).catch(() => undefined);
   if (r?.isLatest) waVersion = r.version;
   logger.info(
@@ -47,6 +50,11 @@ async function refreshVersion() {
   );
 }
 setInterval(() => void refreshVersion(), 12 * 3600_000).unref();
+function versionRejected() {
+  if (Date.now() - versionAt < 10 * 60_000) return;
+  logger.warn('o WhatsApp recusou a versão (405): buscando a atual');
+  void refreshVersion();
+}
 
 // Mensagens que os clientes mandam vão para a API (o atendimento por IA responde por lá).
 // Ex.: http://api:3000/api/v1/internal/whatsapp/inbound. Sem a variável, não repassa nada.
@@ -67,7 +75,8 @@ const sessions = new SessionManager(
       getMessage,
       auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, baileysLogger) },
       logger: baileysLogger,
-      browser: Browsers.ubuntu('Comandou'),
+      // No celular, em "Aparelhos conectados": "Mac OS", um computador (ver device.ts).
+      browser: DEVICE_BROWSER,
       // "offline" ao conectar: o celular do restaurante continua recebendo as notificações.
       // O gateway fica "online" só enquanto responde (digitando...) e volta sozinho.
       markOnlineOnConnect: false,
@@ -81,7 +90,10 @@ const sessions = new SessionManager(
       defaultQueryTimeoutMs: 60_000,
     }) as unknown as SocketLike,
   (msg) => logger.info(msg),
-  { onInbound: forwarder ? (m) => forwarder.push(m) : undefined },
+  {
+    onInbound: forwarder ? (m) => forwarder.push(m) : undefined,
+    onVersionRejected: versionRejected,
+  },
 );
 
 const server = createGatewayServer(sessions, token, () =>

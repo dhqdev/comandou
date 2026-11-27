@@ -1408,6 +1408,10 @@ export interface WhatsAppSession {
   error?: string;
   /** caiu e está religando sozinha (sessão já pareada) */
   reconnecting?: boolean;
+  /** última mensagem de cliente que chegou e foi repassada (ISO), desde que o serviço subiu */
+  lastInboundAt?: string;
+  /** mensagens de cliente seguidas que chegaram sem abrir neste aparelho */
+  unreadable?: number;
 }
 export interface OutboxMessage {
   id: string;
