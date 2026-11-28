@@ -118,8 +118,14 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
 
   // WhatsApp: só QR Code (a API oficial da Meta saiu), com aviso de risco
   await nav(page, 'WhatsApp');
-  await expect(page.getByRole('heading', { name: 'Conexão por QR Code' })).toBeVisible();
+  // (0.279: cartão "Número conectado" e cada aviso abre o texto em "Editar texto")
+  await expect(page.getByRole('heading', { name: 'Número conectado' })).toBeVisible();
   await expect(page.getByText(/pode bloquear o número/)).toBeVisible();
+  await page
+    .locator('.wa-notice')
+    .filter({ has: page.getByRole('checkbox', { name: 'Pronto para retirar', exact: true }) })
+    .getByRole('button', { name: 'Editar texto' })
+    .click();
   await page
     .getByLabel('Texto: pronto para retirar')
     .fill(`Oi {cliente}, pedido {pedido} pronto! ${tag}`);

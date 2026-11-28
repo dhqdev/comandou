@@ -222,165 +222,168 @@ function ConnectionCard({ s }: { s: MessagingSettings }) {
   const tone = connected ? 'on' : reconnecting || fast ? 'wait' : 'off';
   return (
     <Card searchId="secao-qr" title="Número conectado">
-      {!s.gatewayConfigured ? (
-        <Alert tone="info">O serviço de WhatsApp ainda não está ligado neste servidor.</Alert>
-      ) : !session ? (
-        <Skeleton variant="detail" />
-      ) : (
-        <div className="wa-conn">
-          <div className="wa-device" data-tone={tone}>
-            <span className="wa-device__icon" aria-hidden>
-              <Smartphone size={26} />
-              <span className="wa-device__dot" />
-            </span>
-            <div className="wa-device__info">
-              <strong className="wa-device__phone cm-selectable">
-                {session.phone ? phoneText(session.phone) : 'Nenhum número conectado'}
-              </strong>
-              <span className="wa-device__status">
-                {reconnecting ? 'Reconectando…' : SESSION[session.status]}
+      <div className="wa-conn">
+        {!s.gatewayConfigured ? (
+          <Alert tone="info">O serviço de WhatsApp ainda não está ligado neste servidor.</Alert>
+        ) : !session ? (
+          <Skeleton variant="detail" />
+        ) : (
+          <>
+            <div className="wa-device" data-tone={tone}>
+              <span className="wa-device__icon" aria-hidden>
+                <Smartphone size={26} />
+                <span className="wa-device__dot" />
               </span>
-              <dl className="wa-device__facts">
-                {connected && (
-                  <div>
-                    <dt>No celular aparece como</dt>
-                    <dd>Mac OS (computador)</dd>
-                  </div>
-                )}
-                {connected && (
-                  <div>
-                    <dt>Última mensagem de cliente</dt>
-                    <dd>
-                      {session.lastInboundAt
-                        ? ago(session.lastInboundAt)
-                        : 'nenhuma desde a última reconexão'}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-            <div className="wa-device__actions">
-              {connected || reconnecting ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={<RotateCw size={15} />}
-                    loading={acting === 'restart'}
-                    disabled={!!acting}
-                    onClick={() => call('restart', 'Reiniciando a conexão')}
-                  >
-                    Reiniciar conexão
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={<Phone size={15} />}
-                    loading={acting === 'swap'}
-                    disabled={!!acting}
-                    onClick={() => void swap()}
-                  >
-                    Trocar número
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={<LogOut size={15} />}
-                    loading={acting === 'logout'}
-                    disabled={!!acting}
-                    onClick={() => call('logout', 'WhatsApp desconectado')}
-                  >
-                    Desconectar
-                  </Button>
-                </>
-              ) : session.status === 'qr' || session.status === 'connecting' ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={<XCircle size={15} />}
-                  loading={acting === 'logout'}
-                  disabled={!!acting}
-                  onClick={() => call('logout', 'Conexão cancelada')}
-                >
-                  Cancelar
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    size="sm"
-                    icon={<QrCode size={15} />}
-                    loading={acting === 'connect'}
-                    disabled={!!acting}
-                    onClick={() => call('connect', 'Gerando QR Code')}
-                  >
-                    Conectar WhatsApp
-                  </Button>
-                  {session.status === 'disconnected' && (
+              <div className="wa-device__info">
+                <strong className="wa-device__phone cm-selectable">
+                  {session.phone ? phoneText(session.phone) : 'Nenhum número conectado'}
+                </strong>
+                <span className="wa-device__status">
+                  {reconnecting ? 'Reconectando…' : SESSION[session.status]}
+                </span>
+                <dl className="wa-device__facts">
+                  {connected && (
+                    <div>
+                      <dt>No celular aparece como</dt>
+                      <dd>Mac OS (computador)</dd>
+                    </div>
+                  )}
+                  {connected && (
+                    <div>
+                      <dt>Última mensagem de cliente</dt>
+                      <dd>
+                        {session.lastInboundAt
+                          ? ago(session.lastInboundAt)
+                          : 'nenhuma desde a última reconexão'}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+              <div className="wa-device__actions">
+                {connected || reconnecting ? (
+                  <>
                     <Button
                       variant="secondary"
                       size="sm"
-                      icon={<RefreshCw size={15} />}
+                      icon={<RotateCw size={15} />}
                       loading={acting === 'restart'}
                       disabled={!!acting}
-                      onClick={() => call('restart', 'Tentando reconectar com a sessão salva')}
+                      onClick={() => call('restart', 'Reiniciando a conexão')}
                     >
-                      Reconectar
+                      Reiniciar conexão
                     </Button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          {session.error && !connected && <Alert tone="warning">{session.error}</Alert>}
-          {connected && session.inboundOff && (
-            <Alert tone="danger">
-              Os avisos de pedido saem, mas as mensagens que os clientes mandam não estão chegando
-              ao Comandou: o atendimento da IA não responde. Falta um ajuste no servidor; fale com o
-              suporte do Comandou.
-            </Alert>
-          )}
-          {connected && !!session.unreadable && (
-            <Alert tone="warning">
-              {session.unreadable === 1
-                ? 'Uma mensagem de cliente chegou sem abrir neste aparelho.'
-                : `${session.unreadable} mensagens de cliente chegaram sem abrir neste aparelho.`}{' '}
-              O WhatsApp pede de novo ao celular do cliente. Se continuar, toque em Reiniciar
-              conexão; se ainda assim continuar, Trocar número e leia o QR Code de novo.
-            </Alert>
-          )}
-          {session.status === 'qr' && (
-            <div className="wa-qr">
-              <div className="wa-qr__code">
-                {qrImg ? (
-                  <img
-                    src={qrImg}
-                    alt="QR Code para conectar o WhatsApp"
-                    width={232}
-                    height={232}
-                  />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<Phone size={15} />}
+                      loading={acting === 'swap'}
+                      disabled={!!acting}
+                      onClick={() => void swap()}
+                    >
+                      Trocar número
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<LogOut size={15} />}
+                      loading={acting === 'logout'}
+                      disabled={!!acting}
+                      onClick={() => call('logout', 'WhatsApp desconectado')}
+                    >
+                      Desconectar
+                    </Button>
+                  </>
+                ) : session.status === 'qr' || session.status === 'connecting' ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<XCircle size={15} />}
+                    loading={acting === 'logout'}
+                    disabled={!!acting}
+                    onClick={() => call('logout', 'Conexão cancelada')}
+                  >
+                    Cancelar
+                  </Button>
                 ) : (
-                  <Skeleton variant="qr" size={232} />
+                  <>
+                    <Button
+                      size="sm"
+                      icon={<QrCode size={15} />}
+                      loading={acting === 'connect'}
+                      disabled={!!acting}
+                      onClick={() => call('connect', 'Gerando QR Code')}
+                    >
+                      Conectar WhatsApp
+                    </Button>
+                    {session.status === 'disconnected' && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<RefreshCw size={15} />}
+                        loading={acting === 'restart'}
+                        disabled={!!acting}
+                        onClick={() => call('restart', 'Tentando reconectar com a sessão salva')}
+                      >
+                        Reconectar
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
-              <ol className="wa-qr__steps">
-                <li>Abra o WhatsApp no celular do restaurante.</li>
-                <li>
-                  Toque em <strong>Aparelhos conectados</strong> e depois em{' '}
-                  <strong>Conectar um aparelho</strong>.
-                </li>
-                <li>Aponte a câmera para este código.</li>
-                <li>Na lista de aparelhos ele aparece como Mac OS.</li>
-              </ol>
             </div>
-          )}
-          <p className="cm-hint wa-conn__note">
-            Funciona como o WhatsApp Web, mas não é oficial: o WhatsApp pode bloquear o número se
-            considerar uso indevido. Prefira um número só da loja e evite mensagens em massa. A IA
-            que atende os clientes fica em <Link to="/assistente-ia">Assistente de IA</Link>.
-          </p>
-        </div>
-      )}
+
+            {session.error && !connected && <Alert tone="warning">{session.error}</Alert>}
+            {connected && session.inboundOff && (
+              <Alert tone="danger">
+                Os avisos de pedido saem, mas as mensagens que os clientes mandam não estão chegando
+                ao Comandou: o atendimento da IA não responde. Falta um ajuste no servidor; fale com
+                o suporte do Comandou.
+              </Alert>
+            )}
+            {connected && !!session.unreadable && (
+              <Alert tone="warning">
+                {session.unreadable === 1
+                  ? 'Uma mensagem de cliente chegou sem abrir neste aparelho.'
+                  : `${session.unreadable} mensagens de cliente chegaram sem abrir neste aparelho.`}{' '}
+                O WhatsApp pede de novo ao celular do cliente. Se continuar, toque em Reiniciar
+                conexão; se ainda assim continuar, Trocar número e leia o QR Code de novo.
+              </Alert>
+            )}
+            {session.status === 'qr' && (
+              <div className="wa-qr">
+                <div className="wa-qr__code">
+                  {qrImg ? (
+                    <img
+                      src={qrImg}
+                      alt="QR Code para conectar o WhatsApp"
+                      width={232}
+                      height={232}
+                    />
+                  ) : (
+                    <Skeleton variant="qr" size={232} />
+                  )}
+                </div>
+                <ol className="wa-qr__steps">
+                  <li>Abra o WhatsApp no celular do restaurante.</li>
+                  <li>
+                    Toque em <strong>Aparelhos conectados</strong> e depois em{' '}
+                    <strong>Conectar um aparelho</strong>.
+                  </li>
+                  <li>Aponte a câmera para este código.</li>
+                  <li>Na lista de aparelhos ele aparece como Mac OS.</li>
+                </ol>
+              </div>
+            )}
+          </>
+        )}
+        {/* O aviso de risco aparece sempre, até com o serviço de WhatsApp desligado. */}
+        <p className="cm-hint wa-conn__note">
+          Funciona como o WhatsApp Web, mas não é oficial: o WhatsApp pode bloquear o número se
+          considerar uso indevido. Prefira um número só da loja e evite mensagens em massa. A IA que
+          atende os clientes fica em <Link to="/assistente-ia">Assistente de IA</Link>.
+        </p>
+      </div>
     </Card>
   );
 }
