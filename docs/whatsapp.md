@@ -157,6 +157,23 @@ menu** (`ai_agent_settings.menu_mode`, padrão ligado; migração 0132).
 - Testes: `src/chat/wa-flow.test.ts` (telas com dependências falsas) e o bloco "pedido pelo menu
   numerado" de `test/chat.e2e.test.ts` (pedido gravado de verdade, sem chamar a IA).
 
+### Baileys 7, avisos formatados e fora do assunto (0.281)
+
+- **Baileys 7.0.0-rc14** (o "latest" do npm, o mesmo do Planejai; a 6.7 virou "legacy"): abre as
+  mensagens de contas com LID (número escondido), que na 6.7 chegavam como CIPHERTEXT ("mensagem
+  que não abriu") e faziam a sessão religar. O número real da conversa em LID vem em
+  `key.remoteJidAlt` (7) ou `senderPn` (6) e vira o `from` da mensagem (`inbound.ts`). O
+  `auth-store` deixa de fora as chaves que não existem (o 7 lê `null` de `lid-mapping` como
+  achado), como o Planejai. A parte nova do Baileys (`whatsapp-rust-bridge`) é WebAssembly: o
+  Dockerfile não muda. Sessões pareadas na 6.7 seguem valendo.
+- **Avisos de pedido** (`EVENTS` em `messaging.service.ts`, migração 0134): título em negrito com
+  o número, linha em branco e recado em citação; o código de entrega vai como
+  "🔑 Código de entrega: *1234*" + citação. `{cliente}` é o primeiro nome. A migração troca só quem
+  estava com o texto padrão antigo (ou o do restaurante de exemplo).
+- **Fora do assunto** (`looksOffTopic` em `agent-guard.ts`): código, redação, tradução, conta,
+  política e "você é o ChatGPT?" recebem `offTopicReply` sem chamar a IA (não conta como abuso).
+  O prompt pede respostas de até 6 linhas e proíbe listar o cardápio inteiro.
+
 ### Cardápio com fotos, PIN, pontos e sacola no cardápio (0.280)
 
 Pedido do David: "a forma que está mostrando os itens está muito feia, uma sequência muito grande

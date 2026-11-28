@@ -4,8 +4,11 @@ export interface WAKey {
   id?: string | null;
   fromMe?: boolean | null;
   participant?: string | null;
-  /** Conversa em LID (número escondido): o número de verdade, quando o WhatsApp manda. */
+  /** Conversa em LID (número escondido), Baileys 6: o número de verdade, quando vem. */
   senderPn?: string | null;
+  /** Baileys 7: o outro endereço da conversa (o número, quando a conversa vem em LID). */
+  remoteJidAlt?: string | null;
+  participantAlt?: string | null;
 }
 
 /** Mensagem do Baileys (só o que usamos). */
@@ -137,7 +140,11 @@ export function parseInbound(tenantId: string, raw: WAMessageLike): InboundMessa
   )
     return null;
   else kind = 'other';
-  const pnFromKey = /^([0-9]{5,20})(?::[0-9]+)?@s\.whatsapp\.net$/.exec(raw.key.senderPn ?? '');
+  // Conversa em LID (número escondido): o número real vem em remoteJidAlt (Baileys 7) ou
+  // senderPn (6). Sem ele a API não reconhece o cliente pelo telefone.
+  const pnFromKey = [raw.key.remoteJidAlt, raw.key.senderPn, raw.key.participantAlt]
+    .map((j) => /^([0-9]{5,20})(?::[0-9]+)?@s\.whatsapp\.net$/.exec(j ?? ''))
+    .find(Boolean);
   const from = pm[2] === 's.whatsapp.net' ? pm[1] : (pnFromKey?.[1] ?? null);
   const ts = raw.messageTimestamp;
   const secs = typeof ts === 'number' ? ts : ts ? ts.toNumber() : 0;

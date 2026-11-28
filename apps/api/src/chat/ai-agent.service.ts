@@ -33,6 +33,8 @@ import {
   isYes,
   leaksPrompt,
   looksLikeInjection,
+  looksOffTopic,
+  offTopicReply,
   parseActions,
   ReserveAction,
   stripForeignLinks,
@@ -1042,6 +1044,12 @@ export class AiAgentService implements OnModuleInit {
       ask = f.ask ?? text;
     }
     if (!ai) return null;
+    // Pedido claramente fora do restaurante: resposta pronta, sem gastar a IA (0.281).
+    if (looksOffTopic(ask)) {
+      const store = (await this.tenantInfo(ctx)).name;
+      const tail = settings.menuMode ? `\n\n${quote('Mande `menu` para ver as opções.')}` : '';
+      return this.say(ctx, phone, `${offTopicReply(store)}${tail}`, 0);
+    }
 
     const p = await this.prompt(ctx, ai.c.assistant_name, undefined, msg.pushName ?? null, {
       phone,

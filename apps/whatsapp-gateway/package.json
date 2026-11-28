@@ -13,7 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "baileys": "6.7.24",
+    "baileys": "7.0.0-rc14",
     "pino": "^9.7.0"
   },
   "devDependencies": {

@@ -72,7 +72,10 @@ export async function useEncryptedAuthState(
           await Promise.all(
             ids.map(async (id) => {
               let v = await read(`${type}-${id}`);
-              if (type === 'app-state-sync-key' && v)
+              // O que não existe fica de fora (o Baileys 7 confunde null com "achei" em
+              // lid-mapping e device-list), igual ao Planejai.
+              if (v === null || v === undefined) return;
+              if (type === 'app-state-sync-key')
                 v = proto.Message.AppStateSyncKeyData.fromObject(v);
               out[id] = v;
             }),

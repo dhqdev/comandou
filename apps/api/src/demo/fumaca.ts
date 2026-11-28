@@ -1238,15 +1238,15 @@ export const FUMACA: DemoCatalog = {
     whatsapp: {
       texts: {
         accepted:
-          'Oi, {cliente}! 🔥 Recebemos seu pedido #{pedido} no {restaurante} e ele já foi para a brasa.',
+          '🔥 *Pedido #{pedido} na brasa!*\n\nOi, {cliente}! Recebemos seu pedido no {restaurante} e ele já foi para a chapa.',
         ready:
-          'Oi, {cliente}! Seu pedido #{pedido} está pronto para retirar no balcão do {restaurante}. Bom apetite!',
+          '🍔 *Pedido #{pedido} pronto!*\n\n{cliente}, pode retirar no balcão do {restaurante}. Bom apetite!',
         dispatched:
-          '{cliente}, seu pedido #{pedido} saiu para entrega! 🛵 Chega quentinho em poucos minutos.',
+          '🛵 *Pedido #{pedido} saiu para entrega!*\n\n{cliente}, seu pedido está a caminho e chega quentinho em poucos minutos.',
         delivered:
-          'Pedido #{pedido} entregue! Valeu por pedir no {restaurante}, {cliente}. Conta pra gente o que achou na loja online. 🍔',
+          '🎉 *Pedido #{pedido} entregue!*\n\nValeu por pedir no {restaurante}, {cliente}! 🍔\n> Conta pra gente o que achou na loja online.',
         cancelled:
-          'Oi, {cliente}. Seu pedido #{pedido} no {restaurante} foi cancelado. Se tiver qualquer dúvida, é só responder esta mensagem.',
+          '❌ *Pedido #{pedido} cancelado*\n\nOi, {cliente}. Seu pedido no {restaurante} foi cancelado.\n> Se tiver qualquer dúvida, é só responder esta mensagem.',
       },
       agent: {
         name: 'Fumacinha',

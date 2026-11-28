@@ -477,13 +477,24 @@ function NoticesCard({
                 </Button>
               </div>
               {editing ? (
-                <TextField
-                  label={`Texto: ${NOTICE[k].label.toLowerCase()}`}
-                  value={t}
-                  maxLength={1000}
-                  autoFocus
-                  onChange={(e) => setTexts({ ...texts, [`text${k}`]: e.target.value })}
-                />
+                <div className="cm-field">
+                  <label className="cm-label" htmlFor={`wa-text-${k}`}>
+                    {`Texto: ${NOTICE[k].label.toLowerCase()}`}
+                  </label>
+                  {/* Várias linhas: Enter quebra a linha no WhatsApp também (0.281). */}
+                  <textarea
+                    id={`wa-text-${k}`}
+                    className="cm-input wa-notice__text"
+                    rows={4}
+                    value={t}
+                    maxLength={1000}
+                    autoFocus
+                    onChange={(e) => setTexts({ ...texts, [`text${k}`]: e.target.value })}
+                  />
+                  <span className="cm-hint">
+                    *negrito* · _itálico_ · ~riscado~ · {'>'} no começo da linha = citação
+                  </span>
+                </div>
               ) : null}
               <div className="wa-notice__bubble">
                 <WaText text={fillSample(t || '…')} />

@@ -1,3 +1,4 @@
+import { pointsFor } from '../loyalty/loyalty.service';
 import {
   ConflictException,
   ForbiddenException,
@@ -1291,7 +1292,8 @@ export class StoreService {
     );
     const items = await q(
       tx,
-      `SELECT i.name, i.quantity::text, i.unit, i.total::text, i.notes, i.status,
+      `SELECT i.product_id AS "productId", i.name, i.quantity::text, i.unit, i.total::text,
+              i.notes, i.status,
                 (SELECT '/api/v1/media/' || p.image_id FROM products p WHERE p.id = i.product_id) AS "imageUrl",
                 COALESCE((SELECT json_agg(io.name) FROM order_item_options io WHERE io.order_item_id = i.id), '[]') AS options
            FROM order_items i WHERE i.order_id = $1 ORDER BY i.created_at, i.id`,
@@ -1328,6 +1330,7 @@ export class StoreService {
       `SELECT delivery_lat::text AS lat, delivery_lng::text AS lng FROM orders WHERE id = $1`,
       [id],
     );
+    const loyalty = await this.orderPointsIn(tx, id, o!);
     const onRoad = !!delivery && o!.status === 'dispatched' && delivery.status === 'out';
     const map = onRoad ? await customerMapOf(tx, delivery.id) : null;
     const when = (st: string) => history.find((h) => h.to === st)?.at ?? null;
@@ -1364,6 +1367,7 @@ export class StoreService {
         cancelled: when('cancelled'),
       },
       items,
+      loyalty,
       courier:
         delivery && o!.status === 'dispatched'
           ? {
@@ -1386,6 +1390,48 @@ export class StoreService {
               trail: map?.trail ?? [],
             }
           : null,
+    };
+  }
+
+  /**
+   * Pontos do pedido para a tela de acompanhamento (0.281): quantos ele rende (ou já rendeu),
+   * quantos foram trocados nele e se o pedido está numa conta (sem conta, não pontua). null com
+   * o programa desligado. Só números deste pedido: o saldo fica na tela Pontos, com login.
+   */
+  private async orderPointsIn(
+    tx: Tx,
+    id: string,
+    o: { status: string; subtotal: string; discount: string },
+  ) {
+    const p = await one<{ mode: 'points' | 'stamps'; perReal: string; stampMin: string }>(
+      tx,
+      `SELECT mode, points_per_real::text AS "perReal", stamp_min_order::text AS "stampMin"
+         FROM loyalty_programs WHERE enabled LIMIT 1`,
+    );
+    if (!p) return null;
+    const r = await one<{ account: boolean; earned: number; redeemed: number }>(
+      tx,
+      `SELECT o.customer_id IS NOT NULL AS account,
+              COALESCE((SELECT sum(points) FROM loyalty_entries
+                         WHERE order_id = o.id AND kind = 'earn'), 0)::int AS earned,
+              COALESCE((SELECT -sum(points) FROM loyalty_entries
+                         WHERE order_id = o.id AND kind = 'redeem'), 0)::int AS redeemed
+         FROM orders o WHERE o.id = $1`,
+      [id],
+    );
+    const estimate =
+      o.status === 'cancelled'
+        ? 0
+        : pointsFor(
+            { mode: p.mode, pointsPerReal: p.perReal, stampMinOrder: p.stampMin },
+            toCents(o.subtotal) - toCents(o.discount),
+          );
+    return {
+      mode: p.mode,
+      account: !!r?.account,
+      earned: r?.earned ?? 0,
+      estimate,
+      redeemed: r?.redeemed ?? 0,
     };
   }
 

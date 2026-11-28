@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.281.0',
+    date: '2026-11-27',
+    title: 'WhatsApp mais estável, avisos formatados e texto que dá para selecionar',
+    summary:
+      'O serviço do WhatsApp passou para o Baileys 7, o mesmo do Planejai, que abre as mensagens dos clientes com número escondido (LID) e para de cair e religar por causa delas. Os avisos de pedido ganharam título em negrito e o código de entrega destacado, a IA responde na hora a pedidos fora do restaurante, a tela do pedido no cardápio abre o item ao tocar e mostra os pontos, e no computador dá para selecionar texto com o mouse.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'WhatsApp: o serviço passou do Baileys 6.7 (marcado como antigo) para o 7.0, o mesmo do Planejai. As mensagens de clientes com o número escondido (LID) deixam de chegar como "mensagem que não abriu", a conexão para de cair e religar por causa delas e o número do cliente vem junto, para o atendimento reconhecer o cadastro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Avisos de pedido pelo WhatsApp com a formatação do WhatsApp: título em negrito com o número do pedido, linha em branco, recado em citação e o código de entrega destacado. Vale para quem ainda usava os textos padrão; texto escrito pela loja fica como está. O cliente é chamado pelo primeiro nome.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tela WhatsApp: o texto de cada aviso é editado num campo de várias linhas (Enter quebra a linha também no WhatsApp), com a dica de negrito, itálico, riscado e citação.',
+      },
+      {
+        tag: 'segurança',
+        text: 'IA do WhatsApp: pedido claramente fora do restaurante (código, redação, tradução, conta, política, "você é o ChatGPT?") recebe na hora uma resposta pronta, sem gastar a IA; a IA também responde curto e não lista o cardápio inteiro.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cardápio online, tela do pedido: tocar no item abre a tela dele no cardápio, e um cartão mostra os pontos do pedido (quanto ele rende e quando entra, quanto já entrou ou foi trocado; sem conta, quanto teria rendido).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No computador, dá para segurar o mouse e selecionar o texto em todo o sistema (botões, abas e ícones seguem sem selecionar). No celular continua como antes, sem a lupa ao segurar.',
+      },
+    ],
+  },
+  {
     version: '0.280.0',
     date: '2026-11-27',
     title: 'Cardápio com fotos no WhatsApp, pontos pela conversa e sacola junto com o cardápio',

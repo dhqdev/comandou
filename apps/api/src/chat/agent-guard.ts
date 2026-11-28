@@ -110,6 +110,28 @@ export function looksLikeInjection(text: string): boolean {
   return INJECTION.some((re) => re.test(text));
 }
 
+/**
+ * Pedido claramente fora do restaurante (0.281, David: "que não fuja do contexto"): código,
+ * redação, tradução, lição de casa, política, "você é o ChatGPT?". O servidor responde na hora
+ * com a frase pronta, sem gastar a IA e sem dar chance de ela se perder. Só o óbvio: o resto o
+ * prompt recusa. Não conta como abuso.
+ */
+const OFF_TOPIC: RegExp[] = [
+  /\b(escrev\w*|cri[ae]\w*|faz|fa[cç]a|fazer|gere|gerar|monte|resolv\w*|me\s+d[êe])\b.{0,40}\b(c[oó]digo|programa|script|fun[cç][aã]o\s+em|reda[cç][aã]o|poema|poesia|m[uú]sica|letra\s+de|trabalho\s+(da|de|escolar)|li[cç][aã]o|dever\s+de\s+casa|curr[ií]culo|artigo|tcc|resumo\s+d[eo]\s+livro)\b/i,
+  /\b(python|javascript|typescript|java|php|html|css|sql|c\+\+|excel)\b.{0,30}\b(c[oó]digo|como|fa[cç]o|erro|f[oó]rmula|script)\b/i,
+  /\b(traduz\w*|tradu[cç][aã]o|translate)\b/i,
+  /\b(presidente|elei[cç][aã]o|elei[cç][oõ]es|partido|bolsonaro|lula|pol[ií]tica|religi[aã]o)\b/i,
+  /\b(voc[eê]\s+[eé]|vc\s+[eé]|you\s+are)\s+(o\s+|a\s+)?(chat\s*gpt|gpt|gemini|openai|claude|copilot|uma?\s+ia\s+de)\b/i,
+  /\b(quanto\s+[eé]|calcule|resolva)\s+\d+\s*[x×*/^+-]\s*\d+/i,
+];
+
+export function looksOffTopic(text: string): boolean {
+  return OFF_TOPIC.some((re) => re.test(text));
+}
+
+export const offTopicReply = (store: string) =>
+  `Sou o atendente virtual da *${store}* e só consigo ajudar com o cardápio, pedidos, entrega, horários e reservas. 🙂`;
+
 /** Mensagem do cliente pronta para ir ao modelo: sem marcas de ação e com tamanho limitado. */
 export function cleanInbound(text: string, max = 1500): string {
   return text

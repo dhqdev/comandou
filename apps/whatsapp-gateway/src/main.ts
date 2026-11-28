@@ -43,7 +43,9 @@ let waVersion: WAVersion | undefined;
 let versionAt = 0;
 async function refreshVersion() {
   versionAt = Date.now();
-  const r = await fetchLatestBaileysVersion({ timeout: 5000 }).catch(() => undefined);
+  const r = await fetchLatestBaileysVersion({ signal: AbortSignal.timeout(5000) }).catch(
+    () => undefined,
+  );
   if (r?.isLatest) waVersion = r.version;
   logger.info(
     `versão do WhatsApp Web: ${(r?.version ?? []).join('.')}${r?.isLatest ? '' : ' (do pacote)'}`,

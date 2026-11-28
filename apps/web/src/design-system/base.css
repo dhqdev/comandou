@@ -223,11 +223,22 @@ svg {
    dos botões e dos cartões. Continua dando para selecionar o que as pessoas copiam: campos,
    mensagens das conversas e do assistente, os dados do pedido e da reserva (dd), códigos e o
    que levar a classe cm-selectable (ou data-selectable). O site público (.st) segue normal, e o
-   que já tem `user-select: all` (Pix copia e cola, chaves) também. Imagem não sai arrastada. */
-#root {
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
+   que já tem `user-select: all` (Pix copia e cola, chaves) também. Imagem não sai arrastada.
+   0.281 (pedido do David): "apertar e segurar no mouse e selecionar o que está escrito". No
+   computador (mouse) o texto volta a ser selecionável em todo o sistema; só botões, abas, links de
+   menu e ícones ficam de fora (clique duplo neles não pinta nada). No toque segue como na 0.251. */
+@media (pointer: coarse) {
+  #root {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+@media (pointer: fine) {
+  #root :is(button, [role='button'], [role='tab'], [role='menuitem'], [role='switch'], svg) {
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 #root
   :is(

@@ -27,27 +27,27 @@ export const EVENTS = {
   'order.accepted': {
     key: 'Accepted',
     col: 'accepted',
-    text: 'Olá, {cliente}! O {restaurante} aceitou seu pedido #{pedido} e já está preparando.',
+    text: '✅ *Pedido #{pedido} confirmado!*\n\nOi, {cliente}! O {restaurante} já recebeu seu pedido e está preparando. 👨‍🍳',
   },
   'order.ready': {
     key: 'Ready',
     col: 'ready',
-    text: 'Olá, {cliente}! Seu pedido #{pedido} no {restaurante} está pronto para retirada.',
+    text: '🛍️ *Pedido #{pedido} pronto!*\n\n{cliente}, já pode vir buscar no {restaurante}. Te esperamos! 😊',
   },
   'order.dispatched': {
     key: 'Dispatched',
     col: 'dispatched',
-    text: 'Olá, {cliente}! Seu pedido #{pedido} do {restaurante} saiu para entrega.',
+    text: '🛵 *Pedido #{pedido} saiu para entrega!*\n\n{cliente}, seu pedido está a caminho e chega em poucos minutos.',
   },
   'order.delivered': {
     key: 'Delivered',
     col: 'delivered',
-    text: 'Pedido #{pedido} entregue. Obrigado por pedir no {restaurante}, {cliente}! Bom apetite.',
+    text: '🎉 *Pedido #{pedido} entregue!*\n\nObrigado por pedir no {restaurante}, {cliente}. Bom apetite! 😋',
   },
   'order.cancelled': {
     key: 'Cancelled',
     col: 'cancelled',
-    text: 'Olá, {cliente}. Seu pedido #{pedido} no {restaurante} foi cancelado. Se tiver dúvidas, responda esta mensagem.',
+    text: '❌ *Pedido #{pedido} cancelado*\n\n{cliente}, seu pedido no {restaurante} foi cancelado.\n> Se tiver qualquer dúvida, é só responder esta mensagem.',
   },
 } as const satisfies Record<MessageEvent, { key: string; col: string; text: string }>;
 type EventKey = (typeof EVENTS)[MessageEvent]['key'];
@@ -382,7 +382,8 @@ export class MessagingService implements OnModuleInit {
     const phone = normalizePhone(o?.customer_phone);
     if (!o || !phone) return;
     const vars = {
-      cliente: o.customer_name?.trim() || 'cliente',
+      // Só o primeiro nome ("Oi, David!"): o nome inteiro deixava a mensagem dura (0.281).
+      cliente: o.customer_name?.trim().split(/\s+/)[0] || 'cliente',
       pedido: String(o.number),
       restaurante: o.name,
     };
@@ -398,7 +399,7 @@ export class MessagingService implements OnModuleInit {
         [orderId],
       );
       if (d?.code)
-        body = `${body}\n\nCódigo de entrega: *${d.code}*. Informe ao entregador quando ele chegar.`;
+        body = `${body}\n\n🔑 Código de entrega: *${d.code}*\n> Informe ao entregador quando ele chegar.`;
     }
     body = body?.slice(0, 4000) ?? null;
     const m = await one<{ id: string }>(

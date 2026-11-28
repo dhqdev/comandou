@@ -562,6 +562,64 @@
   display: block;
   color: var(--cm-text-muted);
 }
+/* Item do resumo abre a tela dele no cardápio (0.281). */
+.track__item-link {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border-radius: var(--cm-radius-sm);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+.track__item-link span:last-child {
+  margin-left: auto;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  .track__item-link:hover {
+    background: var(--cm-surface-muted);
+  }
+}
+.track__item-link:focus-visible {
+  outline: 2px solid var(--cm-brand);
+  outline-offset: 2px;
+}
+/* Pontos do pedido no resumo. */
+.track__points {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--cm-radius-md, 12px);
+  background: color-mix(in oklab, var(--cm-brand) 9%, var(--cm-surface));
+  color: inherit;
+  text-decoration: none;
+}
+.track__points-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--cm-brand);
+  color: #fff;
+}
+.track__points-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--cm-text-sm);
+}
+.track__points-text small {
+  color: var(--cm-text-muted);
+}
 .track__info {
   display: grid;
   gap: 8px;

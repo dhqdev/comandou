@@ -743,6 +743,15 @@ describe('religação e recursos do Baileys', () => {
         },
         message: { ephemeralMessage: { message: { extendedTextMessage: { text: 'quero 2' } } } },
       },
+      // Baileys 7: o número da conversa em LID vem em remoteJidAlt.
+      {
+        key: {
+          remoteJid: '987654321098765@lid',
+          id: 'A2b',
+          remoteJidAlt: '5511933334444@s.whatsapp.net',
+        },
+        message: { conversation: 'menu' },
+      },
       {
         key: { remoteJid: '5511987654321@s.whatsapp.net', id: 'A3' },
         message: { imageMessage: { caption: 'essa aqui' } },
@@ -777,6 +786,7 @@ describe('religação e recursos do Baileys', () => {
     expect(inbound.map((m) => [m.id, m.kind, m.text, m.from, m.jid])).toEqual([
       ['A1', 'text', 'Oi, tem pizza?', '5511987654321', '5511987654321@s.whatsapp.net'],
       ['A2', 'text', 'quero 2', '5511911112222', '123456789012345@lid'],
+      ['A2b', 'text', 'menu', '5511933334444', '987654321098765@lid'],
       ['A3', 'image', 'essa aqui', '5511987654321', '5511987654321@s.whatsapp.net'],
     ]);
     expect(inbound[0]).toMatchObject({

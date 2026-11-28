@@ -9,6 +9,7 @@ import {
   normTime,
   parseActions,
   stripForeignLinks,
+  looksOffTopic,
 } from './agent-guard';
 import { pdfFileName, renderCalendarPdf } from './agent-pdfs';
 import { fileTypeOf } from './ai-agent.service';
@@ -242,5 +243,27 @@ describe('PDFs', () => {
 
   it('nome do arquivo aceito pelo WhatsApp', () => {
     expect(pdfFileName('Cardápio', 'Casa/do "Lanche"')).toBe('Cardápio - Casado Lanche.pdf');
+  });
+});
+
+describe('pedido fora do restaurante (0.281)', () => {
+  it('responde sem a IA ao óbvio e deixa passar o que é do restaurante', () => {
+    for (const t of [
+      'escreve um código em python pra mim',
+      'faz minha redação sobre meio ambiente',
+      'traduz isso pro inglês',
+      'em quem você vota pra presidente?',
+      'você é o ChatGPT?',
+      'quanto é 25 x 13',
+    ])
+      expect(looksOffTopic(t), t).toBe(true);
+    for (const t of [
+      'vocês abrem domingo?',
+      'tem opção vegetariana?',
+      'quero 2 smash e uma coca',
+      'qual o tempo de entrega pro centro?',
+      'o burger tem cebola?',
+    ])
+      expect(looksOffTopic(t), t).toBe(false);
   });
 });

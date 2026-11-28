@@ -11,7 +11,9 @@ import {
   Bike,
   Check,
   ChefHat,
+  ChevronRight,
   CircleCheckBig,
+  Gift,
   HandPlatter,
   Hourglass,
   MapPin,
@@ -69,6 +71,8 @@ interface PublicOrder {
   cancelReason: string | null;
   timeline: Record<Step | 'cancelled', string | null>;
   items: {
+    /** Item do cardápio (null = saiu do cardápio): toca e abre a tela dele. */
+    productId: string | null;
     name: string;
     quantity: string;
     unit?: string;
@@ -89,6 +93,18 @@ interface PublicOrder {
   } | null;
   /** Pago pelo app (PagBank): cartão ou Pix e como está. */
   online?: OnlinePayView | null;
+  /** Pontos deste pedido (null = programa de pontos desligado). */
+  loyalty?: {
+    mode: 'points' | 'stamps';
+    /** Pedido feito com a conta (sem conta, não pontua). */
+    account: boolean;
+    /** Já entraram (pedido concluído). */
+    earned: number;
+    /** Quanto o pedido rende. */
+    estimate: number;
+    /** Trocados por recompensa neste pedido. */
+    redeemed: number;
+  } | null;
 }
 
 const HERO: Record<
@@ -445,18 +461,36 @@ export function PublicOrderPage() {
           <section className="track__card track__sum">
             <h2>Resumo</h2>
             <ul className="track__items">
-              {o.items.map((i, n) => (
-                <li key={n}>
-                  <Photo src={i.imageUrl} alt={i.name} className="track__photo" w={320} />
-                  <span>{qtyLabel(i.quantity, i.unit)}</span>
-                  <span>
-                    {i.name}
-                    {i.options.length > 0 && <small>{i.options.join(', ')}</small>}
-                    {i.notes && <small>Obs.: {i.notes}</small>}
-                  </span>
-                  <span>{brl(i.total)}</span>
-                </li>
-              ))}
+              {o.items.map((i, n) => {
+                const body = (
+                  <>
+                    <Photo src={i.imageUrl} alt={i.name} className="track__photo" w={320} />
+                    <span>{qtyLabel(i.quantity, i.unit)}</span>
+                    <span>
+                      {i.name}
+                      {i.options.length > 0 && <small>{i.options.join(', ')}</small>}
+                      {i.notes && <small>Obs.: {i.notes}</small>}
+                    </span>
+                    <span>{brl(i.total)}</span>
+                  </>
+                );
+                // Toca no item e abre a tela dele no cardápio (pedir de novo, ver detalhes).
+                return (
+                  <li key={n}>
+                    {i.productId ? (
+                      <Link
+                        to={`/pedir/produto/${i.productId}`}
+                        className="track__item-link"
+                        aria-label={`Ver ${i.name} no cardápio`}
+                      >
+                        {body}
+                      </Link>
+                    ) : (
+                      body
+                    )}
+                  </li>
+                );
+              })}
             </ul>
             <dl className="sum">
               <dt>Subtotal</dt>
@@ -482,6 +516,7 @@ export function PublicOrderPage() {
               <dt className="sum__total">Total</dt>
               <dd className="sum__total">{brl(o.total)}</dd>
             </dl>
+            {o.loyalty && <OrderPoints p={o.loyalty} step={o.step} />}
             <div className="track__info">
               {o.paymentHint && (
                 <div className="track__row">
@@ -766,5 +801,56 @@ export function TableBillEnded() {
       <p>O que foi pedido nesta conta da mesa não fica mais neste celular.</p>
       <Link to="/pedir">Ver o cardápio</Link>
     </main>
+  );
+}
+
+/**
+ * Pontos deste pedido no Resumo (0.281, David: "melhore os pontos nele"): quanto ele rende e
+ * quando entra, o que já entrou, o que foi trocado, e o caminho para a tela Pontos. Pedido sem
+ * conta mostra quanto teria rendido, para o cliente criar a conta da próxima vez.
+ */
+function OrderPoints({
+  p,
+  step,
+}: {
+  p: NonNullable<PublicOrder['loyalty']>;
+  step: PublicOrder['step'];
+}) {
+  const unit = (n: number) =>
+    p.mode === 'stamps' ? (n === 1 ? 'carimbo' : 'carimbos') : n === 1 ? 'ponto' : 'pontos';
+  const done = p.earned > 0;
+  const n = done ? p.earned : p.estimate;
+  if (!n && !p.redeemed) return null;
+  if (step === 'cancelled' && !p.redeemed) return null;
+  const title = !p.account
+    ? `Este pedido renderia ${n} ${unit(n)}`
+    : done
+      ? `Você ganhou ${n} ${unit(n)}!`
+      : step === 'cancelled'
+        ? 'Pedido cancelado'
+        : `Este pedido rende ${n} ${unit(n)}`;
+  const text = !p.account
+    ? 'Crie sua conta para juntar pontos e trocar por recompensas nos próximos pedidos.'
+    : done
+      ? 'Já estão no seu saldo para trocar por recompensas.'
+      : step === 'cancelled'
+        ? `Os ${unit(2)} trocados voltam para o seu saldo.`
+        : `Entram no seu saldo quando o pedido for ${step === 'completed' ? 'concluído' : 'entregue'}.`;
+  return (
+    <Link to={p.account ? '/pedir/fidelidade' : '/pedir/conta'} className="track__points">
+      <span className="track__points-icon" aria-hidden>
+        <Gift size={20} />
+      </span>
+      <span className="track__points-text">
+        <strong>{title}</strong>
+        <small>{text}</small>
+        {p.redeemed > 0 && (
+          <small>
+            {p.redeemed} {unit(p.redeemed)} trocados por recompensa neste pedido.
+          </small>
+        )}
+      </span>
+      <ChevronRight size={18} aria-hidden />
+    </Link>
   );
 }
