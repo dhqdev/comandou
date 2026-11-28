@@ -50,7 +50,7 @@ Super Admin, que passam pelo mesmo gateway.
 
 | Situação | O que o gateway faz |
 | --- | --- |
-| Muitas mensagens chegando ao mesmo tempo | Uma fila **por conversa**: mensagens do mesmo cliente vão para a API uma de cada vez e na ordem; conversas diferentes andam em paralelo (até `INBOUND_CONCURRENCY`, padrão 64). Um restaurante lento não segura os outros. |
+| Muitas mensagens chegando ao mesmo tempo | Uma fila **por conversa**: mensagens do mesmo cliente vão para a API uma de cada vez e na ordem; conversas diferentes andam em paralelo (até `INBOUND_CONCURRENCY`, padrão 128 desde a 0.280). Cada restaurante usa no máximo `INBOUND_CONCURRENCY_PER_TENANT` dessas vagas (padrão 12): no jantar, o restaurante com 50 conversas e a IA demorando não deixa os outros esperando na fila. |
 | Um restaurante inundado (spam, ataque) | Limite de 1000 mensagens esperando por restaurante e 20 000 no total; o excesso é descartado com aviso no log, sem afetar os outros. |
 | API com 2 réplicas | A API só responde ao gateway depois de tratar a mensagem (até 45 s), então a ordem da conversa vale mesmo quando duas mensagens seguidas caem em réplicas diferentes. A mesma mensagem nunca é tratada duas vezes: a marca de "já recebida" fica no Redis e vale para todas as réplicas. |
 | Rajada de envios do mesmo número | Ritmo mínimo de ~0,7 s (sorteado entre 0,56 e 0,84 s) entre mensagens do mesmo número, como gente digitando. Fila de mais de 15 s responde **429** e a API trata como "WhatsApp indisponível": a fila de avisos tenta de novo mais tarde, sem marcar como falha. |
@@ -58,6 +58,7 @@ Super Admin, que passam pelo mesmo gateway.
 | Reinício do serviço | As sessões salvas reabrem uma de cada vez, com 250 ms entre elas (300 restaurantes ≈ 75 s). |
 | Conexão meio-aberta (NAT derrubou sem avisar) | Ping a cada 20 s; vigia a cada 15 s derruba e religa socket mudo há mais de 90 s; envio com a conexão parada manda um ping antes. |
 | Erro de um restaurante | Exceção sem tratamento é registrada e não derruba o processo (o WhatsApp dos outros continua). |
+| Religação de um restaurante | Os caches do Baileys ficam na sessão do restaurante, não no socket (`cache.ts`, 0.280): o contador de reenvio de cada mensagem (1 h, 5 mil itens) e os aparelhos de cada contato (5 min) passam para o socket novo. Antes, cada religação começava do zero: mensagem que pedia reenvio no meio ficava "aguardando" e todos os aparelhos eram consultados de novo. |
 | Logo depois de ler o QR Code | O WhatsApp pede para reiniciar (515) na hora; a religação **espera a gravação das credenciais** novas antes de reabrir (sem isso, um disco lento trazia as de antes do pareamento e a tela pedia outro QR). |
 | QR Code recusado (ex.: 405) | Sessão ainda não pareada tenta 3 vezes e para com "Tente de novo em alguns minutos", em vez de ficar em "Conectando..." para sempre. |
 | WhatsApp recusa a versão (405) | Além da busca a cada 12 h, o gateway busca a versão atual do WhatsApp Web logo depois de um 405 (no máximo uma vez a cada 10 min). |
@@ -155,6 +156,49 @@ menu** (`ai_agent_settings.menu_mode`, padrão ligado; migração 0132).
   e `GET /messaging/messages/summary`).
 - Testes: `src/chat/wa-flow.test.ts` (telas com dependências falsas) e o bloco "pedido pelo menu
   numerado" de `test/chat.e2e.test.ts` (pedido gravado de verdade, sem chamar a IA).
+
+### Cardápio com fotos, PIN, pontos e sacola no cardápio (0.280)
+
+Pedido do David: "a forma que está mostrando os itens está muito feia, uma sequência muito grande
+de coisas"; "quando perguntar quem é o cliente sempre pegue pelo número de telefone e confirme e,
+caso não for, pegue o PIN"; "que o cliente consiga ver os pontos e as recompensas"; "quero que vá
+adicionando ao pedido do cliente lá no cardápio"; "não tenha como pedir pelo WhatsApp estando na
+loja".
+
+- **Cartão da categoria**: escolhida a categoria, vai uma imagem (`wa-menu-card.ts` monta o SVG,
+  `wa-media.ts` desenha com o resvg da arte de aniversário e grava em JPEG pelo `@jsquash/jpeg`,
+  tudo WebAssembly) com a foto de cada item (até 12), o número para responder, nome, preço e selo,
+  na cor da loja; a lista curta vai de legenda (`itemsText`: um item por linha, números `` `1` ``
+  a `` `99` `` iguais, sem descrição). Escolhido o item, vai a foto dele (miniatura de 640 px →
+  JPEG de até 900 px) com a legenda `itemCardText` (descrição, nota, selo, a pergunta da
+  quantidade). `FlowOut.image` diz qual; `AgentReply.image` leva o JPEG e o `onWhatsApp` manda pelo
+  `/document` do gateway com o texto de legenda (até 1000 caracteres; acima, foto e texto
+  separados). Sem foto na categoria, fila cheia (uma imagem por vez, até 4 esperando) ou erro: vai
+  só o texto. Imagens prontas ficam em memória pela "cara" do cardápio (48 cartões, 120 fotos) e
+  saem na limpeza de cache do restaurante.
+- **Quem é**: o cadastro do número da conversa aparece para o cliente confirmar ("Este número está
+  no cadastro de Maria. É você?"). Não sendo, ou sem cadastro no número, entra pelo **PIN de 6
+  números** (`loyalty_members.pin`, o mesmo do balcão): `WaOrderService.byPin` conta os erros em
+  `ai_customer_chats.pin_fails`/`pin_fail_at` (migração 0133), `PIN_MAX_FAILS` = 5 por número em 24
+  horas, no banco (mandar `menu` não zera). Entrou pelo PIN (`flow.viaPin`): os endereços salvos
+  não aparecem, o PIN não é mostrado e o link de entrada não vai.
+- **Meus pontos e recompensas** (com o programa ligado): saldo, nível e quanto falta para o
+  próximo, pontos dos pedidos em andamento, validade, PIN (só para o dono do número) e cada
+  recompensa com "já dá para trocar" ou quanto falta (`pointsText`, dados de
+  `LoyaltyService.publicView`). Na conferência do pedido, **Usar meus pontos** lista as recompensas
+  que o saldo paga e que servem na sacola (`usableRewards`; produto grátis só com ele na sacola) e
+  manda `rewardId` no `placeOrder`, que confere de novo.
+- **Sacola no cardápio**: depois de cada mensagem, a diferença entre a sacola do WhatsApp antes e
+  depois vai para `customers.online_cart` (`mirrorLines`, chave igual à do cardápio:
+  `produto:opções em ordem:observação`); só mexe no que o WhatsApp pôs, e o pedido feito tira essas
+  linhas. A primeira sacola da conversa leva um link de entrada (`?entrar=`, `customer_login_links`:
+  uso único, 30 minutos, hash, até 6 por hora por conta; `POST /store/account/link`), e o cardápio
+  logado confere a sacola da conta a cada 15 s e ao voltar para a aba (só em loja com o pedido pelo
+  WhatsApp ligado).
+- **Na loja não**: com a comanda de uma mesa aberta com o telefone do cliente nas últimas 6 horas
+  (`WaOrderService.atTable`), "Fazer um pedido" e o pedido escrito respondem que é pelo QR Code da
+  mesa ou com o garçom; "Ver o cardápio" fica só para olhar (foto e detalhes, sem quantidade). O
+  cardápio da mesa não recebe `waOrder`.
 
 ## IA que atende no WhatsApp
 

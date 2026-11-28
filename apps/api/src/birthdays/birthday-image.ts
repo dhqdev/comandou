@@ -63,6 +63,23 @@ export async function renderBirthdayArt(a: ArtInput) {
   return Buffer.from(png);
 }
 
+/**
+ * Desenha outro SVG com o mesmo motor e as mesmas fontes (o cartão do cardápio do WhatsApp,
+ * `chat/wa-media.ts`) e devolve os pixels RGBA.
+ */
+export async function renderSvgPixels(svg: string, width: number) {
+  const e = await load();
+  const r = new e.resvg.Resvg(svg, {
+    font: { fontBuffers: e.buffers, defaultFontFamily: 'Inter', loadSystemFonts: false },
+    fitTo: { mode: 'width', value: width },
+  } as ConstructorParameters<Resvg['Resvg']>[1]);
+  const img = r.render();
+  const out = { width: img.width, height: img.height, pixels: img.pixels };
+  img.free();
+  r.free();
+  return out;
+}
+
 // ------------------------------------------------------------------ logo
 
 /** PNG RGBA 8 bits a partir dos pixels (sem filtro; o deflate resolve). */

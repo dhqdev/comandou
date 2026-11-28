@@ -85,6 +85,8 @@ const PUBLIC_TENANT_ROUTES = [
   'GET /api/v1/store/account/cart',
   'PUT /api/v1/store/account/cart',
   'POST /api/v1/store/account/login',
+  // Link de entrada mandado pelo WhatsApp da loja (0.280): token de uso único, 30 min, hash.
+  'POST /api/v1/store/account/link',
   'POST /api/v1/store/account/logout',
   'GET /api/v1/store/account/orders',
   'GET /api/v1/store/account/orders/:id',

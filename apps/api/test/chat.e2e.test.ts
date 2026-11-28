@@ -1565,12 +1565,37 @@ describe('WhatsApp: pedido pelo menu numerado (atendimento estilo call center)',
     const cats = await say('2');
     expect(cats).toContain('Escolha uma categoria');
     const items = await say('1');
-    expect(items).toContain('X-Burguer A — *R$ 25,90*');
+    expect(items).toContain('`1` X-Burguer A · *R$ 25,90*');
     expect(await say('1')).toContain('Quantos você quer?');
     expect(await say('2')).toContain('Alguma observação');
     const cart = await say('sem cebola');
     expect(cart).toContain('✅ Adicionei *2× X-Burguer A*');
     expect(cart).toContain('R$ 51,80');
+    // A sacola do WhatsApp aparece na conta do cardápio (0.280), com o link que já entra nela.
+    const [acc] = await ownerQuery<{ lines: { key: string; quantity: number; notes: string }[] }>(
+      `SELECT online_cart AS lines FROM customers WHERE tenant_id = $1 AND phone = '11955554444'`,
+      [fx.tenantA],
+    );
+    expect(acc!.lines).toEqual([
+      expect.objectContaining({ key: `${fx.prodA}::sem cebola`, quantity: 2, notes: 'sem cebola' }),
+    ]);
+    const token = /\?entrar=([A-Za-z0-9_-]+)/.exec(cart)?.[1];
+    expect(token).toBeTruthy();
+    const link = await http
+      .post('/api/v1/store/account/link')
+      .set('Host', HOST_A)
+      .set(CSRF)
+      .send({ token })
+      .expect(200);
+    expect(link.body.customer.name).toBe('Bia Souza');
+    expect(String(link.headers['set-cookie'])).toContain('cm_cid=');
+    // Uso único.
+    await http
+      .post('/api/v1/store/account/link')
+      .set('Host', HOST_A)
+      .set(CSRF)
+      .send({ token })
+      .expect(401);
     expect(await say('2')).toContain('Como vai pagar?');
     const review = await say('1');
     expect(review).toContain('Confira seu pedido');
@@ -1578,6 +1603,13 @@ describe('WhatsApp: pedido pelo menu numerado (atendimento estilo call center)',
     expect(review).toContain('Retirada na loja');
     const done = await say('1');
     expect(done).toMatch(/\*Pedido #\d+ recebido!\*/);
+    // Pedido feito: o que o WhatsApp tinha posto sai da sacola do cardápio.
+    const [after] = await ownerQuery<{ n: number }>(
+      `SELECT jsonb_array_length(online_cart)::int AS n FROM customers
+        WHERE tenant_id = $1 AND phone = '11955554444'`,
+      [fx.tenantA],
+    );
+    expect(after!.n).toBe(0);
     // O menu anda sem chamar a IA.
     expect(orCalls.filter((c) => c.path === '/chat/completions').length).toBe(calls);
 
@@ -1616,7 +1648,7 @@ describe('WhatsApp: pedido pelo menu numerado (atendimento estilo call center)',
     await say('menu');
     expect(await say('1')).toContain('Como você prefere receber?');
     await say('cancelar');
-    expect(await say('1')).toContain('Achei seu cadastro: *Bia Souza*');
+    expect(await say('1')).toContain('Este número está no cadastro de *Bia Souza*');
   });
 
   it('pedido escrito vai direto para a sacola', async () => {
@@ -1624,10 +1656,114 @@ describe('WhatsApp: pedido pelo menu numerado (atendimento estilo call center)',
     const other = { tenantId: fx.tenantA, from: '5511933332222', pushName: 'Caio' };
     const r = await agent.handle({ ...other, text: 'quero 3 x-burguer a' });
     expect(r!.text).toContain('Não achei cadastro');
-    expect((await agent.handle({ ...other, text: '2' }))!.text).toContain('Qual nome coloco');
+    expect((await agent.handle({ ...other, text: '3' }))!.text).toContain('Qual nome coloco');
     const next = (await agent.handle({ ...other, text: 'Caio' }))!.text;
     expect(next).toContain('Como você prefere receber?');
     const cart = (await agent.handle({ ...other, text: '2' }))!.text;
     expect(cart).toContain('3× X-Burguer A');
+  });
+
+  it('de outro número, entra na conta pelo PIN; PIN errado tem limite por dia', async () => {
+    const agent = app.get(AiAgentService);
+    const [bia] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM customers WHERE tenant_id = $1 AND phone = '11955554444'`,
+      [fx.tenantA],
+    );
+    await ownerQuery(
+      `INSERT INTO loyalty_members (tenant_id, customer_id, pin, referral_code)
+       VALUES ($1, $2, '640128', 'BIA640') ON CONFLICT (tenant_id, customer_id) DO UPDATE SET pin = '640128'`,
+      [fx.tenantA, bia!.id],
+    );
+    const other = { tenantId: fx.tenantA, from: '5511911110000', pushName: 'Bia (trabalho)' };
+    const say = async (t: string) => (await agent.handle({ ...other, text: t }))!.text;
+    await say('oi');
+    expect(await say('1')).toContain('Já tenho cadastro');
+    expect(await say('2')).toContain('PIN de 6 números');
+    expect(await say('111111')).toContain('mais 4 tentativas');
+    const ok = await say('640128');
+    expect(ok).toContain('Achei a sua conta, *Bia*');
+    // Sem os endereços da conta (são do dono do número) e sem o link de entrada.
+    expect(ok).not.toContain('entrar=');
+
+    // Outro número tentando adivinhar: para em PIN_MAX_FAILS por 24 horas, mesmo mandando "menu".
+    const guess = { tenantId: fx.tenantA, from: '5511911112222', pushName: 'X' };
+    const g = async (t: string) => (await agent.handle({ ...guess, text: t }))!.text;
+    await g('oi');
+    await g('1');
+    await g('2');
+    for (const pin of ['100001', '100002', '100003']) await g(pin);
+    await g('menu');
+    await g('1');
+    await g('2');
+    await g('100004');
+    expect(await g('100005')).toContain('Muitas tentativas de PIN');
+    expect(await g('640128')).toContain('Muitas tentativas de PIN');
+  });
+
+  it('"Meus pontos" com saldo, nível e recompensas da conta', async () => {
+    const agent = app.get(AiAgentService);
+    const [bia] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM customers WHERE tenant_id = $1 AND phone = '11955554444'`,
+      [fx.tenantA],
+    );
+    await ownerQuery(
+      `INSERT INTO loyalty_programs (tenant_id, enabled) VALUES ($1, true)
+       ON CONFLICT (tenant_id) DO UPDATE SET enabled = true`,
+      [fx.tenantA],
+    );
+    await ownerQuery(
+      `INSERT INTO loyalty_rewards (tenant_id, name, cost, kind, amount) VALUES
+         ($1, 'Desconto de 5', 100, 'discount', 5), ($1, 'Desconto de 50', 900, 'discount', 50)`,
+      [fx.tenantA],
+    );
+    await ownerQuery(
+      `INSERT INTO loyalty_entries (tenant_id, customer_id, kind, points, note)
+       VALUES ($1, $2, 'adjust', 150, 'teste')`,
+      [fx.tenantA, bia!.id],
+    );
+    const say = async (t: string) => (await agent.handle(msg(t)))!.text;
+    const home = await say('menu');
+    expect(home).toContain('⭐ Meus pontos e recompensas');
+    const n = /(\d)️⃣ ⭐ Meus pontos/.exec(home)![1]!;
+    let r = await say(n);
+    if (r.includes('É você?')) r = await say('1');
+    expect(r).toContain('Saldo: *150 pontos*');
+    expect(r).toContain('✅ Desconto de 5');
+    expect(r).toContain('🔒 Desconto de 50');
+    expect(r).toContain('Seu PIN no balcão: `640128`');
+    await ownerQuery(`UPDATE loyalty_programs SET enabled = false WHERE tenant_id = $1`, [
+      fx.tenantA,
+    ]);
+  });
+
+  it('cliente sentado numa mesa (comanda aberta com o telefone) não pede pelo WhatsApp', async () => {
+    const agent = app.get(AiAgentService);
+    const [t] = await ownerQuery<{ id: string }>(
+      `INSERT INTO dining_tables (tenant_id, label) VALUES ($1, 'W9') RETURNING id`,
+      [fx.tenantA],
+    );
+    const [tab] = await ownerQuery<{ id: string }>(
+      `INSERT INTO tabs (tenant_id, number, table_id)
+       VALUES ($1, (SELECT coalesce(max(number), 0) + 1 FROM tabs WHERE tenant_id = $1), $2)
+       RETURNING id`,
+      [fx.tenantA, t!.id],
+    );
+    await ownerQuery(
+      `INSERT INTO orders (tenant_id, number, channel, status, tab_id, customer_phone)
+       VALUES ($1, (SELECT coalesce(max(number), 0) + 1 FROM orders WHERE tenant_id = $1),
+               'table', 'new', $2, '11977770000')`,
+      [fx.tenantA, tab!.id],
+    );
+    const r = await agent.handle({
+      tenantId: fx.tenantA,
+      from: '5511977770000',
+      pushName: 'Mesa',
+      text: '1',
+    });
+    expect(r!.text).toContain('*Mesa W9*');
+    expect(r!.text).toContain('QR Code da mesa');
+    await ownerQuery(`UPDATE tabs SET status = 'closed', closed_at = now() WHERE id = $1`, [
+      tab!.id,
+    ]);
   });
 });

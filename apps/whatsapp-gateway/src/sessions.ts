@@ -1,4 +1,5 @@
 import { removeAuthState, savedTenants, useEncryptedAuthState } from './auth-store.js';
+import { newSessionCaches, type SessionCaches } from './cache.js';
 import {
   parseInbound,
   unreadableReason,
@@ -74,6 +75,8 @@ type AuthState = Awaited<ReturnType<typeof useEncryptedAuthState>>['state'];
 export interface SocketOptions {
   /** O Baileys chama quando o celular do cliente pede o reenvio de uma mensagem. */
   getMessage(key: { id?: string | null }): Promise<SentContent | undefined>;
+  /** Caches do restaurante que sobrevivem às religações (ver cache.ts). */
+  caches: SessionCaches;
 }
 
 export type SocketFactory = (auth: AuthState, opts: SocketOptions) => SocketLike;
@@ -179,6 +182,8 @@ interface Session {
   pauseTimers: Map<string, NodeJS.Timeout>;
   /** Quando o próximo envio deste número pode sair (ritmo mínimo entre mensagens). */
   nextSendAt: number;
+  /** Caches do Baileys deste restaurante (passam de um socket para o próximo). */
+  caches: SessionCaches;
 }
 
 /** Códigos de desconexão do Baileys (DisconnectReason). */
@@ -344,6 +349,7 @@ export class SessionManager {
       online: false,
       pauseTimers: new Map(),
       nextSendAt: 0,
+      caches: newSessionCaches(),
     };
     s.status = 'connecting';
     s.error = undefined;
@@ -387,6 +393,7 @@ export class SessionManager {
         const text = k.id ? s.recent.get(k.id) : undefined;
         return text === undefined ? undefined : { conversation: text };
       },
+      caches: s.caches,
     });
     s.sock = sock;
     s.online = false;

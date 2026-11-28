@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.280.0',
+    date: '2026-11-27',
+    title: 'Cardápio com fotos no WhatsApp, pontos pela conversa e sacola junto com o cardápio',
+    summary:
+      'No WhatsApp, cada categoria chega como um cartão com a foto de cada item, o número para responder e o preço, e a lista ficou curta, um item por linha. O cliente é reconhecido pelo número (e confirma) ou pelo PIN da conta, vê os pontos e as recompensas e pode usar uma no pedido. O que ele vai pondo na sacola da conversa também aparece na sacola do cardápio, e quem está sentado numa mesa pede pelo QR Code dela.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'WhatsApp: ao escolher a categoria, o cliente recebe um cartão com as fotos dos itens, cada uma com o número para responder, o nome, o preço e o selo (Novo, Vegetariano...), na cor da loja. Escolhendo o item, chega a foto dele com a descrição, a nota e a pergunta da quantidade.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'WhatsApp: listas curtas, um item por linha com o número, o nome e o preço (a descrição vem na foto do item); categorias com o emoji de cada uma; números iguais do 1 ao 99, sem misturar 1️⃣ com "11.". "Ver o cardápio" mostra as categorias e as fotos em vez de um texto enorme.',
+      },
+      {
+        tag: 'novo',
+        text: 'WhatsApp: o cliente é reconhecido pelo número da conversa e confirma ("É você?"). Não sendo, ou escrevendo de outro número, entra na conta com o PIN de 6 números (o mesmo do balcão, em Pontos no cardápio). PIN errado tem limite de 5 tentativas por dia por número, e quem entra pelo PIN não vê os endereços salvos da conta.',
+      },
+      {
+        tag: 'novo',
+        text: 'WhatsApp: "Meus pontos e recompensas" no menu, com o saldo, o nível, os pontos que ainda vão entrar, o PIN do balcão e cada recompensa com "já dá para trocar" ou quanto falta. No fechamento do pedido, "Usar meus pontos" aplica a recompensa e o total já sai com o desconto.',
+      },
+      {
+        tag: 'novo',
+        text: 'A sacola montada no WhatsApp vai junto para a sacola da conta no cardápio online (só o que a conversa pôs; o que o cliente colocou pelo cardápio fica como está). A conversa manda uma vez um link que abre o cardápio já dentro da conta (uso único, vale 30 minutos), e o cardápio aberto atualiza sozinho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Quem está na loja não pede pelo WhatsApp: com a comanda de uma mesa aberta no telefone dele, a conversa explica que o pedido é pelo QR Code da mesa ou com o garçom (o cardápio pode ser olhado). No cardápio da mesa, o botão "Pedir pelo WhatsApp" não aparece.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Serviço do WhatsApp preparado para muitos restaurantes: cada restaurante usa no máximo 12 das vagas de entrega das mensagens para a API (o restaurante com muitas conversas no jantar não deixa os outros esperando) e os caches do WhatsApp de cada restaurante passam de uma conexão para a próxima, sem perder as mensagens que pediam reenvio.',
+      },
+    ],
+  },
+  {
     version: '0.279.0',
     date: '2026-11-27',
     title: 'Pedido inteiro pelo WhatsApp e criação do restaurante num campo só',

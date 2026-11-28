@@ -65,10 +65,40 @@ export interface FlowItem {
   soldOut: boolean;
   soldByWeight: boolean;
   groups: FlowGroup[];
+  /** Foto do item (vai no cartão da categoria e na foto do item). */
+  imageId?: string | null;
+  /** Selo do cardápio ("Novo", "Vegetariano", "Picante"). */
+  badge?: string | null;
+  /** Destaque da loja. */
+  featured?: boolean;
+  rating?: { average: number; count: number } | null;
 }
 export interface FlowCategory {
   name: string;
   items: FlowItem[];
+}
+
+/** Pontos do cliente (programa de fidelidade da loja), para a tela "Meus pontos". */
+export interface FlowLoyalty {
+  mode: 'points' | 'stamps';
+  balance: number;
+  /** Pontos dos pedidos em andamento (entram quando concluírem). */
+  pending: number;
+  expiresAt: Date | null;
+  level: string | null;
+  nextLevel: { name: string; missing: number } | null;
+  /** PIN do balcão (só para quem foi reconhecido pelo próprio número). */
+  pin: string | null;
+  rewards: FlowReward[];
+}
+export interface FlowReward {
+  id: string;
+  name: string;
+  cost: number;
+  kind: 'discount' | 'product';
+  /** Quanto vale hoje ("12.00"; produto grátis = o preço dele no cardápio de entrega). */
+  amount: string | null;
+  productId: string | null;
 }
 
 /** Uma linha da sacola. `unit` = preço de uma unidade já com os adicionais (em centavos). */
@@ -113,7 +143,10 @@ export type FlowStep =
   | 'home'
   | 'who'
   | 'who_name'
+  | 'who_pin'
   | 'signup_name'
+  | 'points'
+  | 'reward'
   | 'mode'
   | 'address'
   | 'address_new'
@@ -157,6 +190,19 @@ export interface Flow {
   placed?: string;
   /** O cliente pediu para fechar: depois da sacola vêm pagamento e conferência. */
   checkout?: boolean;
+  /**
+   * Reconhecido pelo PIN (outro número): não mostra os endereços salvos da conta nem manda o link
+   * de entrada no cardápio (esses ficam só para o dono do número).
+   */
+  viaPin?: boolean;
+  /** Para onde vai depois de saber quem é (pedido ou "Meus pontos"). */
+  after?: 'order' | 'points';
+  /** Recompensa dos pontos usada neste pedido. */
+  rewardId?: string;
+  /** Olhando o cardápio sem poder pedir agora (loja fechada ou pedidos desligados). */
+  browse?: boolean;
+  /** O link do cardápio com a sacola já foi mandado nesta conversa (manda uma vez só). */
+  linkSent?: boolean;
 }
 
 export const newFlow = (): Flow => ({ at: 'home', cart: [] });
@@ -214,6 +260,61 @@ export const fromCents = (c: number) => (c / 100).toFixed(2);
 export function options(lines: string[], start = 1): string {
   return lines.map((l, k) => `${num(k + start)} ${l}`).join('\n');
 }
+
+/**
+ * Número de item do cardápio como etiqueta (`1`, `12`): o mesmo jeito do 1 ao 99, sem misturar
+ * 1️⃣ com "11." (o WhatsApp não tem emoji para 11 em diante).
+ */
+export const tag = (n: number) => code(String(n));
+
+/** Emoji da categoria pelo nome (Burgers → 🍔, Bebidas → 🥤...). */
+export function catEmoji(name: string): string {
+  const n = norm(name);
+  const rules: [RegExp, string][] = [
+    [/mais pedid|destaque|popular|favorit|\btop\b/, '🔥'],
+    [/combo|\bkits?\b|promoc|oferta/, '🍱'],
+    [/burg|hamb|lanche|sandu|smash|\bx\b/, '🍔'],
+    [/pizza/, '🍕'],
+    [/sushi|japon|temaki|poke|oriental/, '🍣'],
+    [/hot ?dog|cachorro/, '🌭'],
+    [/porc|petisc|batata|frit|aperitiv|entrada/, '🍟'],
+    [/frango|chicken|\basas?\b|coxinha/, '🍗'],
+    [/carne|churras|espet|grelh/, '🥩'],
+    [/massa|macarr|lasanh|espaguet/, '🍝'],
+    [/salad|veg|\bfit\b|natural/, '🥗'],
+    [/pastel|salgad|esfih|empad/, '🥟'],
+    [/prato|almoc|executiv|marmit|refeic|jantar/, '🍛'],
+    [/milk|shake|sorvet|gelad|acai/, '🍨'],
+    [/sobremes|doce|bolo|torta|brigadeir/, '🍰'],
+    [/cafe da manha|padaria|paes/, '🥐'],
+    [/cafe|capuc/, '☕'],
+    [/cervej|chope|chopp/, '🍺'],
+    [/vinho|drink|coquetel|caipir|\bbar\b/, '🍹'],
+    [/bebida|refri|suco|agua|soda/, '🥤'],
+    [/kids|infantil|crianc/, '🧒'],
+    [/molho|adicion|extra/, '🧂'],
+  ];
+  return rules.find(([re]) => re.test(` ${n} `))?.[1] ?? '🍽️';
+}
+
+/** Emoji do selo do item ("Vegetariano" → 🌱, "Picante" → 🌶️). */
+export function badgeEmoji(badge: string | null | undefined): string | null {
+  if (!badge?.trim()) return null;
+  const n = norm(badge);
+  if (/vegan|veget|plant/.test(n)) return '🌱';
+  if (/picant|apiment|pimenta/.test(n)) return '🌶️';
+  if (/novo|nova|lancament/.test(n)) return '🆕';
+  if (/mais vendid|campe|top|destaque|famos/.test(n)) return '🔥';
+  if (/promo|oferta|desconto/.test(n)) return '🏷️';
+  if (/gluten|lactose|zero|light|fit/.test(n)) return '💚';
+  return '🏷️';
+}
+
+/** "4,6 (24)" — nota do item para a legenda da foto. */
+const ratingText = (r: FlowItem['rating']) =>
+  r && r.count > 0
+    ? `⭐ ${r.average.toFixed(1).replace('.', ',')} ${i(`(${r.count} ${r.count === 1 ? 'avaliação' : 'avaliações'})`)}`
+    : null;
 
 const HINT = quote('Responda com o *número* da opção.');
 const BACK = `${num(0)} Voltar`;
@@ -494,16 +595,20 @@ export function upsellFor(menu: FlowCategory[], cart: CartLine[]): FlowItem | nu
 // ------------------------------------------------------------------ textos das telas
 
 export interface HomeEntry {
-  key: 'order' | 'status' | 'menu' | 'reserve' | 'info' | 'human';
+  key: 'order' | 'status' | 'menu' | 'points' | 'reserve' | 'info' | 'human';
   label: string;
 }
 
 /** Opções do menu principal, na ordem, pelo que o dono ligou. */
-export function homeEntries(st: FlowSettings, o: { reservations: boolean }): HomeEntry[] {
+export function homeEntries(
+  st: FlowSettings,
+  o: { reservations: boolean; loyalty?: boolean },
+): HomeEntry[] {
   const out: HomeEntry[] = [];
   if (st.takeOrders) out.push({ key: 'order', label: '🛵 Fazer um pedido' });
   if (st.orderStatus) out.push({ key: 'status', label: '📦 Acompanhar meu pedido' });
   out.push({ key: 'menu', label: '📖 Ver o cardápio' });
+  if (o.loyalty) out.push({ key: 'points', label: '⭐ Meus pontos e recompensas' });
   if (st.takeReservations && o.reservations)
     out.push({ key: 'reserve', label: '📅 Reservar uma mesa' });
   if (st.showInfo) out.push({ key: 'info', label: '🕒 Horários e endereço' });
@@ -535,14 +640,22 @@ export function homeText(o: {
   ].join('\n');
 }
 
-export function catsText(menu: FlowCategory[], cart: CartLine[], o: { understandText: boolean }) {
+/**
+ * Categorias: uma linha cada, com o emoji da categoria e quantos itens tem. Curto de propósito
+ * (David, 0.280: "está uma sequência muito grande de coisas"); os itens vêm na tela da categoria.
+ */
+export function catsText(
+  menu: FlowCategory[],
+  cart: CartLine[],
+  o: { understandText: boolean; store?: string; browse?: boolean },
+) {
   const lines = [
-    `🍽️ ${b('Cardápio')}`,
+    `🍽️ ${b(o.store ? `Cardápio da ${o.store}` : 'Cardápio')}`,
     i('Escolha uma categoria:'),
     '',
-    options(menu.map((c) => `${clean(c.name)} ${i(`(${c.items.length})`)}`)),
+    options(menu.map((c) => `${catEmoji(c.name)} ${clean(c.name)} ${i(`· ${c.items.length}`)}`)),
   ];
-  if (o.understandText)
+  if (o.understandText && !o.browse)
     lines.push('', `💬 ${i('Ou escreva o pedido, ex.:')} ${code('2 smash e 1 coca')}`);
   if (cart.length)
     lines.push(
@@ -553,22 +666,51 @@ export function catsText(menu: FlowCategory[], cart: CartLine[], o: { understand
   return lines.join('\n');
 }
 
-export function itemsText(c: FlowCategory, showPrices: boolean) {
+/**
+ * Itens da categoria: uma linha por item (número, nome, preço e o selo), sem a descrição, que vem
+ * na foto do item. Vai como legenda do cartão com as fotos (wa-menu-card.ts) quando dá.
+ */
+export function itemsText(
+  c: FlowCategory,
+  showPrices: boolean,
+  o: { browse?: boolean; card?: boolean } = {},
+) {
   const lines = c.items.map((it, k) => {
-    const price = showPrices ? ` — ${b(money(it.price))}${it.soldByWeight ? ' o kg' : ''}` : '';
-    const desc = it.description ? `\n    ${i(clean(it.description).slice(0, 70))}` : '';
-    if (it.soldOut) return `${num(k + 1)} ${s(it.name)} ${i('esgotado')}`;
-    return `${num(k + 1)} ${clean(it.name)}${price}${desc}`;
+    if (it.soldOut) return `${tag(k + 1)} ${s(it.name)} ${i('esgotado')}`;
+    const price = showPrices ? ` · ${b(money(it.price))}${it.soldByWeight ? ' o kg' : ''}` : '';
+    const marks = [it.featured ? '⭐' : null, badgeEmoji(it.badge)].filter(Boolean).join('');
+    return `${tag(k + 1)} ${clean(it.name)}${price}${marks ? ` ${marks}` : ''}`;
   });
-  return [`${b(clean(c.name))}`, '', ...lines, '', BACK].join('\n');
+  const n = c.items.length;
+  return [
+    `${catEmoji(c.name)} ${b(clean(c.name))} ${i(`· ${n} ${n === 1 ? 'opção' : 'opções'}`)}`,
+    '',
+    ...lines,
+    '',
+    o.browse
+      ? `👉 Mande o ${b('número')} para ver a foto e os detalhes`
+      : `👉 Mande o ${b('número')} para ver a foto e pedir`,
+    BACK,
+  ].join('\n');
 }
 
-export function qtyText(it: FlowItem, showPrices: boolean) {
+/** Legenda da foto do item: nome, preço, nota, selo, descrição e a pergunta da quantidade. */
+export function itemCardText(it: FlowItem, showPrices: boolean, o: { browse?: string } = {}) {
+  const price = showPrices ? ` · ${b(money(it.price))}${it.soldByWeight ? ' o kg' : ''}` : '';
+  const badge = badgeEmoji(it.badge);
+  const facts = [
+    ratingText(it.rating),
+    badge ? `${badge} ${clean(it.badge!)}` : null,
+    it.featured ? '⭐ Destaque da casa' : null,
+  ].filter(Boolean);
+  const groups = it.groups.filter((g) => g.minSelect > 0).map((g) => clean(g.name).toLowerCase());
   return [
-    `${b(clean(it.name))}${showPrices ? ` — ${money(it.price)}` : ''}`,
-    it.description ? i(clean(it.description).slice(0, 140)) : null,
+    `${b(clean(it.name))}${price}`,
+    facts.length ? facts.join(' · ') : null,
+    it.description ? i(clean(it.description).slice(0, 300)) : null,
+    groups.length ? `🧩 Você escolhe: ${groups.join(', ')}` : null,
     '',
-    `Quantos você quer? Mande o número ${i('(ex.: 1 ou 2)')}.`,
+    o.browse ?? `Quantos você quer? Mande o número ${i('(ex.: 1 ou 2)')}.`,
     BACK,
   ]
     .filter((l) => l !== null)
@@ -619,7 +761,13 @@ export function cartLines(cart: CartLine[], showPrices = true): string[] {
 
 export function cartText(
   cart: CartLine[],
-  o: { upsell: FlowItem | null; showPrices: boolean; added?: string },
+  o: {
+    upsell: FlowItem | null;
+    showPrices: boolean;
+    added?: string;
+    /** Link do cardápio já dentro da conta, com esta sacola (só uma vez por conversa). */
+    siteLink?: string | null;
+  },
 ) {
   const lines: string[] = [];
   if (o.added) lines.push(`✅ Adicionei ${o.added}.`, '');
@@ -634,6 +782,12 @@ export function cartText(
     lines.push(
       '',
       `💡 Que tal ${b(clean(o.upsell.name))}${o.showPrices ? ` (${money(o.upsell.price)})` : ''}? Mande ${num(4)} para adicionar.`,
+    );
+  if (o.siteLink)
+    lines.push(
+      '',
+      `🌐 ${i('Sua sacola também está no nosso cardápio. Para ver com fotos ou terminar por lá:')}`,
+      o.siteLink,
     );
   return lines.join('\n');
 }
@@ -667,15 +821,25 @@ export const changeText = (total: number) =>
 
 export function reviewText(
   f: Flow,
-  o: { showPrices: boolean; eta: string | null; storeAddress: string | null },
+  o: {
+    showPrices: boolean;
+    eta: string | null;
+    storeAddress: string | null;
+    /** Recompensa escolhida e o desconto dela nesta sacola (centavos). */
+    reward?: { name: string; discount: number } | null;
+    /** Tem recompensa que dá para usar agora (mostra a opção 3). */
+    canRedeem?: boolean;
+  },
 ) {
   const sub = subtotal(f.cart);
   const fee = f.mode === 'delivery' ? (f.fee ?? 0) : 0;
+  const off = o.reward ? Math.min(o.reward.discount, sub) : 0;
   const lines = [`🧾 ${b('Confira seu pedido')}`, '', ...cartLines(f.cart, o.showPrices), ''];
   if (o.showPrices) {
     lines.push(`Subtotal: ${money(sub)}`);
+    if (o.reward) lines.push(`🎁 ${clean(o.reward.name)}: -${money(off)}`);
     if (f.mode === 'delivery') lines.push(`Entrega: ${fee ? money(fee) : 'grátis'}`);
-    lines.push(b(`Total: ${money(sub + fee)}`), '');
+    lines.push(b(`Total: ${money(sub - off + fee)}`), '');
   }
   lines.push(
     f.mode === 'delivery' && f.address
@@ -688,8 +852,97 @@ export function reviewText(
       `${PAY_ICON[f.pay]} Pagamento: ${PAY_LABEL[f.pay]}${f.pay === 'cash' && f.changeFor ? ` ${i(`(troco para ${money(f.changeFor)})`)}` : ''}`,
     );
   if (f.name) lines.push(`👤 Nome: ${clean(f.name)}`);
-  lines.push('', options(['✅ Confirmar pedido', '✏️ Mudar algo']), `${num(0)} ❌ Cancelar pedido`);
+  const extra = o.reward ? ['🎁 Tirar a recompensa'] : o.canRedeem ? ['🎁 Usar meus pontos'] : [];
+  lines.push(
+    '',
+    options(['✅ Confirmar pedido', '✏️ Mudar algo', ...extra]),
+    `${num(0)} ❌ Cancelar pedido`,
+  );
   return lines.join('\n');
+}
+
+// ------------------------------------------------------------------ pontos e recompensas
+
+const unitOf = (mode: FlowLoyalty['mode'], n: number) =>
+  mode === 'stamps' ? (n === 1 ? 'carimbo' : 'carimbos') : n === 1 ? 'ponto' : 'pontos';
+
+/**
+ * Desconto da recompensa nesta sacola (centavos), ou null quando ela não serve agora (produto
+ * grátis que não está na sacola). Igual à conta do cardápio; o servidor confere de novo no pedido.
+ */
+export function rewardDiscount(r: FlowReward, cart: CartLine[]): number | null {
+  if (r.kind === 'product' && !cart.some((l) => l.productId === r.productId)) return null;
+  const v = toCents(r.amount);
+  return v > 0 ? Math.min(v, subtotal(cart)) : null;
+}
+
+/** Recompensas que o saldo paga e que servem nesta sacola. */
+export const usableRewards = (l: FlowLoyalty, cart: CartLine[]) =>
+  l.rewards.filter((r) => r.cost <= l.balance && rewardDiscount(r, cart) !== null);
+
+/** "Meus pontos": saldo, nível, o que já dá para trocar e quanto falta para o resto. */
+export function pointsText(l: FlowLoyalty, o: { store: string; name: string | null; tz?: string }) {
+  const lines = [
+    `⭐ ${b(`${o.name ? `${clean(o.name.split(' ')[0]!)}, seus` : 'Seus'} ${unitOf(l.mode, 2)} na ${o.store}`)}`,
+    '',
+    `💰 Saldo: ${b(`${l.balance} ${unitOf(l.mode, l.balance)}`)}`,
+  ];
+  if (l.level) lines.push(`🏅 Nível: ${b(clean(l.level))}`);
+  if (l.nextLevel)
+    lines.push(
+      i(
+        `Faltam ${l.nextLevel.missing} ${unitOf(l.mode, l.nextLevel.missing)} para o nível ${clean(l.nextLevel.name)}.`,
+      ),
+    );
+  if (l.pending > 0)
+    lines.push(
+      `⏳ ${l.pending} ${unitOf(l.mode, l.pending)} ${i('entram quando o pedido em andamento for concluído')}`,
+    );
+  if (l.expiresAt && l.balance > 0)
+    lines.push(
+      `📆 ${i(`Valem até ${l.expiresAt.toLocaleDateString('pt-BR', { timeZone: o.tz ?? 'America/Sao_Paulo' })} (comprando de novo, o prazo renova)`)}`,
+    );
+  if (l.rewards.length) {
+    lines.push('', `🎁 ${b('Recompensas')}`);
+    for (const r of [...l.rewards].sort((a, z) => a.cost - z.cost)) {
+      const cost = `${r.cost} ${l.mode === 'stamps' ? unitOf(l.mode, r.cost) : 'pts'}`;
+      const worth =
+        r.kind === 'discount' && toCents(r.amount) > 0
+          ? ` ${i(`(${money(r.amount!)} de desconto)`)}`
+          : '';
+      lines.push(
+        r.cost <= l.balance
+          ? `✅ ${clean(r.name)}${worth} — ${cost} ${i('· já dá para trocar!')}`
+          : `🔒 ${clean(r.name)}${worth} — ${cost} ${i(`· faltam ${r.cost - l.balance}`)}`,
+      );
+    }
+  } else lines.push('', i('A loja ainda não cadastrou recompensas.'));
+  if (l.pin) lines.push('', `🔑 Seu PIN no balcão: ${code(l.pin)}`);
+  lines.push(
+    '',
+    quote(
+      l.rewards.some((r) => r.cost <= l.balance)
+        ? 'Para usar, escolha a recompensa ao fechar o pedido por aqui ou mostre o PIN no balcão.'
+        : `Cada pedido rende ${unitOf(l.mode, 2)}. Mande ${b('menu')} para voltar.`,
+    ),
+  );
+  return lines.join('\n');
+}
+
+/** Escolher a recompensa no fechamento do pedido. */
+export function rewardsText(list: FlowReward[], l: FlowLoyalty, cart: CartLine[]) {
+  return [
+    `🎁 ${b('Qual recompensa você quer usar?')}`,
+    i(`Saldo: ${l.balance} ${unitOf(l.mode, l.balance)}`),
+    '',
+    options(
+      list.map(
+        (r) =>
+          `${clean(r.name)} ${i(`(-${money(rewardDiscount(r, cart) ?? 0)} · ${r.cost} ${l.mode === 'stamps' ? unitOf(l.mode, r.cost) : 'pts'})`)}`,
+      ),
+    ),
+    BACK,
+  ].join('\n');
 }
 
 /** Situação do pedido com um sinal de cor (o mesmo texto da IA, mais curto). */

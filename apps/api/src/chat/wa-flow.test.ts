@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { readOrderJson } from './ai-agent.service';
 import { type FlowDeps, type FlowStore, WaFlowEngine } from './wa-flow-engine';
+import { mirrorLines, webKey } from './wa-order.service';
 import {
   amount,
+  badgeEmoji,
+  catEmoji,
   choice,
   choices,
+  type CartLine,
   type Flow,
   type FlowCategory,
+  type FlowLoyalty,
   type FlowSettings,
+  itemsText,
   money,
   num,
   parseAddress,
@@ -47,6 +53,9 @@ const MENU: FlowCategory[] = [
         soldOut: false,
         soldByWeight: false,
         groups: [],
+        imageId: 'img-bacon',
+        badge: 'Novo',
+        rating: { average: 4.6, count: 24 },
       },
       {
         id: 'p-tudo',
@@ -275,7 +284,7 @@ describe('pedido pelo menu do WhatsApp', () => {
     const { deps } = fake({ customer: async () => ({ id: 'c9', name: 'João' }) });
     const engine = new WaFlowEngine(deps);
     let r = await talk(engine, ['2 x-bacon e 1 coca']);
-    expect(r.last).toContain('Achei seu cadastro: *João*');
+    expect(r.last).toContain('Este número está no cadastro de *João*');
     r = await talk(engine, ['1', '2'], r.flow);
     expect(r.last).toContain('🛒 *Sua sacola*');
     expect(r.last).toContain('2× X-Bacon');
@@ -375,5 +384,270 @@ describe('pedido pelo menu do WhatsApp', () => {
     );
     expect(c.text).toContain('cancelei o pedido');
     expect(c.flow?.cart).toEqual([]);
+  });
+});
+
+const LOYALTY: FlowLoyalty = {
+  mode: 'points',
+  balance: 120,
+  pending: 30,
+  expiresAt: null,
+  level: 'Prata',
+  nextLevel: { name: 'Ouro', missing: 80 },
+  pin: '482913',
+  rewards: [
+    {
+      id: 'r-batata',
+      name: 'R$ 10 de desconto',
+      cost: 100,
+      kind: 'discount',
+      amount: '10.00',
+      productId: null,
+    },
+    {
+      id: 'r-burger',
+      name: 'Smash grátis',
+      cost: 300,
+      kind: 'product',
+      amount: '36.90',
+      productId: 'p-smash',
+    },
+  ],
+};
+
+const COCA: CartLine = {
+  productId: 'p-coca',
+  name: 'Coca-Cola lata',
+  qty: 2,
+  unit: 700,
+  optionIds: [],
+  optionNames: [],
+};
+
+describe('cliente pelo telefone ou pelo PIN (0.280)', () => {
+  it('confirma o cadastro do número; não sendo, pede o PIN e conta as tentativas', async () => {
+    const tries: string[] = [];
+    let left = 3;
+    const { deps } = fake({
+      customer: async () => ({ id: 'c-dono', name: 'Carlos Dono' }),
+      addresses: async () => [
+        { savedId: 'a1', street: 'Rua do Carlos', number: '1', district: 'Centro' },
+      ],
+      byPin: async (pin) => {
+        tries.push(pin);
+        return pin === '482913'
+          ? { ok: true, id: 'c-ana', name: 'Ana Souza' }
+          : { ok: false, left: --left };
+      },
+    });
+    const engine = new WaFlowEngine(deps);
+    let r = await talk(engine, ['oi', '1']);
+    expect(r.last).toContain('Este número está no cadastro de *Carlos Dono*');
+    r = await talk(engine, ['2'], r.flow);
+    expect(r.last).toContain('PIN de 6 números');
+    expect(r.last).toContain('Continuar sem cadastro');
+    r = await talk(engine, ['111111'], r.flow);
+    expect(r.last).toContain('Esse PIN não confere');
+    expect(r.last).toContain('mais 2 tentativas');
+    r = await talk(engine, ['482 913'], r.flow);
+    expect(tries).toEqual(['111111', '482913']);
+    expect(r.flow).toMatchObject({ customerId: 'c-ana', name: 'Ana Souza', viaPin: true });
+    expect(r.last).toContain('Achei a sua conta, *Ana*');
+    // Pelo PIN, os endereços salvos da conta não aparecem (só para o dono do número).
+    r = await talk(engine, ['1'], r.flow);
+    expect(r.last).toContain('Mande o endereço de entrega');
+    expect(r.last).not.toContain('Rua do Carlos');
+  });
+
+  it('sem tentativas sobrando, oferece seguir só com o nome', async () => {
+    const { deps } = fake({ byPin: async () => ({ ok: false, left: 0 }) });
+    const engine = new WaFlowEngine(deps);
+    let r = await talk(engine, ['oi', '1']);
+    expect(r.last).toContain('Já tenho cadastro');
+    r = await talk(engine, ['2', '123456'], r.flow);
+    expect(r.last).toContain('Muitas tentativas de PIN');
+    r = await talk(engine, ['1', 'Bia'], r.flow);
+    expect(r.flow).toMatchObject({ name: 'Bia', customerId: null });
+  });
+});
+
+describe('pontos e recompensas no WhatsApp (0.280)', () => {
+  it('"Meus pontos" mostra saldo, nível, PIN e o que já dá para trocar', async () => {
+    const { deps } = fake({
+      customer: async () => ({ id: 'c1', name: 'Maria Silva' }),
+      loyaltyOn: true,
+      loyalty: async () => LOYALTY,
+    });
+    const engine = new WaFlowEngine(deps);
+    const home = await engine.handle(null, 'oi');
+    expect(home.text).toContain('4️⃣ ⭐ Meus pontos e recompensas');
+    let r = await talk(engine, ['4'], home.flow);
+    expect(r.last).toContain('Este número está no cadastro de *Maria Silva*');
+    r = await talk(engine, ['1'], r.flow);
+    expect(r.last).toContain('Saldo: *120 pontos*');
+    expect(r.last).toContain('Nível: *Prata*');
+    expect(r.last).toContain('Faltam 80 pontos para o nível Ouro');
+    expect(r.last).toContain('✅ R$ 10 de desconto');
+    expect(r.last).toContain('🔒 Smash grátis');
+    expect(r.last).toContain('faltam 180');
+    expect(r.last).toContain('`482913`');
+    expect(r.flow?.at).toBe('points');
+  });
+
+  it('no fechamento, usa a recompensa e o total já sai com o desconto', async () => {
+    const { deps, placed } = fake({ loyaltyOn: true, loyalty: async () => LOYALTY });
+    const engine = new WaFlowEngine(deps);
+    const f: Flow = {
+      at: 'cart',
+      cart: [{ ...COCA, qty: 3 }],
+      name: 'Ana',
+      customerId: 'c1',
+      mode: 'pickup',
+    };
+    let r = await talk(engine, ['2', '1'], f);
+    expect(r.last).toContain('Confira seu pedido');
+    expect(r.last).toContain('3️⃣ 🎁 Usar meus pontos');
+    r = await talk(engine, ['3'], r.flow);
+    expect(r.last).toContain('Qual recompensa você quer usar?');
+    expect(r.last).not.toContain('Smash grátis'); // o saldo não paga
+    r = await talk(engine, ['1'], r.flow);
+    expect(r.last).toContain('🎁 R$ 10 de desconto: -R$ 10,00');
+    expect(r.last).toContain('*Total: R$ 11,00*');
+    r = await talk(engine, ['1'], r.flow);
+    expect(placed[0]).toMatchObject({ rewardId: 'r-batata', customerId: 'c1' });
+  });
+});
+
+describe('cardápio no WhatsApp (0.280)', () => {
+  it('categoria vem com o cartão de fotos e a lista curta, um item por linha', async () => {
+    const { deps } = fake();
+    const engine = new WaFlowEngine(deps);
+    const out = await engine.handle({ at: 'cats', cart: [], name: 'Ana', mode: 'pickup' }, '1');
+    expect(out.image).toEqual({ kind: 'category', index: 0 });
+    expect(out.text).toContain('🍔 *Lanches*');
+    expect(out.text).toContain('`1` Smash duplo · *R$ 36,90*');
+    expect(out.text).toContain('`2` X-Bacon · *R$ 29,90* 🆕');
+    expect(out.text).toContain('~X-Tudo~');
+    // Sem a descrição na lista (ela vem na foto do item).
+    expect(out.text).not.toContain('Dois smash');
+    const item = await engine.handle(out.flow, '2');
+    expect(item.image).toEqual({ kind: 'item', productId: 'p-bacon' });
+    expect(item.text).toContain('⭐ 4,6');
+    expect(item.text).toContain('🆕 Novo');
+    expect(item.text).toContain('Quantos você quer?');
+  });
+
+  it('números iguais do 1 ao 99 (sem misturar 1️⃣ com "11.")', () => {
+    const many: FlowCategory = {
+      name: 'Burgers',
+      items: Array.from({ length: 12 }, (_, k) => ({
+        id: `b${k}`,
+        name: `Burger ${k + 1}`,
+        description: 'muito texto que não aparece na lista',
+        price: '30.00',
+        soldOut: false,
+        soldByWeight: false,
+        groups: [],
+      })),
+    };
+    const t = itemsText(many, true);
+    expect(t).toContain('`1` Burger 1');
+    expect(t).toContain('`12` Burger 12');
+    expect(t).not.toContain('1️⃣');
+    expect(t).not.toContain('muito texto');
+  });
+
+  it('emoji da categoria e do selo', () => {
+    expect(catEmoji('Burgers')).toBe('🍔');
+    expect(catEmoji('Porções')).toBe('🍟');
+    expect(catEmoji('Milk-shakes')).toBe('🍨');
+    expect(catEmoji('Bebidas')).toBe('🥤');
+    expect(catEmoji('Coisas da casa')).toBe('🍽️');
+    expect(badgeEmoji('Vegetariano')).toBe('🌱');
+    expect(badgeEmoji('Picante')).toBe('🌶️');
+    expect(badgeEmoji(null)).toBeNull();
+  });
+
+  it('loja fechada: dá para olhar o cardápio e a foto, sem perguntar a quantidade', async () => {
+    const { deps } = fake({ store: async () => ({ ...STORE, open: false }) });
+    const engine = new WaFlowEngine(deps);
+    let r = await talk(engine, ['oi', '3']);
+    expect(r.last).toContain('Escolha uma categoria');
+    expect(r.last).not.toContain('Ou escreva o pedido');
+    const out = await engine.handle(r.flow, '1');
+    const item = await engine.handle(out.flow, '2');
+    expect(item.text).toContain('Estamos fechados agora');
+    expect(item.text).not.toContain('Quantos você quer?');
+    expect(item.flow?.at).toBe('items');
+  });
+});
+
+describe('cliente na mesa não pede pelo WhatsApp (0.280)', () => {
+  it('com a comanda aberta numa mesa, o pedido fica para o QR Code ou o garçom', async () => {
+    const { deps } = fake({ atTable: async () => '7' });
+    const engine = new WaFlowEngine(deps);
+    const out = await engine.handle({ at: 'home', cart: [] }, '1');
+    expect(out.text).toContain('*Mesa 7*');
+    expect(out.text).toContain('QR Code da mesa');
+    expect(out.flow?.at).toBe('home');
+    const text = await engine.handle({ at: 'home', cart: [] }, '2 x-bacon');
+    expect(text.text).toContain('*Mesa 7*');
+  });
+});
+
+describe('sacola do WhatsApp no cardápio (0.280)', () => {
+  it('soma o que entrou, tira o que saiu e não mexe no que veio do cardápio', () => {
+    const web = [
+      {
+        key: 'p-smash::',
+        productId: 'p-smash',
+        name: 'Smash duplo',
+        imageUrl: '/api/v1/media/x',
+        unit: '36.90',
+        optionIds: [],
+        optionNames: [],
+        quantity: 1,
+        notes: '',
+      },
+    ];
+    const added = mirrorLines(web, [], [COCA]);
+    expect(added.map((l) => [l.key, l.quantity])).toEqual([
+      ['p-smash::', 1],
+      ['p-coca::', 2],
+    ]);
+    expect(added[1]).toMatchObject({ unit: '7.00', notes: '' });
+    // Mais uma coca pelo WhatsApp e depois o pedido feito (sacola do WhatsApp vazia).
+    const more = mirrorLines(added, [COCA], [{ ...COCA, qty: 3 }]);
+    expect(more.find((l) => l.key === 'p-coca::')?.quantity).toBe(3);
+    const done = mirrorLines(more, [{ ...COCA, qty: 3 }], []);
+    expect(done.map((l) => l.key)).toEqual(['p-smash::']);
+  });
+
+  it('a chave é a mesma do cardápio (produto, opções em ordem e observação)', () => {
+    expect(webKey({ productId: 'p', optionIds: ['b', 'a'], notes: ' sem gelo ' })).toBe(
+      'p:a,b:sem gelo',
+    );
+  });
+
+  it('manda o link do cardápio uma vez, só para o dono do número', async () => {
+    let links = 0;
+    const { deps } = fake({
+      siteLink: async () => {
+        links++;
+        return 'https://loja.test/pedir?entrar=abc';
+      },
+    });
+    const engine = new WaFlowEngine(deps);
+    const f: Flow = { at: 'cats', cart: [], name: 'Ana', customerId: 'c1', mode: 'pickup' };
+    let r = await talk(engine, ['2 x-bacon'], f);
+    expect(r.last).toContain('https://loja.test/pedir?entrar=abc');
+    expect(r.flow?.linkSent).toBe(true);
+    r = await talk(engine, ['1', '1', '1'], r.flow);
+    r = await talk(engine, ['1', '1'], r.flow);
+    expect(links).toBe(1);
+    // Pelo PIN (outro número), nunca.
+    const pin = await engine.handle({ ...f, viaPin: true }, '1 coca');
+    expect(pin.text).not.toContain('entrar=');
+    expect(links).toBe(1);
   });
 });

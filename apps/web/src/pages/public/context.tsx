@@ -165,9 +165,27 @@ export function StoreProvider({
 
   useEffect(() => {
     if (!menu.appearance.accountsEnabled) return setAccount({ customer: null, addresses: [] });
-    api<AccountState>('/store/account')
-      .then(setAccount)
-      .catch(() => setAccount({ customer: null, addresses: [] }));
+    // Link do WhatsApp da loja (?entrar=...): entra na conta e já mostra a sacola montada na
+    // conversa. O link é de uso único; tira do endereço para não ficar no histórico.
+    const params = new URLSearchParams(window.location.search);
+    const link = params.get('entrar');
+    if (link !== null) {
+      params.delete('entrar');
+      const rest = params.toString();
+      window.history.replaceState(
+        window.history.state,
+        '',
+        `${window.location.pathname}${rest ? `?${rest}` : ''}${window.location.hash}`,
+      );
+    }
+    const load =
+      link && /^[A-Za-z0-9_-]{24,64}$/.test(link)
+        ? api<AccountState>('/store/account/link', {
+            method: 'POST',
+            json: { token: link },
+          }).catch(() => api<AccountState>('/store/account'))
+        : api<AccountState>('/store/account');
+    load.then(setAccount).catch(() => setAccount({ customer: null, addresses: [] }));
   }, [menu.appearance.accountsEnabled]);
 
   // Sacola na conta: ao entrar, a sacola deste aparelho se junta com a que estava guardada na
@@ -231,6 +249,35 @@ export function StoreProvider({
     }, 600);
     return () => window.clearTimeout(id);
   }, [cart, customerId, cartReadyFor, setCartSync]);
+
+  // A sacola da conta também muda pelo WhatsApp da loja (0.280: o atendente vai colocando os
+  // itens da conversa). Com a aba aberta, confere a cada 15 s e quando o cliente volta para ela;
+  // mudou depois do último salvamento deste aparelho, vale a da conta.
+  const waOrder = !!menu.restaurant.waOrder;
+  useEffect(() => {
+    if (!customerId || cartReadyFor !== customerId || !waOrder) return;
+    let off = false;
+    const check = () => {
+      if (document.hidden) return;
+      api<{ lines: unknown[]; updatedAt: string | null }>('/store/account/cart')
+        .then((saved) => {
+          const sync = cartSyncRef.current;
+          if (off || !saved.updatedAt || sync?.customerId !== customerId) return;
+          if (new Date(saved.updatedAt) <= new Date(sync.at)) return;
+          setCartSync({ customerId, at: saved.updatedAt });
+          pushed.current = JSON.stringify(saved.lines);
+          setCart(syncCart(mergeCarts([], saved.lines), (id) => indexRef.current.get(id)));
+        })
+        .catch(() => undefined);
+    };
+    const timer = window.setInterval(check, 15_000);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      off = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, [customerId, cartReadyFor, waOrder, setCart, setCartSync]);
 
   // Fidelidade: recarrega ao entrar ou sair da conta (o saldo é de quem está logado).
   const refreshLoyalty = useCallback(

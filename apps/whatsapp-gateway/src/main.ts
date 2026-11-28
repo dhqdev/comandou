@@ -64,20 +64,25 @@ if (!inboundUrl)
     'INBOUND_URL não configurada: as mensagens que os clientes mandam NÃO vão para a API e a IA não responde. ' +
       'Defina, por exemplo, INBOUND_URL=http://api:3000/api/v1/internal/whatsapp/inbound (nome do serviço da API na stack).',
   );
-const forwardConcurrency = Number(process.env.INBOUND_CONCURRENCY ?? 64);
+const forwardConcurrency = Number(process.env.INBOUND_CONCURRENCY ?? 128);
+const perTenant = Number(process.env.INBOUND_CONCURRENCY_PER_TENANT ?? 12);
 const forwarder = inboundUrl
   ? new InboundForwarder(inboundUrl, token, (msg) => logger.warn(msg), {
-      concurrency: forwardConcurrency > 0 ? forwardConcurrency : 64,
+      concurrency: forwardConcurrency > 0 ? forwardConcurrency : 128,
+      maxActivePerTenant: perTenant > 0 ? perTenant : 12,
     })
   : undefined;
 
 const sessions = new SessionManager(
   dataDir,
   key,
-  (state, { getMessage }) =>
+  (state, { getMessage, caches }) =>
     makeWASocket({
       ...(waVersion ? { version: waVersion } : {}),
       getMessage,
+      // Caches do restaurante que passam de um socket para o próximo (ver cache.ts).
+      msgRetryCounterCache: caches.msgRetry,
+      userDevicesCache: caches.devices,
       auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, baileysLogger) },
       logger: baileysLogger,
       // No celular, em "Aparelhos conectados": "Mac OS", um computador (ver device.ts).

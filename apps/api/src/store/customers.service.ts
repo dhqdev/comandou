@@ -347,6 +347,72 @@ export class CustomersService {
   }
 
   /**
+   * Link de entrada no cardápio mandado pelo WhatsApp da loja (0.280) para o próprio número da
+   * conta: quem recebe é o dono do número (a mesma prova do código do WhatsApp). Uso único, vale 30
+   * minutos, só o hash fica gravado e no máximo 6 por hora por conta.
+   */
+  async createLoginLink(tenantId: string, customerId: string): Promise<string | null> {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const recent = await one<{ n: number }>(
+        tx,
+        `SELECT count(*)::int AS n FROM customer_login_links
+          WHERE customer_id = $1 AND created_at > now() - interval '1 hour'`,
+        [customerId],
+      );
+      if ((recent?.n ?? 0) >= 6) return null;
+      const ok = await one(tx, `SELECT 1 FROM customers WHERE id = $1 AND blocked_at IS NULL`, [
+        customerId,
+      ]);
+      if (!ok) return null;
+      const token = randomBytes(24).toString('base64url');
+      await q(
+        tx,
+        `INSERT INTO customer_login_links (tenant_id, customer_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, now() + interval '30 minutes')`,
+        [tenantId, customerId, hashToken(`link:${tenantId}:${token}`)],
+      );
+      return token;
+    });
+  }
+
+  /** Entra na conta pelo link do WhatsApp (gasta o link). */
+  async loginByLink(tenantId: string, token: string, meta: { ip?: string; userAgent?: string }) {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const link = await one<{ customerId: string }>(
+        tx,
+        `UPDATE customer_login_links SET used_at = now()
+          WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+          RETURNING customer_id AS "customerId"`,
+        [hashToken(`link:${tenantId}:${token}`)],
+      );
+      if (!link)
+        throw new UnauthorizedException(
+          'Este link já foi usado ou venceu. Peça outro no WhatsApp.',
+        );
+      const customer = await one<Customer & { blocked: boolean }>(
+        tx,
+        `SELECT ${CUSTOMER_COLS}, blocked_at IS NOT NULL AS blocked FROM customers WHERE id = $1`,
+        [link.customerId],
+      );
+      if (!customer) throw new UnauthorizedException('Conta não encontrada');
+      if (customer.blocked)
+        throw new ForbiddenException('Esta conta está bloqueada. Fale com o restaurante.');
+      await q(tx, `UPDATE customers SET last_login_at = now() WHERE id = $1`, [customer.id]);
+      await this.audit.record(tx, {
+        tenantId,
+        action: 'customer.login',
+        entity: 'customer',
+        entityId: customer.id,
+        data: { via: 'whatsapp_link' },
+        ip: meta.ip,
+      });
+      const session = await this.newSession(tx, tenantId, customer.id, meta.userAgent);
+      const { blocked: _b, ...c } = customer;
+      return { customer: c as Customer, session };
+    });
+  }
+
+  /**
    * Confere a senha de quem já está dentro da conta (antes de apagar a conta). Senha errada conta
    * no mesmo bloqueio do login.
    */

@@ -11,6 +11,11 @@ export interface ForwarderOptions {
   maxPending?: number;
   /** mensagens esperando de um mesmo restaurante (um restaurante inundado não afoga os outros) */
   maxPerTenant?: number;
+  /**
+   * conversas de um mesmo restaurante sendo entregues ao mesmo tempo: um restaurante com muitas
+   * conversas abertas (e a IA demorando a responder) não ocupa todas as vagas dos outros
+   */
+  maxActivePerTenant?: number;
   /** quanto esperar a API responder (ela só responde depois de tratar a mensagem) */
   timeoutMs?: number;
   fetchFn?: typeof fetch;
@@ -22,7 +27,9 @@ export interface ForwarderOptions {
  * Uma fila por conversa: as mensagens de um mesmo cliente vão uma de cada vez e na ordem (a API
  * só responde depois de tratar a mensagem, então a ordem vale mesmo com várias réplicas da API).
  * Conversas diferentes andam em paralelo, até `concurrency`: um restaurante com a API lenta (ou
- * uma mensagem que a API está demorando para aceitar) não segura o WhatsApp dos outros.
+ * uma mensagem que a API está demorando para aceitar) não segura o WhatsApp dos outros. Cada
+ * restaurante usa no máximo `maxActivePerTenant` dessas vagas (no jantar, o restaurante com 50
+ * conversas abertas não deixa os outros esperando na fila).
  *
  * API fora do ar: tenta de novo algumas vezes (até ~45 s) e depois desiste daquela mensagem.
  */
@@ -32,6 +39,8 @@ export class InboundForwarder {
   /** conversas com mensagem esperando e ninguém entregando */
   private readonly ready: string[] = [];
   private readonly perTenant = new Map<string, number>();
+  /** conversas sendo entregues agora, por restaurante */
+  private readonly activeByTenant = new Map<string, number>();
   private total = 0;
   private active = 0;
   private closed = false;
@@ -45,9 +54,10 @@ export class InboundForwarder {
   ) {
     this.o = {
       retryMs: RETRY_MS,
-      concurrency: 64,
+      concurrency: 128,
       maxPending: 20_000,
       maxPerTenant: 1000,
+      maxActivePerTenant: 12,
       timeoutMs: 60_000,
       fetchFn: fetch,
       ...opts,
@@ -88,10 +98,21 @@ export class InboundForwarder {
 
   private pump() {
     while (!this.closed && this.active < this.o.concurrency && this.ready.length) {
-      const chat = this.ready.shift()!;
+      // A primeira conversa pronta cujo restaurante ainda tem vaga (a ordem de chegada vale
+      // entre os restaurantes; as do restaurante cheio esperam a vez dele).
+      const i = this.ready.findIndex(
+        (c) => (this.activeByTenant.get(tenantOf(c)) ?? 0) < this.o.maxActivePerTenant,
+      );
+      if (i < 0) return;
+      const chat = this.ready.splice(i, 1)[0]!;
+      const tenant = tenantOf(chat);
       this.active++;
+      this.activeByTenant.set(tenant, (this.activeByTenant.get(tenant) ?? 0) + 1);
       void this.runLane(chat).finally(() => {
         this.active--;
+        const n = (this.activeByTenant.get(tenant) ?? 1) - 1;
+        if (n > 0) this.activeByTenant.set(tenant, n);
+        else this.activeByTenant.delete(tenant);
         this.pump();
       });
     }
@@ -148,3 +169,6 @@ export class InboundForwarder {
     this.closed = true;
   }
 }
+
+/** "tenant:jid" → tenant (o id do restaurante é um uuid, sem ":"). */
+const tenantOf = (chat: string) => chat.slice(0, chat.indexOf(':'));

@@ -14,6 +14,7 @@ import { ChatService } from './chat.service';
  */
 import { MenuImportController } from './menu-import.controller';
 import { MenuImportService } from './menu-import.service';
+import { WaMediaService } from './wa-media';
 import { WaOrderService } from './wa-order.service';
 
 @Module({
@@ -26,6 +27,7 @@ import { WaOrderService } from './wa-order.service';
     MenuImportService,
     ReservationsService,
     WaOrderService,
+    WaMediaService,
   ],
   exports: [ChatService, AiAgentService],
 })

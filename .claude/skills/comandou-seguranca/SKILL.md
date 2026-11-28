@@ -60,6 +60,13 @@ cookie, CSRF, corpo gigante e Host estranho.
   `POST /store/orders` (validade, limite total e por cliente com trava, primeiro pedido), nunca
   confia no desconto que o navegador mandou. Código de convite: o servidor recusa o próprio código
   e quem já tem pedido concluído.
+- PIN do cliente pelo WhatsApp (0.280, `WaOrderService.byPin`): 5 erros por número de WhatsApp em
+  24 horas, contados no banco (`ai_customer_chats.pin_fails`), não na conversa. Quem entra pelo PIN
+  (`flow.viaPin`) não vê os endereços salvos nem o PIN e não recebe o link de entrada. Link de
+  entrada do WhatsApp (`POST /store/account/link`, `customer_login_links`): só para o próprio
+  número da conta, token `randomBytes(24)` guardado em hash, uso único (`UPDATE ... RETURNING`),
+  30 minutos, até 6 por hora por conta, `@Throttle` 10/min, login novo (sem fixação) e auditoria
+  `customer.login` com `via: whatsapp_link`.
 - `@SkipTenant()` desliga a sessão também: só com `PlatformHostGuard` + `PlatformSessionGuard`
   (painel) ou token próprio conferido **antes** de ler o corpo (`bearerMatches`, tempo constante).
 - `@SkipCsrf()` só para webhook de terceiro com token ou assinatura.

@@ -11,11 +11,14 @@ import {
   choice,
   choices,
   clean,
+  code,
   findItem,
   type Flow,
   type FlowAddress,
   type FlowCategory,
   type FlowItem,
+  type FlowLoyalty,
+  type FlowReward,
   type FlowSettings,
   groupsToAsk,
   homeEntries,
@@ -25,6 +28,7 @@ import {
   isCartWord,
   isGreeting,
   isMenuWord,
+  itemCardText,
   itemsText,
   type ItemDraft,
   money,
@@ -38,17 +42,20 @@ import {
   PAY_LABEL,
   payText,
   type PayMethod,
-  qtyText,
+  pointsText,
   quantity,
   quote,
   readOrderText,
   removeText,
   reviewText,
+  rewardDiscount,
+  rewardsText,
   STATUS_DOT,
   subtotal,
   type TextPick,
   unitPrice,
   upsellFor,
+  usableRewards,
 } from './wa-flow';
 
 /** Como está a loja agora, para o menu. Valores em centavos. */
@@ -102,7 +109,25 @@ export interface FlowDeps {
   orders(): Promise<FlowOrder[]>;
   /** Pedido escrito pela IA (só quando o leitor sem IA não entendeu e o dono deixou). */
   parseOrder?(text: string, menu: FlowCategory[]): Promise<TextPick[] | null>;
+  /**
+   * Conta pelo PIN de 6 números (cliente escrevendo de outro número). O servidor conta os erros
+   * por número de WhatsApp (poucas tentativas por dia): `left` = quantas ainda tem.
+   */
+  byPin?(pin: string): Promise<PinResult>;
+  /** Programa de fidelidade ligado na loja (mostra "Meus pontos" no menu). */
+  loyaltyOn?: boolean;
+  /** Pontos e recompensas da conta (null = programa desligado). */
+  loyalty?(customerId: string, viaPin: boolean): Promise<FlowLoyalty | null>;
+  /** Mesa com a comanda aberta deste número agora (o cliente está na loja), ou null. */
+  atTable?(): Promise<string | null>;
+  /** Link de uso único para abrir o cardápio já dentro da conta (null = não dá). */
+  siteLink?(customerId: string): Promise<string | null>;
 }
+
+export type PinResult = { ok: true; id: string; name: string } | { ok: false; left: number };
+
+/** Foto que acompanha a mensagem: o cartão da categoria ou a foto do item. */
+export type FlowImage = { kind: 'category'; index: number } | { kind: 'item'; productId: string };
 
 /** O que fazer com a mensagem. */
 export interface FlowOut {
@@ -119,6 +144,8 @@ export interface FlowOut {
   menuFiles?: boolean;
   /** Pedido feito agora (número). */
   placed?: number;
+  /** Manda com foto (o texto vira a legenda); sem foto ou se falhar, vai só o texto. */
+  image?: FlowImage;
 }
 
 const NAME_RE = /^[\p{L}][\p{L}\p{M}' .-]{1,59}$/u;
@@ -134,7 +161,10 @@ export class WaFlowEngine {
   async handle(current: Flow | null, text: string): Promise<FlowOut> {
     const f: Flow = current ? { ...current, cart: [...(current.cart ?? [])] } : newFlow();
     const t = text.trim();
-    if (isMenuWord(t) || (isGreeting(t) && (!current || f.at === 'home' || f.at === 'chat')))
+    if (
+      isMenuWord(t) ||
+      (isGreeting(t) && (!current || f.at === 'home' || f.at === 'chat' || f.at === 'points'))
+    )
       return this.home({ ...f, at: 'home' });
     if (isCartWord(t) && f.cart.length) return this.cart(f);
     if (isCancelWord(t) && current && f.at !== 'home' && f.at !== 'chat')
@@ -153,6 +183,12 @@ export class WaFlowEngine {
       case 'who_name':
       case 'signup_name':
         return this.onName(f, t);
+      case 'who_pin':
+        return this.onPin(f, t);
+      case 'points':
+        return this.onPoints(f, t);
+      case 'reward':
+        return this.onReward(f, t);
       case 'mode':
         return this.onMode(f, t);
       case 'address':
@@ -192,7 +228,13 @@ export class WaFlowEngine {
 
   private async entries() {
     const st = await this.d.store();
-    return { st, entries: homeEntries(this.d.settings, { reservations: st.reservations }) };
+    return {
+      st,
+      entries: homeEntries(this.d.settings, {
+        reservations: st.reservations,
+        loyalty: !!this.d.loyaltyOn && !!this.d.loyalty,
+      }),
+    };
   }
 
   private async home(f: Flow, before?: string): Promise<FlowOut> {
@@ -222,8 +264,8 @@ export class WaFlowEngine {
     if (this.d.settings.takeOrders) {
       const picks = await this.readOrder(t, false);
       if (picks?.length) {
-        const st = await this.d.store();
-        if (!st.open) return this.home(f);
+        const blocked = await this.orderBlocked(f);
+        if (blocked) return blocked;
         return this.addPicks(f, picks);
       }
     }
@@ -234,17 +276,18 @@ export class WaFlowEngine {
   private async entry(f: Flow, key: string): Promise<FlowOut> {
     const st = await this.d.store();
     switch (key) {
-      case 'order':
-        if (!st.open)
-          return this.home(
-            f,
-            `🔴 ${b('Estamos fechados agora')} e não dá para pedir.${st.closedNote ? ` ${st.closedNote}` : ''}`,
-          );
-        return this.advance({ ...f, checkout: undefined });
+      case 'order': {
+        const blocked = await this.orderBlocked(f);
+        if (blocked) return blocked;
+        return this.advance({ ...f, checkout: undefined, browse: undefined });
+      }
       case 'status':
         return { text: await this.statusText(), flow: { ...f, at: 'home' } };
       case 'menu':
         return this.showMenu(f, st);
+      case 'points':
+        if (f.customerId) return this.showPoints(f);
+        return this.who({ ...f, after: 'points' });
       case 'reserve':
         return { ai: true, ask: 'Quero reservar uma mesa', flow: { ...f, at: 'chat' } };
       case 'info':
@@ -259,26 +302,44 @@ export class WaFlowEngine {
     return { ai: true, flow: f };
   }
 
+  /**
+   * "Ver o cardápio": as categorias (curtas) e, escolhendo uma, o cartão com as fotos. Sem poder
+   * pedir agora (loja fechada, pedidos desligados ou cliente na mesa), só olha.
+   */
   private async showMenu(f: Flow, st: FlowStore): Promise<FlowOut> {
-    const tail = this.d.settings.takeOrders
-      ? `\n\n🛵 Para pedir, mande ${num(1)} ou escreva o pedido, ex.: ${'`2 smash e 1 coca`'}.`
-      : '';
+    const browse =
+      !this.d.settings.takeOrders || !st.open || !!(await this.d.atTable?.().catch(() => null));
+    const out = await this.cats({ ...f, browse: browse || undefined });
     if (this.d.settings.sendPdfs && st.menuFiles > 0)
       return {
-        text: `📖 Aqui está o nosso cardápio! 👇${tail}`,
+        ...out,
+        text: `📖 Nosso cardápio em PDF vai logo abaixo. 👇
+
+${out.text}`,
         menuFiles: true,
-        flow: { ...f, at: 'home' },
       };
-    const menu = await this.d.menu();
-    const lines = [`📖 ${b(`Cardápio da ${this.d.storeName}`)}`];
-    for (const c of menu) {
-      lines.push('', b(clean(c.name)));
-      for (const it of c.items.slice(0, 25))
-        lines.push(
-          `- ${it.soldOut ? `~${clean(it.name)}~ ${i('esgotado')}` : clean(it.name)}${this.d.settings.showPrices && !it.soldOut ? ` — ${money(it.price)}` : ''}`,
-        );
-    }
-    return { text: `${lines.join('\n').slice(0, 3600)}${tail}`, flow: { ...f, at: 'home' } };
+    return out;
+  }
+
+  /**
+   * Pode começar um pedido agora? Não com a loja fechada nem com o cliente sentado numa mesa
+   * (David, 0.280: "não tenha como o cliente pedir pelo WhatsApp estando na loja"): na mesa, o
+   * pedido é pelo QR Code dela ou com o garçom.
+   */
+  private async orderBlocked(f: Flow): Promise<FlowOut | null> {
+    const st = await this.d.store();
+    if (!st.open)
+      return this.home(
+        f,
+        `🔴 ${b('Estamos fechados agora')} e não dá para pedir.${st.closedNote ? ` ${st.closedNote}` : ''}`,
+      );
+    const table = await this.d.atTable?.().catch(() => null);
+    if (table)
+      return this.home(
+        { ...f, cart: [], draft: undefined, queue: undefined },
+        `🍽️ Vi que você está na ${b(`Mesa ${clean(table)}`)} agora. Para pedir daí, use o ${b('QR Code da mesa')} ou chame o garçom. 😉`,
+      );
+    return null;
   }
 
   private infoText(st: FlowStore): string {
@@ -370,7 +431,9 @@ export class WaFlowEngine {
       if (methods.length === 1) return this.advance({ ...f, pay: methods[0] }, before);
       return say({ text: payText(methods, f.mode), flow: { ...f, at: 'pay' } });
     }
-    const total = sub + (f.mode === 'delivery' ? (f.fee ?? 0) : 0);
+    const { reward, canRedeem } = await this.redeemState(f);
+    const off = reward ? Math.min(reward.discount, sub) : 0;
+    const total = sub - off + (f.mode === 'delivery' ? (f.fee ?? 0) : 0);
     if (f.pay === 'cash' && f.changeFor === undefined)
       return say({ text: changeText(total), flow: { ...f, at: 'change' } });
     return say({
@@ -378,9 +441,32 @@ export class WaFlowEngine {
         showPrices: true,
         eta: f.mode === 'delivery' ? st.eta : null,
         storeAddress: st.address,
+        reward,
+        canRedeem,
       }),
-      flow: { ...f, at: 'review' },
+      flow: { ...f, at: 'review', rewardId: reward ? f.rewardId : undefined },
     });
+  }
+
+  /** Recompensa escolhida (se ainda vale nesta sacola) e se dá para usar alguma. */
+  private async redeemState(f: Flow): Promise<{
+    reward: { name: string; discount: number } | null;
+    canRedeem: boolean;
+    loyalty: FlowLoyalty | null;
+    usable: FlowReward[];
+  }> {
+    const none = { reward: null, canRedeem: false, loyalty: null, usable: [] };
+    if (!f.customerId || !this.d.loyaltyOn || !this.d.loyalty) return none;
+    const l = await this.d.loyalty(f.customerId, !!f.viaPin).catch(() => null);
+    if (!l) return none;
+    const usable = usableRewards(l, f.cart);
+    const r = f.rewardId ? usable.find((x) => x.id === f.rewardId) : undefined;
+    return {
+      reward: r ? { name: r.name, discount: rewardDiscount(r, f.cart) ?? 0 } : null,
+      canRedeem: usable.length > 0,
+      loyalty: l,
+      usable,
+    };
   }
 
   private modes(st: FlowStore): ('delivery' | 'pickup')[] {
@@ -392,71 +478,169 @@ export class WaFlowEngine {
 
   // ------------------------------------------------------------------ quem pede
 
+  /**
+   * Quem é o cliente: primeiro pelo número desta conversa (e ele confirma); não sendo, pelo PIN
+   * de 6 números da conta (o mesmo do balcão, em Pontos no cardápio). David, 0.280: "sempre pegue
+   * pelo número de telefone e confirme e, caso não for, pegue o código que seria o PIN".
+   */
   private async who(f: Flow): Promise<FlowOut> {
     const c = await this.d.customer();
-    const st = this.d.settings;
     if (c)
       return {
         text: [
-          `📋 Achei seu cadastro: ${b(c.name)}.`,
+          `📋 Este número está no cadastro de ${b(c.name)}.`,
+          `É você?`,
           '',
-          options(['✅ Sou eu, continuar', '🙅 Não sou eu']),
+          options(['✅ Sou eu', '🙅 Não sou eu']),
         ].join('\n'),
-        flow: { ...f, at: 'who', pick: [c.id] },
+        flow: { ...f, at: 'who', pick: ['me'] },
       };
-    if (!st.offerSignup && st.guestOrders)
+    const st = this.d.settings;
+    const keys = [
+      ...(st.offerSignup ? ['signup'] : []),
+      ...(this.d.byPin ? ['pin'] : []),
+      ...(st.guestOrders ? ['guest'] : []),
+    ];
+    if (keys.length === 1 && keys[0] === 'guest')
       return { text: `👤 Qual nome coloco no pedido?`, flow: { ...f, at: 'who_name', pick: [] } };
-    if (st.offerSignup && !st.guestOrders)
+    if (keys.length === 1 && keys[0] === 'signup')
       return {
         text: [
           `📋 ${b('Cadastro rápido')}`,
           'Não achei cadastro com este número. É só me dizer seu nome. ✍️',
-          i('Seus pedidos ficam salvos e da próxima vez é mais rápido.'),
+          i('Seus pedidos e pontos ficam salvos e da próxima vez é mais rápido.'),
         ].join('\n'),
         flow: { ...f, at: 'signup_name', pick: [] },
       };
+    const label: Record<string, string> = {
+      signup: `✍️ Quero me cadastrar ${i('(só o nome, leva 10 segundos)')}`,
+      pin: `🔑 Já tenho cadastro ${i('(com o meu PIN)')}`,
+      guest: '🛵 Pedir sem cadastro',
+    };
     return {
       text: [
         `📋 ${b('Cadastro')}`,
         'Não achei cadastro com este número.',
         '',
-        options([
-          `✍️ Quero me cadastrar ${i('(só o nome, leva 10 segundos)')}`,
-          '🛵 Pedir sem cadastro',
-        ]),
-        '',
-        quote('Já tem cadastro com outro número? Mande mensagem por ele.'),
+        options(keys.map((k) => label[k]!)),
       ].join('\n'),
-      flow: { ...f, at: 'who', pick: [] },
+      flow: { ...f, at: 'who', pick: keys },
     };
   }
 
   private async onWho(f: Flow, t: string): Promise<FlowOut> {
     const n = choice(t);
-    const found = f.pick?.[0];
-    if (found) {
+    const keys = f.pick ?? [];
+    if (keys[0] === 'me') {
       if (n === 1) {
         const c = await this.d.customer();
-        if (c) return this.advance({ ...f, customerId: c.id, name: c.name, pick: undefined });
+        if (c) return this.identified({ ...f, customerId: c.id, name: c.name, viaPin: undefined });
       }
-      if (n === 2)
-        return {
-          text: `👤 Tudo bem! Qual nome coloco no pedido?`,
-          flow: { ...f, at: 'who_name', pick: [] },
-        };
+      if (n === 2) return this.pinScreen({ ...f, pick: ['other'] });
+      if (n === 0) return this.home(f);
       return this.retry(f, await this.who(f));
     }
-    if (n === 1)
-      return {
-        text: `✍️ Qual é o seu nome?`,
-        flow: { ...f, at: 'signup_name', pick: [] },
-      };
-    if (n === 2)
+    const key = n ? keys[n - 1] : undefined;
+    if (key === 'signup')
+      return { text: `✍️ Qual é o seu nome?`, flow: { ...f, at: 'signup_name', pick: [] } };
+    if (key === 'pin') return this.pinScreen({ ...f, pick: ['new'] });
+    if (key === 'guest')
       return { text: `👤 Qual nome coloco no pedido?`, flow: { ...f, at: 'who_name', pick: [] } };
+    if (n === 0) return this.home(f);
+    // Mandou o PIN direto.
+    if (/^\d{6}$/.test(t.replace(/\D/g, '')) && this.d.byPin && keys.includes('pin'))
+      return this.onPin({ ...f, at: 'who_pin', pick: ['new'] }, t);
     // Mandou o nome direto: cadastra (ou só usa no pedido, se o cadastro está desligado).
-    if (NAME_RE.test(t) && t.split(' ').length <= 6)
-      return this.onName({ ...f, at: this.d.settings.offerSignup ? 'signup_name' : 'who_name' }, t);
+    if (
+      NAME_RE.test(t) &&
+      t.split(' ').length <= 6 &&
+      (keys.includes('signup') || keys.includes('guest'))
+    )
+      return this.onName({ ...f, at: keys.includes('signup') ? 'signup_name' : 'who_name' }, t);
     return this.retry(f, await this.who(f));
+  }
+
+  /** Pede o PIN. `pick[0]`: 'other' = o número é de outra pessoa; 'new' = número sem cadastro. */
+  private pinScreen(f: Flow, before?: string): FlowOut {
+    const other = f.pick?.[0] === 'other';
+    if (!this.d.byPin)
+      return {
+        text: `👤 Tudo bem! Qual nome coloco no pedido?`,
+        flow: { ...f, at: 'who_name', pick: [] },
+      };
+    const alt = this.pinAlternatives(f);
+    return {
+      text: [
+        before ?? (other ? `👍 Tudo bem!` : null),
+        `🔑 Me mande o seu ${b('PIN de 6 números')}.`,
+        i('Ele fica no nosso cardápio, em ⭐ Pontos (o mesmo que você mostra no balcão).'),
+        alt.length ? '' : null,
+        alt.length ? options(alt.map((a) => a.label)) : null,
+        BACK_LINE,
+      ]
+        .filter((l) => l !== null)
+        .join('\n'),
+      flow: { ...f, at: 'who_pin' },
+    };
+  }
+
+  /** O que dá para fazer sem o PIN: pedir só com o nome; com o número livre, cadastrar. */
+  private pinAlternatives(f: Flow) {
+    const out: { key: 'guest' | 'signup'; label: string }[] = [];
+    if (this.d.settings.guestOrders || f.pick?.[0] === 'other')
+      out.push({ key: 'guest', label: '👤 Continuar sem cadastro, só com o nome' });
+    if (this.d.settings.offerSignup && f.pick?.[0] === 'new')
+      out.push({ key: 'signup', label: '✍️ Fazer meu cadastro' });
+    return out;
+  }
+
+  private async onPin(f: Flow, t: string): Promise<FlowOut> {
+    const n = choice(t);
+    if (n === 0) return this.home({ ...f, after: undefined });
+    const alt = this.pinAlternatives(f);
+    const pick = n ? alt[n - 1] : undefined;
+    if (pick?.key === 'guest')
+      return { text: `👤 Qual nome coloco no pedido?`, flow: { ...f, at: 'who_name', pick: [] } };
+    if (pick?.key === 'signup')
+      return { text: `✍️ Qual é o seu nome?`, flow: { ...f, at: 'signup_name', pick: [] } };
+    const pin = t.replace(/\D/g, '');
+    if (pin.length !== 6 || !this.d.byPin)
+      return this.pinScreen(f, `O PIN tem ${b('6 números')}, ex.: ${code('123456')}.`);
+    const r = await this.d.byPin(pin);
+    if (r.ok)
+      return this.identified(
+        { ...f, customerId: r.id, name: r.name, viaPin: true, pick: undefined },
+        `🔓 Achei a sua conta, ${b(r.name.split(' ')[0]!)}!`,
+      );
+    if (r.left <= 0)
+      return {
+        text: [
+          `🔒 Muitas tentativas de PIN por este número hoje.`,
+          '',
+          alt.length ? options(alt.map((a) => a.label)) : `Mande ${b('menu')} para voltar.`,
+        ].join('\n'),
+        flow: { ...f, at: 'who_pin' },
+      };
+    return this.pinScreen(
+      f,
+      `❌ Esse PIN não confere. ${i(`(mais ${r.left} ${r.left === 1 ? 'tentativa' : 'tentativas'} hoje)`)}`,
+    );
+  }
+
+  /** Sabe quem é: segue para onde ia (pedido ou pontos), com o saldo de pontos se tiver. */
+  private async identified(f: Flow, before?: string): Promise<FlowOut> {
+    const next: Flow = { ...f, after: undefined, pick: undefined };
+    if (f.after === 'points') return this.showPoints(next, before);
+    let hello = before ?? `✅ Oi, ${b(f.name!.split(' ')[0]!)}!`;
+    const l =
+      f.customerId && this.d.loyaltyOn && this.d.loyalty
+        ? await this.d.loyalty(f.customerId, !!f.viaPin).catch(() => null)
+        : null;
+    if (l && l.balance > 0) {
+      const can = l.rewards.some((r) => r.cost <= l.balance);
+      hello += ` ⭐ Você tem ${b(`${l.balance} ${l.mode === 'stamps' ? 'carimbos' : 'pontos'}`)}${can ? ' e já dá para trocar por recompensa no fechamento' : ''}.`;
+    }
+    return this.advance(next, hello);
   }
 
   private async onName(f: Flow, t: string): Promise<FlowOut> {
@@ -471,12 +655,54 @@ export class WaFlowEngine {
       .replace(/^./, (c) => c.toUpperCase());
     if (f.at === 'signup_name') {
       const c = await this.d.signup(nice);
-      return this.advance(
-        { ...f, customerId: c.id, name: c.name, pick: undefined },
-        `✅ Cadastro feito, ${b(c.name.split(' ')[0]!)}! Seus pedidos ficam salvos por aqui.`,
+      return this.identified(
+        { ...f, customerId: c.id, name: c.name, viaPin: undefined, pick: undefined },
+        `✅ Cadastro feito, ${b(c.name.split(' ')[0]!)}! Seus pedidos e pontos ficam salvos por aqui.`,
       );
     }
-    return this.advance({ ...f, customerId: null, name: nice, pick: undefined });
+    // Sem cadastro: "Meus pontos" não tem o que mostrar.
+    if (f.after === 'points')
+      return this.home(
+        { ...f, after: undefined, customerId: null, name: nice, pick: undefined },
+        `⭐ Os pontos ficam na conta. Faça seu cadastro para começar a juntar!`,
+      );
+    return this.advance({ ...f, customerId: null, name: nice, viaPin: undefined, pick: undefined });
+  }
+
+  // ------------------------------------------------------------------ pontos
+
+  private async showPoints(f: Flow, before?: string): Promise<FlowOut> {
+    const l =
+      f.customerId && this.d.loyalty
+        ? await this.d.loyalty(f.customerId, !!f.viaPin).catch(() => null)
+        : null;
+    if (!l) return this.home(f, '⭐ O programa de pontos está pausado agora.');
+    const text = pointsText(l, {
+      store: this.d.storeName,
+      name: f.name ?? null,
+      tz: this.d.timezone,
+    });
+    const st = await this.d.store();
+    const order = this.d.settings.takeOrders && st.open;
+    return {
+      text: [
+        before ?? null,
+        text,
+        '',
+        order ? options(['🛵 Fazer um pedido']) : null,
+        `${num(0)} Voltar ao menu`,
+      ]
+        .filter((x) => x !== null)
+        .join('\n'),
+      flow: { ...f, at: 'points' },
+    };
+  }
+
+  private async onPoints(f: Flow, t: string): Promise<FlowOut> {
+    const n = choice(t);
+    if (n === 1 && this.d.settings.takeOrders) return this.entry({ ...f, at: 'home' }, 'order');
+    if (n === null) return this.onHome({ ...f, at: 'home' }, t, false);
+    return this.home(f);
   }
 
   // ------------------------------------------------------------------ entrega ou retirada
@@ -517,7 +743,8 @@ export class WaFlowEngine {
   // ------------------------------------------------------------------ endereço
 
   private async addressScreen(f: Flow): Promise<FlowOut> {
-    const saved = f.customerId ? await this.d.addresses(f.customerId) : [];
+    // Reconhecido pelo PIN (outro número): os endereços da conta ficam só com o dono do número.
+    const saved = f.customerId && !f.viaPin ? await this.d.addresses(f.customerId) : [];
     if (!saved.length) return this.askAddress({ ...f, pick: [] });
     return {
       text: [
@@ -642,10 +869,30 @@ export class WaFlowEngine {
     const menu = await this.d.menu();
     if (!menu.length)
       return this.home(newFlow(), '😕 O cardápio está sendo atualizado. Tente daqui a pouco.');
-    const text = catsText(menu, f.cart, { understandText: true });
+    const text = catsText(menu, f.cart, {
+      understandText: true,
+      store: this.d.storeName,
+      browse: !!f.browse,
+    });
     return {
       text: before ? `${before}\n\n${text}` : text,
       flow: { ...f, at: 'cats', cat: undefined },
+    };
+  }
+
+  /** Itens de uma categoria, com o cartão das fotos (a lista vai de legenda). */
+  private itemsScreen(
+    f: Flow,
+    c: FlowCategory,
+    index: number,
+    o: { before?: string; image?: boolean } = {},
+  ): FlowOut {
+    const text = itemsText(c, this.d.settings.showPrices, { browse: !!f.browse });
+    const image = o.image ?? !o.before;
+    return {
+      text: o.before ? `${o.before}\n\n${text}` : text,
+      flow: { ...f, at: 'items', cat: index, draft: undefined },
+      ...(image ? { image: { kind: 'category' as const, index } } : {}),
     };
   }
 
@@ -656,16 +903,15 @@ export class WaFlowEngine {
     if (n !== null) {
       const c = menu[n - 1];
       if (!c) return this.retry(f, await this.cats(f));
-      return {
-        text: itemsText(c, this.d.settings.showPrices),
-        flow: { ...f, at: 'items', cat: n - 1 },
-      };
+      return this.itemsScreen(f, c, n - 1);
     }
-    const picks = await this.readOrder(t, true);
-    if (picks?.length) return this.addPicks(f, picks);
+    if (!f.browse) {
+      const picks = await this.readOrder(t, true);
+      if (picks?.length) return this.addPicks(f, picks);
+    }
     return this.cats(
       f,
-      `Não achei isso no cardápio 🤔 Escolha pelo número${this.d.settings.understandText ? ' ou escreva o nome do item' : ''}.`,
+      `Não achei isso no cardápio 🤔 Escolha pelo número${this.d.settings.understandText && !f.browse ? ' ou escreva o nome do item' : ''}.`,
     );
   }
 
@@ -675,25 +921,40 @@ export class WaFlowEngine {
     const n = choice(t);
     if (!c || n === 0) return this.cats(f);
     if (n === null) {
-      const picks = await this.readOrder(t, true);
-      if (picks?.length) return this.addPicks(f, picks);
-      return this.retry(f, { text: itemsText(c, this.d.settings.showPrices), flow: f });
+      if (!f.browse) {
+        const picks = await this.readOrder(t, true);
+        if (picks?.length) return this.addPicks(f, picks);
+      }
+      return this.retry(f, this.itemsScreen(f, c, f.cat!, { image: false }));
     }
     const it = c.items[n - 1];
-    if (!it) return this.retry(f, { text: itemsText(c, this.d.settings.showPrices), flow: f });
+    if (!it) return this.retry(f, this.itemsScreen(f, c, f.cat!, { image: false }));
     if (it.soldOut)
+      return this.itemsScreen(f, c, f.cat!, {
+        before: `😕 ${b(clean(it.name))} está esgotado hoje. Escolha outro:`,
+      });
+    if (f.browse) {
+      // Só olhando: a foto e os detalhes, sem perguntar a quantidade.
+      const st = await this.d.store();
+      const why = !this.d.settings.takeOrders
+        ? `🙋 Para pedir, mande ${b('menu')} e fale com a gente.`
+        : !st.open
+          ? `🔴 ${i('Estamos fechados agora.')}${st.closedNote ? ` ${st.closedNote}` : ''}`
+          : `🍽️ ${i('Na mesa, o pedido é pelo QR Code dela ou com o garçom.')}`;
       return {
-        text: `😕 ${b(clean(it.name))} está esgotado hoje. Escolha outro:\n\n${itemsText(c, this.d.settings.showPrices)}`,
-        flow: f,
+        text: itemCardText(it, this.d.settings.showPrices, { browse: why }),
+        flow: { ...f, at: 'items' },
+        image: { kind: 'item', productId: it.id },
       };
+    }
     if (it.soldByWeight)
-      return {
-        text: `⚖️ ${b(clean(it.name))} é vendido por peso e só dá para pedir na loja. Escolha outro:\n\n${itemsText(c, this.d.settings.showPrices)}`,
-        flow: f,
-      };
+      return this.itemsScreen(f, c, f.cat!, {
+        before: `⚖️ ${b(clean(it.name))} é vendido por peso e só dá para pedir na loja. Escolha outro:`,
+      });
     return {
-      text: qtyText(it, this.d.settings.showPrices),
+      text: itemCardText(it, this.d.settings.showPrices),
       flow: { ...f, at: 'qty', draft: { productId: it.id, qty: 1, optionIds: [], group: -1 } },
+      image: { kind: 'item', productId: it.id },
     };
   }
 
@@ -704,10 +965,7 @@ export class WaFlowEngine {
     if (choice(t) === 0) {
       const c = menu[f.cat ?? -1];
       return c
-        ? {
-            text: itemsText(c, this.d.settings.showPrices),
-            flow: { ...f, at: 'items', draft: undefined },
-          }
+        ? this.itemsScreen({ ...f, draft: undefined }, c, f.cat!, { image: false })
         : this.cats(f);
     }
     const q = quantity(t);
@@ -847,10 +1105,26 @@ export class WaFlowEngine {
   private async cart(f: Flow, before?: string, added?: string): Promise<FlowOut> {
     const menu = await this.d.menu();
     const up = this.d.settings.suggestItems ? upsellFor(menu, f.cart) : null;
-    const text = cartText(f.cart, { upsell: up, showPrices: this.d.settings.showPrices, added });
+    // Link do cardápio já dentro da conta (uma vez por conversa, só para o dono do número).
+    const link =
+      f.cart.length && f.customerId && !f.viaPin && !f.linkSent && this.d.siteLink
+        ? await this.d.siteLink(f.customerId).catch(() => null)
+        : null;
+    const text = cartText(f.cart, {
+      upsell: up,
+      showPrices: this.d.settings.showPrices,
+      added,
+      siteLink: link,
+    });
     return {
       text: before ? `${before}\n\n${text}` : text,
-      flow: { ...f, at: 'cart', upsell: up?.id, draft: undefined },
+      flow: {
+        ...f,
+        at: 'cart',
+        upsell: up?.id,
+        draft: undefined,
+        ...(link ? { linkSent: true } : {}),
+      },
     };
   }
 
@@ -910,7 +1184,12 @@ export class WaFlowEngine {
   }
 
   private async onChange(f: Flow, t: string): Promise<FlowOut> {
-    const total = subtotal(f.cart) + (f.mode === 'delivery' ? (f.fee ?? 0) : 0);
+    const { reward } = await this.redeemState(f);
+    const sub = subtotal(f.cart);
+    const total =
+      sub -
+      (reward ? Math.min(reward.discount, sub) : 0) +
+      (f.mode === 'delivery' ? (f.fee ?? 0) : 0);
     if (choice(t) === 0 || /^(n[aã]o|nao preciso|sem troco|nada)/i.test(t.trim()))
       return this.advance({ ...f, changeFor: 0 });
     const v = amount(t);
@@ -931,6 +1210,21 @@ export class WaFlowEngine {
         { ...f, checkout: undefined, pay: undefined, changeFor: undefined },
         '✏️ Sem problema! Mexa na sacola e depois feche de novo.',
       );
+    if (n === 3) {
+      // Troco pedido antes do desconto: pergunta de novo com o total novo.
+      const change = f.pay === 'cash' ? undefined : f.changeFor;
+      if (f.rewardId)
+        return this.advance(
+          { ...f, rewardId: undefined, changeFor: change },
+          '🎁 Tirei a recompensa.',
+        );
+      const r = await this.redeemState(f);
+      if (r.loyalty && r.usable.length)
+        return {
+          text: rewardsText(r.usable, r.loyalty, f.cart),
+          flow: { ...f, at: 'reward', pick: r.usable.map((x) => x.id) },
+        };
+    }
     if (n !== 1 && !/^(sim|confirmo|confirmar|pode mandar|fechado|isso)$/i.test(t.trim()))
       return {
         text: `Mande ${num(1)} para confirmar, ${num(2)} para mudar ou ${num(0)} para cancelar.`,
@@ -972,8 +1266,25 @@ export class WaFlowEngine {
       customerId: f.customerId,
       name: f.name,
       placed: String(r.number),
+      ...(f.viaPin ? { viaPin: true } : {}),
+      ...(f.linkSent ? { linkSent: true } : {}),
     };
     return { text: lines.join('\n'), flow: keep, placed: r.number };
+  }
+
+  private async onReward(f: Flow, t: string): Promise<FlowOut> {
+    const n = choice(t);
+    const id = n ? f.pick?.[n - 1] : undefined;
+    if (n === 0 || !id) return this.advance({ ...f, pick: undefined });
+    return this.advance(
+      {
+        ...f,
+        rewardId: id,
+        pick: undefined,
+        changeFor: f.pay === 'cash' ? undefined : f.changeFor,
+      },
+      '🎁 Recompensa aplicada!',
+    );
   }
 
   /** Resposta que não serviu: repete a tela com um aviso curto. */

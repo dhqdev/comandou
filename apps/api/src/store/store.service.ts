@@ -889,9 +889,12 @@ export class StoreService {
           about: s.about,
           address: s.address,
           whatsapp: s.whatsapp,
-          /** Pedido pelo WhatsApp com o atendente automático (null = desligado). */
+          /**
+           * Pedido pelo WhatsApp com o atendente automático (null = desligado). Na mesa não: quem
+           * está na loja pede pelo QR Code da mesa ou com o garçom (0.280).
+           */
           waOrder:
-            wa?.on && waDigits.length >= 10
+            !table && wa?.on && waDigits.length >= 10
               ? waDigits.length <= 11
                 ? `55${waDigits}`
                 : waDigits

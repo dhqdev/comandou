@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { generateRegistrationNode, initAuthCreds, proto, type SocketConfig } from 'baileys';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { tenantDir, useEncryptedAuthState } from './auth-store.js';
+import { MemoryCache } from './cache.js';
 import { DEVICE_BROWSER } from './device.js';
 import { InboundForwarder } from './forwarder.js';
 import { createGatewayServer } from './server.js';
@@ -556,6 +557,21 @@ describe('religação e recursos do Baileys', () => {
     await mgr.logout(t);
   });
 
+  it('a religação passa os caches do restaurante para o socket novo', async () => {
+    const { t, sock } = await connected();
+    const caches = sock.opts!.caches;
+    caches.msgRetry.set('msg-1', 2);
+    mgr.watchdog(Date.now() + 5000);
+    const next = await nextOpen(sock);
+    expect(next.opts!.caches).toBe(caches);
+    expect(next.opts!.caches.msgRetry.get('msg-1')).toBe(2);
+    // Outro restaurante tem os próprios caches.
+    const other = await connected();
+    expect(other.sock.opts!.caches).not.toBe(caches);
+    await mgr.logout(t);
+    await mgr.logout(other.t);
+  });
+
   it('vigia religa websocket fechado sem evento de close', async () => {
     const { t, sock } = await connected();
     sock.ws.isOpen = false;
@@ -934,6 +950,27 @@ describe('entrega das mensagens recebidas para a API', () => {
     expect(order.indexOf('ok:lenta1')).toBeLessThan(order.indexOf('in:lenta2'));
   });
 
+  it('restaurante com muitas conversas abertas não ocupa todas as vagas', async () => {
+    const started: string[] = [];
+    const hang = (async (_u: string, init: RequestInit) => {
+      const b = JSON.parse(String(init.body));
+      started.push(`${b.tenantId === T1 ? 'cheio' : 'outro'}:${b.id}`);
+      return new Promise(() => undefined);
+    }) as unknown as typeof fetch;
+    const f = new InboundForwarder('http://api/x', TOKEN, undefined, {
+      fetchFn: hang,
+      concurrency: 10,
+      maxActivePerTenant: 3,
+    });
+    for (let i = 0; i < 8; i++) f.push({ ...msg(`a${i}`), jid: `551190000000${i}@s.whatsapp.net` });
+    f.push({ ...msg('b'), tenantId: randomUUID() });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(started.filter((x) => x.startsWith('cheio')).length).toBe(3);
+    expect(started).toContain('outro:b'); // não esperou o restaurante cheio
+    expect(f.inFlight).toBe(4);
+    f.close();
+  });
+
   it('restaurante inundado não ocupa a fila dos outros', async () => {
     const logs: string[] = [];
     const hang = (() => new Promise(() => undefined)) as unknown as typeof fetch;
@@ -948,6 +985,26 @@ describe('entrega das mensagens recebidas para a API', () => {
     f.push({ ...msg('b'), tenantId: randomUUID() });
     expect(f.pending).toBe(4);
     f.close();
+  });
+});
+
+describe('cache do Baileys por restaurante', () => {
+  it('vence pelo prazo e guarda no máximo N itens', () => {
+    let now = 0;
+    const c = new MemoryCache(1000, 2, () => now);
+    c.set('a', 1);
+    c.set('b', 2);
+    c.set('c', 3); // passou do limite: o mais antigo sai
+    expect(c.get('a')).toBeUndefined();
+    expect(c.get('b')).toBe(2);
+    now = 1500;
+    expect(c.get('c')).toBeUndefined();
+    c.set('d', 4);
+    c.del('d');
+    expect(c.get('d')).toBeUndefined();
+    c.set('e', 5);
+    c.flushAll();
+    expect(c.size).toBe(0);
   });
 });
 

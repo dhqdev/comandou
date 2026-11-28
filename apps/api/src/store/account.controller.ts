@@ -100,6 +100,8 @@ const birthday = z
   .nullable();
 
 const Login = z.object({ phone: z.string().trim().max(25), password: z.string().min(1).max(200) });
+/** Token do link de entrada mandado pelo WhatsApp (randomBytes(24) em base64url). */
+const LinkLogin = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{24,64}$/) });
 const Profile = z
   .object({
     name: text(80),
@@ -290,6 +292,28 @@ export class AccountController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const r = await this.customers.login(t.id, b, {
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+    this.setCookie(res, r.session);
+    return this.customers.account(t.id, r.customer);
+  }
+
+  /**
+   * Entrada pelo link que o WhatsApp da loja mandou ao próprio número da conta (0.280): o cliente
+   * abre o cardápio já dentro dela e vê a sacola montada na conversa. Uso único, 30 minutos.
+   */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post('link')
+  @HttpCode(200)
+  async linkLogin(
+    @Body(new ZodPipe(LinkLogin)) b: z.infer<typeof LinkLogin>,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const r = await this.customers.loginByLink(t.id, b.token, {
       ip: req.ip,
       userAgent: req.get('user-agent'),
     });

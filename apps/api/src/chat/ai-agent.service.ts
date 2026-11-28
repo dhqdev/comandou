@@ -54,8 +54,17 @@ import { type AiConfig, loadAiQuota, recordAiUsage } from './ai-quota';
 import { AI_KEY_CONTEXT } from './ai.service';
 import { ChatService } from './chat.service';
 import { ChatTurn, OpenRouterClient, OpenRouterError } from './openrouter';
-import { clean, type Flow, type FlowCategory, quote, type TextPick, toCents } from './wa-flow';
-import { type FlowDeps, type FlowStore, WaFlowEngine } from './wa-flow-engine';
+import {
+  clean,
+  findItem,
+  type Flow,
+  type FlowCategory,
+  quote,
+  type TextPick,
+  toCents,
+} from './wa-flow';
+import { type FlowDeps, type FlowImage, type FlowStore, WaFlowEngine } from './wa-flow-engine';
+import { WaMediaService } from './wa-media';
 import { WaOrderService } from './wa-order.service';
 
 /** Mensagens anteriores da conversa com o cliente que vão junto (memória curta). */
@@ -162,7 +171,12 @@ export interface AgentReply {
   handoff: boolean;
   /** PDFs para mandar depois do texto (cardápio, calendário de reservas). */
   documents: { data: Uint8Array; fileName: string; caption?: string }[];
+  /** Foto que leva o texto de legenda (cartão da categoria, foto do item). */
+  image?: { data: Uint8Array; fileName: string };
 }
+
+/** Legenda de foto no WhatsApp: acima disso, a foto vai sem legenda e o texto logo depois. */
+const CAPTION_MAX = 1000;
 
 /** Item como o gerente vê na lista "o que a IA pode oferecer". */
 interface MenuRow {
@@ -198,6 +212,7 @@ export class AiAgentService implements OnModuleInit {
     private readonly gateway: GatewayClient,
     private readonly reservations: ReservationsService,
     private readonly waOrders: WaOrderService,
+    private readonly waMedia: WaMediaService,
   ) {}
 
   onModuleInit() {
@@ -220,9 +235,24 @@ export class AiAgentService implements OnModuleInit {
     );
     if (!r) return;
     try {
-      const sent = await this.gateway.send(m.tenantId, m.jid, r.text, {
-        typingMs: Math.min(r.typingMs, 2500),
-      });
+      // Com foto (cartão da categoria, foto do item): o texto vai de legenda. Se a foto não sair,
+      // manda o texto sozinho (a conversa nunca fica sem resposta por causa da foto).
+      let textDone = false;
+      if (r.image) {
+        const caption = r.text.length <= CAPTION_MAX ? r.text : undefined;
+        const pic = await this.gateway.sendDocument(m.tenantId, m.jid, {
+          data: r.image.data,
+          fileName: r.image.fileName,
+          ...(caption ? { caption } : {}),
+        });
+        textDone = pic.ok ? !!caption : !!pic.uncertain && !!caption;
+        if (!pic.ok) this.logger.warn(`Foto do menu não saiu (${m.tenantId}): ${pic.error}`);
+      }
+      const sent = textDone
+        ? { ok: true as const }
+        : await this.gateway.send(m.tenantId, m.jid, r.text, {
+            typingMs: Math.min(r.typingMs, 2500),
+          });
       if (!sent.ok) this.logger.warn(`Resposta da IA não saiu (${m.tenantId}): ${sent.error}`);
       for (const d of r.documents) {
         const doc = await this.gateway.sendDocument(m.tenantId, m.jid, d);
@@ -1114,6 +1144,7 @@ export class AiAgentService implements OnModuleInit {
     if (settings.replyWhen === 'open' && !st.open) return { reply: null };
     let menu: Promise<FlowCategory[]> | null = null;
     let customer: Promise<{ id: string; name: string } | null> | null = null;
+    let table: Promise<string | null> | null = null;
     const deps: FlowDeps = {
       settings: {
         takeOrders: settings.takeOrders,
@@ -1161,8 +1192,25 @@ export class AiAgentService implements OnModuleInit {
       ...(settings.understandText && ai
         ? { parseOrder: (t: string, list: FlowCategory[]) => this.parseOrder(ctx, ai, t, list) }
         : {}),
+      byPin: (pin) => this.waOrders.byPin(tenantId, m.phone, pin),
+      loyaltyOn: st.loyalty,
+      loyalty: (id, viaPin) => this.waOrders.loyaltyOf(tenantId, id, viaPin),
+      atTable: () => (table ??= this.waOrders.atTable(tenantId, m.phone)),
+      siteLink: (id) => this.waOrders.siteLink(tenantId, id, info.storeUrl),
     };
     const out = await new WaFlowEngine(deps).handle(m.flow, m.text);
+    // A sacola do WhatsApp vai junto para a sacola da conta no cardápio (David, 0.280: "quero que
+    // vá adicionando ao pedido do cliente lá no cardápio"). Só o que o WhatsApp mexeu.
+    // (Cancelar ou passar para a equipe zera a conversa: o que ela tinha posto sai também.)
+    const who = out.flow?.customerId ?? m.flow?.customerId;
+    if (who) {
+      const before = m.flow?.customerId === who ? (m.flow.cart ?? []) : [];
+      const after = out.flow?.customerId === who ? (out.flow.cart ?? []) : [];
+      if (JSON.stringify(before) !== JSON.stringify(after))
+        await this.waOrders
+          .mirrorCart(tenantId, who, before, after)
+          .catch((e: Error) => this.logger.warn(`Sacola no cardápio (${tenantId}): ${e.message}`));
+    }
     await this.db.withTenant(ctx, (tx) =>
       q(
         tx,
@@ -1185,7 +1233,30 @@ export class AiAgentService implements OnModuleInit {
     if (!out.text) return { reply: null };
     const res = await this.say(ctx, m.phone, out.text, 0);
     const documents = out.menuFiles ? await this.menuDocuments(ctx, info.name) : [];
-    return { reply: { ...res, documents } };
+    const image = out.image
+      ? await this.flowImage(tenantId, info.name, out.image, await deps.menu(), settings.showPrices)
+      : null;
+    return { reply: { ...res, documents, ...(image ? { image } : {}) } };
+  }
+
+  /** Foto da mensagem do menu: o cartão da categoria ou a foto do item (null = só texto). */
+  private async flowImage(
+    tenantId: string,
+    store: string,
+    img: FlowImage,
+    menu: FlowCategory[],
+    showPrices: boolean,
+  ): Promise<AgentReply['image'] | null> {
+    if (img.kind === 'category') {
+      const c = menu[img.index];
+      const data = c
+        ? await this.waMedia.categoryCard(tenantId, { store, category: c, showPrices })
+        : null;
+      return data ? { data, fileName: 'cardapio.jpg' } : null;
+    }
+    const it = findItem(menu, img.productId);
+    const data = it ? await this.waMedia.itemPhoto(tenantId, it.imageId) : null;
+    return data ? { data, fileName: 'item.jpg' } : null;
   }
 
   /** A loja para o menu do WhatsApp (aberta, entrega, taxa, horário, reservas, arquivos). */
@@ -1193,14 +1264,19 @@ export class AiAgentService implements OnModuleInit {
     ctx: { tenantId: string },
     settings: AgentSettings,
     storeUrl: string | null,
-  ): Promise<FlowStore & { tz: string }> {
+  ): Promise<FlowStore & { tz: string; loyalty: boolean }> {
     return this.db.withTenant(ctx, async (tx) => {
       const st = await this.storeIn(tx, storeUrl);
       const reservations = settings.takeReservations
         ? (await this.reservations.calendarIn(tx, 1)).settings.enabled
         : false;
       const files = await one<{ n: number }>(tx, `SELECT count(*)::int AS n FROM ai_menu_files`);
+      const loyalty = await one<{ on: boolean }>(
+        tx,
+        `SELECT enabled AS on FROM loyalty_programs LIMIT 1`,
+      );
       return {
+        loyalty: !!loyalty?.on,
         open: st.openNow,
         closedNote: st.hours ? `Nosso horário: ${st.hours}.` : null,
         acceptsDelivery: st.acceptsDelivery,
