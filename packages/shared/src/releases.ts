@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.282.0',
+    date: '2026-11-28',
+    title: 'Criar o restaurante conversando, com o cardápio de verdade ao lado',
+    summary:
+      'A criação pelo site virou uma conversa numa página própria: a IA lê o que a pessoa manda (link, foto ou PDF do cardápio, logo, CNPJ), pergunta o que é cada coisa e, ao lado, mostra o cardápio de verdade do sistema montando, com cada mudança na hora. Ao entrar no restaurante, tudo o que foi combinado já é aplicado sozinho, sem perguntar de novo.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Criar o restaurante em conversa (comandou.com/criar): manda o que tiver e a IA confirma o nome, o cardápio, o logo e as cores, como você vende, WhatsApp, endereço e tempo de preparo, e por último os dados do login. É uma página própria: clicar fora não fecha nada.',
+      },
+      {
+        tag: 'novo',
+        text: 'Ao lado da conversa, o cardápio online de verdade (o mesmo que o cliente usa), num celular no computador e em tela cheia no celular. Mudou o nome, o preço ou tirou um item na conversa, o cardápio muda na hora.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cardápio para conferir dentro da conversa: renomear categoria e item, mudar preço e descrição, tirar e pôr itens. Item sem preço fica marcado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A IA lê todas as páginas e todos os itens do PDF ou da foto do cardápio, um por um, sem pular nem resumir, e não pede o cardápio de novo se ele já veio.',
+      },
+      {
+        tag: 'novo',
+        text: 'Primeiro acesso ao restaurante criado pela conversa: o sistema aplica sozinho o cardápio, o logo, as cores, o WhatsApp, o endereço, entrega ou retirada e o tempo de preparo, mostrando o andamento, sem as perguntas dos primeiros passos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Página inicial mais limpa: sem os cartões de pedidos e vendas flutuando ao lado do celular.',
+      },
+    ],
+  },
+  {
     version: '0.281.0',
     date: '2026-11-27',
     title: 'WhatsApp mais estável, avisos formatados e texto que dá para selecionar',

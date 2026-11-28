@@ -2,6 +2,82 @@ import { z } from 'zod';
 
 const digits = (v: string) => v.replace(/\D/g, '');
 
+const color = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/)
+  .transform((v) => v.toLowerCase())
+  .nullable();
+/** Foto do item: link de fora (o sistema baixa ao aplicar) ou a imagem anexada. */
+const imageRef = z
+  .string()
+  .max(2048)
+  .refine((v) => /^https?:\/\//i.test(v), 'Foto inválida')
+  .nullable();
+const money = z
+  .string()
+  .regex(/^\d{1,6}(\.\d{1,2})?$/)
+  .nullable();
+
+/**
+ * O que a pessoa combinou na conversa da criação pelo site (0.282): o cardápio conferido, a cara
+ * da loja, como vende, contato, endereço e o tempo de preparo. Vai junto com a criação e o
+ * sistema aplica sozinho no primeiro acesso, sem perguntar de novo.
+ */
+export const SetupBody = z.object({
+  categories: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(60),
+        items: z
+          .array(
+            z.object({
+              name: z.string().trim().min(1).max(120),
+              description: z.string().trim().max(400).nullable(),
+              price: money,
+              /** Sem foto aqui: o servidor usa a do rascunho (pelo nome do item). */
+              imageUrl: imageRef.optional(),
+              stock: z
+                .object({
+                  qty: z.number().int().min(0).max(100_000),
+                  min: z.number().int().min(0).max(100_000),
+                })
+                .nullable()
+                .optional(),
+            }),
+          )
+          .max(120),
+      }),
+    )
+    .max(40)
+    .refine((c) => c.reduce((n, x) => n + x.items.length, 0) <= 400, 'Até 400 itens'),
+  store: z.object({
+    brandColor: color,
+    accentColor: color,
+    /** Logo trocado na conversa (data URI pequeno) ou link; null = fica o que a IA achou. */
+    logoUrl: z
+      .string()
+      .max(200_000)
+      .refine(
+        (v) =>
+          /^https:\/\//i.test(v) || /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(v),
+        'Logo inválido',
+      )
+      .nullable(),
+    whatsapp: z
+      .string()
+      .transform(digits)
+      .refine((v) => v === '' || (v.length >= 10 && v.length <= 13), 'WhatsApp com DDD')
+      .transform((v) => v || null)
+      .nullable(),
+    address: z.string().trim().max(300).nullable(),
+  }),
+  sell: z.object({ delivery: z.boolean(), pickup: z.boolean(), tables: z.boolean() }),
+  eta: z
+    .object({ min: z.number().int().min(5).max(240), max: z.number().int().min(5).max(300) })
+    .nullable(),
+});
+export type SetupInput = z.infer<typeof SetupBody>;
+
 /** Cadastro do teste pelo site. */
 export const TrialBody = z.object({
   restaurant: z.string().trim().min(2, 'Diga o nome do restaurante').max(80),
@@ -63,6 +139,8 @@ export const TrialBody = z.object({
     .transform((v) => v || null)
     .nullable()
     .optional(),
+  /** O que foi combinado na conversa da criação (aplicado sozinho no primeiro acesso). */
+  setup: SetupBody.optional(),
   /** Campo escondido: gente não preenche, robô sim. */
   company: z.string().max(0).optional(),
 });

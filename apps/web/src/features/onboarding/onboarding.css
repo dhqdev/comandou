@@ -412,3 +412,45 @@
     min-height: 0;
   }
 }
+
+/* Aplicando sozinho o combinado do site (0.282): o passo e uma barra de andamento. */
+.onb-auto {
+  display: grid;
+  gap: 10px;
+  min-width: min(320px, 70vw);
+}
+.onb-auto__bar {
+  position: relative;
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--cm-surface-muted);
+}
+.onb-auto__bar b {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  border-radius: inherit;
+  background: var(--cm-brand-500);
+  transition: width var(--cm-dur-slow) var(--cm-ease);
+}
+.onb-auto__bar b[data-busy] {
+  width: 35%;
+  animation: onb-auto-run 1.2s var(--cm-ease) infinite;
+}
+@keyframes onb-auto-run {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onb-auto__bar b[data-busy] {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
+}

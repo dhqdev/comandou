@@ -1,0 +1,771 @@
+/* Criar o restaurante em conversa (0.282): página própria, conversa à esquerda e o cardápio de
+   verdade num celular à direita (no celular, um botão abre a prévia em tela cheia). Os balões, os
+   botões e o campo de resposta vêm da conversa dos Primeiros passos (onboarding.css). */
+
+.stc {
+  --stc-head: 64px;
+  min-height: 100dvh;
+  background: var(--cm-bg);
+  color: var(--cm-text);
+}
+
+.stc-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--stc-head);
+  padding: 10px 20px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+  background: var(--cm-surface);
+  border-bottom: 1px solid var(--cm-border);
+}
+.stc-head .onb-progress {
+  position: absolute;
+  inset: auto 0 -1px;
+}
+.stc-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+.stc-brand span {
+  display: grid;
+  line-height: 1.2;
+}
+.stc-brand small {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.stc-addr {
+  margin-left: auto;
+  max-width: 42vw;
+  padding: 6px 12px;
+  overflow: hidden;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stc-addr b {
+  color: var(--cm-text);
+}
+
+.stc-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
+  width: min(1400px, 100%);
+  margin: 0 auto;
+}
+.stc-chat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: calc(100dvh - var(--stc-head));
+}
+.stc-thread {
+  flex: 1;
+  align-content: start;
+  width: min(820px, 100%);
+}
+.stc-reply {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  padding-inline: max(20px, calc((100% - 820px) / 2 + 20px));
+}
+.stc-end {
+  /* O rodapé de resposta fica por cima do fim da conversa: rola até acima dele. */
+  scroll-margin-bottom: 190px;
+}
+/* Mensagem com várias linhas (o cardápio escrito) mantém as quebras. */
+.stc-thread .onb-msg p {
+  white-space: pre-line;
+}
+.stc-confirm {
+  margin-bottom: 10px;
+}
+.stc-card {
+  display: grid;
+  gap: 12px;
+}
+.stc-card__title {
+  font-size: var(--cm-text-lg);
+}
+.stc-msg-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.stc-msg-files span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cm-radius-full);
+  background: rgb(255 255 255 / 0.2);
+  font-size: var(--cm-text-xs);
+}
+.stc-reading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--cm-text-muted);
+}
+.stc-error {
+  margin: 6px 0 0 46px;
+  color: var(--cm-danger);
+  font-size: var(--cm-text-sm);
+}
+
+/* ---------------------------------------------------------------- campo de mandar coisas */
+.stc-compose {
+  display: grid;
+  gap: 6px;
+  padding: 10px 10px 8px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: 18px;
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-sm);
+  transition: border-color var(--cm-dur-fast) var(--cm-ease);
+}
+.stc-compose:focus-within {
+  border-color: var(--cm-brand-500);
+}
+.stc-compose__text {
+  min-height: 48px;
+  padding: 4px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--cm-text-md);
+  resize: none;
+}
+.stc-compose__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.stc-compose__bar .onb-send {
+  margin-left: auto;
+}
+.stc-compose__attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  cursor: pointer;
+}
+.stc-compose__attach:hover {
+  background: var(--cm-surface-sunken);
+}
+.stc-compose__files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.stc-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 10px;
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
+  font-size: var(--cm-text-xs);
+}
+.stc-file button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.stc-link {
+  padding: 3px 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+
+/* ---------------------------------------------------------------- cardápio na conversa */
+.stc-menu {
+  display: grid;
+  gap: 10px;
+}
+.stc-menu__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.stc-menu__head span {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.stc-menu__warn {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--cm-warning) 14%, var(--cm-surface));
+  font-size: var(--cm-text-sm);
+}
+.stc-cat {
+  overflow: hidden;
+  border: 1px solid var(--cm-border);
+  border-radius: 14px;
+  background: var(--cm-surface);
+}
+.stc-cat__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px 6px 6px;
+}
+.stc-cat__toggle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.stc-cat__toggle svg {
+  transition: transform var(--cm-dur) var(--cm-ease);
+  transform: rotate(-90deg);
+}
+.stc-cat[data-open] .stc-cat__toggle svg {
+  transform: none;
+}
+.stc-cat__name,
+.stc-item__name {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.stc-cat__name {
+  flex: 1;
+  font-weight: 700;
+}
+.stc-item__name {
+  padding: 4px 6px;
+  font-weight: 600;
+}
+.stc-cat__name:hover,
+.stc-item__name:hover,
+.stc-cat__name:focus,
+.stc-item__name:focus {
+  background: var(--cm-surface-muted);
+}
+.stc-cat__count {
+  padding: 2px 9px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.stc-items {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 10px 10px;
+  list-style: none;
+}
+.stc-item {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 112px 36px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--cm-surface-muted);
+}
+.stc-item__photo {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
+  color: var(--cm-brand-600, var(--cm-brand-500));
+  font-weight: 800;
+}
+.stc-item__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.stc-item__fields {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.stc-item__descbtn {
+  overflow: hidden;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+.stc-item__desc {
+  padding: 6px 8px;
+  border: 1px solid var(--cm-border);
+  border-radius: 8px;
+  background: var(--cm-surface);
+  color: inherit;
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  resize: vertical;
+}
+.stc-item__price {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 38px;
+  padding: 0 8px;
+  border: 1px solid var(--cm-border);
+  border-radius: 10px;
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.stc-item__price:focus-within {
+  border-color: var(--cm-brand-500);
+}
+.stc-item__price input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-md);
+  font-weight: 650;
+  text-align: right;
+}
+.stc-item[data-noprice] .stc-item__price {
+  border-color: var(--cm-warning);
+  background: color-mix(in oklab, var(--cm-warning) 10%, var(--cm-surface));
+}
+.stc-item__drop {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.stc-item__drop:hover {
+  background: color-mix(in oklab, var(--cm-danger) 12%, transparent);
+  color: var(--cm-danger);
+}
+.stc-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px dashed var(--cm-border-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  cursor: pointer;
+}
+.stc-add:hover {
+  border-color: var(--cm-brand-500);
+  color: var(--cm-text);
+}
+
+/* ---------------------------------------------------------------- logo e cores */
+.stc-brandcard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+.stc-logo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  overflow: hidden;
+  border: 1.5px dashed var(--cm-border-strong);
+  border-radius: 24px;
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.stc-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;
+}
+.stc-logo small {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 3px 0 5px;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+  font-size: 11px;
+}
+.stc-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.stc-color {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px 7px 7px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  cursor: pointer;
+}
+.stc-color span {
+  display: grid;
+  line-height: 1.2;
+}
+.stc-color small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.stc-color input {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.stc-color input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.stc-color input::-webkit-color-swatch {
+  border: 1px solid rgb(0 0 0 / 0.12);
+  border-radius: 50%;
+}
+.stc-color input::-moz-color-swatch {
+  border: 1px solid rgb(0 0 0 / 0.12);
+  border-radius: 50%;
+}
+
+/* ---------------------------------------------------------------- dados, criando e pronto */
+.stc-owner {
+  gap: 14px;
+}
+.stc-owner__addr {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.stc-owner__addr b {
+  color: var(--cm-text);
+}
+.stc-build {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stc-build li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--cm-text-muted);
+}
+.stc-build li.is-done,
+.stc-build li.is-now {
+  color: var(--cm-text);
+}
+.stc-build li > span {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--cm-surface-muted);
+}
+.stc-build li.is-done > span {
+  background: var(--cm-success);
+  color: #fff;
+}
+.stc-build__slow {
+  font-size: var(--cm-text-sm);
+}
+.stc-ready p {
+  margin: 0;
+  color: var(--cm-text-muted);
+}
+.stc-ready__foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ---------------------------------------------------------------- prévia (cardápio de verdade) */
+.stc-side {
+  position: sticky;
+  top: var(--stc-head);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: calc(100dvh - var(--stc-head));
+  padding: 18px 24px;
+  border-left: 1px solid var(--cm-border);
+  background: color-mix(in oklab, var(--cm-surface-muted) 70%, var(--cm-bg));
+}
+.stc-side__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.stc-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cm-success);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--cm-success) 22%, transparent);
+}
+.stc-side__hint {
+  max-width: 340px;
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  text-align: center;
+}
+.stc-side__empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 320px;
+  color: var(--cm-text-muted);
+  text-align: center;
+}
+.stc-side__empty strong {
+  color: var(--cm-text);
+  font-size: var(--cm-text-lg);
+}
+.stc-phone {
+  position: relative;
+  height: min(780px, calc(100dvh - var(--stc-head) - 110px));
+  aspect-ratio: 390 / 800;
+  max-width: 100%;
+  padding: 11px;
+  border-radius: 46px;
+  background: #121212;
+  box-shadow:
+    inset 0 0 0 2px #2b2b2b,
+    0 30px 60px -24px rgb(0 0 0 / 0.45);
+}
+.stc-phone__notch {
+  position: absolute;
+  top: 19px;
+  left: 50%;
+  z-index: 2;
+  width: 92px;
+  height: 24px;
+  border-radius: 99px;
+  background: #121212;
+  transform: translateX(-50%);
+}
+.stc-phone__screen {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 36px;
+  background: #fff;
+  opacity: 0;
+  transition: opacity var(--cm-dur-slow) var(--cm-ease);
+}
+.stc-phone__screen[data-ready] {
+  opacity: 1;
+}
+.stc-phone__wait {
+  position: absolute;
+  inset: 11px;
+  display: grid;
+  place-items: center;
+  border-radius: 36px;
+  background: #fff;
+}
+
+/* Botão do celular e a prévia em tela cheia. */
+.stc-peek {
+  position: fixed;
+  top: calc(var(--stc-head) + 12px + env(safe-area-inset-top));
+  right: 12px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-text);
+  color: var(--cm-bg);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  box-shadow: var(--cm-shadow-md);
+  cursor: pointer;
+}
+.stc-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--cm-bg);
+}
+.stc-sheet__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 10px 16px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+  border-bottom: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+}
+.stc-sheet__x {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--cm-surface-muted);
+  color: inherit;
+  cursor: pointer;
+}
+.stc-sheet .stc-phone {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  padding: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+.stc-sheet .stc-phone__notch {
+  display: none;
+}
+.stc-sheet .stc-phone__screen,
+.stc-sheet .stc-phone__wait {
+  inset: 0;
+  border-radius: 0;
+}
+
+@media (max-width: 960px) {
+  .stc-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .stc-addr {
+    display: none;
+  }
+  /* O botão "Ver minha loja" fica no alto à direita: o primeiro balão desce um pouco. */
+  .stc .stc-thread {
+    padding-top: 68px;
+  }
+}
+@media (max-width: 560px) {
+  .stc-head {
+    padding-inline: 12px;
+  }
+  .stc-brand small {
+    display: none;
+  }
+  .stc-card {
+    margin-left: 0;
+  }
+  .stc-item {
+    grid-template-columns: 42px minmax(0, 1fr) 36px;
+    grid-template-areas:
+      'photo fields drop'
+      'photo price drop';
+    row-gap: 6px;
+  }
+  .stc-item__photo {
+    grid-area: photo;
+    align-self: start;
+    width: 42px;
+    height: 42px;
+  }
+  .stc-item__fields {
+    grid-area: fields;
+  }
+  .stc-item__price {
+    grid-area: price;
+    max-width: 140px;
+  }
+  .stc-item__drop {
+    grid-area: drop;
+    align-self: start;
+  }
+  .stc-reply {
+    padding-inline: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stc-phone__screen {
+    transition: none;
+  }
+}

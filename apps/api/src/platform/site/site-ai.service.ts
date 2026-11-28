@@ -13,7 +13,13 @@ import { chatFallbacks } from '../../chat/ai-models';
 import { MONTH_START } from '../../chat/ai-quota';
 import { type ContentPart, OpenRouterClient, OpenRouterError } from '../../chat/openrouter';
 import { readStockGuess, STOCK_PROMPT, stockQuestion } from '../../chat/stock-guess';
-import { extractPage, MENU_FILE_PROMPT, metaContent, pageForModel } from '../../chat/store-import';
+import {
+  EMPTY_STORE as EMPTY_IMPORTED_STORE,
+  extractPage,
+  MENU_FILE_PROMPT,
+  metaContent,
+  pageForModel,
+} from '../../chat/store-import';
 import { sniff } from '../../common/file-sniff';
 import { mapsPlaceName } from '../../common/maps-link';
 import { safeFetch, SafeFetchError } from '../../common/safe-fetch';
@@ -22,6 +28,7 @@ import type { KeyKind } from '../ai-keys';
 import { PlatformDb, platformAudit } from '../platform-db.service';
 import type { Actor } from '../platform.service';
 import { creationKey, recordCreation } from './creation-ai';
+import type { SetupInput } from './site.schemas';
 import {
   applyStock,
   COMPOSE_PROMPT,
@@ -849,6 +856,87 @@ export class SiteAiService {
       [hash(token), tenantId, CLAIM_HOURS, what === 'menu'],
     );
     return g?.id ?? null;
+  }
+
+  /**
+   * Guarda o que a pessoa combinou na conversa da criação (0.282) no rascunho do restaurante:
+   * o cardápio conferido no lugar do lido (as fotos que a IA achou voltam pelo nome do item), a
+   * cara da loja, contato, endereço e, em `setup`, como vende e o tempo de preparo. O sistema lê
+   * pelo mesmo caminho dos primeiros passos e aplica sozinho no primeiro acesso. Sem rascunho
+   * (a pessoa não mandou nada para a IA), nasce um só com o combinado.
+   */
+  async saveSetup(generationId: string | null, tenantId: string, s: SetupInput): Promise<string> {
+    const nameKey = (v: string) =>
+      v
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+    return this.db.tx(async (c) => {
+      const { rows } = generationId
+        ? await c.query<{ draft: SiteDraft | null }>(
+            `SELECT draft FROM site_ai_generations WHERE id = $1 AND tenant_id = $2 FOR UPDATE`,
+            [generationId, tenantId],
+          )
+        : { rows: [] as { draft: SiteDraft | null }[] };
+      const base: SiteDraft = rows[0]?.draft ?? {
+        store: { ...EMPTY_IMPORTED_STORE },
+        categories: [],
+        tagline: null,
+        suggested: false,
+      };
+      const photos = new Map<string, string>();
+      for (const cat of base.categories)
+        for (const it of cat.items) if (it.imageUrl) photos.set(nameKey(it.name), it.imageUrl);
+      const draft: SiteDraft & { setup: Record<string, unknown> } = {
+        ...base,
+        suggested: false,
+        categories: s.categories.map((cat) => ({
+          name: cat.name,
+          items: cat.items.map((it) => ({
+            name: it.name,
+            description: it.description,
+            price: it.price,
+            imageUrl: it.imageUrl ?? photos.get(nameKey(it.name)) ?? null,
+            ...(it.stock !== undefined ? { stock: it.stock } : {}),
+          })),
+        })),
+        store: {
+          ...base.store,
+          brandColor: s.store.brandColor ?? base.store.brandColor,
+          accentColor: s.store.accentColor ?? base.store.accentColor,
+          logoUrl: s.store.logoUrl ?? base.store.logoUrl,
+          whatsapp: s.store.whatsapp ?? base.store.whatsapp,
+          address: s.store.address ?? base.store.address,
+        },
+        setup: {
+          delivery: s.sell.delivery,
+          pickup: s.sell.pickup,
+          tables: s.sell.tables,
+          etaMin: s.eta?.min ?? null,
+          etaMax: s.eta ? Math.max(s.eta.min, s.eta.max) : null,
+          confirmedAt: new Date().toISOString(),
+        },
+      };
+      if (generationId && rows[0]) {
+        await c.query(`UPDATE site_ai_generations SET draft = $2, items = $3 WHERE id = $1`, [
+          generationId,
+          JSON.stringify(draft),
+          draftItems(draft),
+        ]);
+        return generationId;
+      }
+      const ins = await c.query<{ id: string }>(
+        `INSERT INTO site_ai_generations (source_kind, source_value, from_panel, ip, model, prompt_tokens,
+                                          completion_tokens, cost_usd, status, error, draft, items,
+                                          claim_hash, session, tenant_id)
+         VALUES ('compose', 'conversa', false, NULL, 'conversa', 0, 0, 0, 'ok', NULL, $1, $2,
+                 NULL, NULL, $3) RETURNING id`,
+        [JSON.stringify(draft), draftItems(draft), tenantId],
+      );
+      return ins.rows[0]!.id;
+    });
   }
 
   // ------------------------------------------------------------------ painel

@@ -257,6 +257,72 @@ describe('Teste criado pelo site', () => {
     ]);
   });
 
+  it('a conversa da criação leva o combinado e o sistema aplica sem perguntar (0.282)', async () => {
+    const email = `conversa-${randomBytes(4).toString('hex')}@site.test`;
+    const setup = {
+      categories: [
+        {
+          name: 'Pizzas',
+          items: [
+            { name: 'Calabresa', description: 'Molho, calabresa e cebola', price: '49.90' },
+            { name: 'Margherita', description: null, price: null },
+          ],
+        },
+        { name: 'Bebidas', items: [{ name: 'Guaraná lata', description: null, price: '7.00' }] },
+      ],
+      store: {
+        brandColor: '#AA2200',
+        accentColor: '#ffcc00',
+        logoUrl: null,
+        whatsapp: '(11) 97777-6666',
+        address: 'Rua das Flores, 120, Centro',
+      },
+      sell: { delivery: false, pickup: true, tables: true },
+      eta: { min: 15, max: 30 },
+    };
+    const r = await post('trials', {
+      restaurant: 'Pizzaria Conversa',
+      name: 'Dono Conversa',
+      email,
+      source: { kind: 'compose', value: 'conversa' },
+      setup,
+    }).expect(201);
+    const host = `${r.body.slug}.comandou.test`;
+    const entry = await http
+      .post('/api/v1/auth/entry')
+      .set('Host', host)
+      .set(CSRF)
+      .send({ token: r.body.entry })
+      .expect(200);
+    const cookie = (entry.headers['set-cookie'] as unknown as string[])
+      .find((c) => c.startsWith('cm_sid='))!
+      .split(';')[0]!;
+    const sg = await http
+      .get('/api/v1/menu-import/signup')
+      .set('Host', host)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(sg.body.trial).toMatchObject({ aiSite: true, setup: true });
+    const d = await http
+      .get('/api/v1/menu-import/site-draft')
+      .set('Host', host)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(d.body).toMatchObject({
+      found: true,
+      items: 3,
+      setup: { delivery: false, pickup: true, tables: true, etaMin: 15, etaMax: 30 },
+    });
+    expect(d.body.categories.map((c: { name: string }) => c.name)).toEqual(['Pizzas', 'Bebidas']);
+    expect(d.body.categories[0].items[0]).toMatchObject({ name: 'Calabresa', price: '49.90' });
+    expect(d.body.store).toMatchObject({
+      brandColor: '#aa2200',
+      accentColor: '#ffcc00',
+      whatsapp: '11977776666',
+      address: 'Rua das Flores, 120, Centro',
+    });
+  });
+
   it('avisa no topo do sistema nos últimos dias do teste', async () => {
     const host = `${created.slug}.comandou.test`;
     const far = await http

@@ -73,3 +73,49 @@ describe('teste criado pelo site', () => {
     expect(m.text).toContain('Senha: abcd-efgh-2345');
   });
 });
+
+describe('combinado da conversa da criação (0.282)', () => {
+  const base = {
+    categories: [
+      { name: 'Lanches', items: [{ name: 'X-Burger', description: null, price: '28.90' }] },
+    ],
+    store: {
+      brandColor: '#E23A00',
+      accentColor: null,
+      logoUrl: null,
+      whatsapp: null,
+      address: null,
+    },
+    sell: { delivery: true, pickup: true, tables: false },
+    eta: { min: 30, max: 45 },
+  };
+  const trial = (setup: unknown) =>
+    TrialBody.safeParse({ restaurant: 'Lanche Bom', name: 'Ana', email: 'ana@x.test', setup });
+
+  it('aceita o cardápio conferido e a cara da loja', () => {
+    const r = trial(base);
+    expect(r.success).toBe(true);
+    expect(r.success && r.data.setup?.store.brandColor).toBe('#e23a00');
+  });
+
+  it('recusa logo que não é imagem nem link, preço estranho e cardápio grande demais', () => {
+    expect(
+      trial({ ...base, store: { ...base.store, logoUrl: 'javascript:alert(1)' } }).success,
+    ).toBe(false);
+    expect(
+      trial({
+        ...base,
+        categories: [{ name: 'X', items: [{ name: 'A', description: null, price: '1,5' }] }],
+      }).success,
+    ).toBe(false);
+    const many = Array.from({ length: 5 }, (_, c) => ({
+      name: `C${c}`,
+      items: Array.from({ length: 100 }, (_, i) => ({
+        name: `I${i}`,
+        description: null,
+        price: '1.00',
+      })),
+    }));
+    expect(trial({ ...base, categories: many }).success).toBe(false);
+  });
+});

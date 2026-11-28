@@ -81,7 +81,21 @@ export interface Signup {
     aiSite?: boolean;
     /** A pessoa mandou o cardápio (foto ou PDF) lá, com o estoque sugerido pela IA. */
     aiMenu?: boolean;
+    /**
+     * Tudo foi combinado na conversa da criação pelo site (0.282): os primeiros passos só
+     * aplicam, sem perguntar de novo.
+     */
+    setup?: boolean;
   } | null;
+}
+
+/** Como vende e o tempo de preparo, combinados na conversa do site. */
+export interface SiteSetup {
+  delivery: boolean;
+  pickup: boolean;
+  tables: boolean;
+  etaMin: number | null;
+  etaMax: number | null;
 }
 
 export const loadSignup = () => api<Signup>('/menu-import/signup').catch(() => null);
@@ -412,6 +426,16 @@ export async function readSiteDraft(current: Reading | null): Promise<Reading | 
   ]);
   if (!r.found) return null;
   return combine(current, r, inMenu, null);
+}
+
+/** O combinado na conversa do site: a loja e o cardápio conferidos, e como vende. */
+export async function readSiteSetup(): Promise<{ reading: Reading; setup: SiteSetup } | null> {
+  const [r, inMenu] = await Promise.all([
+    api<ReadResult & { found: boolean; setup?: SiteSetup | null }>('/menu-import/site-draft'),
+    existingNames(),
+  ]);
+  if (!r.found || !r.setup) return null;
+  return { reading: await combine(null, r, inMenu, null), setup: r.setup };
 }
 
 /** Lê o cardápio escrito pela pessoa (um item por linha, com o preço). */

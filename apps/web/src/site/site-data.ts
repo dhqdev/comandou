@@ -358,12 +358,12 @@ export const SAMPLE_ITEMS: MockItem[] = [
 ];
 
 /** "X-Burger 28,90" por linha vira item com preço (a prévia do celular enquanto a pessoa digita). */
-export function parseItems(text: string): MockItem[] {
+export function parseItems(text: string, max = 6): MockItem[] {
   return text
     .split(/\n|;/)
     .map((l) => l.trim())
     .filter((l) => l.length > 1)
-    .slice(0, 6)
+    .slice(0, max)
     .map((l) => {
       const m = /^(.*?)[\s\-–:=.]*(?:R\$\s*)?(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:reais)?$/i.exec(l);
       if (!m || !m[1]!.trim()) return { name: l.slice(0, 40) };

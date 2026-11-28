@@ -8,7 +8,16 @@ import { maskPhone } from '../CustomerPicker';
 import { importStatus } from '../menu-import/menu-import';
 import { createSitePage, openSitePage } from '../SitePageCard';
 import { QuickStart } from './QuickStart';
-import { loadSignup, trialAuto, type ApplyResult, type Signup } from './quick-start';
+import {
+  applyAll,
+  loadSignup,
+  readSiteSetup,
+  storeDraft,
+  TRIAL_SITE_KEY,
+  trialAuto,
+  type ApplyResult,
+  type Signup,
+} from './quick-start';
 import './onboarding.css';
 
 /**
@@ -39,8 +48,18 @@ export function markOnboardingSeen(tenantId: string, userId: string) {
   }
 }
 
-type Step = 'hello' | 'has-menu' | 'menu' | 'sell' | 'whats' | 'address' | 'eta' | 'end';
-const ORDER: Step[] = ['hello', 'has-menu', 'menu', 'sell', 'whats', 'address', 'eta', 'end'];
+type Step = 'hello' | 'auto' | 'has-menu' | 'menu' | 'sell' | 'whats' | 'address' | 'eta' | 'end';
+const ORDER: Step[] = [
+  'hello',
+  'auto',
+  'has-menu',
+  'menu',
+  'sell',
+  'whats',
+  'address',
+  'eta',
+  'end',
+];
 /** Passo já mostrado e onde a conversa estava quando a pergunta dele terminou (para voltar). */
 interface Mark {
   step: Step;
@@ -67,6 +86,15 @@ const ETAS: [number, number][] = [
 ];
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** O combinado do site já foi aplicado (ou começou) neste navegador. */
+const trialSiteSeen = () => {
+  try {
+    return !!localStorage.getItem(TRIAL_SITE_KEY);
+  } catch {
+    return false;
+  }
+};
 
 export function OnboardingChat({
   open,
@@ -104,6 +132,11 @@ export function OnboardingChat({
   const [findPlace, setFindPlace] = useState(0);
   /** A página do restaurante (/site) foi criada no fim da conversa. */
   const [siteReady, setSiteReady] = useState(false);
+  /**
+   * Aplicando sozinho o que foi combinado na conversa do comandou.com (0.282): o passo e o
+   * andamento (sem perguntas: a pessoa já respondeu tudo lá).
+   */
+  const [auto, setAuto] = useState<{ label: string; done?: number; total?: number } | null>(null);
   /** Respostas já dadas: voltar a um passo mostra o que a pessoa tinha respondido. */
   const answers = useRef<{
     hasMenu: boolean | 'maps' | null;
@@ -164,6 +197,7 @@ export function OnboardingChat({
     setMenuBusy(false);
     setFindPlace(0);
     setSiteReady(false);
+    setAuto(null);
     seq.current = 0;
     logLen.current = 0;
     follow.current = true;
@@ -178,6 +212,12 @@ export function OnboardingChat({
     void Promise.all([loadSignup(), api<StoreSettings>('/store/settings').catch(() => null)]).then(
       async ([sg, st]) => {
         setSignup(sg);
+        // Criado pela conversa do comandou.com: aplica o combinado, sem perguntar de novo.
+        if (canImport && sg?.trial?.setup && !trialSiteSeen()) {
+          void applySetup(sg);
+          return;
+        }
+        greet();
         if (!st) return;
         const patch: Partial<StoreSettings> = {};
         if (!st.whatsapp && sg?.phone) patch.whatsapp = maskPhone(sg.phone);
@@ -191,13 +231,14 @@ export function OnboardingChat({
         };
       },
     );
-    say(
-      [
-        `Oi, ${first}! Eu sou o Comandou.`,
-        `Vou deixar ${tenantName} pronto para vender. São só algumas perguntas rápidas.`,
-      ],
-      'hello',
-    );
+    const greet = () =>
+      say(
+        [
+          `Oi, ${first}! Eu sou o Comandou.`,
+          `Vou deixar ${tenantName} pronto para vender. São só algumas perguntas rápidas.`,
+        ],
+        'hello',
+      );
     const pending = timers.current;
     return () => {
       pending.forEach((t) => window.clearTimeout(t));
@@ -231,6 +272,79 @@ export function OnboardingChat({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  /**
+   * Aplica o que foi combinado na conversa do comandou.com: cardápio conferido, logo, cores,
+   * contato, endereço, como vende e o tempo de preparo, pelo mesmo cadastro das telas. Deu
+   * errado: volta para a conferência de sempre, com o que a IA montou.
+   */
+  const applySetup = async (sg: Signup) => {
+    try {
+      localStorage.setItem(TRIAL_SITE_KEY, '1');
+    } catch {
+      /* navegação privada: aplica mesmo assim */
+    }
+    setAuto({ label: 'Abrindo o que você combinou' });
+    // Sem "digitando": a aplicação pode terminar antes e as frases sairiam fora de ordem.
+    push('bot', `Oi, ${first}! Trouxe tudo o que você combinou comigo no comandou.com.`);
+    push(
+      'bot',
+      `Estou deixando ${tenantName} pronto: cardápio, logo, cores, contato e como você vende. Leva alguns segundos.`,
+    );
+    setStep('auto');
+    setTrail([{ step: 'auto', end: logLen.current }]);
+    try {
+      const got = await readSiteSetup();
+      if (!got) throw new Error('não achei o combinado do site');
+      setAuto({ label: 'Preparando o logo e as fotos' });
+      const store = await storeDraft(got.reading.store, [], sg);
+      const r = await applyAll(store, got.reading.drafts, (label, done, total) =>
+        setAuto({ label, done, total }),
+      );
+      const s = got.setup;
+      const patch: Partial<StoreSettings> = {
+        acceptsDelivery: s.delivery,
+        acceptsPickup: s.pickup || !s.delivery,
+      };
+      if (s.etaMin && s.etaMax) {
+        patch.etaMin = s.etaMin;
+        patch.etaMax = Math.max(s.etaMin, s.etaMax);
+      }
+      setAuto({ label: 'Ajustando entrega e retirada' });
+      await api('/store/settings', { method: 'PATCH', json: patch }).catch(() => undefined);
+      setAuto(null);
+      const done = [
+        r.created && (r.created === 1 ? '1 item no cardápio' : `${r.created} itens no cardápio`),
+        r.saved.identity && 'logo e cores',
+        r.saved.whatsapp && 'WhatsApp',
+        r.saved.address && 'endereço',
+      ].filter(Boolean) as string[];
+      push(
+        'bot',
+        done.length
+          ? `Tudo aplicado: ${done.join(', ')}. Seu cardápio já está no ar no PDV e na loja online.`
+          : 'Tudo aplicado. Sua loja já está no ar.',
+      );
+      for (const w of [...r.warnings, ...(r.stopped ? [`Parei antes do fim: ${r.stopped}`] : [])])
+        push('bot', w);
+      if (r.failed.length)
+        push(
+          'bot',
+          `${r.failed.length === 1 ? '1 item não entrou' : `${r.failed.length} itens não entraram`}. Você cadastra em Cardápio › Itens.`,
+        );
+      void finish();
+    } catch {
+      setAuto(null);
+      // A conferência de sempre abre com o que a IA montou no site.
+      try {
+        localStorage.removeItem(TRIAL_SITE_KEY);
+      } catch {
+        /* segue */
+      }
+      push('bot', 'Não consegui aplicar tudo sozinho. Vamos conferir juntos, é rapidinho.');
+      askMenu();
+    }
+  };
 
   /** Grava a resposta no cadastro da loja. Se falhar, a conversa segue e avisa onde ajustar. */
   const savePatch = async (patch: Partial<StoreSettings>) => {
@@ -447,7 +561,7 @@ export function OnboardingChat({
   if (!open) return null;
 
   const at = typing ? null : step;
-  const canBack = trail.length > 1 && !typing && !busy && !menuBusy;
+  const canBack = trail.length > 1 && !typing && !busy && !menuBusy && !auto;
   const goBack = () => {
     if (!canBack) return;
     if (step === 'menu' && menuBack.current) menuBack.current();
@@ -643,7 +757,7 @@ export function OnboardingChat({
           <strong>Comandou</strong>
           <span>Primeiros passos</span>
         </div>
-        <button type="button" className="onb-skip" onClick={onClose}>
+        <button type="button" className="onb-skip" onClick={onClose} hidden={!!auto}>
           Pular
         </button>
         <div className="onb-progress" aria-hidden>
@@ -679,6 +793,27 @@ export function OnboardingChat({
                   menuDone(r);
                 }}
               />
+            </div>
+          )}
+          {auto && step === 'auto' && !typing && (
+            <div className="onb-msg onb-msg--bot" role="status">
+              <span className="onb-msg__gap" />
+              <p className="onb-auto">
+                <span>
+                  {auto.label}
+                  {auto.total ? ` (${auto.done ?? 0} de ${auto.total})` : '…'}
+                </span>
+                <i className="onb-auto__bar">
+                  <b
+                    style={{
+                      width: auto.total
+                        ? `${Math.round(((auto.done ?? 0) / auto.total) * 100)}%`
+                        : undefined,
+                    }}
+                    data-busy={!auto.total || undefined}
+                  />
+                </i>
+              </p>
             </div>
           )}
           {typing && (

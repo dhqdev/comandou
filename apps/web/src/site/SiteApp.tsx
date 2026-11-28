@@ -48,16 +48,9 @@ import { SANDBOX_MSG, sandboxScreenOf, SITE_MSG } from '../lib/sandbox';
 import { brl } from '../lib/money';
 import { contactHref, INCLUDED_IN_ALL, type PublicPlan } from '../pages/pricing-data';
 import { Builder, FIRST_LOOK } from './Builder';
-import { RollIn, RollingValue, SiteLink, useSitePath } from './fx';
+import { goTo, RollIn, RollingValue, SiteLink, useSitePath } from './fx';
 import { loadSiteConfig, type SiteConfig } from './host';
-import {
-  calmMotion,
-  scrollToEl,
-  useReadingBar,
-  useScrollProgress,
-  useSmoothScroll,
-  useTilt,
-} from './motion';
+import { useReadingBar, useScrollProgress, useSmoothScroll } from './motion';
 import { PhoneMock, type Look } from './PhoneMock';
 import { Shuffle, ShuffleWords } from './Shuffle';
 import {
@@ -65,7 +58,6 @@ import {
   APP_HUE,
   APP_ORDERS,
   DELIVERY_APPS,
-  HERO_ORDERS,
   HERO_WORDS,
   MODULES,
   SITE_FAQ,
@@ -80,6 +72,12 @@ import './landing.css';
 applyTheme('light');
 
 /** A lanchonete de demonstração (/demo) é um arquivo à parte: só baixa quando alguém abre. */
+/** Criar o restaurante em conversa (0.282): página própria, com o cardápio de verdade ao lado. */
+const CreatePage = lazyPage(
+  () => import('./create/CreatePage'),
+  (m) => m.CreatePage,
+);
+
 const DemoStore = lazyPage(
   () => import('./DemoStore'),
   (m) => m.DemoStore,
@@ -94,6 +92,7 @@ const DemoStore = lazyPage(
 export function SiteApp() {
   const path = useSitePath();
   if (/^\/demo\/?$/.test(path)) return <DemoStore />;
+  if (/^\/criar\/?$/.test(path)) return <CreatePage />;
   return <Landing />;
 }
 
@@ -194,97 +193,6 @@ function EnterModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
-/** Situação do pedido pela posição na fila: o de cima acabou de chegar. */
-const HERO_STATUS = [
-  ['Novo', 'new'],
-  ['Preparando', 'cook'],
-  ['Pronto', 'ready'],
-  ['Pronto', 'ready'],
-] as const;
-
-/**
- * Quadro "Pedidos agora" do topo: a cada poucos segundos chega um pedido de um canal diferente
- * (mesa, balcão, cardápio online, aplicativos), os de baixo andam uma casa (FLIP, só transform)
- * e as vendas do dia rolam como um contador. Com "reduzir movimento", fica parado.
- */
-function LiveOrders() {
-  const [head, setHead] = useState(0);
-  const list = useRef<HTMLUListElement>(null);
-  const tops = useRef(new Map<string, number>());
-  useEffect(() => {
-    if (calmMotion()) return;
-    const t = window.setInterval(() => {
-      if (!document.hidden) setHead((h) => h + 1);
-    }, 3400);
-    return () => window.clearInterval(t);
-  }, []);
-  useLayoutEffect(() => {
-    const ul = list.current;
-    if (!ul) return;
-    for (const li of Array.from(ul.children) as HTMLElement[]) {
-      const k = li.dataset.k ?? '';
-      const prev = tops.current.get(k);
-      const top = li.offsetTop;
-      if (prev !== undefined && prev !== top)
-        li.animate([{ transform: `translateY(${prev - top}px)` }, { transform: 'none' }], {
-          duration: 320,
-          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-        });
-      tops.current.set(k, top);
-    }
-  }, [head]);
-  const n = HERO_ORDERS.length;
-  const rows = HERO_STATUS.map((st, i) => {
-    const at = head - i;
-    return { o: HERO_ORDERS[((at % n) + n) % n]!, key: String(at), st };
-  });
-  // Vendas do dia: um valor de partida e cada pedido que chega soma.
-  let sold = 2184.6;
-  let count = 48;
-  for (let i = 1; i <= head; i++) {
-    sold += HERO_ORDERS[i % n]!.total;
-    count += 1;
-  }
-  return (
-    <div className="st-live" aria-hidden>
-      <div className="st-live__card">
-        <div className="st-live__bar">
-          <strong>Pedidos agora</strong>
-          <span>
-            <i /> Ao vivo
-          </span>
-        </div>
-        <ul ref={list}>
-          {rows.map(({ o, key, st }, i) => (
-            <li
-              key={key}
-              data-k={key}
-              className={i === 0 && head > 0 ? 'is-new' : undefined}
-              style={{ '--hue': `var(--cm-tint-${o.hue})` } as CSSProperties}
-            >
-              <span className="st-live__ch">{o.ch}</span>
-              <span className="st-live__st" data-tone={st[1]}>
-                {st[0]}
-              </span>
-              <span className="st-live__items">
-                #{o.n} · {o.items}
-              </span>
-              <strong className="st-live__val">{brl(o.total.toFixed(2))}</strong>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className="st-live__card st-live__day">
-        <span>Vendas de hoje</span>
-        <strong>
-          <RollingValue text={brl(sold.toFixed(2))} />
-        </strong>
-        <small>{count} pedidos no mesmo caixa</small>
-      </div>
-    </div>
-  );
-}
-
 /**
  * Cabeçalho de seção: título com o Shuffle (as letras correm na fita ao chegar e ao passar o
  * mouse) e uma frase curta. Sem número nem rótulo em cima (a skill impeccable proíbe o "eyebrow").
@@ -301,14 +209,13 @@ function SectionHead({ title, text, center }: { title: string; text?: string; ce
 }
 
 /**
- * O palco do topo em 3D: o celular da loja (mostra o que a pessoa digita) em perspectiva, com os
- * pedidos e as vendas flutuando em camadas mais perto de quem olha. O conjunto gira de leve
- * seguindo o mouse (`useTilt`) e se endireita um pouco ao rolar (`--p` do topo).
+ * O celular da loja no topo (mostra os itens que a pessoa escreve no campo). Sem os cartões de
+ * pedidos e vendas flutuando nem o giro com o mouse (0.282, David: "tira essas animações do lado"):
+ * a loja de verdade aparece na conversa de criar, ao lado.
  */
 function Stage({ look, mood }: { look: Look; mood: PandaMood }) {
-  const tilt = useTilt<HTMLDivElement>();
   return (
-    <div className="st-stage" ref={tilt}>
+    <div className="st-stage st-stage--still">
       <div className="st-stage__world">
         <span className="st-stage__floor" aria-hidden />
         <div className="st-stage__phone">
@@ -316,16 +223,6 @@ function Stage({ look, mood }: { look: Look; mood: PandaMood }) {
             <LivePanda size={84} mood={mood} title="Panda do Comandou" />
           </div>
           <PhoneMock look={look} />
-        </div>
-        <LiveOrders />
-        <div className="st-stage__chip st-stage__chip--pix" aria-hidden>
-          <span className="st-stage__ok">
-            <Check size={14} strokeWidth={2.6} />
-          </span>
-          <span>
-            <strong>Pix aprovado</strong>
-            <small>Mesa 4 · R$ 128,40</small>
-          </span>
         </div>
       </div>
     </div>
@@ -760,11 +657,7 @@ function Landing() {
   const contact = contactHref(config?.salesContact ?? '');
   const toBuilder = () => {
     setMenu(false);
-    scrollToEl(document.getElementById('criar'), true);
-    window.setTimeout(
-      () => document.querySelector<HTMLElement>('#criar .st-input')?.focus({ preventScroll: true }),
-      calmMotion() ? 0 : 700,
-    );
+    goTo('/criar');
   };
   const included = [
     ...INCLUDED_IN_ALL,

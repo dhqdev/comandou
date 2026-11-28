@@ -43,6 +43,14 @@ export function setPullRefreshHandler(fn: () => Promise<unknown>): () => void {
   };
 }
 
+/**
+ * Roda o recarregar leve da tela aberta sem o gesto (prévia do cardápio na criação pelo site:
+ * os dados mudam fora e o cardápio busca de novo sem remontar nem voltar ao topo).
+ */
+export function runSoftRefresh(): Promise<unknown> {
+  return softRefresh ? softRefresh() : Promise.resolve();
+}
+
 /** Resistência: quanto mais puxa, menos anda (como o elástico do iPhone). */
 export function rubber(distance: number, max: number) {
   if (distance <= 0) return 0;

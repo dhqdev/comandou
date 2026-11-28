@@ -208,6 +208,16 @@ interface Paid {
  * primeiros dias: a leitura do cardápio, a busca no Maps e as fotos saem da chave do sistema e
  * não descontam do limite dele (Super Admin › Restaurante › Criação mostra o gasto por etapa).
  */
+/** Como vende e o tempo de preparo, combinados na conversa da criação pelo site. */
+interface SiteSetup {
+  delivery: boolean;
+  pickup: boolean;
+  tables: boolean;
+  etaMin: number | null;
+  etaMax: number | null;
+  confirmedAt: string;
+}
+
 @Injectable()
 export class MenuImportService {
   private readonly logger = new Logger('MenuImportService');
@@ -779,6 +789,8 @@ export class MenuImportService {
       store?: ImportedStore;
       categories?: ImportedCategory[];
       suggested?: boolean;
+      /** Combinado na conversa da criação pelo site (0.282): aplicado sozinho no primeiro acesso. */
+      setup?: SiteSetup;
     } | null;
     const [site, menu] = await this.db.withCentral(ctx, async (tx) => [
       (await one<{ draft: Draft }>(tx, `SELECT draft FROM app_tenant_trial_site()`))?.draft ?? null,
@@ -809,6 +821,7 @@ export class MenuImportService {
       suggested: menu?.categories?.length ? false : !!site?.suggested,
       partial: false,
       items: categories.reduce((n, c) => n + c.items.length, 0),
+      setup: site?.setup ?? null,
     };
   }
 
@@ -839,14 +852,23 @@ export class MenuImportService {
     // Site montado e cardápio enviado no comandou.com: os primeiros passos começam por eles.
     const drafts = trial
       ? await this.db.withCentral(ctx, async (tx) => ({
-          site: !!(await one<{ draft: unknown }>(tx, `SELECT draft FROM app_tenant_trial_site()`))
-            ?.draft,
+          site: (
+            await one<{ draft: { setup?: unknown } | null }>(
+              tx,
+              `SELECT draft FROM app_tenant_trial_site()`,
+            )
+          )?.draft,
           menu: !!(await one<{ draft: unknown }>(tx, `SELECT draft FROM app_tenant_trial_menu()`))
             ?.draft,
         }))
       : null;
     if (trial && drafts)
-      Object.assign(trial, { aiSite: drafts.site || drafts.menu, aiMenu: drafts.menu });
+      Object.assign(trial, {
+        aiSite: !!drafts.site || drafts.menu,
+        aiMenu: drafts.menu,
+        // Tudo combinado na conversa do site: os primeiros passos só aplicam, sem perguntar.
+        setup: !!drafts.site?.setup,
+      });
     if (row) return { ...row, trial: trial ?? null };
     return (
       row ?? {

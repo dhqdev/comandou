@@ -14,7 +14,7 @@ cardápio de verdade no celular do topo e a lanchonete de demonstração. O cód
 | Arquivo | O que é |
 | --- | --- |
 | `SiteApp.tsx` | Rota do site (`/` e `/demo`, sem o roteador do app: `useSitePath` e `SiteLink` de `fx.tsx`) e as seções do topo ao rodapé. |
-| `Builder.tsx` + `CreateFlow.tsx` | O cartão de criar do topo (site, Google Maps ou descrever) e a janela de criar o restaurante. |
+| `Builder.tsx` + `create/CreatePage.tsx` | O campo do topo (texto, links, fotos e PDF) e a conversa de criar em `/criar` (0.282), com o cardápio de verdade ao lado. |
 | `PhoneMock.tsx` | O celular do topo: a loja de exemplo (Fumaça Burger, `SAMPLE_STORE`/`SAMPLE_ITEMS` de `site-data.ts`) ou o que a pessoa digita. |
 | `Shuffle.tsx` | Shuffle do React Bits (MIT + Commons Clause, créditos no arquivo), passado do GSAP para Web Animations. |
 | `DemoStore.tsx` + `demo-data.ts` + `demo.css` | A lanchonete de demonstração (`/demo`), num arquivo à parte que só baixa quando alguém abre. |
@@ -135,7 +135,45 @@ uma (a aba Criação do restaurante, `TenantCreation.tsx`, dentro da janela).
 O botão **Expandir** da moldura (e "Abrir em tela cheia") abre o `/experimente` grande num
 `<dialog>` por cima do site também no computador (antes só abria outra aba), para mexer nos dados.
 
-## Janela de criar o restaurante
+## Criar em conversa (`/criar`, 0.282)
+
+Pedido do David: "desde o inicial seja esse chat com a IA e ela vá perguntando o que é cada coisa,
+para quando criar o domínio já conseguir acessar com tudo pronto"; "quero que esse modal seja uma
+página mesmo"; "faça aparecer o cardápio do lado igual o meu dentro do sistema, igualzinho, e dê a
+opção de modificar"; "tira essas animações do lado".
+
+- **Página própria** `/criar` (`site/create/CreatePage.tsx`, rota no `SiteApp`): nada de janela;
+  clicar fora não perde nada e sair no meio pergunta antes (`beforeunload`). "Testar grátis" e o
+  campo do topo levam para lá; o que foi escrito e anexado vai junto (`create/handoff.ts`, em
+  memória) e a conversa já começa lendo.
+- **A conversa** é a dos Primeiros passos do sistema (mesmos balões e botões, `onboarding.css`):
+  manda o que tiver → a IA lê (texto e links por `compose`, cada arquivo por `compose/file`; o
+  `COMPOSE_PROMPT` pede TODAS as páginas e todos os itens do PDF) → confirma o nome → confere o
+  cardápio (`create/MenuEditor.tsx`: renomear, preço, descrição, tirar e pôr itens e categorias;
+  item sem preço fica marcado e só entra com preço) → logo e cores (logo trocado vira WebP pequeno
+  em `data:`, cores sugeridas pelo logo) → como vende → WhatsApp → endereço → tempo de preparo →
+  nome, e-mail e CNPJ/CPF → cria. Sem IA no site, os itens escritos com preço entram pelo
+  `parseItems`. "Voltar" desfaz um passo com as respostas guardadas.
+- **Cardápio de verdade ao lado** (`create/StorePreview.tsx`): uma moldura de celular com
+  `/experimente?tela=loja&previa=1`, que roda o `StoreApp` real (`sandbox/store-preview.tsx`) com
+  `GET /store`, `/store/status` e `/store/branding` respondidos no navegador a partir do que a
+  página manda por `postMessage` (`lib/store-preview.ts`, `previewMenu`). Mudou algo na conversa:
+  o cardápio busca de novo pelo `runSoftRefresh` (sem remontar nem voltar ao topo). No celular,
+  o botão "Ver minha loja" abre a prévia em tela cheia. Pedido feito na prévia é recusado.
+- **Tudo pronto ao entrar**: a criação manda `setup` (cardápio conferido, cores, logo trocado,
+  WhatsApp, endereço, como vende, tempo de preparo; `SetupBody` em `site.schemas.ts`).
+  `SiteAiService.saveSetup` grava no rascunho do restaurante (troca o cardápio pelo conferido e
+  devolve as fotos da IA pelo nome do item; sem rascunho, cria um só com o combinado) e põe
+  `draft.setup`. No primeiro acesso, os Primeiros passos veem `trial.setup` (`/menu-import/signup`)
+  e aplicam sozinhos, sem perguntar (`applySetup` em `OnboardingChat.tsx`: `readSiteSetup` →
+  `storeDraft` → `applyAll` → entrega/retirada e tempo), com o andamento na tela. Falhou: volta
+  para a conferência de sempre.
+- A página inicial não tem mais os cartões de pedidos e vendas flutuando nem o giro do celular.
+
+O e2e `site.spec.ts` faz o caminho inteiro: escreve no campo, a conversa, a prévia de verdade
+(com o preço mudando), cria e entra no restaurante, conferindo "Tudo aplicado".
+
+## Janela de criar o restaurante (até a 0.281)
 
 Ao continuar no cartão do topo, a janela abre em tela cheia (no computador, um painel grande): à
 esquerda a loja nascendo (o endereço que vai ficar, a capa, o nome e os módulos Cardápio, PDV e

@@ -51,9 +51,12 @@ applyPosMode();
 
 const root = document.getElementById('root')!;
 // comandou.com/experimente: o sistema de exemplo do site (dados de mentira, nada sai daqui).
-if (isSandboxPath(window.location.pathname))
-  void import('./sandbox/boot').then((m) => m.bootSandbox(root));
-else
+if (isSandboxPath(window.location.pathname)) {
+  // Prévia do cardápio na criação pelo site (?tela=loja): só o cardápio online, sem o app da equipe.
+  if (new URLSearchParams(window.location.search).get('tela') === 'loja')
+    void import('./sandbox/store-preview').then((m) => m.bootStorePreview(root));
+  else void import('./sandbox/boot').then((m) => m.bootSandbox(root));
+} else
   createRoot(root).render(
     <StrictMode>
       {/* Último recurso: um erro fora das telas não deixa o app em branco. */}

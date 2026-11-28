@@ -310,7 +310,15 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       ? seal(this.env.INTEGRATIONS_KEY, password, SECRET_CONTEXT)
       : null;
     // Site montado pela IA na página e o cardápio enviado: vão junto para os primeiros passos.
-    const aiGeneration = await this.siteAi.claim(b.aiSite, tenantId).catch(() => null);
+    const claimed = await this.siteAi.claim(b.aiSite, tenantId).catch(() => null);
+    // O que foi combinado na conversa da criação (0.282) entra no rascunho: o sistema aplica
+    // sozinho no primeiro acesso. Se falhar, o restaurante nasce e os primeiros passos perguntam.
+    const aiGeneration = b.setup
+      ? await this.siteAi.saveSetup(claimed, tenantId, b.setup).catch((e: Error) => {
+          this.logger.warn(`combinado da criação não foi guardado: ${e.message}`);
+          return claimed;
+        })
+      : claimed;
     const aiMenu = await this.siteAi.claim(b.aiMenu, tenantId, 'menu').catch(() => null);
     const trialEndsAt = await this.db.tx(async (c) => {
       // Teste do site: os dias do plano (os mesmos do sistema), contados de agora.

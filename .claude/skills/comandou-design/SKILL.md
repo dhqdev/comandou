@@ -284,11 +284,12 @@ exceções, só no site:
   inteiro, borda com luz, frase que acende palavra por palavra e faixa que passa sozinha.
 - **Sem fundo escuro no site**: o estúdio escuro do Prato em 3D saiu na 0.272; o site segue
   claro, sem tema escuro.
-- **Janela de criar o restaurante** (`CreateFlow.tsx`): `<dialog>` próprio em tela cheia (no
-  computador, painel grande com a loja nascendo à esquerda; no celular, os dados primeiro e o
-  rodapé preso). Os rótulos "Nome do restaurante", "Seu nome", "E-mail", o botão "Criar e abrir",
-  o título "Seu restaurante está no ar", `.st-phone`, `.st-build__go`, `.st-cred` e
-  `.st-cred__pass` são lidos pelo e2e `site.spec.ts`: não troque sem mudar o teste.
+- **Criar o restaurante** (0.282): página `/criar` em conversa (`site/create/`, prefixo `stc-`,
+  com os balões e botões de `onboarding.css`), cardápio de verdade ao lado num celular (no celular,
+  botão "Ver minha loja" em tela cheia). O e2e `site.spec.ts` lê "Nome do restaurante", "Preço de
+  <item>", "Está certo, continuar", "Depois", "Seu nome", "E-mail", "CNPJ ou CPF", "Criar meu
+  restaurante", "está no ar!", `.st-phone`, `.st-build__go`, `.stc-menu`, `.stc-phone__screen`,
+  `.st-cred` e `.st-cred__pass`: não troque sem mudar o teste.
 - **Lanchonete de demonstração** (`/demo`, `DemoStore.tsx`, `demo.css` com prefixo `dm-`): o
   cardápio no jeito do cardápio de verdade e, ao lado (no celular, aba Cozinha), o painel da
   cozinha. Pedido da pessoa com contorno laranja e anel que pisca só a opacidade; nada de escala

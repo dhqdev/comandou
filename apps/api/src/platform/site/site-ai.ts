@@ -252,6 +252,7 @@ export function publicMenu(d: SiteDraft) {
         name: i.name,
         description: i.description,
         price: i.price,
+        imageUrl: i.imageUrl ?? null,
         stock: i.stock,
       })),
     })),
@@ -275,7 +276,8 @@ No "store", além dos campos acima, inclua:
 E, na raiz do JSON, "file": o que é o arquivo anexado ("logo" = só a marca; "menu" = cardápio; "cover" = foto da fachada, do salão ou de um prato para a capa; "document" = cartão do CNPJ, contrato ou nota; "other"), ou null sem arquivo.
 - Endereço para entrega: rua, número e bairro em "address"; cidade e UF separadas.
 - Nunca invente CNPJ, CPF, razão social, telefone ou endereço.
-- Se a parte nova é só um logo, uma foto de capa, um documento ou um texto sem itens, responda "categories": [] e "suggested": false (não sugira itens).`;
+- Se a parte nova é só um logo, uma foto de capa, um documento ou um texto sem itens, responda "categories": [] e "suggested": false (não sugira itens).
+- Cardápio (foto ou PDF): leia TODAS as páginas e TODAS as colunas e copie TODOS os itens com os preços, um por um, sem pular, sem resumir e sem juntar itens (até 300). Adicionais e bordas com preço também entram, numa categoria "Adicionais".`;
 
 /** Dígitos do CNPJ conferidos. */
 export function isCnpj(v: string): boolean {
